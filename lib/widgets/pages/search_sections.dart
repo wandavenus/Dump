@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../themes/glass_navbar.dart';
 import '../../utils/responsive.dart';
 import '../../utils/sample_music_data.dart';
+import '../common/responsive_page_body.dart';
 import '../song_artwork.dart';
 
 // ─── Main entry point ─────────────────────────────────────────────────────────

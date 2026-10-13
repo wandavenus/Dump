@@ -62,18 +62,20 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
   @override
   Widget build(BuildContext context) {
     final bottomClearance = navBottomClearance(context);
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          LargePageTitle(title: context.l10n.browseTitle),
-          const HeaderDivider(),
-          const SizedBox(height: 12),
-          BrowseBannerCarousel(songs: _bannerSongs),
-          _BrowseSection(title: context.l10n.weRecommend, songs: _recommend),
-          _NewMusicSection(songs: _newMusic),
-          _BrowseSection(title: context.l10n.dailyTop100, songs: _daily),
-          SizedBox(height: bottomClearance),
-        ],
+    return ResponsivePageBody(
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            LargePageTitle(title: context.l10n.browseTitle),
+            const HeaderDivider(),
+            const SizedBox(height: 12),
+            BrowseBannerCarousel(songs: _bannerSongs),
+            _BrowseSection(title: context.l10n.weRecommend, songs: _recommend),
+            _NewMusicSection(songs: _newMusic),
+            _BrowseSection(title: context.l10n.dailyTop100, songs: _daily),
+            SizedBox(height: bottomClearance),
+          ],
+        ),
       ),
     );
   }

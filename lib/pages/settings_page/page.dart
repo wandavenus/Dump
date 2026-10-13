@@ -51,16 +51,18 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         actions: const [],
       ),
-      body: SingleChildScrollView(
-        controller: _scroll,
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LargePageTitle(title: l.settings),
-            const HeaderDivider(),
-            _SettingsBody(),
-          ],
+      body: ResponsivePageBody(
+        child: SingleChildScrollView(
+          controller: _scroll,
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LargePageTitle(title: l.settings),
+              const HeaderDivider(),
+              _SettingsBody(),
+            ],
+          ),
         ),
       ),
     );

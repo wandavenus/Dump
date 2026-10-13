@@ -107,7 +107,10 @@ class _AboutAppPageState extends State<AboutAppPage> {
       body: Stack(
         children: [
           // ── Konten ──────────────────────────────────────────────────────
-          CustomScrollView(
+          // Isi halaman memakai kolom konten yang sama dengan halaman lain
+          // supaya teks tidak melebar mengikuti layar di tablet/desktop.
+          ResponsivePageBody(
+            child: CustomScrollView(
             physics: const ClampingScrollPhysics(),
             slivers: [
               SliverFillRemaining(
@@ -232,6 +235,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                 ),
               ),
             ],
+          ),
           ),
 
           // ── Footer copyright ─────────────────────────────────────────────

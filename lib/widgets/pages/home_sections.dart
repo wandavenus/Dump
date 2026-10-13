@@ -13,6 +13,7 @@ import '../../services/media_store_service.dart';
 import '../../services/native_palette_service.dart';
 import '../../theme/app_colors.dart';
 import '../../themes/glass_navbar.dart';
+import '../common/responsive_page_body.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
 import '../song_artwork.dart';
@@ -34,26 +35,28 @@ class HomePageContent extends StatelessWidget {
     // Mode pill (iOS 26) menaikkan posisi mini player — clearance menyesuaikan.
     final bottomClearance = navBottomClearance(context);
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LargePageTitle(title: context.l10n.homeTitle, align: false),
-          const HeaderDivider(),
-          const _LocalAlbumsSection(),
-          SectionTitle(
-            title: context.l10n.recentlyPlayed,
-            routeName: '/musiclist',
-          ),
-          const _RecentlyPlayedSection(),
-          SectionTitle(
-            title: context.l10n.favoriteArtists,
-            routeName: '/artistlist',
-          ),
-          const _LocalArtistsSection(),
-          SizedBox(height: bottomClearance),
-        ],
+    return ResponsivePageBody(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LargePageTitle(title: context.l10n.homeTitle, align: false),
+            const HeaderDivider(),
+            const _LocalAlbumsSection(),
+            SectionTitle(
+              title: context.l10n.recentlyPlayed,
+              routeName: '/musiclist',
+            ),
+            const _RecentlyPlayedSection(),
+            SectionTitle(
+              title: context.l10n.favoriteArtists,
+              routeName: '/artistlist',
+            ),
+            const _LocalArtistsSection(),
+            SizedBox(height: bottomClearance),
+          ],
+        ),
       ),
     );
   }

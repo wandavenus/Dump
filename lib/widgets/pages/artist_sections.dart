@@ -5,6 +5,7 @@ import '../../models/local_song.dart';
 import '../../theme/app_colors.dart';
 import '../../themes/glass_navbar.dart';
 import '../../utils/duration_text.dart';
+import '../common/responsive_page_body.dart';
 import 'detail_sections.dart';
 
 class ArtistPageContent extends StatelessWidget {
@@ -15,21 +16,23 @@ class ArtistPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomClearance = navBottomClearance(context);
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ArtistHero(songs: songs),
-          PlayShuffleButtons(songs: songs),
-          SongListSection(songs: songs),
-          Divider(
-            color: AppColors.of(context).subtleSeparator,
-            thickness: 0.4,
-            height: 1,
-          ),
-          _ArtistFooter(songs: songs),
-          SizedBox(height: bottomClearance),
-        ],
+    return ResponsivePageBody(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ArtistHero(songs: songs),
+            PlayShuffleButtons(songs: songs),
+            SongListSection(songs: songs),
+            Divider(
+              color: AppColors.of(context).subtleSeparator,
+              thickness: 0.4,
+              height: 1,
+            ),
+            _ArtistFooter(songs: songs),
+            SizedBox(height: bottomClearance),
+          ],
+        ),
       ),
     );
   }

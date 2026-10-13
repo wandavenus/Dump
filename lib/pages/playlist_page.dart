@@ -10,6 +10,7 @@ import 'package:musicplayer/services/history_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/playlist_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
+import 'package:musicplayer/widgets/common/responsive_page_body.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:musicplayer/widgets/song_artwork.dart';
@@ -288,8 +289,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
           const CommonActions(),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
+      body: ResponsivePageBody(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
           ? const _EmptyState()
           : ListView.separated(
@@ -357,6 +359,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 );
               },
             ),
+      ),
     );
   }
 }

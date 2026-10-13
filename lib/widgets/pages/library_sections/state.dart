@@ -47,24 +47,28 @@ class _LibraryContentState extends State<LibraryContent> {
     if (!_loaded) return const SizedBox.shrink();
 
     final bottomClearance = navBottomClearance(context);
-    return SingleChildScrollView(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            _LibraryHeader(
-              editMode: _editMode,
-              onToggleEdit: () => setState(() => _editMode = !_editMode),
-            ),
-            Divider(
-              color: AppColors.of(context).separator,
-              thickness: 0.5,
-              height: 0,
-            ),
-            const SizedBox(height: 9),
-            _editMode ? _buildReorderable(context) : _buildStaticList(context),
-            SizedBox(height: bottomClearance),
-          ],
+    return ResponsivePageBody(
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: kPageLeftPadding),
+          child: Column(
+            children: [
+              _LibraryHeader(
+                editMode: _editMode,
+                onToggleEdit: () => setState(() => _editMode = !_editMode),
+              ),
+              Divider(
+                color: AppColors.of(context).separator,
+                thickness: 0.5,
+                height: 0,
+              ),
+              const SizedBox(height: 9),
+              _editMode
+                  ? _buildReorderable(context)
+                  : _buildStaticList(context),
+              SizedBox(height: bottomClearance),
+            ],
+          ),
         ),
       ),
     );

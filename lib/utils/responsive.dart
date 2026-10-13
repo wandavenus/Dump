@@ -15,6 +15,35 @@ import 'package:flutter/widgets.dart';
 /// (lanskap ponsel, panel split-screen) mendapat skala yang lebih kecil.
 const double kReferenceWindowHeight = 600.0;
 
+/// Ambang lebar window untuk tata letak "lebar" (tablet, desktop, jendela
+/// besar). Satu-satunya sumber angka ini — jangan menulis 600 lepas di widget.
+///
+/// Di bawah ambang ini aplikasi memakai tata letak acuan ponsel potret, jadi
+/// perilaku dan ukuran ponsel tidak pernah berubah.
+const double kWideLayoutMinWidth = 600.0;
+
+/// Lebar maksimum kolom konten saat window lebar.
+///
+/// Tanpa batas ini, baris lagu di tablet melebar mengikuti layar (mis. 1000+ px
+/// untuk satu judul lagu) sementara grid radio menahan selnya di ~112 px — dua
+/// halaman jadi terasa berbeda aturannya. Dengan batas ini semua halaman
+/// memakai kolom baca yang sama dan tetap di tengah.
+///
+/// Nilai 720 dipilih > lebar ponsel potret terlebar (~430) dan > ambang
+/// [kWideLayoutMinWidth], sehingga window ponsel tidak pernah terkena clamp.
+const double kMaxContentWidth = 720.0;
+
+/// Lebar maksimum konten halaman untuk window saat ini.
+///
+/// Mengembalikan lebar window apa adanya bila window sempit (ponsel), dan
+/// [kMaxContentWidth] bila window lebar. Karena window ponsel selalu lebih
+/// sempit dari [kMaxContentWidth], fungsi ini tidak pernah mengubah tata letak
+/// ponsel — ia hanya menahan konten agar tidak melebar di tablet/desktop.
+double contentMaxWidth(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  return width < kMaxContentWidth ? width : kMaxContentWidth;
+}
+
 /// Batas bawah [shortWindowScale] — mencegah blok tetap menjadi terlalu kecil
 /// untuk disentuh.
 const double kMinShortWindowScale = 0.62;
@@ -50,5 +79,7 @@ int responsiveColumns(
 ///
 /// [minWidth] menjaga agar panel samping tetap punya ruang layak; perbandingan
 /// lebar > tinggi mencegah window potret tinggi ikut beralih ke mode samping.
-bool hasRoomForSideBySide(Size size, {double minWidth = 600.0}) =>
-    size.width >= minWidth && size.width > size.height;
+bool hasRoomForSideBySide(
+  Size size, {
+  double minWidth = kWideLayoutMinWidth,
+}) => size.width >= minWidth && size.width > size.height;

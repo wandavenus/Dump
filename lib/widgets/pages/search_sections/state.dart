@@ -98,33 +98,35 @@ class _SearchSliversState extends State<SearchSlivers>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(child: _SearchTitle(isSearching: _isSearching)),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _StickySearchBarDelegate(
-            child: _SearchBar(
-              controller: _controller,
-              focusNode: _focusNode,
-              isSearching: _isSearching,
-              loading: _loading,
-              onClear: _clearSearch,
+    return ResponsivePageBody(
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _SearchTitle(isSearching: _isSearching)),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickySearchBarDelegate(
+              child: _SearchBar(
+                controller: _controller,
+                focusNode: _focusNode,
+                isSearching: _isSearching,
+                loading: _loading,
+                onClear: _clearSearch,
+              ),
             ),
           ),
-        ),
-        if (_isSearching)
-          _SearchResultsSliver(
-            results: _results,
-            query: _controller.text.trim(),
-            allSongs: _allSongs,
-          )
-        else
-          const SearchCategoryGrid(),
-        SliverToBoxAdapter(
-          child: SizedBox(height: navBottomClearance(context)),
-        ),
-      ],
+          if (_isSearching)
+            _SearchResultsSliver(
+              results: _results,
+              query: _controller.text.trim(),
+              allSongs: _allSongs,
+            )
+          else
+            const SearchCategoryGrid(),
+          SliverToBoxAdapter(
+            child: SizedBox(height: navBottomClearance(context)),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -137,7 +137,16 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                     if (row > 0) const SizedBox(height: spacing),
                     Row(
                       children: [
-                        for (var col = 0; col < crossCount; col++) ...[
+                        // Berhenti di kartu terakhir: jangan mengisi sisa baris
+                        // dengan kotak kosong. Sebelumnya baris terakhir selalu
+                        // dipaksa penuh, sehingga di lebar 520–779 px (mis. 600)
+                        // muncul kotak kosong di ujung grid.
+                        for (
+                          var col = 0;
+                          col < crossCount &&
+                              row * crossCount + col < _smartGridItemCount;
+                          col++
+                        ) ...[
                           if (col > 0) const SizedBox(width: spacing),
                           cell(row * crossCount + col),
                         ],
@@ -346,15 +355,21 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
           ),
           child: Row(
             children: [
-              Text(
-                context.l10n.myPlaylists,
-                style: TextStyle(
-                  color: c.primaryLabel,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              // Judul harus boleh menyusut: di window sempit (split-screen,
+              // ponsel kecil) "My Playlists" + tombol Create tidak muat dan
+              // dulu overflow. Di lebar ponsel acuan judul tetap muat penuh,
+              // jadi tampilan acuan tidak berubah.
+              Expanded(
+                child: Text(
+                  context.l10n.myPlaylists,
+                  style: TextStyle(
+                    color: c.primaryLabel,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
               GestureDetector(
                 onTap: _createPlaylist,
                 child: Container(

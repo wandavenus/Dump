@@ -6,17 +6,19 @@ class RadioPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomClearance = navBottomClearance(context);
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: bottomClearance),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LargePageTitle(title: context.l10n.navRadio),
-          const HeaderDivider(),
-          const SizedBox(height: 12),
-          const _SmartPlaylistCardWidget(index: 0),
-          const _UserPlaylistsSection(),
-        ],
+    return ResponsivePageBody(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: bottomClearance),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LargePageTitle(title: context.l10n.navRadio),
+            const HeaderDivider(),
+            const SizedBox(height: 12),
+            const _SmartPlaylistCardWidget(index: 0),
+            const _UserPlaylistsSection(),
+          ],
+        ),
       ),
     );
   }
