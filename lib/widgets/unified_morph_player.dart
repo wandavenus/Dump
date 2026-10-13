@@ -326,56 +326,30 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 
   // ── Gesture callbacks ──────────────────────────────────────────────────────
+  // Horizontal swipes are intentionally ignored. Vertical dragging still
+  // expands/collapses the unified player.
   void _onPanStart(DragStartDetails d) {
-    // Stop any in-flight release animation so the finger takes over immediately
     PlayerSheetController.cancelAnimation();
     _releaseAnim.stop();
 
-    _panDx = 0;
     _panDy = 0;
-    _isHorizontal = false;
-    _directionLocked = false;
-    _swipeOffset = 0;
     _startProgress = PlayerSheetController.progress.value;
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
-    _panDx += d.delta.dx;
     _panDy += d.delta.dy;
 
-    if (!_directionLocked && (_panDx.abs() > 8 || _panDy.abs() > 8)) {
-      _isHorizontal = _panDx.abs() > _panDy.abs();
-      _directionLocked = true;
-    }
-    if (!_directionLocked) return;
-
-    if (_isHorizontal) {
-      if (_startProgress < 0.15) {
-        if ((_swipeOffset - _panDx).abs() > 2) {
-          setState(() => _swipeOffset = _panDx);
-        }
-      }
-    } else {
-      if (_showLyrics || _showQueue) return;
-      final sh = MediaQuery.sizeOf(context).height;
-      final delta = -d.delta.dy / (sh * 0.55);
-      PlayerSheetController.setProgress(
-        (PlayerSheetController.progress.value + delta).clamp(0.0, 1.0),
-      );
-    }
+    if (_showLyrics || _showQueue) return;
+    final sh = MediaQuery.sizeOf(context).height;
+    final delta = -d.delta.dy / (sh * 0.55);
+    PlayerSheetController.setProgress(
+      (PlayerSheetController.progress.value + delta).clamp(0.0, 1.0),
+    );
   }
 
   void _onPanEnd(DragEndDetails d) {
     final progress = PlayerSheetController.progress.value;
-    if (_isHorizontal && _startProgress < 0.15) {
-      final vx = d.velocity.pixelsPerSecond.dx;
-      if (_panDx < -80 || vx < -350) {
-        unawaited(AudioService.skipNext());
-      } else if (_panDx > 80 || vx > 350) {
-        unawaited(AudioService.skipPrevious());
-      }
-      setState(() => _swipeOffset = 0);
-    } else if (!_isHorizontal && !(_showLyrics || _showQueue)) {
+    if (!(_showLyrics || _showQueue)) {
       final vy = d.velocity.pixelsPerSecond.dy;
       if (vy > 500 || (progress <= 0.35 && vy >= 0)) {
         _animateTo(0.0);
@@ -385,9 +359,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         _animateTo(0.0);
       }
     }
-    _panDx = 0;
     _panDy = 0;
-    _directionLocked = false;
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
