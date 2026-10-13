@@ -9,6 +9,7 @@ import '../../services/song_metadata_service.dart';
 import '../../theme/app_colors.dart';
 import '../../themes/glass_navbar.dart';
 import '../../utils/duration_text.dart';
+import '../common/responsive_page_body.dart';
 import '../song_artwork.dart';
 import 'detail_sections.dart';
 
@@ -21,22 +22,24 @@ class AlbumPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomClearance = navBottomClearance(context);
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AlbumHero(album: album),
-          PlayShuffleButtons(songs: songs),
-          SongListSection(songs: songs),
-          Divider(
-            color: AppColors.of(context).subtleSeparator,
-            thickness: 0.4,
-            height: 1,
-          ),
-          _AlbumFooter(album: album, songs: songs),
-          _MoreByArtist(currentAlbum: album),
-          SizedBox(height: bottomClearance),
-        ],
+    return ResponsivePageBody(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AlbumHero(album: album),
+            PlayShuffleButtons(songs: songs),
+            SongListSection(songs: songs),
+            Divider(
+              color: AppColors.of(context).subtleSeparator,
+              thickness: 0.4,
+              height: 1,
+            ),
+            _AlbumFooter(album: album, songs: songs),
+            _MoreByArtist(currentAlbum: album),
+            SizedBox(height: bottomClearance),
+          ],
+        ),
       ),
     );
   }

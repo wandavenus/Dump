@@ -282,7 +282,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
           final bottomClearance = navBottomClearance(context);
 
-          return switch (widget.destination) {
+          // Keempat tampilan detail memakai kolom konten yang sama dengan
+          // halaman lain di layar lebar.
+          return ResponsivePageBody(
+            child: switch (widget.destination) {
             _LibraryDestination.playlist => _FrequentSongsView(
               songs: songs,
               countsFuture: _countsFuture!,
@@ -328,7 +331,8 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 index: idx,
               ),
             ),
-          };
+            },
+          );
         },
       ),
     );

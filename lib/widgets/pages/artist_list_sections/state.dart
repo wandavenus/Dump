@@ -63,39 +63,40 @@ class _ArtistListContentState extends State<ArtistListContent> {
       );
     }
 
-    return CustomScrollView(
-      controller: widget.scrollController,
-      slivers: [
-        // Header — judul tidak diubah
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LargePageTitle(title: context.l10n.favoriteArtists),
-              const HeaderDivider(),
-            ],
+    return ResponsivePageBody(
+      child: CustomScrollView(
+        controller: widget.scrollController,
+        slivers: [
+          // Header — judul tidak diubah
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LargePageTitle(title: context.l10n.favoriteArtists),
+                const HeaderDivider(),
+              ],
+            ),
           ),
-        ),
 
-        // Grid 2 kolom
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-          sliver: SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              // Lebar sel dijaga mendekati ukuran potret; kolom bertambah di
-              // window lebar agar kartu artis tidak menjadi raksasa.
-              crossAxisCount: responsiveColumns(context, targetTileWidth: 190),
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.78,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => ArtistListRow(artist: _artists[index]),
-              childCount: _artists.length,
+          // Grid adaptif: lebar sel dijaga mendekati ukuran potret, kolom
+          // bertambah di window lebar agar kartu artis tidak menjadi raksasa.
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: responsiveColumns(context, targetTileWidth: 190),
+                crossAxisSpacing: kSpace8,
+                mainAxisSpacing: kSpace16,
+                childAspectRatio: 0.78,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => ArtistListRow(artist: _artists[index]),
+                childCount: _artists.length,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

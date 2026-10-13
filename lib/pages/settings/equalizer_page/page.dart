@@ -59,11 +59,13 @@ class _EqualizerPageState extends State<EqualizerPage> {
         top: false,
         child: ValueListenableBuilder<int>(
           valueListenable: _activeBandTouches,
-          builder: (_, touches, child) => SingleChildScrollView(
-            physics: touches > 0
-                ? const NeverScrollableScrollPhysics()
-                : const ClampingScrollPhysics(),
-            child: child,
+          builder: (_, touches, child) => ResponsivePageBody(
+            child: SingleChildScrollView(
+              physics: touches > 0
+                  ? const NeverScrollableScrollPhysics()
+                  : const ClampingScrollPhysics(),
+              child: child,
+            ),
           ),
           child: BitPerfectLock(
             child: Column(

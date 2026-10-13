@@ -6,7 +6,7 @@ class HeaderDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: kPageLeftPadding),
       child: Divider(
         color: AppColors.of(context).separator,
         thickness: 0.5,

@@ -8,6 +8,7 @@ import 'package:musicplayer/l10n/app_localizations.dart';
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
+import 'package:musicplayer/widgets/common/responsive_page_body.dart';
 
 part 'log_page/bar_btn.dart';
 part 'log_page/app_bar_badge.dart';
@@ -173,7 +174,8 @@ class _LogPageState extends State<LogPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(entries, c),
-      body: Column(children: [
+      body: ResponsivePageBody(
+        child: Column(children: [
         _LogFilterBar(
           levelFilter: _levelFilter,
           categoryFilter: _categoryFilter,
@@ -188,6 +190,7 @@ class _LogPageState extends State<LogPage> {
         ),
         Expanded(child: _buildList(entries, c)),
       ]),
+      ),
       bottomNavigationBar: _buildBottomBar(entries, safeBottom, c),
     );
   }
