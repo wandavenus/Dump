@@ -779,10 +779,29 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       Colors.white,
                                       Colors.white,
                                       Colors.white.withValues(
+                                        alpha: 1.0 -
+                                            artworkFadeStrength * 0.08,
+                                      ),
+                                      Colors.white.withValues(
+                                        alpha: 1.0 -
+                                            artworkFadeStrength * 0.28,
+                                      ),
+                                      Colors.white.withValues(
+                                        alpha: 1.0 -
+                                            artworkFadeStrength * 0.65,
+                                      ),
+                                      Colors.white.withValues(
                                         alpha: 1.0 - artworkFadeStrength,
                                       ),
                                     ],
-                                    stops: const [0.0, 0.82, 1.0],
+                                    stops: const [
+                                      0.0,
+                                      0.72,
+                                      0.82,
+                                      0.90,
+                                      0.96,
+                                      1.0,
+                                    ],
                                   ).createShader(bounds),
                                   child: artworkImage,
                                 )
