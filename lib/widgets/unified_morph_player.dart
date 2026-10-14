@@ -779,7 +779,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             effectiveOverlayT,
                           )!;
                           // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
-                          final shadowBase = t * (1.0 - effectiveOverlayT);
+                          // Artwork Blur mode uses only the status-bar shadow;
+                          // keep the artwork itself shadow-free in that mode.
+                          final shadowBase = isArtworkBlurStyle
+                              ? 0.0
+                              : t * (1.0 - effectiveOverlayT);
                           final shadowAlpha = 0.20 * shadowBase;
                           final shadowBlur = 20.0 * shadowBase;
                           final shadowOff = 10.0 * shadowBase;
