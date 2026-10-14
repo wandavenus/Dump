@@ -487,8 +487,25 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           )
         : null;
 
-    final largeCoverSize =
-        wideColumns?.artwork.width ?? (screenW - 44.0).clamp(260.0, 390.0);
+    final isArtworkBlurStyle =
+        backgroundStyle == PlayerBackgroundStyle.artworkBlur;
+
+    // Keep the main cover close to the top and nearly edge-to-edge in artwork-blur
+    // mode. On shorter portrait screens, cap its size so its fade still ends well
+    // above the song title instead of colliding with the header.
+    const bottomCtrlH = 244.0;
+    final artworkBlurMaxSize =
+        (screenH - safeTop - 12.0 - bottomCtrlH - 80.0 - 32.0)
+            .clamp(220.0, 430.0)
+            .toDouble();
+    final preferredCoverSize =
+        (screenW - (isArtworkBlurStyle ? 24.0 : 44.0))
+            .clamp(isArtworkBlurStyle ? 220.0 : 260.0, 390.0)
+            .toDouble();
+    final portraitCoverSize = isArtworkBlurStyle
+        ? preferredCoverSize.clamp(220.0, artworkBlurMaxSize).toDouble()
+        : preferredCoverSize;
+    final largeCoverSize = wideColumns?.artwork.width ?? portraitCoverSize;
     final artFullLeft =
         wideColumns?.artwork.left ?? (screenW - largeCoverSize) / 2;
 
@@ -496,11 +513,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Layout stack: SafeArea.top + Padding(12) + PlayerContent.Padding(25) = topInset
     // Bottom controls ≈ 244 px.
     final topInset = safeTop + 37.0;
-    const bottomCtrlH = 244.0;
     final shFull = screenH - topInset - bottomCtrlH;
     final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
-    final artFullTop = wideColumns?.artwork.top ?? (topInset + coverTopLocal);
+    final artFullTop = wideColumns?.artwork.top ??
+        (isArtworkBlurStyle ? safeTop + 12.0 : topInset + coverTopLocal);
 
     // Quadratic Bézier arc: artwork swings right then curves up to final pos.
     // Control point pulled right of artFullLeft so the path bulges rightward
@@ -739,6 +756,38 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           final targetScale = overlayT > 0.5
                               ? 1.0
                               : (_isPlaying ? 1.0 : 0.96);
+                          final artworkFadeStrength = isArtworkBlurStyle
+                              ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
+                                    (1.0 - effectiveOverlayT))
+                                    .clamp(0.0, 1.0)
+                                    .toDouble()
+                              : 0.0;
+                          final artworkImage = SongArtwork(
+                            songId: song.id,
+                            size: artSize,
+                            borderRadius: BorderRadius.zero,
+                            // Hairline already drawn on the outer Container above.
+                            showBorder: false,
+                          );
+                          final artworkWithFade =
+                              isArtworkBlurStyle && artworkFadeStrength > 0.001
+                              ? ShaderMask(
+                                  blendMode: BlendMode.dstIn,
+                                  shaderCallback: (bounds) => LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.white,
+                                      Colors.white,
+                                      Colors.white.withValues(
+                                        alpha: 1.0 - artworkFadeStrength,
+                                      ),
+                                    ],
+                                    stops: const [0.0, 0.76, 1.0],
+                                  ).createShader(bounds),
+                                  child: artworkImage,
+                                )
+                              : artworkImage;
 
                           return Positioned(
                             left: finalLeft,
@@ -784,14 +833,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   borderRadius: BorderRadius.circular(
                                     finalRadius,
                                   ),
-                                  child: SongArtwork(
-                                    songId: song.id,
-                                    size: artSize,
-                                    borderRadius: BorderRadius.zero,
-                                    // Hairline already drawn on the outer Container above —
-                                    // avoids a doubled/mismatched stroke here.
-                                    showBorder: false,
-                                  ),
+                                  child: artworkWithFade,
                                 ),
                               ),
                             ),
