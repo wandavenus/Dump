@@ -757,8 +757,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               ? 1.0
                               : (_isPlaying ? 1.0 : 0.96);
                           final artworkFadeStrength = isArtworkBlurStyle
-                              ? (((t - 0.65) / 0.35).clamp(0.0, 1.0).toDouble() *
+                              ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
                                     (1.0 - effectiveOverlayT))
+                                    .clamp(0.0, 1.0)
+                                    .toDouble()
                               : 0.0;
                           final artworkImage = SongArtwork(
                             songId: song.id,
