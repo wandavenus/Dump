@@ -234,8 +234,9 @@ class _FirstPageState extends State<FirstPage> {
                               valueListenable: PlayerSheetController.progress,
                               child: bottomChild,
                               builder: (context, progress, child) {
-                                final safeBottom = MediaQuery.paddingOf(context)
-                                    .bottom;
+                                final safeBottom = MediaQuery.paddingOf(
+                                  context,
+                                ).bottom;
                                 final navH = isPill
                                     ? FloatingPillNavBar.bodyHeight +
                                           FloatingPillNavBar.bottomGap +
