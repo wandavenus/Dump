@@ -499,7 +499,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
             .clamp(220.0, 430.0)
             .toDouble();
     final preferredCoverSize =
-        (screenW - (isArtworkBlurStyle ? 24.0 : 44.0))
+        (screenW - (isArtworkBlurStyle ? 8.0 : 44.0))
             .clamp(isArtworkBlurStyle ? 220.0 : 260.0, 390.0)
             .toDouble();
     final portraitCoverSize = isArtworkBlurStyle
@@ -753,9 +753,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           // only lifts once the overlay animation itself has fully reversed, not
                           // during a sheet-close where _overlayAnim stays at 1.
                           // Uses _isPlaying field — rebuilt by setState only on play/pause, not position ticks.
-                          final targetScale = overlayT > 0.5
-                              ? 1.0
-                              : (_isPlaying ? 1.0 : 0.96);
+                          // Keep the main artwork static when playback toggles.
+                          const targetScale = 1.0;
                           final artworkFadeStrength = isArtworkBlurStyle
                               ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
                                     (1.0 - effectiveOverlayT))
@@ -811,23 +810,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       offset: Offset(0, shadowOff),
                                     ),
                                   ],
-                                ),
-                                // Hairline border in foreground so it paints ON TOP of the artwork
-                                // and covers any antialiasing gaps left by ClipRRect at the corners.
-                                // This matches the approach used in ArtworkHairlineBorder.
-                                foregroundDecoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(
-                                    finalRadius,
-                                  ),
-                                  border: Border.all(
-                                    color:
-                                        Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? kArtworkHairlineDarkColor
-                                        : kArtworkHairlineLightColor,
-                                    width: kArtworkHairlineWidth,
-                                    strokeAlign: BorderSide.strokeAlignInside,
-                                  ),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(
