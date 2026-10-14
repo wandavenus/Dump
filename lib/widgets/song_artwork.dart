@@ -67,6 +67,9 @@ class SongArtwork extends StatefulWidget {
   /// clipped incorrectly) — avoids doubled/mismatched borders.
   final bool showBorder;
 
+  /// Fade the artwork itself to transparency at the bottom (0 = disabled).
+  final double bottomFadeStrength;
+
   const SongArtwork({
     super.key,
     required this.songId,
@@ -74,6 +77,7 @@ class SongArtwork extends StatefulWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(3)),
     this.fit = BoxFit.cover,
     this.showBorder = true,
+    this.bottomFadeStrength = 0.0,
   });
 
   @override
