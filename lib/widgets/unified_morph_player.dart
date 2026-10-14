@@ -666,13 +666,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
 
-                      // ── Status-bar shadow fading downward over the artwork ───────
+                      // ── Status-bar shadow for readable system icons ───────
                       if (isArtworkBlurStyle && bgAlpha > 0)
                         Positioned(
                           top: 0,
                           left: 0,
                           right: 0,
-                          height: (safeTop + 260.0).clamp(220.0, 310.0),
+                          height: safeTop.clamp(24.0, 64.0),
                           child: IgnorePointer(
                             child: Opacity(
                               opacity: bgAlpha,
@@ -682,13 +682,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Color.fromARGB(190, 0, 0, 0),
-                                      Color.fromARGB(150, 0, 0, 0),
-                                      Color.fromARGB(100, 0, 0, 0),
-                                      Color.fromARGB(48, 0, 0, 0),
+                                      Color.fromARGB(205, 0, 0, 0),
+                                      Color.fromARGB(175, 0, 0, 0),
+                                      Color.fromARGB(125, 0, 0, 0),
+                                      Color.fromARGB(60, 0, 0, 0),
                                       Color.fromARGB(0, 0, 0, 0),
                                     ],
-                                    stops: [0.0, 0.16, 0.38, 0.68, 1.0],
+                                    stops: [0.0, 0.22, 0.48, 0.76, 1.0],
                                   ),
                                 ),
                               ),
