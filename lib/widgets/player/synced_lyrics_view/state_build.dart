@@ -56,8 +56,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               final phase = Curves.easeOut.transform(
                 _lineTransitionController.value,
               );
-              final rubber =
-                  11.0 * math.sin(math.pi * phase) * distanceFactor;
+              final rubber = 11.0 * math.sin(math.pi * phase) * distanceFactor;
               final settle = Curves.easeOutBack.transform(
                 _lineTransitionController.value,
               );
@@ -79,10 +78,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                     _pendingSeekPos = targetPos;
                     _anchorPos = targetPos;
                     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-                    _maybeUpdateCurrentLine(
-                      targetPos,
-                      allowBinarySearch: true,
-                    );
+                    _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
                     _karaokeController.updatePosition(targetPos);
                     unawaited(AudioService.seek(targetPos));
                   },
@@ -107,9 +103,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                               dimColor: dim,
                               fontSize: fs,
                               textAlign: lineAlign,
-                              textScaleFactor: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(1.0),
+                              textScaleFactor: MediaQuery.textScalerOf(context)
+                                  .scale(1.0),
                               textDirection: lineDirection,
                             )
                           : Text(

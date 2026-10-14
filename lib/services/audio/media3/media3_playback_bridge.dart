@@ -385,10 +385,8 @@ class Media3PlaybackBridge {
   static Future<void> setReverb({
     required bool enabled,
     required double intensity,
-  }) => _invoke<void>('setReverb', {
-    'enabled': enabled,
-    'intensity': intensity,
-  });
+  }) =>
+      _invoke<void>('setReverb', {'enabled': enabled, 'intensity': intensity});
 
   // ── Playback stats (Item 6) ───────────────────────────────────────────────
 

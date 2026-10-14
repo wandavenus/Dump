@@ -111,131 +111,131 @@ class _AboutAppPageState extends State<AboutAppPage> {
           // supaya teks tidak melebar mengikuti layar di tablet/desktop.
           ResponsivePageBody(
             child: CustomScrollView(
-            physics: const ClampingScrollPhysics(),
-            slivers: [
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Nama app
-                        Text(
-                          l.musicPlayerName,
-                          style: TextStyle(
-                            color: c.primaryLabel,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Versi — tap 3× untuk mode debug
-                        ValueListenableBuilder<bool>(
-                          valueListenable: _DebugState.enabled,
-                          builder: (_, debug, _) => GestureDetector(
-                            onTap: _onVersionTap,
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 4,
-                              ),
-                              child: _appVersion == null
-                                  ? const SizedBox(height: 23)
-                                  : Text(
-                                      debug
-                                          ? '${l.appVersion(_appVersion!)} [${l.debugModeActiveLabel}]'
-                                          : l.appVersion(_appVersion!),
-                                style: TextStyle(
-                                  color: debug
-                                      ? const Color(0xFFF92D48)
-                                      : c.secondaryLabel,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // Divider pendek
-                        Container(
-                          width: 48,
-                          height: 1,
-                          color: c.subtleSeparator,
-                        ),
-                        const SizedBox(height: 28),
-
-                        // Dibuat oleh
-                        Text(
-                          l.madeBy,
-                          style: TextStyle(
-                            color: c.primaryLabel.withValues(alpha: 0.87),
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Wndavenznchole',
-                          style: TextStyle(
-                            color: c.primaryLabel,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // ── Deskripsi singkat ──────────────────────────
-                        Text(
-                          l.appDescription,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: c.secondaryLabel,
-                            fontSize: 13,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // ── Catatan Pembaruan ──────────────────────────
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).push(
-                            ZoomFadeRoute<void>(page: const ChangelogPage()),
-                          ),
-                          child: Text(
-                            l.releaseNotes,
+              physics: const ClampingScrollPhysics(),
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Nama app
+                          Text(
+                            l.musicPlayerName,
                             style: TextStyle(
-                              color: Color(0xFFF92D48),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                              color: c.primaryLabel,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 24),
+                          const SizedBox(height: 6),
 
-                        // ── Sosial media ───────────────────────────────
-                        _SocialRow(
-                          icon: FontAwesomeIcons.instagram,
-                          label: 'Wndavenznchole',
-                          onTap: () => _openUrl(_kInstagramUrl),
-                        ),
-                        const SizedBox(height: 14),
-                        _SocialRow(
-                          icon: FontAwesomeIcons.github,
-                          label: 'wandavenus/Noisegraph',
-                          onTap: () => _openUrl(_kGitHubUrl),
-                        ),
-                      ],
+                          // Versi — tap 3× untuk mode debug
+                          ValueListenableBuilder<bool>(
+                            valueListenable: _DebugState.enabled,
+                            builder: (_, debug, _) => GestureDetector(
+                              onTap: _onVersionTap,
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 4,
+                                ),
+                                child: _appVersion == null
+                                    ? const SizedBox(height: 23)
+                                    : Text(
+                                        debug
+                                            ? '${l.appVersion(_appVersion!)} [${l.debugModeActiveLabel}]'
+                                            : l.appVersion(_appVersion!),
+                                        style: TextStyle(
+                                          color: debug
+                                              ? const Color(0xFFF92D48)
+                                              : c.secondaryLabel,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+
+                          // Divider pendek
+                          Container(
+                            width: 48,
+                            height: 1,
+                            color: c.subtleSeparator,
+                          ),
+                          const SizedBox(height: 28),
+
+                          // Dibuat oleh
+                          Text(
+                            l.madeBy,
+                            style: TextStyle(
+                              color: c.primaryLabel.withValues(alpha: 0.87),
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Wndavenznchole',
+                            style: TextStyle(
+                              color: c.primaryLabel,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+
+                          // ── Deskripsi singkat ──────────────────────────
+                          Text(
+                            l.appDescription,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: c.secondaryLabel,
+                              fontSize: 13,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+
+                          // ── Catatan Pembaruan ──────────────────────────
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).push(
+                              ZoomFadeRoute<void>(page: const ChangelogPage()),
+                            ),
+                            child: Text(
+                              l.releaseNotes,
+                              style: TextStyle(
+                                color: Color(0xFFF92D48),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ── Sosial media ───────────────────────────────
+                          _SocialRow(
+                            icon: FontAwesomeIcons.instagram,
+                            label: 'Wndavenznchole',
+                            onTap: () => _openUrl(_kInstagramUrl),
+                          ),
+                          const SizedBox(height: 14),
+                          _SocialRow(
+                            icon: FontAwesomeIcons.github,
+                            label: 'wandavenus/Noisegraph',
+                            onTap: () => _openUrl(_kGitHubUrl),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
 
           // ── Footer copyright ─────────────────────────────────────────────

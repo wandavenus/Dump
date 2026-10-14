@@ -234,8 +234,8 @@ class _FirstPageState extends State<FirstPage> {
                               valueListenable: PlayerSheetController.progress,
                               child: bottomChild,
                               builder: (context, progress, child) {
-                                final safeBottom =
-                                    MediaQuery.paddingOf(context).bottom;
+                                final safeBottom = MediaQuery.paddingOf(context)
+                                    .bottom;
                                 final navH = isPill
                                     ? FloatingPillNavBar.bodyHeight +
                                           FloatingPillNavBar.bottomGap +
@@ -245,8 +245,10 @@ class _FirstPageState extends State<FirstPage> {
                                 // spatially linear with sheet progress. A curved
                                 // mapping changes velocity while the finger moves,
                                 // which is perceived as jitter/stutter.
-                                final slide =
-                                    (progress * navH).clamp(0.0, navH);
+                                final slide = (progress * navH).clamp(
+                                  0.0,
+                                  navH,
+                                );
 
                                 return Transform.translate(
                                   offset: Offset(0, slide),

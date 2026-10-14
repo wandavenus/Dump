@@ -25,7 +25,6 @@ import 'package:musicplayer/services/media_capabilities_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
-
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
 import 'log_page.dart';

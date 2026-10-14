@@ -79,7 +79,5 @@ int responsiveColumns(
 ///
 /// [minWidth] menjaga agar panel samping tetap punya ruang layak; perbandingan
 /// lebar > tinggi mencegah window potret tinggi ikut beralih ke mode samping.
-bool hasRoomForSideBySide(
-  Size size, {
-  double minWidth = kWideLayoutMinWidth,
-}) => size.width >= minWidth && size.width > size.height;
+bool hasRoomForSideBySide(Size size, {double minWidth = kWideLayoutMinWidth}) =>
+    size.width >= minWidth && size.width > size.height;

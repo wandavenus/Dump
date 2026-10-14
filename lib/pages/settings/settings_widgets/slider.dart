@@ -161,10 +161,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                       children: [
                         Text(
                           widget.title,
-                          style: TextStyle(
-                            color: c.primaryLabel,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: c.primaryLabel, fontSize: 16),
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),

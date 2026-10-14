@@ -54,8 +54,8 @@ class _EqPresetChips extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     physics: const ClampingScrollPhysics(),
                     child: CupertinoSlidingSegmentedControl<int>(
-                      groupValue: currentPreset >= 0 &&
-                              currentPreset < presets.length
+                      groupValue:
+                          currentPreset >= 0 && currentPreset < presets.length
                           ? currentPreset
                           : null,
                       children: children,
@@ -65,8 +65,9 @@ class _EqPresetChips extends StatelessWidget {
                         }
                       },
                       thumbColor: const Color(0xFFF92D48),
-                      backgroundColor:
-                          colors.primaryLabel.withValues(alpha: 0.08),
+                      backgroundColor: colors.primaryLabel.withValues(
+                        alpha: 0.08,
+                      ),
                       padding: const EdgeInsets.all(3),
                     ),
                   );

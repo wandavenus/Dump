@@ -141,10 +141,9 @@ NowPlayingPanelMetrics nowPlayingPanelMetrics(double panelHeight) {
     available - _kPanelHeaderHeight - _kPanelProgressHeight - 4.0,
     0.0,
   );
-  final transportScale = math.min(
-    preferredScale,
-    maxTransportHeight / _kPanelTransportHeight,
-  ).clamp(0.0, 1.0);
+  final transportScale = math
+      .min(preferredScale, maxTransportHeight / _kPanelTransportHeight)
+      .clamp(0.0, 1.0);
   final fixed =
       _kPanelHeaderHeight +
       _kPanelProgressHeight +

@@ -41,30 +41,21 @@ class _ChangelogPageState extends State<ChangelogPage> {
         ),
         title: Text(
           context.l10n.changelogTitle,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-          ),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w400),
         ),
         centerTitle: false,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-            height: 0.5,
-            color: c.separator,
-          ),
+          child: Container(height: 0.5, color: c.separator),
         ),
       ),
       body: _changelogEntries.isEmpty
           ? Center(
               child: Text(
                 context.l10n.noChangelog,
-                style: TextStyle(
-                  color: c.secondaryLabel,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: c.secondaryLabel, fontSize: 15),
               ),
             )
           : ListView.separated(
@@ -123,18 +114,12 @@ class _ChangelogEntryTile extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       '|',
-                      style: TextStyle(
-                        color: c.secondaryLabel,
-                        fontSize: 15,
-                      ),
+                      style: TextStyle(color: c.secondaryLabel, fontSize: 15),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       entry.date,
-                      style: TextStyle(
-                        color: c.secondaryLabel,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: c.secondaryLabel, fontSize: 14),
                     ),
                   ],
                 ),
@@ -183,7 +168,9 @@ class _ChangelogEntryTile extends StatelessWidget {
                                     child: Text(
                                       change,
                                       style: TextStyle(
-                                        color: c.primaryLabel.withValues(alpha: 0.87),
+                                        color: c.primaryLabel.withValues(
+                                          alpha: 0.87,
+                                        ),
                                         fontSize: 15,
                                         height: 1.35,
                                       ),
