@@ -782,7 +782,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                         alpha: 1.0 - artworkFadeStrength,
                                       ),
                                     ],
-                                    stops: const [0.0, 0.88, 1.0],
+                                    stops: const [0.0, 0.96, 1.0],
                                   ).createShader(bounds),
                                   child: artworkImage,
                                 )
