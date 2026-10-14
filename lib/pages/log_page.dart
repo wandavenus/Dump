@@ -76,32 +76,39 @@ class _LogPageState extends State<LogPage> {
       _expanded.removeWhere((e) => !LogService.contains(e));
     });
     if (_liveTail && _scrollCtrl.hasClients) {
-      unawaited(_scrollCtrl.animateTo(0,
-          duration: const Duration(milliseconds: 180), curve: Curves.easeOut));
+      unawaited(
+        _scrollCtrl.animateTo(
+          0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        ),
+      );
     }
   }
 
   List<LogEntry> get _filtered => LogService.getLogs(
-        level: _levelFilter,
-        category: _categoryFilter,
-        search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
-      ).reversed.toList();
+    level: _levelFilter,
+    category: _categoryFilter,
+    search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+  ).reversed.toList();
 
-  int _countLevel(LogLevel l) => LogService.countByLevel(l,
-        category: _categoryFilter,
-        search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text);
+  int _countLevel(LogLevel l) => LogService.countByLevel(
+    l,
+    category: _categoryFilter,
+    search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+  );
 
   int get _filteredTotal => LogService.getLogs(
-        category: _categoryFilter,
-        search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
-      ).length;
+    category: _categoryFilter,
+    search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+  ).length;
 
   Color _levelColor(LogLevel l) => switch (l) {
-        LogLevel.error => const Color(0xFFF92D48),
-        LogLevel.warning => const Color(0xFFFF9F0A),
-        LogLevel.info => const Color(0xFF30D158),
-        LogLevel.verbose => AppColors.of(context).tertiaryLabel,
-      };
+    LogLevel.error => const Color(0xFFF92D48),
+    LogLevel.warning => const Color(0xFFFF9F0A),
+    LogLevel.info => const Color(0xFF30D158),
+    LogLevel.verbose => AppColors.of(context).tertiaryLabel,
+  };
 
   void _copyAll(List<LogEntry> entries) {
     final buf = StringBuffer();
@@ -120,49 +127,80 @@ class _LogPageState extends State<LogPage> {
   void _snack(String msg) {
     if (!mounted) return;
     final c = AppColors.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
-      backgroundColor: c.surface,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+        ),
+        backgroundColor: c.surface,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 
   void _jumpTop() {
     if (!_scrollCtrl.hasClients) return;
-    unawaited(_scrollCtrl.animateTo(0,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic));
+    unawaited(
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _jumpBottom() {
     if (!_scrollCtrl.hasClients) return;
-    unawaited(_scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic));
+    unawaited(
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _clearLogs() {
-    unawaited(showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final dc = AppColors.of(ctx);
-        return AlertDialog(
-          backgroundColor: dc.surface,
-          title: Text(ctx.l10n.clearLogsConfirm,
-              style: TextStyle(color: dc.primaryLabel, fontSize: 15)),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.cancel, style: TextStyle(color: dc.tertiaryLabel))),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.delete, style: const TextStyle(color: Color(0xFFF92D48)))),
-          ],
-        );
-      },
-    ).then((confirmed) {
-      if (!mounted) return;
-      if (confirmed == true) {
-        LogService.clear();
-        setState(_expanded.clear);
-      }
-    }));
+    unawaited(
+      showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          final dc = AppColors.of(ctx);
+          return AlertDialog(
+            backgroundColor: dc.surface,
+            title: Text(
+              ctx.l10n.clearLogsConfirm,
+              style: TextStyle(color: dc.primaryLabel, fontSize: 15),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(
+                  ctx.l10n.cancel,
+                  style: TextStyle(color: dc.tertiaryLabel),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  ctx.l10n.delete,
+                  style: const TextStyle(color: Color(0xFFF92D48)),
+                ),
+              ),
+            ],
+          );
+        },
+      ).then((confirmed) {
+        if (!mounted) return;
+        if (confirmed == true) {
+          LogService.clear();
+          setState(_expanded.clear);
+        }
+      }),
+    );
   }
 
   @override
@@ -175,27 +213,38 @@ class _LogPageState extends State<LogPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(entries, c),
       body: ResponsivePageBody(
-        child: Column(children: [
-        _LogFilterBar(
-          levelFilter: _levelFilter,
-          categoryFilter: _categoryFilter,
-          categories: categories,
-          totalCount: _filteredTotal,
-          countLevel: _countLevel,
-          levelColor: _levelColor,
-          searchController: _searchCtrl,
-          onLevelChanged: (l) => setState(() { _levelFilter = l; _expanded.clear(); }),
-          onCategoryChanged: (cat) => setState(() { _categoryFilter = cat; _expanded.clear(); }),
-          onSearchChanged: () => setState(_expanded.clear),
+        child: Column(
+          children: [
+            _LogFilterBar(
+              levelFilter: _levelFilter,
+              categoryFilter: _categoryFilter,
+              categories: categories,
+              totalCount: _filteredTotal,
+              countLevel: _countLevel,
+              levelColor: _levelColor,
+              searchController: _searchCtrl,
+              onLevelChanged: (l) => setState(() {
+                _levelFilter = l;
+                _expanded.clear();
+              }),
+              onCategoryChanged: (cat) => setState(() {
+                _categoryFilter = cat;
+                _expanded.clear();
+              }),
+              onSearchChanged: () => setState(_expanded.clear),
+            ),
+            Expanded(child: _buildList(entries, c)),
+          ],
         ),
-        Expanded(child: _buildList(entries, c)),
-      ]),
       ),
       bottomNavigationBar: _buildBottomBar(entries, safeBottom, c),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(List<LogEntry> entries, AppThemeExtension c) {
+  PreferredSizeWidget _buildAppBar(
+    List<LogEntry> entries,
+    AppThemeExtension c,
+  ) {
     final errCount = _countLevel(LogLevel.error);
     final warnCount = _countLevel(LogLevel.warning);
     return AppBar(
@@ -207,17 +256,39 @@ class _LogPageState extends State<LogPage> {
       leading: CupertinoButton(
         padding: const EdgeInsets.only(left: 8),
         onPressed: () => Navigator.of(context).pop(),
-        child: const Icon(CupertinoIcons.arrow_left, color: Color(0xFFF92D48), size: 28),
+        child: const Icon(
+          CupertinoIcons.arrow_left,
+          color: Color(0xFFF92D48),
+          size: 28,
+        ),
       ),
-      title: Row(children: [
-        Text(context.l10n.logTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.4)),
-        const SizedBox(width: 8),
-        Text(context.l10n.logEntryCount(entries.length), style: TextStyle(color: c.quaternaryLabel, fontSize: 12, fontFamily: 'monospace')),
-        const SizedBox(width: 10),
-        if (errCount > 0) _AppBarBadge(count: errCount, color: const Color(0xFFF92D48)),
-        if (errCount > 0 && warnCount > 0) const SizedBox(width: 5),
-        if (warnCount > 0) _AppBarBadge(count: warnCount, color: const Color(0xFFFF9F0A)),
-      ]),
+      title: Row(
+        children: [
+          Text(
+            context.l10n.logTitle,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.logEntryCount(entries.length),
+            style: TextStyle(
+              color: c.quaternaryLabel,
+              fontSize: 12,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (errCount > 0)
+            _AppBarBadge(count: errCount, color: const Color(0xFFF92D48)),
+          if (errCount > 0 && warnCount > 0) const SizedBox(width: 5),
+          if (warnCount > 0)
+            _AppBarBadge(count: warnCount, color: const Color(0xFFFF9F0A)),
+        ],
+      ),
       actions: [
         const _LogLevelSelector(),
         const SizedBox(width: 4),
@@ -228,14 +299,35 @@ class _LogPageState extends State<LogPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _liveTail ? const Color(0xFF30D158).withValues(alpha: 0.15) : c.dimLabel.withValues(alpha: 0.2),
+                color: _liveTail
+                    ? const Color(0xFF30D158).withValues(alpha: 0.15)
+                    : c.dimLabel.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.fiber_manual_record, size: 7, color: _liveTail ? const Color(0xFF30D158) : c.quaternaryLabel),
-                const SizedBox(width: 4),
-                Text(context.l10n.liveLabel, style: TextStyle(color: _liveTail ? const Color(0xFF30D158) : c.quaternaryLabel, fontSize: 10, fontFamily: 'monospace', fontWeight: FontWeight.w700)),
-              ]),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.fiber_manual_record,
+                    size: 7,
+                    color: _liveTail
+                        ? const Color(0xFF30D158)
+                        : c.quaternaryLabel,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    context.l10n.liveLabel,
+                    style: TextStyle(
+                      color: _liveTail
+                          ? const Color(0xFF30D158)
+                          : c.quaternaryLabel,
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -246,11 +338,27 @@ class _LogPageState extends State<LogPage> {
 
   Widget _buildList(List<LogEntry> entries, AppThemeExtension c) {
     if (entries.isEmpty) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.terminal_rounded, color: c.surface2, size: 36),
-        const SizedBox(height: 12),
-        Text(_searchCtrl.text.isNotEmpty || _levelFilter != null || _categoryFilter != null ? context.l10n.logNoResults : context.l10n.logEmpty, style: TextStyle(color: c.surface3, fontSize: 12, fontFamily: 'monospace')),
-      ]));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.terminal_rounded, color: c.surface2, size: 36),
+            const SizedBox(height: 12),
+            Text(
+              _searchCtrl.text.isNotEmpty ||
+                      _levelFilter != null ||
+                      _categoryFilter != null
+                  ? context.l10n.logNoResults
+                  : context.l10n.logEmpty,
+              style: TextStyle(
+                color: c.surface3,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      );
     }
     return ListView.builder(
       controller: _scrollCtrl,
@@ -263,24 +371,53 @@ class _LogPageState extends State<LogPage> {
           entry: entry,
           expanded: _expanded.contains(entry),
           levelColor: _levelColor,
-          onToggleExpand: hasStack ? () => setState(() { if (!_expanded.remove(entry)) _expanded.add(entry); }) : null,
+          onToggleExpand: hasStack
+              ? () => setState(() {
+                  if (!_expanded.remove(entry)) _expanded.add(entry);
+                })
+              : null,
           onCopy: () => _copyEntry(entry),
         );
       },
     );
   }
 
-  Widget _buildBottomBar(List<LogEntry> entries, double safeBottom, AppThemeExtension c) => Container(
+  Widget _buildBottomBar(
+    List<LogEntry> entries,
+    double safeBottom,
+    AppThemeExtension c,
+  ) => Container(
     color: c.codeBackground,
     padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + safeBottom),
-    child: Row(children: [
-      _BarBtn(icon: Icons.keyboard_double_arrow_up_rounded, label: context.l10n.logScrollTop, onTap: _jumpTop),
-      const SizedBox(width: 6),
-      _BarBtn(icon: Icons.keyboard_double_arrow_down_rounded, label: context.l10n.logScrollBottom, onTap: _jumpBottom),
-      const Spacer(),
-      _BarBtn(icon: Icons.copy_rounded, label: context.l10n.logCopyAll, onTap: () => _copyAll(entries), enabled: entries.isNotEmpty),
-      const SizedBox(width: 6),
-      _BarBtn(icon: Icons.delete_outline_rounded, label: context.l10n.delete, onTap: _clearLogs, destructive: true, enabled: LogService.logCount.value > 0),
-    ]),
+    child: Row(
+      children: [
+        _BarBtn(
+          icon: Icons.keyboard_double_arrow_up_rounded,
+          label: context.l10n.logScrollTop,
+          onTap: _jumpTop,
+        ),
+        const SizedBox(width: 6),
+        _BarBtn(
+          icon: Icons.keyboard_double_arrow_down_rounded,
+          label: context.l10n.logScrollBottom,
+          onTap: _jumpBottom,
+        ),
+        const Spacer(),
+        _BarBtn(
+          icon: Icons.copy_rounded,
+          label: context.l10n.logCopyAll,
+          onTap: () => _copyAll(entries),
+          enabled: entries.isNotEmpty,
+        ),
+        const SizedBox(width: 6),
+        _BarBtn(
+          icon: Icons.delete_outline_rounded,
+          label: context.l10n.delete,
+          onTap: _clearLogs,
+          destructive: true,
+          enabled: LogService.logCount.value > 0,
+        ),
+      ],
+    ),
   );
 }

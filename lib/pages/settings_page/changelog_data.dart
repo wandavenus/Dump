@@ -190,9 +190,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.5.14',
     date: '7 Agustus 2026',
-    changes: [
-      'Fix animasi highlight karaoke untuk teks Jepang dan CJK.',
-    ],
+    changes: ['Fix animasi highlight karaoke untuk teks Jepang dan CJK.'],
   ),
   _ChangelogEntry(
     version: '1.5.11',
@@ -227,23 +225,17 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.5.1',
     date: '29 Juli 2026',
-    changes: [
-      'Fix tap kartu artwork Favorit agar langsung memutar lagu.',
-    ],
+    changes: ['Fix tap kartu artwork Favorit agar langsung memutar lagu.'],
   ),
   _ChangelogEntry(
     version: '1.5.0',
     date: '29 Juli 2026',
-    changes: [
-      'Redesign Favorit di Radio Page menjadi grid artwork 3×2.',
-    ],
+    changes: ['Redesign Favorit di Radio Page menjadi grid artwork 3×2.'],
   ),
   _ChangelogEntry(
     version: '1.4.9',
     date: '29 Juli 2026',
-    changes: [
-      'Hapus seksi Baru Dimainkan dan Paling Sering dari Radio Page.',
-    ],
+    changes: ['Hapus seksi Baru Dimainkan dan Paling Sering dari Radio Page.'],
   ),
   _ChangelogEntry(
     version: '1.4.8',
@@ -257,9 +249,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.4.7',
     date: '27 Juli 2026',
-    changes: [
-      'Sederhanakan output analyzer menjadi error dan warning.',
-    ],
+    changes: ['Sederhanakan output analyzer menjadi error dan warning.'],
   ),
   _ChangelogEntry(
     version: '1.4.6',
@@ -348,9 +338,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.3.7',
     date: '21 Juli 2026',
-    changes: [
-      'Fix keterlambatan judul dan artis notifikasi saat crossfade.',
-    ],
+    changes: ['Fix keterlambatan judul dan artis notifikasi saat crossfade.'],
   ),
   _ChangelogEntry(
     version: '1.3.6',
@@ -392,9 +380,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.3.1',
     date: '19 Juli 2026',
-    changes: [
-      'Fix Repeat ONE agar crossfade tidak memutar lagu berikutnya.',
-    ],
+    changes: ['Fix Repeat ONE agar crossfade tidak memutar lagu berikutnya.'],
   ),
   _ChangelogEntry(
     version: '1.3.0',
@@ -425,9 +411,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.2.8',
     date: '18 Juli 2026',
-    changes: [
-      'Fix Mini Player tidak muncul setelah Activity destroyed.',
-    ],
+    changes: ['Fix Mini Player tidak muncul setelah Activity destroyed.'],
   ),
   _ChangelogEntry(
     version: '1.2.7',
@@ -459,9 +443,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.2.3',
     date: '18 Juli 2026',
-    changes: [
-      'Hapus fitur Skip Silence.',
-    ],
+    changes: ['Hapus fitur Skip Silence.'],
   ),
   _ChangelogEntry(
     version: '1.2.1',
@@ -487,16 +469,12 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.1.9',
     date: '15 Juli 2026',
-    changes: [
-      'Optimasi ReplayGain processor dengan NEON kernel untuk ARM64.',
-    ],
+    changes: ['Optimasi ReplayGain processor dengan NEON kernel untuk ARM64.'],
   ),
   _ChangelogEntry(
     version: '1.1.8',
     date: '15 Juli 2026',
-    changes: [
-      'Optimasi Crossfeed processor dengan NEON kernel untuk ARM64.',
-    ],
+    changes: ['Optimasi Crossfeed processor dengan NEON kernel untuk ARM64.'],
   ),
   _ChangelogEntry(
     version: '1.1.7',
@@ -516,9 +494,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.1.5',
     date: '14 Juli 2026',
-    changes: [
-      'Tambah konten lengkap pada halaman Laporkan Bug.',
-    ],
+    changes: ['Tambah konten lengkap pada halaman Laporkan Bug.'],
   ),
   _ChangelogEntry(
     version: '1.0.4',
@@ -537,9 +513,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.0.2',
     date: '14 Juli 2026',
-    changes: [
-      'Redesign halaman Tentang App menjadi minimalis.',
-    ],
+    changes: ['Redesign halaman Tentang App menjadi minimalis.'],
   ),
   _ChangelogEntry(
     version: '0.0.1',

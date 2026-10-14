@@ -61,7 +61,9 @@ class LanguageManager extends ChangeNotifier {
 
     _useSystem = nextUseSystem;
     final nextLocale = nextUseSystem
-        ? _resolveSystemLocale(WidgetsBinding.instance.platformDispatcher.locale)
+        ? _resolveSystemLocale(
+            WidgetsBinding.instance.platformDispatcher.locale,
+          )
         : _fromCode(code);
 
     final changed = _locale != nextLocale;

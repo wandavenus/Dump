@@ -237,9 +237,10 @@ class _PillItemsState extends State<_PillItems> {
     if (count == 0 || width <= 0) return;
 
     final segment = width / count;
-    final next = ((_dragIndex ?? widget.selectedIndex.toDouble()) +
-            details.delta.dx / segment)
-        .clamp(0.0, count - 1.0);
+    final next =
+        ((_dragIndex ?? widget.selectedIndex.toDouble()) +
+                details.delta.dx / segment)
+            .clamp(0.0, count - 1.0);
 
     setState(() => _dragIndex = next);
   }
@@ -381,9 +382,11 @@ class _PillItem extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(FloatingPillNavBar._iconSize == 24
-                      ? icon
-                      : icon, size: FloatingPillNavBar._iconSize, color: color),
+                  Icon(
+                    FloatingPillNavBar._iconSize == 24 ? icon : icon,
+                    size: FloatingPillNavBar._iconSize,
+                    color: color,
+                  ),
                   if (label != null) ...[
                     const SizedBox(height: 3),
                     FittedBox(
@@ -394,8 +397,9 @@ class _PillItem extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: color,
-                          fontWeight:
-                              active ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight: active
+                              ? FontWeight.w600
+                              : FontWeight.w400,
                         ),
                       ),
                     ),

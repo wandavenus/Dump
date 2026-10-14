@@ -276,7 +276,10 @@ class MediaCapabilitiesService {
     }
 
     _scheduleAcousticEnginePush(enable, v);
-    LogService.log('MediaCap', 'acousticEngineIntensity: $v (enabled: $enable)');
+    LogService.log(
+      'MediaCap',
+      'acousticEngineIntensity: $v (enabled: $enable)',
+    );
   }
 
   /// Coalesces the FFI publish for a slider drag. Repeated calls within

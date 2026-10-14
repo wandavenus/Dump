@@ -84,7 +84,10 @@ class _ArtistListContentState extends State<ArtistListContent> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
             sliver: SliverGrid(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: responsiveColumns(context, targetTileWidth: 190),
+                crossAxisCount: responsiveColumns(
+                  context,
+                  targetTileWidth: 190,
+                ),
                 crossAxisSpacing: kSpace8,
                 mainAxisSpacing: kSpace16,
                 childAspectRatio: 0.78,
