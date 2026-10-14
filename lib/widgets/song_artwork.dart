@@ -173,7 +173,7 @@ class _SongArtworkState extends State<SongArtwork> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p != null) {
-      final image = ClipRRect(
+      Widget image = ClipRRect(
         borderRadius: widget.borderRadius,
         child: Image(
           image: p,
@@ -185,6 +185,23 @@ class _SongArtworkState extends State<SongArtwork> {
           errorBuilder: (_, _, _) => _fallback(context),
         ),
       );
+      final fadeStrength = widget.bottomFadeStrength.clamp(0.0, 1.0);
+      if (fadeStrength > 0.001) {
+        image = ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white,
+              Colors.white,
+              Colors.white.withValues(alpha: 1.0 - fadeStrength),
+            ],
+            stops: const [0.0, 0.78, 1.0],
+          ).createShader(bounds),
+          child: image,
+        );
+      }
       if (!widget.showBorder) return image;
       return ArtworkHairlineBorder(
         borderRadius: widget.borderRadius,
