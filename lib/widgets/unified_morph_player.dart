@@ -519,11 +519,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final shFull = screenH - topInset - bottomCtrlH;
     final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
-    // Keep the enlarged artwork below the status-bar safe area.
-    // Its sides may bleed past the display edges, but its top may not cross
-    // into the status bar region.
+    // Artwork extends behind the status bar, but is clipped at the physical
+    // top edge of the screen. Side overflow remains intentional.
     final artFullTop = wideColumns?.artwork.top ??
-        (isArtworkBlurStyle ? safeTop : topInset + coverTopLocal);
+        (isArtworkBlurStyle ? 0.0 : topInset + coverTopLocal);
 
     // Quadratic Bézier arc: artwork swings right then curves up to final pos.
     // Control point pulled right of artFullLeft so the path bulges rightward
