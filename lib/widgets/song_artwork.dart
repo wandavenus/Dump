@@ -191,6 +191,8 @@ class _SongArtworkState extends State<SongArtwork> {
       );
       final fadeStrength = widget.bottomFadeStrength.clamp(0.0, 1.0);
       if (fadeStrength > 0.001) {
+        // Use a broad, gently accelerating alpha falloff so the lower edge
+        // dissolves into the blurred background instead of forming a seam.
         image = ShaderMask(
           blendMode: BlendMode.dstIn,
           shaderCallback: (bounds) => LinearGradient(
@@ -200,24 +202,28 @@ class _SongArtworkState extends State<SongArtwork> {
               Colors.white,
               Colors.white,
               Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.01),
-              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.03),
-              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.08),
-              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.18),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.04),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.10),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.20),
               Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.35),
-              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.58),
-              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.80),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.54),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.73),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.89),
+              Colors.white.withValues(alpha: 1.0 - fadeStrength * 0.97),
               Colors.white.withValues(alpha: 1.0 - fadeStrength),
             ],
             stops: const [
               0.0,
-              0.48,
-              0.56,
-              0.64,
-              0.71,
-              0.78,
-              0.85,
-              0.91,
-              0.96,
+              0.34,
+              0.42,
+              0.50,
+              0.58,
+              0.66,
+              0.74,
+              0.82,
+              0.88,
+              0.93,
+              0.97,
               1.0,
             ],
           ).createShader(bounds),
