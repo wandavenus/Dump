@@ -495,12 +495,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // above the song title instead of colliding with the header.
     const bottomCtrlH = 244.0;
     final artworkBlurMaxSize =
-        (screenH - safeTop - 12.0 - bottomCtrlH - 80.0 - 32.0)
+        (screenH - bottomCtrlH - 32.0)
             .clamp(220.0, 430.0)
             .toDouble();
     final preferredCoverSize =
-        (screenW - (isArtworkBlurStyle ? 8.0 : 44.0))
-            .clamp(isArtworkBlurStyle ? 220.0 : 260.0, 390.0)
+        (screenW - (isArtworkBlurStyle ? 0.0 : 44.0))
+            .clamp(isArtworkBlurStyle ? 220.0 : 260.0, 430.0)
             .toDouble();
     final portraitCoverSize = isArtworkBlurStyle
         ? preferredCoverSize.clamp(220.0, artworkBlurMaxSize).toDouble()
@@ -517,7 +517,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
     final artFullTop = wideColumns?.artwork.top ??
-        (isArtworkBlurStyle ? safeTop + 12.0 : topInset + coverTopLocal);
+        (isArtworkBlurStyle ? 0.0 : topInset + coverTopLocal);
 
     // Quadratic Bézier arc: artwork swings right then curves up to final pos.
     // Control point pulled right of artFullLeft so the path bulges rightward
@@ -777,12 +777,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     end: Alignment.bottomCenter,
                                     colors: [
                                       Colors.white,
-                                      Colors.white,
+                                      Colors.white.withValues(
+                                        alpha: 1.0 - artworkFadeStrength,
+                                      ),
                                       Colors.white.withValues(
                                         alpha: 1.0 - artworkFadeStrength,
                                       ),
                                     ],
-                                    stops: const [0.0, 0.76, 1.0],
+                                    stops: const [0.0, 0.88, 1.0],
                                   ).createShader(bounds),
                                   child: artworkImage,
                                 )
