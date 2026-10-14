@@ -801,7 +801,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     ],
                                     stops: const [
                                       0.0,
-                                      0.72,
+                                      0.77,
                                       0.82,
                                       0.90,
                                       0.96,
