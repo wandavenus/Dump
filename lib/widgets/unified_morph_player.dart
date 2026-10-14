@@ -666,6 +666,36 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
 
+                      // ── Status-bar shadow fading downward over the artwork ───────
+                      if (isArtworkBlurStyle && bgAlpha > 0)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: (safeTop + 180.0).clamp(150.0, 230.0),
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: bgAlpha,
+                              child: DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Color.fromARGB(105, 0, 0, 0),
+                                      Color.fromARGB(72, 0, 0, 0),
+                                      Color.fromARGB(34, 0, 0, 0),
+                                      Color.fromARGB(10, 0, 0, 0),
+                                      Color.fromARGB(0, 0, 0, 0),
+                                    ],
+                                    stops: [0.0, 0.20, 0.46, 0.72, 1.0],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
                       // ── Full player content (slides up from bottom + fades in) ──────
                       // All UI elements (except the morphing artwork above) enter as a
                       // single unit: they slide up from the bottom of the screen to their
