@@ -13,6 +13,15 @@ enum NavBarStyle {
   pill,
 }
 
+/// Latar yang dipakai pada full player.
+enum PlayerBackgroundStyle {
+  /// Latar warna dinamis dari palet artwork (tampilan saat ini).
+  fluid,
+
+  /// Artwork lagu yang sedang diputar, diblur memenuhi layar.
+  artworkBlur,
+}
+
 class ThemeController {
   ThemeController._();
 
@@ -26,6 +35,8 @@ class ThemeController {
   );
   static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
+  static final ValueNotifier<PlayerBackgroundStyle> playerBackgroundStyle =
+      ValueNotifier(PlayerBackgroundStyle.fluid);
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -48,6 +59,15 @@ class ThemeController {
     }
     glassAppBar.value = prefs.getBool('glass_appbar') ?? true;
     glassMiniPlayer.value = prefs.getBool('glass_mini_player') ?? true;
+    final savedPlayerBackground = prefs.getInt('player_background_style');
+    if (savedPlayerBackground != null &&
+        savedPlayerBackground >= 0 &&
+        savedPlayerBackground < PlayerBackgroundStyle.values.length) {
+      playerBackgroundStyle.value =
+          PlayerBackgroundStyle.values[savedPlayerBackground];
+    } else {
+      playerBackgroundStyle.value = PlayerBackgroundStyle.fluid;
+    }
   }
 
   static Future<void> setMode(ThemeMode value) async {
@@ -73,6 +93,13 @@ class ThemeController {
   static Future<void> setGlassMiniPlayer(bool enabled) async {
     glassMiniPlayer.value = enabled;
     await _save('glass_mini_player', enabled);
+  }
+
+  static Future<void> setPlayerBackgroundStyle(
+    PlayerBackgroundStyle value,
+  ) async {
+    playerBackgroundStyle.value = value;
+    await _save('player_background_style', value.index);
   }
 
   static Future<void> _save(String key, Object value) async {
