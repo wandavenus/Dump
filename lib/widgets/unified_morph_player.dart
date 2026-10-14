@@ -672,7 +672,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           top: 0,
                           left: 0,
                           right: 0,
-                          height: (safeTop + 180.0).clamp(150.0, 230.0),
+                          height: (safeTop + 260.0).clamp(220.0, 310.0),
                           child: IgnorePointer(
                             child: Opacity(
                               opacity: bgAlpha,
@@ -682,13 +682,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Color.fromARGB(105, 0, 0, 0),
-                                      Color.fromARGB(72, 0, 0, 0),
-                                      Color.fromARGB(34, 0, 0, 0),
-                                      Color.fromARGB(10, 0, 0, 0),
+                                      Color.fromARGB(190, 0, 0, 0),
+                                      Color.fromARGB(150, 0, 0, 0),
+                                      Color.fromARGB(100, 0, 0, 0),
+                                      Color.fromARGB(48, 0, 0, 0),
                                       Color.fromARGB(0, 0, 0, 0),
                                     ],
-                                    stops: [0.0, 0.20, 0.46, 0.72, 1.0],
+                                    stops: [0.0, 0.16, 0.38, 0.68, 1.0],
                                   ),
                                 ),
                               ),
