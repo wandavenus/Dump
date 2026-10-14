@@ -666,36 +666,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
 
-                      // ── Status-bar shadow for readable system icons ───────
-                      if (isArtworkBlurStyle && bgAlpha > 0)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: safeTop.clamp(24.0, 64.0),
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: bgAlpha,
-                              child: DecoratedBox(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Color.fromARGB(205, 0, 0, 0),
-                                      Color.fromARGB(175, 0, 0, 0),
-                                      Color.fromARGB(125, 0, 0, 0),
-                                      Color.fromARGB(60, 0, 0, 0),
-                                      Color.fromARGB(0, 0, 0, 0),
-                                    ],
-                                    stops: [0.0, 0.22, 0.48, 0.76, 1.0],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
                       // ── Full player content (slides up from bottom + fades in) ──────
                       // All UI elements (except the morphing artwork above) enter as a
                       // single unit: they slide up from the bottom of the screen to their
@@ -838,7 +808,42 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   borderRadius: BorderRadius.circular(
                                     finalRadius,
                                   ),
-                                  child: artworkWithFade,
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      artworkWithFade,
+                                      // Keep the status-bar shadow attached to the
+                                      // artwork itself, not the blurred background.
+                                      if (isArtworkBlurStyle)
+                                        Positioned(
+                                          top: 0,
+                                          left: 0,
+                                          right: 0,
+                                          height: safeTop.clamp(24.0, 64.0),
+                                          child: IgnorePointer(
+                                            child: Opacity(
+                                              opacity: bgAlpha,
+                                              child: const DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topCenter,
+                                                    end: Alignment.bottomCenter,
+                                                    colors: [
+                                                      Color.fromARGB(205, 0, 0, 0),
+                                                      Color.fromARGB(175, 0, 0, 0),
+                                                      Color.fromARGB(125, 0, 0, 0),
+                                                      Color.fromARGB(60, 0, 0, 0),
+                                                      Color.fromARGB(0, 0, 0, 0),
+                                                    ],
+                                                    stops: [0.0, 0.22, 0.48, 0.76, 1.0],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
