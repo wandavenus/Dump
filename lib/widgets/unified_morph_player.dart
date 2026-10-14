@@ -369,18 +369,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         return ValueListenableBuilder<NavBarStyle>(
           valueListenable: ThemeController.navBarStyle,
           builder: (context, navStyle, _) {
-            return AnimatedBuilder(
-              animation: _entryAnim,
-              builder: (context, _) {
-                return ValueListenableBuilder<double>(
-                  valueListenable: PlayerSheetController.progress,
-                  builder: (context, progress, _) {
-                    return _buildMorph(
-                      context,
-                      song,
-                      progress,
-                      isGlass,
-                      navStyle,
+            return ValueListenableBuilder<PlayerBackgroundStyle>(
+              valueListenable: ThemeController.playerBackgroundStyle,
+              builder: (context, backgroundStyle, _) {
+                return AnimatedBuilder(
+                  animation: _entryAnim,
+                  builder: (context, _) {
+                    return ValueListenableBuilder<double>(
+                      valueListenable: PlayerSheetController.progress,
+                      builder: (context, progress, _) {
+                        return _buildMorph(
+                          context,
+                          song,
+                          progress,
+                          isGlass,
+                          navStyle,
+                          backgroundStyle,
+                        );
+                      },
                     );
                   },
                 );
@@ -398,6 +404,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     double progress,
     bool isGlass,
     NavBarStyle navStyle,
+    PlayerBackgroundStyle backgroundStyle,
   ) {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
@@ -540,50 +547,49 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       // does not re-composite when the rest of the player animates.
                       ValueListenableBuilder<bool>(
                         valueListenable: ThemeController.glassTheme,
-                        builder: (_, masterGlass, _) =>
-                            ValueListenableBuilder<bool>(
-                              valueListenable: ThemeController.glassMiniPlayer,
-                              builder: (_, compGlass, _) {
-                                // Use glass only when fully at rest in mini state.
-                                // Threshold 0.05 collapses the glass before drag starts
-                                // so BackdropFilter never runs during the morph animation.
-                                final useGlass =
-                                    masterGlass && compGlass && progress < 0.02;
-                                if (useGlass) {
-                                  // Glass = blur backdrop + tint netral penstabil
-                                  // (sama dengan navbar pill): background pill
-                                  // tidak meniru warna konten halaman.
-                                  final c = AppColors.of(context);
-                                  return RepaintBoundary(
-                                    child: BackdropGroup(
-                                      child: ClipRect(
-                                        child: Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            BackdropFilter.grouped(
-                                              filterConfig:
-                                                  const ImageFilterConfig.blur(
-                                                    sigmaX: 6,
-                                                    sigmaY: 6,
-                                                    bounded: true,
-                                                  ),
-                                              blendMode: BlendMode.srcOver,
-                                              child: const ColoredBox(
-                                                color: Colors.transparent,
+                        builder: (_, masterGlass, _) => ValueListenableBuilder<bool>(
+                          valueListenable: ThemeController.glassMiniPlayer,
+                          builder: (_, compGlass, _) {
+                            // Use glass only when fully at rest in mini state.
+                            // Threshold 0.05 collapses the glass before drag starts
+                            // so BackdropFilter never runs during the morph animation.
+                            final useGlass =
+                                masterGlass && compGlass && progress < 0.02;
+                            if (useGlass) {
+                              // Glass = blur backdrop + tint netral penstabil
+                              // (sama dengan navbar pill): background pill
+                              // tidak meniru warna konten halaman.
+                              final c = AppColors.of(context);
+                              return RepaintBoundary(
+                                child: BackdropGroup(
+                                  child: ClipRect(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        BackdropFilter.grouped(
+                                          filterConfig:
+                                              const ImageFilterConfig.blur(
+                                                sigmaX: 6,
+                                                sigmaY: 6,
+                                                bounded: true,
                                               ),
-                                            ),
-                                            ColoredBox(color: c.glassFillTint),
-                                          ],
+                                          blendMode: BlendMode.srcOver,
+                                          child: const ColoredBox(
+                                            color: Colors.transparent,
+                                          ),
                                         ),
-                                      ),
+                                        ColoredBox(color: c.glassFillTint),
+                                      ],
                                     ),
-                                  );
-                                }
-                                return ColoredBox(
-                                  color: AppColors.of(context).surface,
-                                );
-                              },
-                            ),
+                                  ),
+                                ),
+                              );
+                            }
+                            return ColoredBox(
+                              color: AppColors.of(context).surface,
+                            );
+                          },
+                        ),
                       ),
 
                       // ── Pre-blurred artwork background (fades in with progress) ────
@@ -596,9 +602,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                         Opacity(
                           opacity: bgAlpha,
                           child: RepaintBoundary(
-                            child: AnimatedBlurredPlayerBackground(
-                              songId: song.id,
-                            ),
+                            child:
+                                backgroundStyle ==
+                                    PlayerBackgroundStyle.artworkBlur
+                                ? ArtworkBlurPlayerBackground(songId: song.id)
+                                : AnimatedBlurredPlayerBackground(
+                                    songId: song.id,
+                                  ),
                           ),
                         ),
 
@@ -606,16 +616,30 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       if (bgAlpha > 0)
                         Opacity(
                           opacity: bgAlpha,
-                          child: const DecoratedBox(
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color.fromARGB(40, 0, 0, 0),
-                                  Color.fromARGB(40, 0, 0, 0),
-                                ],
-                              ),
+                              gradient:
+                                  backgroundStyle ==
+                                      PlayerBackgroundStyle.artworkBlur
+                                  ? const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      stops: [0, 0.4, 0.7, 1],
+                                      colors: [
+                                        Color.fromARGB(34, 0, 0, 0),
+                                        Color.fromARGB(18, 0, 0, 0),
+                                        Color.fromARGB(46, 0, 0, 0),
+                                        Color.fromARGB(142, 0, 0, 0),
+                                      ],
+                                    )
+                                  : const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Color.fromARGB(40, 0, 0, 0),
+                                        Color.fromARGB(40, 0, 0, 0),
+                                      ],
+                                    ),
                             ),
                           ),
                         ),
@@ -807,9 +831,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   color: AppColors.of(context).glassBorderTint
                                       .withValues(
                                         alpha:
-                                            AppColors.of(context)
-                                                .glassBorderTint
-                                                .a *
+                                            AppColors.of(
+                                              context,
+                                            ).glassBorderTint.a *
                                             miniAlpha,
                                       ),
                                   width: 1,

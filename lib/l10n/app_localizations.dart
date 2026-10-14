@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// App name
   ///
   /// In en, this message translates to:
-  /// **'Music Player'**
+  /// **'Noisegraph'**
   String get appName;
 
   /// No description provided for @navHome.
@@ -265,6 +265,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dark'**
   String get themeDark;
+
+  /// No description provided for @playerBackgroundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Player Background'**
+  String get playerBackgroundTitle;
+
+  /// No description provided for @playerBackgroundFluid.
+  ///
+  /// In en, this message translates to:
+  /// **'Fluid'**
+  String get playerBackgroundFluid;
+
+  /// No description provided for @playerBackgroundArtwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Artwork Blur'**
+  String get playerBackgroundArtwork;
 
   /// No description provided for @liquidGlass.
   ///
@@ -1577,7 +1595,7 @@ abstract class AppLocalizations {
   /// No description provided for @musicPlayerName.
   ///
   /// In en, this message translates to:
-  /// **'Music Player'**
+  /// **'Noisegraph'**
   String get musicPlayerName;
 
   /// No description provided for @appVersion.
@@ -1601,7 +1619,7 @@ abstract class AppLocalizations {
   /// No description provided for @appDescription.
   ///
   /// In en, this message translates to:
-  /// **'Offline music player based on Flutter with Native Media3 Dual Exoplayer + Single Exoplayer Audio system.'**
+  /// **'Offline music player based on Flutter with a Native Media3 audio system.'**
   String get appDescription;
 
   /// No description provided for @releaseNotes.

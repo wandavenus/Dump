@@ -28,6 +28,9 @@
   "themeLight": "Terang",
   "themeAutomatic": "Otomatis",
   "themeDark": "Gelap",
+  "playerBackgroundTitle": "Latar Pemutar Full",
+  "playerBackgroundFluid": "Warna Dinamis",
+  "playerBackgroundArtwork": "Blur Artwork",
   
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Efek blur transparan pada seluruh UI",

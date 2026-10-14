@@ -57,6 +57,53 @@ class _AppearanceSection extends StatelessWidget {
           ),
         ),
         const SettingsDivider(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.playerBackgroundTitle,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 10),
+              ValueListenableBuilder<PlayerBackgroundStyle>(
+                valueListenable: ThemeController.playerBackgroundStyle,
+                builder: (context, current, _) {
+                  return CupertinoSlidingSegmentedControl<
+                    PlayerBackgroundStyle
+                  >(
+                    groupValue: current,
+                    onValueChanged: (value) {
+                      if (value != null) {
+                        unawaited(
+                          ThemeController.setPlayerBackgroundStyle(value),
+                        );
+                      }
+                    },
+                    children: {
+                      PlayerBackgroundStyle.fluid: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          l.playerBackgroundFluid,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      PlayerBackgroundStyle.artworkBlur: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          l.playerBackgroundArtwork,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SettingsDivider(),
         ValueListenableBuilder<bool>(
           valueListenable: ThemeController.glassTheme,
           builder: (context, isGlass, _) => Column(

@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -10,7 +9,7 @@ class AppLocalizationsId extends AppLocalizations {
   AppLocalizationsId([String locale = 'id']) : super(locale);
 
   @override
-  String get appName => 'Music Player';
+  String get appName => 'Noisegraph';
 
   @override
   String get navHome => 'Beranda';
@@ -92,6 +91,15 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get themeDark => 'Gelap';
+
+  @override
+  String get playerBackgroundTitle => 'Latar Pemutar Full';
+
+  @override
+  String get playerBackgroundFluid => 'Warna Dinamis';
+
+  @override
+  String get playerBackgroundArtwork => 'Blur Artwork';
 
   @override
   String get liquidGlass => 'Liquid Glass';
@@ -799,7 +807,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get aboutTitle => 'Tentang App';
 
   @override
-  String get musicPlayerName => 'Music Player';
+  String get musicPlayerName => 'Noisegraph';
 
   @override
   String appVersion(String version) {

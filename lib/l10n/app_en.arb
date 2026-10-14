@@ -31,6 +31,9 @@
   "themeLight": "Light",
   "themeAutomatic": "Automatic",
   "themeDark": "Dark",
+  "playerBackgroundTitle": "Full Player Background",
+  "playerBackgroundFluid": "Fluid",
+  "playerBackgroundArtwork": "Artwork Blur",
   
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Transparent blur effect on the entire UI",

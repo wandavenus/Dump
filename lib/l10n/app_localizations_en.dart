@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -10,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'Music Player';
+  String get appName => 'Noisegraph';
 
   @override
   String get navHome => 'Home';
@@ -92,6 +91,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themeDark => 'Dark';
+
+  @override
+  String get playerBackgroundTitle => 'Full Player Background';
+
+  @override
+  String get playerBackgroundFluid => 'Fluid';
+
+  @override
+  String get playerBackgroundArtwork => 'Artwork Blur';
 
   @override
   String get liquidGlass => 'Liquid Glass';
@@ -798,7 +806,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutTitle => 'About App';
 
   @override
-  String get musicPlayerName => 'Music Player';
+  String get musicPlayerName => 'Noisegraph';
 
   @override
   String appVersion(String version) {

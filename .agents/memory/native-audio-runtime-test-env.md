@@ -24,3 +24,17 @@ With both in place, `dart pub get` and `dart test test/native_audio_runtime_test
 compile the native sources with gcc-as-clang and actually run the FFI test
 suite — this is the only way in this sandbox to get real compile+run
 verification for changes under `native_audio_runtime/src/*.c`.
+
+Flutter commands that resolve package assets (including `gen-l10n`, analyze,
+and web builds) can run the same native build hook. In the workspace Flutter
+environment, run `bash setup-flutter.sh` first, then put `/tmp` before the
+workspace Flutter `bin` directory in `PATH`; otherwise the SDK may lack its
+local release metadata or the hook may not find the `clang` shim.
+
+**Why:** Package hooks can execute during apparently non-native Flutter
+commands, and the imported workspace's archived SDK may need its Git release
+metadata initialized before Flutter tooling starts.
+
+**How to apply:** After setup, create `/tmp/clang` as a symlink to `gcc` and use
+`PATH="/tmp:/home/runner/workspace/flutter-ws/flutter/bin:$PATH"` for Flutter
+commands that trigger dependency resolution or native asset hooks.
