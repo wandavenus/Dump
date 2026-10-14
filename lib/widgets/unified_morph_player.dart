@@ -766,31 +766,16 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     .clamp(0.0, 1.0)
                                     .toDouble()
                               : 0.0;
-                          final artworkImage = SongArtwork(
+                          final artworkWithFade = SongArtwork(
                             songId: song.id,
                             size: artSize,
                             borderRadius: BorderRadius.zero,
-                            // Hairline already drawn on the outer Container above.
+                            // The artwork itself fades into the blurred background.
                             showBorder: false,
+                            bottomFadeStrength: isArtworkBlurStyle
+                                ? artworkFadeStrength
+                                : 0.0,
                           );
-                          final artworkWithFade =
-                              isArtworkBlurStyle && artworkFadeStrength > 0.001
-                              ? ShaderMask(
-                                  blendMode: BlendMode.dstIn,
-                                  shaderCallback: (bounds) =>
-                                      const LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.white,
-                                          Colors.white,
-                                          Colors.transparent,
-                                        ],
-                                        stops: [0.0, 0.78, 1.0],
-                                      ).createShader(bounds),
-                                  child: artworkImage,
-                                )
-                              : artworkImage;
 
                           return Positioned(
                             left: finalLeft,
