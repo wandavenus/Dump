@@ -505,7 +505,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final portraitCoverSize = isArtworkBlurStyle
         ? preferredCoverSize.clamp(220.0, artworkBlurMaxSize).toDouble()
         : preferredCoverSize;
-    final largeCoverSize = wideColumns?.artwork.width ?? portraitCoverSize;
+    // Artwork-blur mode intentionally overscales the square cover by 30%.
+    // Horizontal overflow is allowed; the cover stays centered on the screen.
+    final largeCoverSize = wideColumns?.artwork.width ??
+        (isArtworkBlurStyle ? portraitCoverSize * 1.3 : portraitCoverSize);
     final artFullLeft =
         wideColumns?.artwork.left ?? (screenW - largeCoverSize) / 2;
 
@@ -516,8 +519,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final shFull = screenH - topInset - bottomCtrlH;
     final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
+    // Keep the enlarged artwork below the status-bar safe area.
+    // Its sides may bleed past the display edges, but its top may not cross
+    // into the status bar region.
     final artFullTop = wideColumns?.artwork.top ??
-        (isArtworkBlurStyle ? 0.0 : topInset + coverTopLocal);
+        (isArtworkBlurStyle ? safeTop : topInset + coverTopLocal);
 
     // Quadratic Bézier arc: artwork swings right then curves up to final pos.
     // Control point pulled right of artFullLeft so the path bulges rightward
