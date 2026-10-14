@@ -777,37 +777,17 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               isArtworkBlurStyle && artworkFadeStrength > 0.001
                               ? ShaderMask(
                                   blendMode: BlendMode.dstIn,
-                                  shaderCallback: (bounds) => LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.white,
-                                      Colors.white,
-                                      Colors.white.withValues(
-                                        alpha: 1.0 -
-                                            artworkFadeStrength * 0.08,
-                                      ),
-                                      Colors.white.withValues(
-                                        alpha: 1.0 -
-                                            artworkFadeStrength * 0.28,
-                                      ),
-                                      Colors.white.withValues(
-                                        alpha: 1.0 -
-                                            artworkFadeStrength * 0.65,
-                                      ),
-                                      Colors.white.withValues(
-                                        alpha: 1.0 - artworkFadeStrength,
-                                      ),
-                                    ],
-                                    stops: const [
-                                      0.0,
-                                      0.77,
-                                      0.82,
-                                      0.90,
-                                      0.96,
-                                      1.0,
-                                    ],
-                                  ).createShader(bounds),
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.white,
+                                          Colors.white,
+                                          Colors.transparent,
+                                        ],
+                                        stops: [0.0, 0.78, 1.0],
+                                      ).createShader(bounds),
                                   child: artworkImage,
                                 )
                               : artworkImage;
