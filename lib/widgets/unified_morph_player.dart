@@ -777,9 +777,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     end: Alignment.bottomCenter,
                                     colors: [
                                       Colors.white,
-                                      Colors.white.withValues(
-                                        alpha: 1.0 - artworkFadeStrength,
-                                      ),
+                                      Colors.white,
                                       Colors.white.withValues(
                                         alpha: 1.0 - artworkFadeStrength,
                                       ),
