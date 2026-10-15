@@ -769,8 +769,14 @@ class AudioService {
     required List<int> orderedIds,
   }) async {
     if (_playlist.length < 2) return;
-    final currentIndex = _playlist.indexWhere((song) => song.id == currentId);
-    if (currentIndex < 0 || currentIndex >= _playlist.length - 1) return;
+    final state = playbackState.value;
+    final currentIndex = state.currentIndex;
+    if (state.currentSong?.id != currentId ||
+        currentIndex < 0 ||
+        currentIndex >= _playlist.length - 1 ||
+        _playlist[currentIndex].id != currentId) {
+      throw StateError('Active track changed before AutoMix queue reorder');
+    }
     final tail = _playlist.skip(currentIndex + 1).toList(growable: false);
     final tailIds = tail.map((song) => song.id).toList(growable: false);
     if (orderedIds.length != tailIds.length ||
