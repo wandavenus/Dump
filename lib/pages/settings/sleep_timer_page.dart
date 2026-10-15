@@ -150,4 +150,5 @@ class _SleepTimerSheetBody extends StatelessWidget {
         const _PresetList(dismissOnSelect: true),
       ],
     );
-  }}
+  }
+}
