@@ -205,20 +205,22 @@ class AutomixService {
         for (final index in plannedIndices) allFeatures[index],
       ];
 
-      // Mutate only the queue tail. The active player/timeline is not replaced.
-      for (var target = 0; target < planned.length; target++) {
-        final currentQueue = AudioService.currentPlaylist;
-        final absoluteTarget = currentIndex + 1 + target;
-        if (absoluteTarget >= currentQueue.length) break;
-        final wantedId = planned[target].id;
-        final oldIndex = currentQueue.indexWhere(
-          (song) => song.id == wantedId,
-          currentIndex + 1 + target,
-        );
-        if (oldIndex >= 0 && oldIndex != absoluteTarget) {
-          await AudioService.reorderQueueAwaited(oldIndex, absoluteTarget);
-        }
+      // Reorder only upcoming items in one native transaction. Verify the
+      // active song is still the same before mutating so a concurrent skip or
+      // queue replacement cannot apply a stale plan to the wrong tail.
+      final latestState = AudioService.playbackState.value;
+      if (latestState.currentSong?.id != currentSong.id ||
+          latestState.currentIndex != currentIndex ||
+          latestState.currentPlaylist.length != queue.length) {
+        LogService.verbose('Automix', 'queue changed during planning; dropping stale plan');
+        _lastAutoQueueIdentity = null;
+        return;
       }
+      final orderedTailIds = planned.map((song) => song.id).toList(growable: false);
+      await AudioService.reorderUpcomingByIds(
+        currentId: currentSong.id,
+        orderedIds: orderedTailIds,
+      );
 
       if (automixEnabled.value) {
         final bpm = _usableBpm(currentFeatures);
