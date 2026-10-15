@@ -97,7 +97,9 @@ class AutomixService {
   }
 
   static void _onPlaybackStateForAutoMix() {
-    if (_autoMixCheckRunning || _autoMixPreparing) return;
+    if (_autoMixCheckRunning || _autoMixPreparing) {
+      return;
+    }
     _autoMixCheckRunning = true;
     unawaited(_checkPlaybackStateForAutoMix());
   }
