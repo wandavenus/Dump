@@ -65,7 +65,7 @@ const List<int> automixCamelotMinorNum = [
 /// Exposed so tests can cross-check the native extractor's mapping against
 /// this Dart mirror (the Kotlin side encodes the identical table).
 (int number, bool minor)? automixKeyToCamelot(int tonicPc, bool isMinor) {
-  final pc = tonicPc % 12;
+  final pc = ((tonicPc % 12) + 12) % 12;
   return isMinor ? (automixCamelotMinorNum[pc], true) : (automixCamelotMajorNum[pc], false);
 }
 
@@ -82,6 +82,17 @@ const List<double> automixKsMinorProfile = [
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
 double automixClamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+
+/// Moves an uncertain feature cost toward its neutral fallback instead of
+/// treating a low-confidence estimate as ground truth.
+double automixConfidenceBlend(
+  double measuredCost,
+  double confidence, {
+  required double neutralCost,
+}) {
+  final c = automixClamp01(confidence);
+  return neutralCost + (measuredCost - neutralCost) * c;
+}
 
 // ── Camelot cost ─────────────────────────────────────────────────────────────
 
@@ -117,8 +128,8 @@ double automixCamelotCost(int? numA, bool? minorA, int? numB, bool? minorB) {
 /// Tempo distance between two tracks across half/double-time interpretations,
 /// 0..1 (0 = beat-perfect, 1 = fully mismatched).
 ///
-/// Distance is measured in octaves (|log2 ratio|) and folded through the
-/// alternate tempo so a 120→60 BPM pair scores the same as 120→120.
+/// Distance is the relative ratio error against the slower tempo, folded
+/// through half/double-time variants so 120→60 scores like 120→120.
 double automixTempoCost(
   double? bpmA,
   double? altA,
@@ -141,7 +152,9 @@ double automixTempoCost(
   for (final x in tempoA) {
     for (final y in tempoB) {
       if (x <= 0 || y <= 0) continue;
-      final d = (math.log(x / y) / math.ln2).abs();
+      final slower = math.min(x, y);
+      final faster = math.max(x, y);
+      final d = faster / slower - 1.0;
       if (d < best) best = d;
     }
   }
@@ -151,8 +164,8 @@ double automixTempoCost(
     final t = (best / toleranceFrac).clamp(0.0, 1.0);
     return t * t * 0.5; // quadratic ramp inside tolerance
   }
-  // Beyond tolerance: ramp from 0.5 to a full 1.0 by the time the ratio
-  // distance reaches tolerance + 25 %.
+  // Beyond tolerance: ramp from 0.5 to a full 1.0 by the time the
+  // slower-relative tempo mismatch reaches tolerance + 25 percentage points.
   final over = (best - toleranceFrac) / 0.25;
   return (0.5 + over * 0.5).clamp(0.0, 1.0);
 }
@@ -263,19 +276,33 @@ double _transitionCost({
   required AutomixSettings settings,
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
-  final tempo = automixTempoCost(
+  final measuredTempo = automixTempoCost(
     a.bpm, a.alternateBpm, b.bpm, b.alternateBpm, tolerance,
   );
+  final tempoConfidence = automixClamp01(
+    (a.bpmConfidence + b.bpmConfidence) / 2,
+  );
+  final tempo = automixConfidenceBlend(
+    measuredTempo,
+    tempoConfidence,
+    neutralCost: 0.35,
+  );
 
-  var key = automixCamelotCost(
+  final measuredKey = automixCamelotCost(
     a.camelotNumber, a.camelotMinor, b.camelotNumber, b.camelotMinor,
   );
-  if (settings.harmonicFilter && key >= 0.6) {
-    key = (key * 1.5).clamp(0.0, 1.0);
-  }
-  // Uncertain key matches move the sub-cost halfway back to neutral.
   final kConf = automixClamp01((a.keyConfidence + b.keyConfidence) / 2);
-  key = key * (0.55 + 0.45 * kConf);
+  var key = automixConfidenceBlend(
+    measuredKey,
+    kConf,
+    neutralCost: 0.5,
+  );
+  // Harmonic filter means a confidently incompatible key is strongly
+  // discouraged. If detection is uncertain, confidence blending above keeps
+  // it near neutral rather than rejecting a potentially compatible track.
+  if (settings.harmonicFilter && kConf >= 0.55 && measuredKey >= 0.6) {
+    key = math.max(key, 0.9);
+  }
 
   // Energy: blend continuity with the arc target; the "energy" profile adds
   // an explicit wrong-direction penalty so the arc keeps flowing forward.
@@ -317,9 +344,16 @@ class AutomixEngine {
   /// score of the immediate pick (0..1).
   static const double _lookaheadGamma = 0.35;
 
-  /// How many tempo-sorted neighbor slots to explore on each side of the
-  /// current track before falling back to a global scan.
+  /// Local raw-tempo neighborhood size. Equivalent tempo anchors add a second
+  /// bounded candidate set, including for half/double-time matches.
   static const int _window = 12;
+
+  /// Also inspect nearby slots for the half/double-time interpretations of a
+  /// track's BPM. This catches compatible tempos outside its raw-BPM cluster
+  /// without turning large-library sequencing into an O(n²) global scan.
+  static const int _tempoAnchorWindow = 4;
+  static const double _minTempoBpm = 60.0;
+  static const double _maxTempoBpm = 200.0;
 
   /// Number of best candidates that get a full one-step lookahead re-score.
   static const int _lookaheadTopK = 3;
@@ -388,6 +422,7 @@ class AutomixEngine {
         energies: energies,
         settings: settings,
         totalSteps: n,
+        medianBpm: medianBpm,
         withLookahead: withLookahead,
       );
       // Defensive: _pickNext always returns an unplayed index, but a bug must
@@ -450,55 +485,36 @@ class AutomixEngine {
     required List<double> energies,
     required AutomixSettings settings,
     required int totalSteps,
+    required double medianBpm,
     required bool withLookahead,
   }) {
-    final n = tracks.length;
     final nTotal = tracks.length;
 
-    // Score the neighborhood window around the current track's tempo slot.
-    final slot = slotOf[current];
+    // Score the raw-BPM neighborhood plus nearby positions around equivalent
+    // half/double-time tempos. A Set avoids rescoring tracks that appear in
+    // more than one tempo neighborhood.
+    final candidates = _candidatePool(
+      current: current,
+      played: played,
+      slotOf: slotOf,
+      slotOrder: slotOrder,
+      tracks: tracks,
+      medianBpm: medianBpm,
+    );
     final scored = <(int, double)>[];
-    for (int reach = 1; reach <= _window; reach++) {
-      final up = slot + reach;
-      if (up >= 0 && up < n) {
-        final cand = slotOrder[up];
-        if (!played[cand]) {
-          scored.add(
-            (
-              cand,
-              _transitionCost(
-                a: tracks[current],
-                b: tracks[cand],
-                eA: energies[current],
-                eB: energies[cand],
-                stepIndex: stepIndex,
-                totalSteps: totalSteps,
-                settings: settings,
-              ),
-            ),
-          );
-        }
-      }
-      final down = slot - reach;
-      if (down >= 0 && down < n) {
-        final cand = slotOrder[down];
-        if (!played[cand]) {
-          scored.add(
-            (
-              cand,
-              _transitionCost(
-                a: tracks[current],
-                b: tracks[cand],
-                eA: energies[current],
-                eB: energies[cand],
-                stepIndex: stepIndex,
-                totalSteps: totalSteps,
-                settings: settings,
-              ),
-            ),
-          );
-        }
-      }
+    for (final cand in candidates) {
+      scored.add((
+        cand,
+        _transitionCost(
+          a: tracks[current],
+          b: tracks[cand],
+          eA: energies[current],
+          eB: energies[cand],
+          stepIndex: stepIndex,
+          totalSteps: totalSteps,
+          settings: settings,
+        ),
+      ));
     }
 
     if (scored.isEmpty) {
@@ -544,25 +560,28 @@ class AutomixEngine {
     for (int k = 0; k < limit; k++) {
       final (cand, base) = scored[k];
       var score = base;
-      final candSlot = slotOf[cand];
       var minNext = double.infinity;
-      for (int reach = 1; reach <= 3; reach++) {
-        for (final off in [reach, -reach]) {
-          final s = candSlot + off;
-          if (s < 0 || s >= nTotal) continue;
-          final cand2 = slotOrder[s];
-          if (played[cand2] || cand2 == current) continue;
-          final c = _transitionCost(
-            a: tracks[cand],
-            b: tracks[cand2],
-            eA: energies[cand],
-            eB: energies[cand2],
-            stepIndex: stepIndex + 1,
-            totalSteps: totalSteps,
-            settings: settings,
-          );
-          if (c < minNext) minNext = c;
-        }
+      final nextCandidates = _candidatePool(
+        current: cand,
+        played: played,
+        slotOf: slotOf,
+        slotOrder: slotOrder,
+        tracks: tracks,
+        medianBpm: medianBpm,
+        excludeIndex: cand,
+      );
+      for (final cand2 in nextCandidates) {
+        if (played[cand2] || cand2 == current) continue;
+        final c = _transitionCost(
+          a: tracks[cand],
+          b: tracks[cand2],
+          eA: energies[cand],
+          eB: energies[cand2],
+          stepIndex: stepIndex + 1,
+          totalSteps: totalSteps,
+          settings: settings,
+        );
+        if (c < minNext) minNext = c;
       }
       if (minNext.isFinite) score += _lookaheadGamma * minNext;
       if (score < bestScore) {
@@ -571,6 +590,87 @@ class AutomixEngine {
       }
     }
     return best;
+  }
+
+  /// Bounded candidate set from local BPM order and half/double-time anchors.
+  /// Unknown-BPM tracks remain discoverable through the ordinary slot window.
+  static List<int> _candidatePool({
+    required int current,
+    required List<bool> played,
+    required List<int> slotOf,
+    required List<int> slotOrder,
+    required List<AutomixTrackFeatures> tracks,
+    required double medianBpm,
+    int? excludeIndex,
+  }) {
+    final n = tracks.length;
+    final found = <int>{};
+    void addSlot(int slot) {
+      if (slot < 0 || slot >= n) return;
+      final candidate = slotOrder[slot];
+      if (!played[candidate] && candidate != excludeIndex) {
+        found.add(candidate);
+      }
+    }
+
+    final slot = slotOf[current];
+    for (int reach = 1; reach <= _window; reach++) {
+      addSlot(slot + reach);
+      addSlot(slot - reach);
+    }
+
+    final track = tracks[current];
+    final bpm = track.bpm;
+    if (bpm != null && bpm > 0) {
+      final anchors = <double>{bpm, bpm / 2.0, bpm * 2.0};
+      final alternate = track.alternateBpm;
+      if (alternate != null && alternate > 0) {
+        anchors.add(alternate);
+        anchors.add(alternate / 2.0);
+        anchors.add(alternate * 2.0);
+      }
+      for (final target in anchors) {
+        if (!target.isFinite ||
+            target < _minTempoBpm ||
+            target > _maxTempoBpm) {
+          continue;
+        }
+        final insertion = _lowerBoundTempo(
+          target,
+          slotOrder,
+          tracks,
+          medianBpm,
+        );
+        for (int reach = 0; reach <= _tempoAnchorWindow; reach++) {
+          addSlot(insertion + reach);
+          addSlot(insertion - 1 - reach);
+        }
+      }
+    }
+
+    final result = found.toList();
+    result.sort((a, b) => tracks[a].songId.compareTo(tracks[b].songId));
+    return result;
+  }
+
+  static int _lowerBoundTempo(
+    double target,
+    List<int> slotOrder,
+    List<AutomixTrackFeatures> tracks,
+    double medianBpm,
+  ) {
+    var low = 0;
+    var high = slotOrder.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      final bpm = tracks[slotOrder[mid]].bpm ?? medianBpm;
+      if (bpm < target) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    return low.clamp(0, slotOrder.length - 1).toInt();
   }
 
   /// Sum of all transition costs across a plan.

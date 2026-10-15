@@ -1617,6 +1617,9 @@ class MainActivity : FlutterActivity() {
         metadataExecutor.shutdownNow()
         replayGainWriteExecutor.shutdownNow()
         replayGainScanExecutor.shutdownNow()
+        // Stop queued/running DSP jobs with the Activity lifecycle so an
+        // analysis cannot outlive its MethodChannel/result owner.
+        automixScanExecutor.shutdownNow()
         super.onDestroy()
     }
 }

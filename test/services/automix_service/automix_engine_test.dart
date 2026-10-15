@@ -32,6 +32,31 @@ AutomixTrackFeatures _f(
 }
 
 void main() {
+  group('automixConfidenceBlend', () {
+    test('moves unreliable estimates toward a neutral cost', () {
+      expect(
+        automixConfidenceBlend(0.0, 0.0, neutralCost: 0.35),
+        0.35,
+      );
+      expect(
+        automixConfidenceBlend(1.0, 0.0, neutralCost: 0.35),
+        0.35,
+      );
+      expect(
+        automixConfidenceBlend(0.0, 1.0, neutralCost: 0.35),
+        0.0,
+      );
+      expect(
+        automixConfidenceBlend(0.0, 0.5, neutralCost: 0.35),
+        closeTo(0.175, 1e-12),
+      );
+      expect(
+        automixConfidenceBlend(0.0, 0.0, neutralCost: 0.5),
+        0.5,
+      );
+    });
+  });
+
   group('automixCamelotCost', () {
     test('same key is free, relative pair cheap, unknown neutral', () {
       expect(automixCamelotCost(8, true, 8, true), 0.0); // 8A → 8A
@@ -79,14 +104,20 @@ void main() {
       expect(automixTempoCost(86, 172, 90, null, tol), lessThan(1.0));
     });
 
-    test('within tolerance ramps quadratically, beyond saturates', () {
+    test('percentage tolerance uses slower tempo as denominator', () {
       final near = automixTempoCost(120, null, 123, null, tol);
-      final edge = automixTempoCost(120, null, 126, null, tol);
+      final fivePercent = automixTempoCost(120, null, 126, null, tol);
+      final sixPercent = automixTempoCost(120, null, 127.2, null, tol);
+      final reverse = automixTempoCost(127.2, null, 120, null, tol);
       final way = automixTempoCost(120, null, 170, null, tol);
-      expect(near, inInclusiveRange(0, edge));
-      // 126/120 is just past ±6% → ramp picks up right at 0.5.
-      expect(edge, inInclusiveRange(0.5, 0.55));
-      expect(near, lessThan(edge));
+
+      expect(near, inInclusiveRange(0, fivePercent));
+      // 126 BPM is +5% relative to 120 BPM, so it remains inside 6%.
+      expect(fivePercent, inInclusiveRange(0, 0.5));
+      // 127.2 BPM is exactly +6%; either direction reaches the ramp boundary.
+      expect(sixPercent, closeTo(0.5, 0.01));
+      expect(reverse, closeTo(sixPercent, 1e-9));
+      expect(near, lessThan(fivePercent));
       expect(way, 1.0);
     });
 
@@ -102,6 +133,8 @@ void main() {
       expect(automixKeyToCamelot(9, true), (8, true)); // A minor = 8A
       expect(automixKeyToCamelot(1, false), (3, false)); // Db major = 3B
       expect(automixKeyToCamelot(4, false), (12, false)); // E major = 12B
+      expect(automixKeyToCamelot(-12, false), (8, false));
+      expect(automixKeyToCamelot(-3, false), automixKeyToCamelot(9, false));
     });
 
     test('relative pairs share the number', () {
@@ -227,6 +260,46 @@ void main() {
         startIndex: 0,
       );
       expect(plan.order[1], 1); // compatible neighbor first
+    });
+
+    test('finds a half-time match outside the local raw-BPM window', () {
+      // Raw-BPM order places 60 BPM more than 12 slots from 120 BPM. The
+      // half/double-time candidate pool should still discover it immediately.
+      final tracks = <AutomixTrackFeatures>[
+        _f(
+          1,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          bpmConf: 0.99,
+          keyConf: 0.99,
+        ),
+        for (var i = 0; i < 30; i++)
+          _f(
+            i + 2,
+            bpm: 90 + i.toDouble(),
+            camelot: 1,
+            minor: false,
+            bpmConf: 0.99,
+            keyConf: 0.99,
+          ),
+        _f(
+          1000,
+          bpm: 60,
+          camelot: 8,
+          minor: true,
+          bpmConf: 0.99,
+          keyConf: 0.99,
+        ),
+      ];
+      final plan = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: const AutomixSettings(profile: AutomixProfile.dj),
+        startIndex: 0,
+      );
+
+      expect(plan.order.first, 0);
+      expect(tracks[plan.order[1]].songId, 1000);
     });
 
     test('artist variety spreads same-artist tracks when possible', () {
