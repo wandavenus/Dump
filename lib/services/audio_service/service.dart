@@ -752,6 +752,27 @@ class AudioService {
     );
   }
 
+  /// Move a queue item to its final index and await native confirmation.
+  /// AutoMix uses this to prepare upcoming tracks without restarting playback.
+  static Future<void> reorderQueueAwaited(int oldIndex, int targetIndex) async {
+    if (_playlist.length < 2 || oldIndex == targetIndex) return;
+    if (oldIndex < 0 || oldIndex >= _playlist.length) return;
+    if (targetIndex < 0 || targetIndex >= _playlist.length) return;
+    final mutable = List<LocalSong>.from(_playlist);
+    final item = mutable.removeAt(oldIndex);
+    mutable.insert(targetIndex, item);
+    await PlaybackManager.reorderQueue(oldIndex, targetIndex);
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+    _currentIndex = _playlist.indexWhere(
+      (song) => song.id == playbackState.value.currentSong?.id,
+    );
+    if (_currentIndex < 0) _currentIndex = playbackState.value.currentIndex;
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: _playlist,
+      currentIndex: _currentIndex,
+    ));
+  }
+
   /// Reorder the queue. Follows Flutter's ReorderableListView convention:
   /// [newIndex] is the insert point BEFORE the list is modified.
   static void reorderQueue(int oldIndex, int newIndex) {
