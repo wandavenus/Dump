@@ -19,7 +19,6 @@ import '../../services/sleep_timer_service.dart';
 // F6 fix: the standalone full-page variant (page.dart/body.dart) was dead
 // code — only the bottom sheet is wired to the player 3-dot menu — so its
 // parts were removed.
-part 'sleep_timer_page/active_card.dart';
 part 'sleep_timer_page/presets.dart';
 
 /// Shows the sleep timer picker as a bottom sheet.

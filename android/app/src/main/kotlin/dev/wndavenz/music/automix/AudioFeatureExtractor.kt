@@ -1,6 +1,5 @@
 package dev.wndavenz.music.automix
 
-import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.max
@@ -16,8 +15,8 @@ import kotlin.math.sqrt
  *  - Half-wave-rectified spectral-flux onset envelope → autocorrelation +
  *    comb-filter tempo candidate search (60..200 BPM, soft 80–160 genre prior,
  *    half/double-time folding via the reported alternate tempo)
- *  - Chroma accumulation (pitch-class binning of FFT bins with harmonic
- *    decay weighting) → Krumhansl–Schmuckler major/minor profile correlation
+ *  - Chroma accumulation (fractional pitch-class interpolation) →
+ *    Krumhansl–Schmuckler major/minor profile correlation
  *    over all 24 keys → tonic + mode + confidence (runner-up margin)
  *  - Energy raw stats: frame RMS dBFS median, spectral centroid median,
  *    onset density (peaks/second)
@@ -33,6 +32,35 @@ object AudioFeatureExtractor {
 
     private const val FFT_SIZE = 2048
     private const val HOP = 512
+
+    private data class TwiddleTable(
+        val real: FloatArray,
+        val imaginary: FloatArray,
+    )
+
+    // FFT_SIZE is fixed for every analysis frame. Cache stage twiddles once
+    // per process instead of recomputing trig functions and allocating arrays
+    // for every frame of every song.
+    private val TWIDDLE_TABLES: Map<Int, TwiddleTable> = buildTwiddleTables()
+
+    private fun buildTwiddleTables(): Map<Int, TwiddleTable> {
+        val tables = HashMap<Int, TwiddleTable>()
+        var len = 2
+        while (len <= FFT_SIZE) {
+            val half = len / 2
+            val step = 2.0 * Math.PI / len
+            val real = FloatArray(half)
+            val imaginary = FloatArray(half)
+            for (k in 0 until half) {
+                val angle = step * k
+                real[k] = kotlin.math.cos(angle).toFloat()
+                imaginary[k] = (-kotlin.math.sin(angle)).toFloat()
+            }
+            tables[len] = TwiddleTable(real, imaginary)
+            len = len shl 1
+        }
+        return tables
+    }
 
     /// Tempo search range (BPM).
     private const val BPM_MIN = 60.0
@@ -116,17 +144,18 @@ object AudioFeatureExtractor {
 
         for (f in 0 until frameCount) {
             val offset = f * HOP
+            var frameSumSq = 0.0
             for (i in 0 until FFT_SIZE) {
-                re[i] = work[offset + i] * window[i]
+                val sample = work[offset + i]
+                re[i] = sample * window[i]
                 im[i] = 0f
+                frameSumSq += sample.toDouble() * sample.toDouble()
             }
             fftRadix2(re, im)
 
             var flux = 0f
-            var sum = 0f
-            var sumSq = 0f
-            var wSum = 0f
-            var fSum = 0f
+            var wSum = 0.0
+            var fSum = 0.0
             for (k in 0 until bins) {
                 val m = sqrt(re[k] * re[k] + im[k] * im[k])
                 mag[k] = m
@@ -135,18 +164,20 @@ object AudioFeatureExtractor {
                 if (diff > 0f) flux += diff
                 prevMag[k] = logM
 
-                sum += m
-                sumSq += m * m
                 val freq = k * workingRate.toDouble() / FFT_SIZE
                 if (freq in CHROMA_MIN_FREQ..CHROMA_MAX_FREQ) {
-                    wSum += m
-                    fSum += m * freq.toDouble()
+                    wSum += m.toDouble()
+                    fSum += m.toDouble() * freq
                 }
             }
             odf[f] = flux
-            val rms = sqrt(sumSq / bins)
-            if (rms > 1e-6f) rmsList.add(20f * ln(rms) / LN10) // dBFS-ish
-            if (wSum > 1e-9f) centroidList.add((fSum / wSum).toFloat())
+            // RMS is computed from the original PCM frame, not the unnormalised
+            // FFT magnitudes, so the result is genuine dBFS and sample-rate agnostic.
+            val rms = sqrt(frameSumSq / FFT_SIZE)
+            if (rms > 1e-6) {
+                rmsList.add((20.0 * ln(rms) / LN10.toDouble()).toFloat())
+            }
+            if (wSum > 1e-9) centroidList.add((fSum / wSum).toFloat())
 
             accumulateChroma(chroma, mag, workingRate)
         }
@@ -215,18 +246,34 @@ object AudioFeatureExtractor {
             }
             j += m
         }
-        // Butterflies.
+        // Calculate each stage's twiddles once, then reuse them for every group.
         var len = 2
         while (len <= n) {
             val half = len / 2
-            val step = 2.0 * Math.PI / len
+            val cached = TWIDDLE_TABLES[len]
+            val twiddleRe: FloatArray
+            val twiddleIm: FloatArray
+            if (cached != null) {
+                twiddleRe = cached.real
+                twiddleIm = cached.imaginary
+            } else {
+                // Keep the helper generic for transforms larger than the
+                // analysis FFT while the production 2048-point path is cached.
+                val step = 2.0 * Math.PI / len
+                twiddleRe = FloatArray(half)
+                twiddleIm = FloatArray(half)
+                for (k in 0 until half) {
+                    val angle = step * k
+                    twiddleRe[k] = kotlin.math.cos(angle).toFloat()
+                    twiddleIm[k] = (-kotlin.math.sin(angle)).toFloat()
+                }
+            }
             var base = 0
             while (base < n) {
                 var k = 0
                 while (k < half) {
-                    val ang = step * k
-                    val wr = kotlin.math.cos(ang)
-                    val wi = -kotlin.math.sin(ang)
+                    val wr = twiddleRe[k]
+                    val wi = twiddleIm[k]
                     val a = base + k
                     val b = a + half
                     val xr = re[b] * wr - im[b] * wi
@@ -258,9 +305,9 @@ object AudioFeatureExtractor {
     }
 
     /**
-     * Chroma accumulation: pitch-class binning with a gentle harmonic-aware
-     * weighting (neighboring bins near semitone centers count, plus one
-     * octave hop at reduced weight, like sparse HPCP implementations).
+     * Chroma accumulation by fractional pitch-class interpolation. FFT bins
+     * between semitone centers contribute proportionally to both neighbors;
+     * octave harmonics naturally map back to the same pitch class.
      */
     private fun accumulateChroma(chroma: FloatArray, mag: FloatArray, sampleRate: Int) {
         val bins = mag.size
@@ -270,14 +317,13 @@ object AudioFeatureExtractor {
             val magnitude = mag[k]
             if (magnitude < 1e-6f) continue
             val pitch = 12.0 * log2(freq / 440.0) + 69.0 // MIDI-ish
-            val pc = ((pitch % 12.0) + 12.0).toInt() % 12
-            val frac = pitch - kotlin.math.floor(pitch)
-            // Distance from the exact semitone center (0.0..0.5), tapered.
-            val proximity = 1.0 - min(0.5, abs(frac - 0.5)) * 1.6
-            val w = magnitude.toDouble() * max(0.15, proximity)
-            chroma[pc] += w.toFloat()
-            // Contribution of the first harmonic (octave above) at 0.5 weight.
-            chroma[(pc + 10) % 12] += (w * 0.5).toFloat()
+            val lowerSemitone = kotlin.math.floor(pitch).toInt()
+            val pc = ((lowerSemitone % 12) + 12) % 12
+            val frac = (pitch - lowerSemitone).coerceIn(0.0, 1.0)
+            // Interpolate toward the next pitch class. An octave harmonic maps
+            // to the same class, never to an unrelated +10-semitone class.
+            chroma[pc] += (magnitude.toDouble() * (1.0 - frac)).toFloat()
+            chroma[(pc + 1) % 12] += (magnitude.toDouble() * frac).toFloat()
         }
     }
 
@@ -293,8 +339,9 @@ object AudioFeatureExtractor {
      */
     fun estimateTempo(odf: FloatArray, workingRate: Int): Tempo? {
         val n = odf.size
-        if (n < workingRate) return null // less than ~1 s of envelope
+        if (workingRate <= 0) return null
         val fps = workingRate.toDouble() / HOP
+        if (n < fps.roundToInt()) return null // fewer than ~1 s of onset frames
 
         // Mean-removal (tightens the autocorrelation peak).
         var mean = 0f
@@ -399,7 +446,9 @@ object AudioFeatureExtractor {
             val profile = if (mode == 0) KS_MAJOR else KS_MINOR
             for (shift in 0 until 12) {
                 val rotated = DoubleArray(12)
-                for (i in 0 until 12) rotated[i] = profile[(i + shift) % 12]
+                // Candidate tonic [shift] must align its profile's tonic bin
+                // (index 0) with chroma pitch class [shift].
+                for (i in 0 until 12) rotated[i] = profile[(i - shift + 12) % 12]
                 val r = pearson(c, rotated)
                 if (r > bestCorr) {
                     secondCorr = bestCorr

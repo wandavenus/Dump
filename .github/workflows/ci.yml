@@ -1,0 +1,54 @@
+name: CI checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Flutter + Android tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart / Flutter
+        run: flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos
+
+      - name: Run Flutter tests
+        run: flutter test --no-pub
+
+      - name: Run Android unit tests (Kotlin DSP)
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew :app:testDebugUnitTest --no-daemon

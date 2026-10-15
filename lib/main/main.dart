@@ -119,6 +119,10 @@ Future<void> main() async {
       await PlaybackManager.initialize();
       await DeviceDsp.initialize();
       await AudioEffectsService.init();
+      // Recover a persisted AutoMix crossfade override before playback starts.
+      // AutoMix's active flag is process-local, so it cannot restore itself
+      // after an OS kill unless startup loads its saved settings.
+      await AutomixService.loadSettings();
       LyricsService.init();
       await MediaCapabilitiesService.initialize();
       AudioService.initialize();
