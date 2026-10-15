@@ -308,6 +308,16 @@ class Media3PlaybackBridge {
     {'oldIndex': oldIndex, 'newIndex': newIndex},
   );
 
+  /// Reorders the upcoming queue in one native operation, keeping the active
+  /// song pinned and refreshing the standby preload only once.
+  static Future<void> reorderUpcomingByIds({
+    required int currentId,
+    required List<int> orderedIds,
+  }) => _invoke<void>('reorderUpcomingByIds', {
+    'currentId': currentId,
+    'orderedIds': orderedIds,
+  });
+
   // ── Playback parameters ────────────────────────────────────────────────────
 
   static Future<void> setSpeed(double speed) =>
