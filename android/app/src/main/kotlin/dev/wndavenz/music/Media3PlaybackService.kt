@@ -988,7 +988,54 @@ class Media3PlaybackService : MediaSessionService() {
      * Android's 5-second foreground-service deadline, then reads metadata on a
      * background thread and triggers playback on the main thread.
      */
-        private fun handlePlayUri(uriStr: String) {
+        private fun applyAutomixTransition(
+        enabled: Boolean,
+        targets: List<Map<String, Any?>>,
+    ) {
+        automixTransitionEnabled = enabled
+        automixTempoMultiplierBySongId.clear()
+        automixBpmBySongId.clear()
+        automixBeatOffsetMsBySongId.clear()
+
+        if (enabled) {
+            for (target in targets) {
+                val id = (target["id"] as? Number)?.toInt() ?: continue
+                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
+                if (id <= 0) continue
+                automixTempoMultiplierBySongId[id] =
+                    if (multiplier.isFinite()) multiplier.coerceIn(0.92f, 1.08f) else 1f
+                (target["bpm"] as? Number)?.toFloat()
+                    ?.takeIf { it.isFinite() && it in 50f..220f }
+                    ?.let { automixBpmBySongId[id] = it }
+                (target["beatOffsetMs"] as? Number)?.toLong()
+                    ?.takeIf { it >= 0L }
+                    ?.let { automixBeatOffsetMsBySongId[id] = it }
+            }
+        }
+
+        val active = activePlayer
+        val activeSlot = if (active === primaryPlayer) 0 else 1
+        val activeId = active?.currentMediaItem?.mediaId?.toIntOrNull()
+        stretchManager.setAutoMixTempoMultiplier(
+            activeSlot,
+            activeId?.let { automixTempoMultiplierBySongId[it] } ?: 1f,
+        )
+        if (!enabled) {
+            stretchManager.setAutoMixTempoMultiplier(0, 1f)
+            stretchManager.setAutoMixTempoMultiplier(1, 1f)
+        }
+        automixToneManager.reset()
+        NativeLogger.emit(
+            if (enabled) "info" else "info",
+            "Automix",
+            "Transition targets updated enabled=$enabled tracks=${automixTempoMultiplierBySongId.size}",
+        )
+        if (enabled && crossfadeController.crossfadeDurationSec > 0f && !bitPerfectModeOn) {
+            preloadManager.preloadNextTrack(force = true)
+        }
+    }
+
+    private fun handlePlayUri(uriStr: String) {
         // Cuma tampilin notifikasi kalau BUKAN dalam mode preview
         if (!isPreviewMode) {
             notificationManager.ensureMediaForeground()
