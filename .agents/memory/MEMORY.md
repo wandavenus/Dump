@@ -1,5 +1,6 @@
  - [Notification artwork audit lessons](notification-artwork-audit-lessons.md) — async completion must validate current track identity; shared main/worker caches need synchronization and in-flight deduplication.
 - [Memory Update Protocol](memory-update-protocol.md) — WAJIB: update memory di akhir setiap sesi kerja yang mengubah repo (file baru, refactor, param baru, arsitektur berubah, dll).
+- [AutoMix automatic controls](automix-automatic-controls.md) — AutoMix audio transitions should adjust themselves; do not require manual mix tuning for each transition.
 - [Session Artwork Metadata (artworkData)](session-artwork-metadata.md) — fix zoom+pecah artwork notifikasi (1.5.27): SystemUI/MIUI render MediaSession artworkData, bukan largeIcon; publish square 1024px bytes via Player.replaceMediaItems (ganti current item, seamless) + SessionArtworkProvider.
 - [Flutter refinement roadmap](flutter-refinement-roadmap.md) — Flutter tetap menjadi framework utama; penyempurnaan dilakukan bertahap tanpa migrasi Compose.
 - [Localization Implementation](localization-implementation.md) — Flutter gen_l10n memakai ARB lokal EN/ID, LanguageManager sebagai sumber locale, dan context.l10n untuk UI.
