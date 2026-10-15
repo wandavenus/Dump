@@ -140,6 +140,7 @@ object ReplayGainNative {
 
     /** Returns a [ReplayGainError] ordinal. */
     external fun nativeRestoreMetadataRegionFd(fd: Int, format: Int, regionBytes: ByteArray): Int
+
 }
 
 /**
