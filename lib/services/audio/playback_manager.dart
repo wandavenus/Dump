@@ -249,6 +249,14 @@ class PlaybackManager {
   static Future<void> reorderQueue(int o, int n) =>
       Media3PlaybackBridge.reorderQueue(o, n);
 
+  static Future<void> reorderUpcomingByIds({
+    required int currentId,
+    required List<int> orderedIds,
+  }) => Media3PlaybackBridge.reorderUpcomingByIds(
+    currentId: currentId,
+    orderedIds: orderedIds,
+  );
+
   // ── DSP effects ───────────────────────────────────────────────────────────
 
   static Future<void> setBassBoost(int strength) =>
