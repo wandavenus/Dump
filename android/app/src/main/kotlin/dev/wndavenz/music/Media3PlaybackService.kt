@@ -970,57 +970,6 @@ class Media3PlaybackService : MediaSessionService() {
         return START_STICKY
     }
 
-    /**
-     * Apply offline AutoMix metadata to both physical deck slots. Only the active
-     * track's slot is updated immediately; the standby slot is configured from
-     * PreloadManager before its decoder prepares.
-     */
-    private fun applyAutomixTransition(
-        enabled: Boolean,
-        targets: List<Map<String, Any?>>,
-    ) {
-        automixTransitionEnabled = enabled
-        automixTempoMultiplierBySongId.clear()
-        automixBpmBySongId.clear()
-        automixBeatOffsetMsBySongId.clear()
-
-        if (enabled) {
-            for (target in targets) {
-                val id = (target["id"] as? Number)?.toInt() ?: continue
-                if (id <= 0) continue
-                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
-                automixTempoMultiplierBySongId[id] =
-                    if (multiplier.isFinite()) multiplier.coerceIn(0.92f, 1.08f) else 1f
-                (target["bpm"] as? Number)?.toFloat()
-                    ?.takeIf { it.isFinite() && it in 50f..220f }
-                    ?.let { automixBpmBySongId[id] = it }
-                (target["beatOffsetMs"] as? Number)?.toLong()
-                    ?.takeIf { it >= 0L }
-                    ?.let { automixBeatOffsetMsBySongId[id] = it }
-            }
-        }
-
-        val activeSlot = if (activePlayer === primaryPlayer) 0 else 1
-        val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
-        stretchManager.setAutoMixTempoMultiplier(
-            activeSlot,
-            activeId?.let { automixTempoMultiplierBySongId[it] } ?: 1f,
-        )
-        if (!enabled) {
-            stretchManager.setAutoMixTempoMultiplier(0, 1f)
-            stretchManager.setAutoMixTempoMultiplier(1, 1f)
-            automixToneManager.reset()
-        }
-        NativeLogger.emit(
-            "info",
-            "Automix",
-            "Transition targets updated enabled=$enabled tracks=${automixTempoMultiplierBySongId.size}",
-        )
-        if (enabled && crossfadeController.crossfadeDurationSec > 0f && !bitPerfectModeOn) {
-            preloadManager.preloadNextTrack(force = true)
-        }
-    }
-
     private fun handlePlayUri(uriStr: String) {
         // Cuma tampilin notifikasi kalau BUKAN dalam mode preview
         if (!isPreviewMode) {
