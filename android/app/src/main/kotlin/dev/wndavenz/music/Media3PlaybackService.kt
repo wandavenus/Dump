@@ -950,22 +950,11 @@ class Media3PlaybackService : MediaSessionService() {
         super.onStartCommand(intent, flags, startId)
 
         // Plan A: restore the persisted queue only on a system restart.
-        // START_STICKY redelivers a null intent when the system recreates the
-        // service after killing the process. Every non-null start is
-        // user/app initiated (Flutter play/setQueue, notification/BT action,
-        // ACTION_PLAY_URI) and builds its own queue, so restoring here would
-        // re-show the previous session's song in a fresh launch.
         if (intent == null) {
             restoreQueueFromPrefs()
         }
-        
-        // 2. Cek apakah ini panggilan dari overlay preview
+
         isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
-        // K3 fix: propagate preview mode to the notification manager so
-        // playNative()/player listeners can never start a foreground
-        // notification during the file-manager preview (previously only the
-        // first ensureMediaForeground() in handlePlayUri was guarded, while
-        // handlePlay and every listener refresh() still created it).
         notificationManager.setSuppressed(isPreviewMode)
 
         if (intent?.action == ACTION_PLAY_URI) {
@@ -981,14 +970,12 @@ class Media3PlaybackService : MediaSessionService() {
         return START_STICKY
     }
 
-
     /**
-     * Plays a URI opened from a file manager / external app.
-     * Calls ensureMediaForeground() immediately (before any I/O) to satisfy
-     * Android's 5-second foreground-service deadline, then reads metadata on a
-     * background thread and triggers playback on the main thread.
+     * Apply offline AutoMix metadata to both physical deck slots. Only the active
+     * track's slot is updated immediately; the standby slot is configured from
+     * PreloadManager before its decoder prepares.
      */
-        private fun applyAutomixTransition(
+    private fun applyAutomixTransition(
         enabled: Boolean,
         targets: List<Map<String, Any?>>,
     ) {
@@ -1000,8 +987,8 @@ class Media3PlaybackService : MediaSessionService() {
         if (enabled) {
             for (target in targets) {
                 val id = (target["id"] as? Number)?.toInt() ?: continue
-                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
                 if (id <= 0) continue
+                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
                 automixTempoMultiplierBySongId[id] =
                     if (multiplier.isFinite()) multiplier.coerceIn(0.92f, 1.08f) else 1f
                 (target["bpm"] as? Number)?.toFloat()
@@ -1013,9 +1000,8 @@ class Media3PlaybackService : MediaSessionService() {
             }
         }
 
-        val active = activePlayer
-        val activeSlot = if (active === primaryPlayer) 0 else 1
-        val activeId = active?.currentMediaItem?.mediaId?.toIntOrNull()
+        val activeSlot = if (activePlayer === primaryPlayer) 0 else 1
+        val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
         stretchManager.setAutoMixTempoMultiplier(
             activeSlot,
             activeId?.let { automixTempoMultiplierBySongId[it] } ?: 1f,
@@ -1023,10 +1009,10 @@ class Media3PlaybackService : MediaSessionService() {
         if (!enabled) {
             stretchManager.setAutoMixTempoMultiplier(0, 1f)
             stretchManager.setAutoMixTempoMultiplier(1, 1f)
+            automixToneManager.reset()
         }
-        automixToneManager.reset()
         NativeLogger.emit(
-            if (enabled) "info" else "info",
+            "info",
             "Automix",
             "Transition targets updated enabled=$enabled tracks=${automixTempoMultiplierBySongId.size}",
         )
