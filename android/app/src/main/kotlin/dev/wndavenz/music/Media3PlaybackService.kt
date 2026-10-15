@@ -657,6 +657,9 @@ class Media3PlaybackService : MediaSessionService() {
             // (primary + secondary/crossfade) atomically.
             onSpeedChanged = { speed -> stretchManager.setSpeed(speed) },
             onPitchSemitonesChanged = { semitones -> stretchManager.setPitchSemitones(semitones) },
+            onAutomixTransitionChanged = { enabled, targets ->
+                applyAutomixTransition(enabled, targets)
+            },
 
             // Item 8: stereo widening — delegate to StereoWidthManager which
             // updates all ChannelMixingAudioProcessor instances atomically,
@@ -2077,6 +2080,64 @@ class Media3PlaybackService : MediaSessionService() {
         playerAutomixToneProcessors.remove(p)?.let { automixToneManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.
         lastAudioMimeType.remove(p)
+    }
+
+    // ── AutoMix native deck configuration ─────────────────────────────────────
+
+    /**
+     * Receives cached offline feature targets from Flutter. Active audio is not
+     * sought/replaced: only independent per-player tempo controls and the
+     * already-silent/preloaded standby are updated.
+     */
+    private fun applyAutomixTransition(
+        enabled: Boolean,
+        targets: List<Map<String, Any?>>,
+    ) {
+        automixTransitionEnabled = enabled
+        automixTempoMultiplierBySongId.clear()
+        automixBpmBySongId.clear()
+        automixBeatOffsetMsBySongId.clear()
+
+        if (enabled) {
+            for (target in targets) {
+                val id = (target["id"] as? Number)?.toInt() ?: continue
+                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
+                if (multiplier.isFinite()) {
+                    automixTempoMultiplierBySongId[id] = multiplier.coerceIn(0.92f, 1.08f)
+                }
+                val bpm = (target["bpm"] as? Number)?.toFloat()
+                if (bpm != null && bpm.isFinite() && bpm in 50f..220f) {
+                    automixBpmBySongId[id] = bpm
+                }
+                val offsetMs = (target["beatOffsetMs"] as? Number)?.toDouble()
+                if (offsetMs != null && offsetMs.isFinite() && offsetMs >= 0.0) {
+                    automixBeatOffsetMsBySongId[id] = offsetMs.toLong()
+                }
+            }
+        }
+
+        val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
+        val activeSlot = if (activePlayer === primaryPlayer) 0 else 1
+        val activeMultiplier = if (enabled && activeId != null) {
+            automixTempoMultiplierBySongId[activeId] ?: 1f
+        } else {
+            1f
+        }
+        stretchManager.setAutoMixTempoMultiplier(activeSlot, activeMultiplier)
+        automixToneManager.reset()
+
+        if (enabled && crossfadeController.crossfadeDurationSec > 0f) {
+            // Recreate the standby from its queue item so multiplier/beat seek
+            // are applied before prepare(), never half-way through decoded PCM.
+            preloadManager.preloadNextTrack(force = true)
+        }
+        NativeLogger.emit(
+            "info", "Automix",
+            "Native DJ targets ${if (enabled) "enabled" else "cleared"}: " +
+                "${automixTempoMultiplierBySongId.size} tempo targets, " +
+                "${automixBpmBySongId.size} confident BPMs, " +
+                "${automixBeatOffsetMsBySongId.size} beat phases",
+        )
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────
