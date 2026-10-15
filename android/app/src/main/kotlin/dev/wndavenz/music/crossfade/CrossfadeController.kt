@@ -8,8 +8,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import kotlin.math.PI
+import kotlin.math.ceil
 import kotlin.math.cos
-import kotlin.math.floor
 import kotlin.math.sin
 
 /**
@@ -164,12 +164,15 @@ class CrossfadeController(
         } else null
         val beatAlignedStart = if (beatMs != null && beatOffset != null && beatMs > 0.0) {
             val phase = ((beatOffset % beatMs) + beatMs) % beatMs
-            val beatIndex = floor((idealStart - phase) / beatMs)
-            (phase + beatIndex * beatMs).toLong().coerceIn(0L, idealStart)
+            val beatIndex = ceil((idealStart - phase) / beatMs)
+            val nextBeat = (phase + beatIndex * beatMs).toLong()
+            // Prefer a beat boundary at/after the ideal fade start so a fade
+            // shortened by the remaining duration still ends at the track boundary.
+            nextBeat.coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
         } else {
             idealStart
         }
-        val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(crossMs)
+        val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
 
         // ── Phase 1: pre-warm ─────────────────────────────────────────────────
         if (!prewarmTriggered && remaining <= (fadeLeadMs + PREWARM_LEAD_MS)) {
