@@ -1295,7 +1295,7 @@ class Media3PlaybackService : MediaSessionService() {
         // happen during overlap without mutating the outgoing deck's playback.
         val automixToneProc: dev.wndavenz.music.effects.AutomixToneAudioProcessor =
             if (::automixToneManager.isInitialized) automixToneManager.createProcessor(streamSlot)
-            else dev.wndavenz.music.effects.AutomixToneAudioProcessor()
+            else dev.wndavenz.music.effects.AutomixToneAudioProcessor(streamSlot)
 
         // Custom DefaultRenderersFactory that injects the custom processor chain.
         //
