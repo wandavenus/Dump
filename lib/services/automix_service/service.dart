@@ -49,6 +49,8 @@ class AutomixService {
         if (map is Map) settings.value = AutomixSettings.fromMap(map);
       }
 
+      automixEnabled.value = prefs.getBool('automixEnabled') ?? true;
+
       final restored = prefs.getDouble('automixSavedCrossfade');
       if (restored != null && _savedCrossfade == null) {
         _savedCrossfade = restored;
@@ -74,10 +76,24 @@ class AutomixService {
 
   // ── Live state ─────────────────────────────────────────────────────────────
 
-  /// Whether the last-started automix runover is still "engaged" — that is,
-  /// the user-set crossfade is currently overridden by the plan and will be
-  /// restored when [disableAutomix] runs.
+  /// Persisted master switch for AutoMix. The active queue session remains
+  /// separately tracked by [automixActive].
+  static final ValueNotifier<bool> automixEnabled = ValueNotifier(true);
+
+  /// Whether the current playback session has AutoMix engaged and owns its
+  /// temporary crossfade override.
   static final ValueNotifier<bool> automixActive = ValueNotifier(false);
+
+  static Future<void> setAutomixEnabled(bool enabled) async {
+    automixEnabled.value = enabled;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('automixEnabled', enabled);
+    } on Object catch (e) {
+      LogService.warn('Automix', 'save enabled state failed: $e');
+    }
+    if (!enabled) await disableAutomix();
+  }
 
   static double? _savedCrossfade;
 
@@ -259,6 +275,7 @@ class AutomixService {
     int startIndex,
   ) async {
     await loadSettings();
+    if (!automixEnabled.value) return -1;
     if (playlist.isEmpty) return -1;
     if (AudioEffectsService.bitPerfectMode.value) {
       LogService.verbose(

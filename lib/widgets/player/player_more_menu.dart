@@ -127,6 +127,8 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
     AudioService.playbackState.addListener(_refresh);
     SleepTimerService.isActive.addListener(_refresh);
     SleepTimerService.remaining.addListener(_refresh);
+    AutomixService.automixActive.addListener(_refresh);
+    AutomixService.automixEnabled.addListener(_refresh);
   }
 
   @override
@@ -134,6 +136,8 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
     AudioService.playbackState.removeListener(_refresh);
     SleepTimerService.isActive.removeListener(_refresh);
     SleepTimerService.remaining.removeListener(_refresh);
+    AutomixService.automixActive.removeListener(_refresh);
+    AutomixService.automixEnabled.removeListener(_refresh);
     super.dispose();
   }
 
@@ -223,7 +227,7 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                       widget.onNavigate(() async {
                         if (AutomixService.automixActive.value) {
                           await AutomixService.disableAutomix();
-                        } else {
+                        } else if (AutomixService.automixEnabled.value) {
                           await AutomixService.startAutomix(
                             state.currentPlaylist,
                             state.currentIndex,
@@ -265,12 +269,14 @@ class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
+  final bool marquee;
   final VoidCallback onTap;
 
   const _MenuItem({
     required this.icon,
     required this.label,
     this.active = false,
+    this.marquee = false,
     required this.onTap,
   });
 
@@ -289,13 +295,26 @@ class _MenuItem extends StatelessWidget {
           children: [
             Icon(icon, color: iconColor, size: 20),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: labelColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
+            Expanded(
+              child: marquee
+                  ? _MarqueeLabel(
+                      label,
+                      style: TextStyle(
+                        color: labelColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: labelColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -321,7 +340,69 @@ class _AutomixItem extends StatelessWidget {
       icon: CupertinoIcons.waveform,
       label: active ? l.automixOn : l.automixOff,
       active: active,
+      marquee: active,
       onTap: onTap,
+    );
+  }
+}
+
+/// Keeps long active AutoMix labels inside the menu row and gently scrolls
+/// them back and forth only when the text is wider than the available space.
+class _MarqueeLabel extends StatefulWidget {
+  const _MarqueeLabel(this.text, {required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  State<_MarqueeLabel> createState() => _MarqueeLabelState();
+}
+
+class _MarqueeLabelState extends State<_MarqueeLabel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final painter = TextPainter(
+            text: TextSpan(text: widget.text, style: widget.style),
+            maxLines: 1,
+            textDirection: Directionality.of(context),
+          )..layout();
+          final overflow = (painter.width - constraints.maxWidth)
+              .clamp(0.0, double.infinity)
+              .toDouble();
+
+          return AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => Transform.translate(
+              offset: Offset(-overflow * _controller.value, 0),
+              child: SizedBox(
+                width: overflow > 0 ? painter.width : constraints.maxWidth,
+                child: Text(
+                  widget.text,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: widget.style,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
