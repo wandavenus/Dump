@@ -126,6 +126,7 @@ Future<void> main() async {
       LyricsService.init();
       await MediaCapabilitiesService.initialize();
       AudioService.initialize();
+      AutomixService.initializeAutoMix();
       AudioFocusService.initialize();
       SleepTimerService.initialize();
       unawaited(AudioService.syncFromNative());
