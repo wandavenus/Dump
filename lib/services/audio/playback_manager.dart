@@ -228,6 +228,13 @@ class PlaybackManager {
   static Future<void> setVolume(double v) => Media3PlaybackBridge.setVolume(v);
   static Future<void> setSpeed(double v) => Media3PlaybackBridge.setSpeed(v);
   static Future<void> setPitch(double v) => Media3PlaybackBridge.setPitch(v);
+  static Future<void> setAutomixTransition({
+    required bool enabled,
+    required List<Map<String, Object?>> targets,
+  }) => Media3PlaybackBridge.setAutomixTransition(
+    enabled: enabled,
+    targets: targets,
+  );
 
   // ── Queue mutations ───────────────────────────────────────────────────────
 
