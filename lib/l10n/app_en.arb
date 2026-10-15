@@ -131,7 +131,7 @@
     }
   },
   "sleepPresetEndOfSong": "End of song",
-  "sleepPresetSection": "CHOOSE DURATION",
+  "sleepPresetSection": "Music will fade out slowly when the timer ends",
   "scanLibrary": "Scan Library",
   "scanLibrarySubtitle": "Calculate ReplayGain for songs without data",
   "scanLibraryConfirmTitle": "Scan Library?",
