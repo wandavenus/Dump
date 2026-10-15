@@ -26,3 +26,15 @@ unity-gain sebagai jalur transparan, serta scalar fallback untuk format selain
 stereo sebelum menambah automasi tone AutoMix lainnya. Android CMake harus
 mendeklarasikan bahasa ASM agar berkas `.S` yang sudah terdaftar benar-benar
 dikompilasi dan kernel NEON tidak menjadi simbol hilang saat link.
+
+Koreksi beat-phase saat dua dek overlap dihitung oleh `automix_phase_lock.c`
+melalui JNI, bukan diduplikasi di Kotlin. Jika library/simbol native tidak ada,
+lewati koreksi dan biarkan crossfade biasa lanjut; uji rumus phase-lock di host
+native C test.
+
+**Why:** Penghitungan berkala selama crossfade harus memakai satu implementasi
+native yang sama dengan tes, sementara kegagalan pemuatan JNI tidak boleh
+menghentikan audio.
+
+**How to apply:** Perubahan phase-lock harus mengubah fungsi C dan tes C
+bersama-sama; Kotlin hanya meneruskan posisi/BPM dan menerapkan faktor tempo.

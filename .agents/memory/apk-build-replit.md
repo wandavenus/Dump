@@ -13,6 +13,12 @@ The Android module's Kotlin JVM toolchain must target 21 as well; `JAVA_HOME=21`
 
 **Why:** Gradle resolves `jvmToolchain(...)` independently from the process JDK and otherwise tries to locate the requested older JDK.
 
+Even when the app compiles against SDK 36, Gradle may install Android platform SDK 34 and 35 for Flutter plugin subprojects during the first Android build. Let that SDK-manager step finish rather than treating it as a stalled native compile.
+
+**Why:** The Replit setup script installs the app's primary platform, while plugin modules can declare lower compile SDK versions that Gradle resolves on demand.
+
+**How to apply:** After SDK/NDK setup, allow the first Gradle build enough time to install plugin-required platforms before diagnosing a build stall.
+
 **How to apply:**
 - Run `bash setup-flutter.sh && bash build-apk.sh` from the project root.
 - Keep setup serialized and copy Flutter atomically.

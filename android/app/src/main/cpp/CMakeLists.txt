@@ -77,6 +77,7 @@ add_library(replaygain_native SHARED
     replaygain/metadata_region.cpp
     ../../../../../native_audio_runtime/src/automix_analyzer.c
     ../../../../../native_audio_runtime/src/automix_planner.c
+    ../../../../../native_audio_runtime/src/automix_phase_lock.c
     ../../../../../native_audio_runtime/src/automix_neon.S
 )
 
