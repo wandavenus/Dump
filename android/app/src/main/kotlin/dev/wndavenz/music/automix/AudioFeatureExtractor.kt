@@ -428,7 +428,7 @@ object AudioFeatureExtractor {
      * rhythmic material must use an ordinary crossfade rather than a guessed
      * alignment. Resolution is one STFT hop (about 23 ms at 22.05 kHz).
      */
-    private fun estimateBeatPhaseMs(
+    internal fun estimateBeatPhaseMs(
         odf: FloatArray,
         workingRate: Int,
         bpm: Double,
