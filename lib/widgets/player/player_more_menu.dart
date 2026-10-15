@@ -11,6 +11,7 @@ import '../../services/audio_playback_state.dart';
 import '../../services/sleep_timer_service.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
+import '../../services/automix_service.dart';
 import 'player_song_info_sheet.dart';
 
 // ─── PlayerMoreMenu ────────────────────────────────────────────────────────────
@@ -216,6 +217,22 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                     ),
                   ),
                   _Divider(c: c),
+                  _AutomixItem(
+                    active: AutomixService.automixActive.value,
+                    onTap: () async {
+                      widget.onNavigate(() async {
+                        if (AutomixService.automixActive.value) {
+                          await AutomixService.disableAutomix();
+                        } else {
+                          await AutomixService.startAutomix(
+                            state.currentPlaylist,
+                            state.currentIndex,
+                          );
+                        }
+                      });
+                    },
+                  ),
+                  _Divider(c: c),
                   _SleepTimerItem(
                     active: active,
                     sleepLabel: sleepLabel,
@@ -283,6 +300,28 @@ class _MenuItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// DJ-style auto-mixing of the active queue (offline, no-AI). Computes a
+/// deterministic transition-optimal order BPM/key/energy-aware ordering and
+/// lets the native dual-player crossfade handle the blend. Tapping while
+/// active restores the user's crossfade and ends the mix session.
+class _AutomixItem extends StatelessWidget {
+  const _AutomixItem({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return _MenuItem(
+      icon: CupertinoIcons.waveform,
+      label: active ? l.automixOn : l.automixOff,
+      active: active,
+      onTap: onTap,
     );
   }
 }

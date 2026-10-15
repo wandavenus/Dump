@@ -321,7 +321,8 @@ class AppLocalizationsId extends AppLocalizations {
   String get sleepPresetEndOfSong => 'Akhir lagu';
 
   @override
-  String get sleepPresetSection => 'Musik akan memudar perlahan ketika timer habis';
+  String get sleepPresetSection =>
+      'Musik akan memudar perlahan ketika timer habis';
 
   @override
   String get scanLibrary => 'Pindai Perpustakaan';
@@ -1369,4 +1370,85 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get acousticEngineDescription =>
       'Peningkatan khusus speaker dengan harmonik bass terkontrol, vokal lebih jelas, dan perlindungan adaptif terhadap suara tajam.';
+
+  @override
+  String get automixTitle => 'AutoMix';
+
+  @override
+  String get automixDescription =>
+      'Auto-mix gaya DJ tanpa AI dan sepenuhnya offline: mengurutkan antrean berdasarkan tempo, kunci Camelot, dan energi, lalu crossfade di tiap transisi. Jalankan dari menu overflow pemutar. Analisis murni DSP di perangkat — tanpa jaringan.';
+
+  @override
+  String get automixProfileLabel => 'Profil mix';
+
+  @override
+  String get automixProfileDj => 'DJ';
+
+  @override
+  String get automixProfileHarmonic => 'Harmonik';
+
+  @override
+  String get automixProfileEnergy => 'Energi';
+
+  @override
+  String get automixProfileDjDesc =>
+      'Kecocokan tempo utama — rantai BPM terdekat dengan sedikit kenaikan energi menyeluruh set.';
+
+  @override
+  String get automixProfileHarmonicDesc =>
+      'Kecocokan kunci utama (roda Camelot: sama, relatif, ±1/±2); tempo jadi penentu bila seri.';
+
+  @override
+  String get automixProfileEnergyDesc =>
+      'Merencanakan warm-up → puncak → cooldown memakai loudness, brightness, dan onset density hasil analisis.';
+
+  @override
+  String get automixBpmTolerance => 'Toleransi BPM';
+
+  @override
+  String get automixBpmToleranceDesc =>
+      'Seberapa jauh tempo lagu berikutnya boleh bergeser (setelah penyesuaian setengah/dual waktu) sebelum biaya transisi naik.';
+
+  @override
+  String get automixCrossfadeBeats => 'Panjang crossfade';
+
+  @override
+  String automixBeats(int beats) {
+    return '$beats ketukan';
+  }
+
+  @override
+  String get automixCrossfadeBeatsDesc =>
+      'Durasi fade transisi diukur dalam ketukan pada tempo analisis set (dibatasi 1,5–12 detik).';
+
+  @override
+  String get automixArtistVariety => 'Variasi artis';
+
+  @override
+  String get automixHarmonicFilter => 'Filter harmonik';
+
+  @override
+  String get automixHarmonicFilterDesc =>
+      'Penghukuman transisi jauh dari kunci lebih agresif (biaya lebih besar dari proporsional).';
+
+  @override
+  String get automixAnalyzeLibrary => 'Analisis library (BPM & kunci)';
+
+  @override
+  String get automixAnalyzeHint =>
+      'Mendekode audio di perangkat untuk ekstrak tempo, kunci Camelot, dan energi. Lambat tapi sepenuhnya offline.';
+
+  @override
+  String get automixAnalyzeAction => 'Mulai';
+
+  @override
+  String automixAnalyzingProgress(int done, int total) {
+    return 'Menganalisis $done/$total';
+  }
+
+  @override
+  String get automixOn => 'AutoMix: Aktif — pulihkan crossfade';
+
+  @override
+  String get automixOff => 'AutoMix antrean ini';
 }

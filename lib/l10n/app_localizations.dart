@@ -692,7 +692,7 @@ abstract class AppLocalizations {
   /// **'End of song'**
   String get sleepPresetEndOfSong;
 
-  /// Description shown above sleep timer duration options.
+  /// No description provided for @sleepPresetSection.
   ///
   /// In en, this message translates to:
   /// **'Music will fade out slowly when the timer ends'**
@@ -2599,6 +2599,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.'**
   String get acousticEngineDescription;
+
+  /// No description provided for @automixTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoMix'**
+  String get automixTitle;
+
+  /// No description provided for @automixDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline DJ-style auto-mixing: reorders a queue by tempo, Camelot key and energy, then crossfades the transitions. Start it from the player\'s overflow menu. Analysis is 100% on-device DSP — no AI, no network.'**
+  String get automixDescription;
+
+  /// No description provided for @automixProfileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Mix profile'**
+  String get automixProfileLabel;
+
+  /// No description provided for @automixProfileDj.
+  ///
+  /// In en, this message translates to:
+  /// **'DJ'**
+  String get automixProfileDj;
+
+  /// No description provided for @automixProfileHarmonic.
+  ///
+  /// In en, this message translates to:
+  /// **'Harmonic'**
+  String get automixProfileHarmonic;
+
+  /// No description provided for @automixProfileEnergy.
+  ///
+  /// In en, this message translates to:
+  /// **'Energy'**
+  String get automixProfileEnergy;
+
+  /// No description provided for @automixProfileDjDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Tempo match first — nearest-BPM chain with a small energy rise across the set.'**
+  String get automixProfileDjDesc;
+
+  /// No description provided for @automixProfileHarmonicDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Key compatibility first (Camelot wheel: same, relative, ±1/±2) with tempo as tie-break.'**
+  String get automixProfileHarmonicDesc;
+
+  /// No description provided for @automixProfileEnergyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans warm-up → peak → cooldown using analyzed loudness, brightness and onset density.'**
+  String get automixProfileEnergyDesc;
+
+  /// No description provided for @automixBpmTolerance.
+  ///
+  /// In en, this message translates to:
+  /// **'BPM tolerance'**
+  String get automixBpmTolerance;
+
+  /// No description provided for @automixBpmToleranceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'How far the next track\'s tempo may drift (after fitting half/double-time) before the transition cost ramps up.'**
+  String get automixBpmToleranceDesc;
+
+  /// No description provided for @automixCrossfadeBeats.
+  ///
+  /// In en, this message translates to:
+  /// **'Crossfade length'**
+  String get automixCrossfadeBeats;
+
+  /// No description provided for @automixBeats.
+  ///
+  /// In en, this message translates to:
+  /// **'{beats} beats'**
+  String automixBeats(int beats);
+
+  /// No description provided for @automixCrossfadeBeatsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Transition fade length measured in beats at the analyzed tempo of the set (clamped 1.5–12 s).'**
+  String get automixCrossfadeBeatsDesc;
+
+  /// No description provided for @automixArtistVariety.
+  ///
+  /// In en, this message translates to:
+  /// **'Artist variety'**
+  String get automixArtistVariety;
+
+  /// No description provided for @automixHarmonicFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Harmonic filter'**
+  String get automixHarmonicFilter;
+
+  /// No description provided for @automixHarmonicFilterDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Penalize obviously out-of-key transitions more aggressively (stronger-than-proportional cost).'**
+  String get automixHarmonicFilterDesc;
+
+  /// No description provided for @automixAnalyzeLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyze library (BPM & keys)'**
+  String get automixAnalyzeLibrary;
+
+  /// No description provided for @automixAnalyzeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Decodes audio on-device to extract tempo, Camelot key and energy. Slow but fully offline.'**
+  String get automixAnalyzeHint;
+
+  /// No description provided for @automixAnalyzeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get automixAnalyzeAction;
+
+  /// No description provided for @automixAnalyzingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing {done}/{total}'**
+  String automixAnalyzingProgress(int done, int total);
+
+  /// No description provided for @automixOn.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoMix: On — restore crossfade'**
+  String get automixOn;
+
+  /// No description provided for @automixOff.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoMix this queue'**
+  String get automixOff;
 }
 
 class _AppLocalizationsDelegate

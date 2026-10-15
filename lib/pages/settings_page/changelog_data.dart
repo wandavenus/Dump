@@ -20,17 +20,18 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
-    version: '1.5.33',
-    date: '10 Oktober 2026',
+    version: '1.5.34',
+    date: '15 Oktober 2026',
     changes: [
-      'Ganti nama aplikasi menjadi Noisegraph di launcher dan halaman Tentang.',
-      'Tambah tautan repository GitHub Noisegraph di halaman Tentang.',
+      'Tambah fitur AutoMix: pengurutan antrean DJ-style murni offline tanpa AI — memakai ekstraksi BPM (onset-autokorelasi), kunci Camelot (korelasi profil Krumhansl-Schmuckler), dan energi (loudness, brightness, densitas onset).',
+      'Pengaturan AutoMix: profil (DJ / Harmonic / Energy), toleransi BPM, panjang crossfade dalam ketukan, variasi artis, dan filter harmonik di Pengaturan > Audio.',
+      'Analisis library (BPM & kunci) dari Pengaturan > Audio; tombol AutoMix ada di menu overflow player untuk antrean yang sedang berputar.',
     ],
   ),
 
   _ChangelogEntry(
-    version: '1.5.32',
-    date: '6 Oktober 2026',
+    version: '1.5.33',
+    date: '10 Oktober 2026',
     changes: [
       'Fix mode shuffle agar tetap tersimpan dan tombol shuffle di full player tetap sesuai state-nya setelah playback dihentikan lewat tombol stop di notifikasi (termasuk saat app di-kill sistem).',
       'Fix shuffle yang bisa aktif kembali sendiri setelah dimatikan user ketika queue dibangun ulang.',

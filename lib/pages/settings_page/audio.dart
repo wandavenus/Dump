@@ -63,6 +63,13 @@ class _AudioSection extends StatelessWidget {
               const _CrossfadePicker(),
               const SettingsDivider(),
 
+              // ── AutoMix ────────────────────────────────────────────────
+              // Offline DJ-style ordering: profile, BPM tolerance, crossfade
+              // beats, artist variety, harmony filter, and the library
+              // BPM/key/energy analyzer.
+              const _AutomixSection(),
+              const SettingsDivider(),
+
               ValueListenableBuilder<bool>(
                 valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
                 builder: (_, enabled, _) => ValueListenableBuilder<double>(
