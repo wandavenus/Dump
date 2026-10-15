@@ -83,6 +83,17 @@ const List<double> automixKsMinorProfile = [
 
 double automixClamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
 
+/// Moves an uncertain feature cost toward its neutral fallback instead of
+/// treating a low-confidence estimate as ground truth.
+double automixConfidenceBlend(
+  double measuredCost,
+  double confidence, {
+  required double neutralCost,
+}) {
+  final c = automixClamp01(confidence);
+  return neutralCost + (measuredCost - neutralCost) * c;
+}
+
 // ── Camelot cost ─────────────────────────────────────────────────────────────
 
 /// Camelot-distance base cost (0..1).
@@ -323,6 +334,13 @@ class AutomixEngine {
   /// current track before falling back to a global scan.
   static const int _window = 12;
 
+  /// Also inspect nearby slots for the half/double-time interpretations of a
+  /// track's BPM. This catches compatible tempos outside its raw-BPM cluster
+  /// without turning large-library sequencing into an O(n²) global scan.
+  static const int _tempoAnchorWindow = 4;
+  static const double _minTempoBpm = 60.0;
+  static const double _maxTempoBpm = 200.0;
+
   /// Number of best candidates that get a full one-step lookahead re-score.
   static const int _lookaheadTopK = 3;
 
@@ -390,6 +408,7 @@ class AutomixEngine {
         energies: energies,
         settings: settings,
         totalSteps: n,
+        medianBpm: medianBpm,
         withLookahead: withLookahead,
       );
       // Defensive: _pickNext always returns an unplayed index, but a bug must
@@ -452,55 +471,37 @@ class AutomixEngine {
     required List<double> energies,
     required AutomixSettings settings,
     required int totalSteps,
+    required double medianBpm,
     required bool withLookahead,
   }) {
     final n = tracks.length;
     final nTotal = tracks.length;
 
-    // Score the neighborhood window around the current track's tempo slot.
-    final slot = slotOf[current];
+    // Score the raw-BPM neighborhood plus nearby positions around equivalent
+    // half/double-time tempos. A Set avoids rescoring tracks that appear in
+    // more than one tempo neighborhood.
+    final candidates = _candidatePool(
+      current: current,
+      played: played,
+      slotOf: slotOf,
+      slotOrder: slotOrder,
+      tracks: tracks,
+      medianBpm: medianBpm,
+    );
     final scored = <(int, double)>[];
-    for (int reach = 1; reach <= _window; reach++) {
-      final up = slot + reach;
-      if (up >= 0 && up < n) {
-        final cand = slotOrder[up];
-        if (!played[cand]) {
-          scored.add(
-            (
-              cand,
-              _transitionCost(
-                a: tracks[current],
-                b: tracks[cand],
-                eA: energies[current],
-                eB: energies[cand],
-                stepIndex: stepIndex,
-                totalSteps: totalSteps,
-                settings: settings,
-              ),
-            ),
-          );
-        }
-      }
-      final down = slot - reach;
-      if (down >= 0 && down < n) {
-        final cand = slotOrder[down];
-        if (!played[cand]) {
-          scored.add(
-            (
-              cand,
-              _transitionCost(
-                a: tracks[current],
-                b: tracks[cand],
-                eA: energies[current],
-                eB: energies[cand],
-                stepIndex: stepIndex,
-                totalSteps: totalSteps,
-                settings: settings,
-              ),
-            ),
-          );
-        }
-      }
+    for (final cand in candidates) {
+      scored.add((
+        cand,
+        _transitionCost(
+          a: tracks[current],
+          b: tracks[cand],
+          eA: energies[current],
+          eB: energies[cand],
+          stepIndex: stepIndex,
+          totalSteps: totalSteps,
+          settings: settings,
+        ),
+      ));
     }
 
     if (scored.isEmpty) {
@@ -546,25 +547,28 @@ class AutomixEngine {
     for (int k = 0; k < limit; k++) {
       final (cand, base) = scored[k];
       var score = base;
-      final candSlot = slotOf[cand];
       var minNext = double.infinity;
-      for (int reach = 1; reach <= 3; reach++) {
-        for (final off in [reach, -reach]) {
-          final s = candSlot + off;
-          if (s < 0 || s >= nTotal) continue;
-          final cand2 = slotOrder[s];
-          if (played[cand2] || cand2 == current) continue;
-          final c = _transitionCost(
-            a: tracks[cand],
-            b: tracks[cand2],
-            eA: energies[cand],
-            eB: energies[cand2],
-            stepIndex: stepIndex + 1,
-            totalSteps: totalSteps,
-            settings: settings,
-          );
-          if (c < minNext) minNext = c;
-        }
+      final nextCandidates = _candidatePool(
+        current: cand,
+        played: played,
+        slotOf: slotOf,
+        slotOrder: slotOrder,
+        tracks: tracks,
+        medianBpm: medianBpm,
+        excludeIndex: cand,
+      );
+      for (final cand2 in nextCandidates) {
+        if (played[cand2] || cand2 == current) continue;
+        final c = _transitionCost(
+          a: tracks[cand],
+          b: tracks[cand2],
+          eA: energies[cand],
+          eB: energies[cand2],
+          stepIndex: stepIndex + 1,
+          totalSteps: totalSteps,
+          settings: settings,
+        );
+        if (c < minNext) minNext = c;
       }
       if (minNext.isFinite) score += _lookaheadGamma * minNext;
       if (score < bestScore) {
@@ -573,6 +577,87 @@ class AutomixEngine {
       }
     }
     return best;
+  }
+
+  /// Bounded candidate set from local BPM order and half/double-time anchors.
+  /// Unknown-BPM tracks remain discoverable through the ordinary slot window.
+  static List<int> _candidatePool({
+    required int current,
+    required List<bool> played,
+    required List<int> slotOf,
+    required List<int> slotOrder,
+    required List<AutomixTrackFeatures> tracks,
+    required double medianBpm,
+    int? excludeIndex,
+  }) {
+    final n = tracks.length;
+    final found = <int>{};
+    void addSlot(int slot) {
+      if (slot < 0 || slot >= n) return;
+      final candidate = slotOrder[slot];
+      if (!played[candidate] && candidate != excludeIndex) {
+        found.add(candidate);
+      }
+    }
+
+    final slot = slotOf[current];
+    for (int reach = 1; reach <= _window; reach++) {
+      addSlot(slot + reach);
+      addSlot(slot - reach);
+    }
+
+    final track = tracks[current];
+    final bpm = track.bpm;
+    if (bpm != null && bpm > 0) {
+      final anchors = <double>{bpm, bpm / 2.0, bpm * 2.0};
+      final alternate = track.alternateBpm;
+      if (alternate != null && alternate > 0) {
+        anchors.add(alternate);
+        anchors.add(alternate / 2.0);
+        anchors.add(alternate * 2.0);
+      }
+      for (final target in anchors) {
+        if (!target.isFinite ||
+            target < _minTempoBpm ||
+            target > _maxTempoBpm) {
+          continue;
+        }
+        final insertion = _lowerBoundTempo(
+          target,
+          slotOrder,
+          tracks,
+          medianBpm,
+        );
+        for (int reach = 0; reach <= _tempoAnchorWindow; reach++) {
+          addSlot(insertion + reach);
+          addSlot(insertion - 1 - reach);
+        }
+      }
+    }
+
+    final result = found.toList();
+    result.sort((a, b) => tracks[a].songId.compareTo(tracks[b].songId));
+    return result;
+  }
+
+  static int _lowerBoundTempo(
+    double target,
+    List<int> slotOrder,
+    List<AutomixTrackFeatures> tracks,
+    double medianBpm,
+  ) {
+    var low = 0;
+    var high = slotOrder.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      final bpm = tracks[slotOrder[mid]].bpm ?? medianBpm;
+      if (bpm < target) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    return low.clamp(0, slotOrder.length - 1);
   }
 
   /// Sum of all transition costs across a plan.
