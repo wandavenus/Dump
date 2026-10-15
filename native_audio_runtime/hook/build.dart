@@ -60,6 +60,7 @@ void main(List<String> args) async {
         'src/aaudio_probe.c', // AAudio exclusive/MMAP diagnostic probe
         'src/automix_analyzer.c', // AutoMix PCM feature extraction
         'src/automix_planner.c', // AutoMix deterministic queue planner
+        'src/automix_tone_processor.c', // Per-stream AutoMix tone DSP
         // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
         // System.loadLibrary("native_audio_runtime") on Android; it is the
         // JVM/JNI counterpart to the Dart FFI entry points in this same
@@ -75,6 +76,7 @@ void main(List<String> args) async {
         // so x86_64 host builds (unit tests) get an empty translation unit.
         'src/neon_kernels.S', // Existing DSP kernels
         'src/automix_neon.S', // ARM64 AutoMix STFT frame window/RMS kernel
+        'src/automix_tone_neon.S', // ARM64 stereo AutoMix tone DSP
       ],
       libraries: libraries,
     );

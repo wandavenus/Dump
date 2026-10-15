@@ -28,7 +28,7 @@
 # GIT_TAG below to the versions this file was written against and re-verify.
 
 cmake_minimum_required(VERSION 3.22)
-project(replaygain_native LANGUAGES C CXX)
+project(replaygain_native LANGUAGES C CXX ASM)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

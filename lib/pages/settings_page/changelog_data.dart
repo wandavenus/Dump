@@ -21,6 +21,13 @@ class _ChangelogEntry {
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.5.38',
+    date: '16 Oktober 2026',
+    changes: [
+      'Bass swap dan filter ekor AutoMix kini diproses di native C; stereo ARM64 memakai NEON, sementara konfigurasi kanal lain tetap memakai jalur C.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.38',
     date: '15 Oktober 2026',
     changes: [
       'AutoMix menyusun SELURUH antrean sekali di awal, bukan 25 lagu per transisi: urutan yang kamu dengar sudah diputuskan sekali, dan saat lagu berganti transisinya tinggal dipakai (tidak ada perhitungan ulang di tengah lagu).',

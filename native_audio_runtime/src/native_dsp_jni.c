@@ -30,6 +30,7 @@
 
 #include "dsp_pipeline.h"
 #include "native_audio_runtime.h"
+#include "automix_tone_processor.h"
 
 // Java class: dev.wndavenz.music.effects.NativeDspAudioProcessor
 // JNI name mangling: '.' → '_', no underscores in any component.
@@ -87,4 +88,59 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeIsInitialized(
   (void)env;
   (void)clazz;
   return (jboolean)(nar_dsp_pipeline_is_initialized() != 0);
+}
+
+// Kotlin's AutoMix AudioProcessor stays in the Media3 chain at its original
+// position, but all per-sample filtering now runs in C/ARM64 NEON.
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeConfigureTone(
+    JNIEnv* env, jclass clazz, jint stream_slot, jint sample_rate,
+    jint channel_count) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_configure(
+      (int32_t)stream_slot, (int32_t)sample_rate, (int32_t)channel_count);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetBassGain(
+    JNIEnv* env, jclass clazz, jint stream_slot, jfloat gain) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_set_bass_gain((int32_t)stream_slot, gain);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetHighGain(
+    JNIEnv* env, jclass clazz, jint stream_slot, jfloat gain) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_set_high_gain((int32_t)stream_slot, gain);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeProcessTone(
+    JNIEnv* env, jclass clazz, jobject buffer, jint frame_count,
+    jint channel_count, jint stream_slot) {
+  (void)clazz;
+  if (buffer == NULL || frame_count <= 0 || channel_count <= 0) return 0;
+  const int64_t required_bytes =
+      (int64_t)frame_count * (int64_t)channel_count * (int64_t)sizeof(float);
+  if (required_bytes <= 0 ||
+      (*env)->GetDirectBufferCapacity(env, buffer) < required_bytes) {
+    return 0;
+  }
+  float* data = (float*)(*env)->GetDirectBufferAddress(env, buffer);
+  if (data == NULL) return 0;
+  return (jint)nar_automix_tone_process(
+      data, (int32_t)frame_count, (int32_t)channel_count,
+      (int32_t)stream_slot);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeResetTone(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_reset((int32_t)stream_slot);
 }

@@ -6,7 +6,6 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.exp
 
 /**
  * Small, per-deck tone stage for AutoMix: a low-band (bass swap) gain and a
@@ -24,114 +23,120 @@ import kotlin.math.exp
  * instead of being cut off. It is inserted in the PCM_FLOAT Media3 chain.
  */
 @UnstableApi
-class AutomixToneAudioProcessor : BaseAudioProcessor() {
-    @Volatile
-    private var targetBassGain: Float = 1f
+class AutomixToneAudioProcessor(
+    private val streamSlot: Int,
+) : BaseAudioProcessor() {
+    companion object {
+        @JvmStatic
+        private external fun nativeConfigureTone(
+            streamSlot: Int,
+            sampleRate: Int,
+            channelCount: Int,
+        ): Int
 
-    @Volatile
-    private var targetHighGain: Float = 1f
+        @JvmStatic
+        private external fun nativeSetBassGain(streamSlot: Int, gain: Float): Int
 
-    private var currentBassGain: Float = 1f
-    private var currentHighGain: Float = 1f
-    private var lowPassState = FloatArray(0)
-    private var highCutState = FloatArray(0)
-    private var sampleRateHz: Int = 0
-    private var channelCount: Int = 0
-    private var lowPassAlpha: Float = 0f
-    private var highCutAlpha: Float = 0f
-    private var gainSmoothingAlpha: Float = 0f
+        @JvmStatic
+        private external fun nativeSetHighGain(streamSlot: Int, gain: Float): Int
 
-    fun setBassGain(gain: Float) {
-        targetBassGain = if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
+        @JvmStatic
+        private external fun nativeProcessTone(
+            buffer: ByteBuffer,
+            frameCount: Int,
+            channelCount: Int,
+            streamSlot: Int,
+        ): Int
+
+        @JvmStatic
+        private external fun nativeResetTone(streamSlot: Int): Int
     }
 
-    /**
-     * High-band gain: 1 = transparent, 0 = the high band is removed entirely.
-     * Applied on top of the bass swap, so both automations can run together.
-     */
+    private var channelCount: Int = 0
+
+    fun setBassGain(gain: Float) {
+        if (NativeDspAudioProcessor.isLibraryAvailable) {
+            nativeSetBassGain(streamSlot, normalizeGain(gain))
+        }
+    }
+
     fun setHighGain(gain: Float) {
-        targetHighGain = if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
+        if (NativeDspAudioProcessor.isLibraryAvailable) {
+            nativeSetHighGain(streamSlot, normalizeGain(gain))
+        }
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT ||
+        if (!NativeDspAudioProcessor.isLibraryAvailable ||
+            inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT ||
             inputAudioFormat.channelCount !in 1..8 ||
             inputAudioFormat.sampleRate <= 0
         ) {
             return AudioProcessor.AudioFormat.NOT_SET
         }
 
-        sampleRateHz = inputAudioFormat.sampleRate
         channelCount = inputAudioFormat.channelCount
-        lowPassState = FloatArray(channelCount)
-        highCutState = FloatArray(channelCount)
-        // 150 Hz one-pole low-pass for the bass swap, ~1.2 kHz for the high band;
-        // keep both gain automations smooth over ~20 ms.
-        lowPassAlpha = (1.0 - exp(-2.0 * Math.PI * 150.0 / sampleRateHz)).toFloat()
-        highCutAlpha = (1.0 - exp(-2.0 * Math.PI * 1200.0 / sampleRateHz)).toFloat()
-        gainSmoothingAlpha = (1.0 - exp(-1.0 / (sampleRateHz * 0.020))).toFloat()
-        currentBassGain = targetBassGain
-        currentHighGain = targetHighGain
+        if (nativeConfigureTone(
+                streamSlot,
+                inputAudioFormat.sampleRate,
+                channelCount,
+            ) != 1
+        ) {
+            channelCount = 0
+            return AudioProcessor.AudioFormat.NOT_SET
+        }
         return inputAudioFormat
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val remaining = inputBuffer.remaining()
-        if (remaining < 4 || channelCount <= 0) return
+        val frameBytes = channelCount * Float.SIZE_BYTES
+        if (remaining == 0 || channelCount <= 0 || frameBytes <= 0) return
 
-        val input = inputBuffer.duplicate().order(ByteOrder.nativeOrder())
-        val frames = remaining / (channelCount * 4)
-        val output = replaceOutputBuffer(frames * channelCount * 4)
-            .order(ByteOrder.nativeOrder())
-        val alpha = lowPassAlpha
-        val highAlpha = highCutAlpha
-        val gainAlpha = gainSmoothingAlpha
-
-        repeat(frames) {
-            val desiredGain = targetBassGain
-            val desiredHigh = targetHighGain
-            currentBassGain += (desiredGain - currentBassGain) * gainAlpha
-            currentHighGain += (desiredHigh - currentHighGain) * gainAlpha
-            repeat(channelCount) { channel ->
-                val sample = input.float
-                val low = lowPassState[channel] +
-                    alpha * (sample - lowPassState[channel])
-                lowPassState[channel] = low
-                val bassAdjusted = sample + low * (currentBassGain - 1f)
-                // Split the bass-adjusted signal once more: the part below the
-                // high cutoff passes through untouched, the part above it is
-                // scaled by the tail filter. At highGain = 1 this is exactly
-                // `bassAdjusted`, so an idle AutoMix deck stays transparent.
-                val highLp = highCutState[channel] +
-                    highAlpha * (bassAdjusted - highCutState[channel])
-                highCutState[channel] = highLp
-                val processed = highLp + (bassAdjusted - highLp) * currentHighGain
-                output.putFloat(if (processed.isFinite()) processed else 0f)
-            }
+        // PCM buffers should be frame-aligned. Preserve any malformed trailing
+        // bytes instead of passing a partial frame to the native processor.
+        val alignedBytes = remaining - remaining % frameBytes
+        if (alignedBytes <= 0) {
+            inputBuffer.position(inputBuffer.limit())
+            return
         }
+
+        val output = replaceOutputBuffer(alignedBytes)
+            .order(ByteOrder.nativeOrder())
+        val input = inputBuffer.duplicate()
+        input.limit(input.position() + alignedBytes)
+        output.put(input)
         output.flip()
-        inputBuffer.position(inputBuffer.limit())
+
+        if (NativeDspAudioProcessor.isLibraryAvailable) {
+            // BaseAudioProcessor provides a direct output buffer. C processes
+            // it in-place, with the stereo path vectorized using ARM64 NEON.
+            nativeProcessTone(
+                output,
+                alignedBytes / frameBytes,
+                channelCount,
+                streamSlot,
+            )
+        }
+        inputBuffer.position(inputBuffer.position() + alignedBytes)
     }
 
     override fun onFlush() {
-        lowPassState = FloatArray(channelCount.coerceAtLeast(0))
-        highCutState = FloatArray(channelCount.coerceAtLeast(0))
-        currentBassGain = targetBassGain
-        currentHighGain = targetHighGain
+        resetNativeState()
     }
 
     override fun onReset() {
-        lowPassState = FloatArray(0)
-        highCutState = FloatArray(0)
-        sampleRateHz = 0
+        resetNativeState()
         channelCount = 0
-        lowPassAlpha = 0f
-        highCutAlpha = 0f
-        gainSmoothingAlpha = 0f
-        currentBassGain = 1f
-        currentHighGain = 1f
-        targetBassGain = 1f
-        targetHighGain = 1f
+    }
+
+    private fun normalizeGain(gain: Float): Float =
+        if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
+
+    private fun resetNativeState() {
+        if (NativeDspAudioProcessor.isLibraryAvailable) {
+            nativeResetTone(streamSlot)
+        }
     }
 }
 
@@ -144,7 +149,7 @@ class AutomixToneManager {
     private val lock = Any()
 
     fun createProcessor(streamSlot: Int): AutomixToneAudioProcessor {
-        val processor = AutomixToneAudioProcessor()
+        val processor = AutomixToneAudioProcessor(streamSlot)
         val target: Float
         val highTarget: Float
         synchronized(lock) {
