@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.35',
+    date: '15 Oktober 2026',
+    changes: [
+      'Upgrade AutoMix dengan beat-phase estimation offline, tempo matching per deck yang menjaga pitch, persiapan lagu berikutnya, dan bass hand-off saat crossfade.',
+      'Transisi DJ-style tetap memakai crossfade biasa ketika analisis BPM atau fase ketukan kurang meyakinkan.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.34',
     date: '15 Oktober 2026',
     changes: [
