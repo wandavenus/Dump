@@ -174,7 +174,7 @@ class AutomixService {
         'id': features.songId,
         // Native beat-grid scheduling uses media-position time, so keep
         // the source BPM here; the independent multiplier controls output tempo.
-        if (sourceBpm != null) 'bpm': sourceBpm,
+        'bpm': ?sourceBpm,
         // Beat phase is more fragile than BPM. Only publish it when the
         // tempo estimate is strong and the phase is finite/non-negative;
         // otherwise native deliberately uses the ordinary time-based fade.
