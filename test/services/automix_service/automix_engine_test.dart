@@ -14,12 +14,14 @@ AutomixTrackFeatures _f(
   String artist = '',
   double bpmConf = 0.9,
   double keyConf = 0.9,
+  double? beatOffsetMs,
 }) {
   return AutomixTrackFeatures(
     songId: id,
     artist: artist,
     bpm: bpm,
     alternateBpm: alt,
+    beatOffsetMs: beatOffsetMs,
     camelotNumber: camelot,
     camelotMinor: minor,
     bpmConfidence: bpmConf,
@@ -32,6 +34,17 @@ AutomixTrackFeatures _f(
 }
 
 void main() {
+  group('AutomixTrackFeatures serialization', () {
+    test('round trips beat phase and accepts older cache entries', () {
+      final feature = _f(17, bpm: 120, beatOffsetMs: 123.5);
+      final restored = AutomixTrackFeatures.fromMap(feature.toMap());
+      expect(restored.beatOffsetMs, 123.5);
+
+      final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
+      expect(legacy.beatOffsetMs, isNull);
+    });
+  });
+
   group('automixConfidenceBlend', () {
     test('moves unreliable estimates toward a neutral cost', () {
       expect(
