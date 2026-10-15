@@ -158,6 +158,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
     private val playerReverbProcessors = IdentityHashMap<ExoPlayer, ReverbAudioProcessor>() // Reverb
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
+    private val playerAutomixToneProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.AutomixToneAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
     // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
@@ -175,6 +176,14 @@ class Media3PlaybackService : MediaSessionService() {
     // See StretchManager doc for why this needs its own manager (per-instance
     // native state, unlike the shared-global NativeDspAudioProcessor pipeline).
     private lateinit var stretchManager: dev.wndavenz.music.effects.StretchManager
+    private lateinit var automixToneManager: dev.wndavenz.music.effects.AutomixToneManager
+
+    // AutoMix target metadata keyed by stable MediaStore song ID. These are
+    // hints only; unknown/low-confidence features fall back to ordinary fade.
+    private var automixTransitionEnabled = false
+    private val automixTempoMultiplierBySongId = mutableMapOf<Int, Float>()
+    private val automixBpmBySongId = mutableMapOf<Int, Float>()
+    private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
 
     // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
     // activePlayerProxy is always the MediaSession's player. It dynamically
@@ -245,6 +254,7 @@ class Media3PlaybackService : MediaSessionService() {
         // must be tracked from the very first createConfiguredPlayer() call.
         reverbManager = ReverbManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
+        automixToneManager = dev.wndavenz.music.effects.AutomixToneManager()
 
         // Create primary player — always physical stream slot 0.
         primaryPlayer = createConfiguredPlayer(streamSlot = 0)
@@ -425,6 +435,19 @@ class Media3PlaybackService : MediaSessionService() {
             getActivePlayerRef = { activePlayer },
             getCrossfadeDurationSec = { crossfadeController.crossfadeDurationSec },
             getQueue           = { queueManager.queue },
+            configureTrackForPreload = { standby, item ->
+                val songId = (item["id"] as? Number)?.toInt()
+                val slot = if (standby === primaryPlayer) 0 else 1
+                val multiplier = songId?.let { automixTempoMultiplierBySongId[it] } ?: 1f
+                stretchManager.setAutoMixTempoMultiplier(slot, multiplier)
+                val beatOffset = songId?.let { automixBeatOffsetMsBySongId[it] }
+                val hasTempo = songId?.let { automixBpmBySongId[it] } != null
+                if (automixTransitionEnabled && hasTempo && beatOffset != null) {
+                    // Seek the silent standby to its estimated onset-grid phase
+                    // before prepare. The estimate is deliberately confidence-gated.
+                    standby.seekTo(beatOffset.coerceAtLeast(0L))
+                }
+            },
         )
 
         crossfadeController = CrossfadeController(
@@ -1234,8 +1257,14 @@ class Media3PlaybackService : MediaSessionService() {
         // pitch shift (see StretchManager / SignalsmithStretchAudioProcessor
         // docs). Placed last in the chain, exactly where Sonic used to sit.
         val stretchProc: dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor =
-            if (::stretchManager.isInitialized) stretchManager.createProcessor()
+            if (::stretchManager.isInitialized) stretchManager.createProcessor(streamSlot)
             else dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor()
+
+        // Low-band gain is independent per player so a DJ-style bass swap can
+        // happen during overlap without mutating the outgoing deck's playback.
+        val automixToneProc: dev.wndavenz.music.effects.AutomixToneAudioProcessor =
+            if (::automixToneManager.isInitialized) automixToneManager.createProcessor(streamSlot)
+            else dev.wndavenz.music.effects.AutomixToneAudioProcessor()
 
         // Custom DefaultRenderersFactory that injects the custom processor chain.
         //
@@ -1273,7 +1302,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,AutoMixTone,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1303,7 +1332,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, automixToneProc, stretchProc, toInt16Proc
                         )
                     )
                     .build()
@@ -1402,6 +1431,9 @@ class Media3PlaybackService : MediaSessionService() {
         }
         if (::stretchManager.isInitialized) {
             playerStretchProcessors[player] = stretchProc
+        }
+        if (::automixToneManager.isInitialized) {
+            playerAutomixToneProcessors[player] = automixToneProc
         }
 
         return player
@@ -2041,6 +2073,8 @@ class Media3PlaybackService : MediaSessionService() {
         playerReverbProcessors.remove(p)?.let { reverbManager.removeProcessor(it) }
         // Signalsmith Stretch: same rationale, for the speed/pitch processor.
         playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
+        // AutoMix tone processor is per-deck and must leave the registry on release.
+        playerAutomixToneProcessors.remove(p)?.let { automixToneManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.
         lastAudioMimeType.remove(p)
     }
