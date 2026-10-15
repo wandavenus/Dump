@@ -221,22 +221,6 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                     ),
                   ),
                   _Divider(c: c),
-                  _AutomixItem(
-                    active: AutomixService.automixActive.value,
-                    onTap: () async {
-                      widget.onNavigate(() async {
-                        if (AutomixService.automixActive.value) {
-                          await AutomixService.disableAutomix();
-                        } else if (AutomixService.automixEnabled.value) {
-                          await AutomixService.startAutomix(
-                            state.currentPlaylist,
-                            state.currentIndex,
-                          );
-                        }
-                      });
-                    },
-                  ),
-                  _Divider(c: c),
                   _SleepTimerItem(
                     active: active,
                     sleepLabel: sleepLabel,
