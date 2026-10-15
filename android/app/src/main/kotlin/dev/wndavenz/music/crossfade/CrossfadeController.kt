@@ -9,6 +9,7 @@ import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sin
 
 /**
@@ -81,6 +82,11 @@ class CrossfadeController(
     // guard is defence in depth so a stale crossfade setting can never start a fade
     // on the clean player (or reuse its standby slot) while the mode is active.
     private val isBitPerfectModeActive: () -> Boolean = { false },
+    // AutoMix hints enable conservative beat-grid scheduling and bass swap.
+    private val isAutomixTransitionEnabled: () -> Boolean = { false },
+    private val getAutoMixBpmForPlayer: (ExoPlayer) -> Float? = { null },
+    private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
+    private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -104,6 +110,7 @@ class CrossfadeController(
 
     private var prewarmTriggered: Boolean = false
     private var crossfadeFadeRunnable: Runnable? = null
+    private var beatAlignedStartRunnable: Runnable? = null
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -141,11 +148,31 @@ class CrossfadeController(
         val standby = getStandbyPlayer() ?: return
         if (standby.mediaItemCount == 0) return
 
-        val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(MIN_FADE_MS)
-        val remaining = (dur - p.currentPosition).coerceAtLeast(0L)
+        val crossMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(MIN_FADE_MS)
+        val currentPosition = p.currentPosition.coerceAtLeast(0L)
+        val remaining = (dur - currentPosition).coerceAtLeast(0L)
+        val idealStart = (dur - crossMs).coerceAtLeast(0L)
+
+        // BPM + phase are an offline onset-grid estimate, not a guaranteed
+        // musical downbeat. If either is uncertain, retain time-based crossfade.
+        val beatMs = if (isAutomixTransitionEnabled()) {
+            getAutoMixBpmForPlayer(p)?.takeIf { it.isFinite() && it in 50f..250f }
+                ?.let { 60_000.0 / it }
+        } else null
+        val beatOffset = if (beatMs != null) {
+            getAutoMixBeatOffsetMsForPlayer(p)?.toDouble()
+        } else null
+        val beatAlignedStart = if (beatMs != null && beatOffset != null && beatMs > 0.0) {
+            val phase = ((beatOffset % beatMs) + beatMs) % beatMs
+            val beatIndex = floor((idealStart - phase) / beatMs)
+            (phase + beatIndex * beatMs).toLong().coerceIn(0L, idealStart)
+        } else {
+            idealStart
+        }
+        val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(crossMs)
 
         // ── Phase 1: pre-warm ─────────────────────────────────────────────────
-        if (!prewarmTriggered && remaining <= (crossMs + PREWARM_LEAD_MS)) {
+        if (!prewarmTriggered && remaining <= (fadeLeadMs + PREWARM_LEAD_MS)) {
             prewarmTriggered = true
             preloadManager.prewarmStandby()
             log("Pre-warm triggered @ remaining=${remaining}ms (crossMs=${crossMs}ms)")
@@ -167,10 +194,33 @@ class CrossfadeController(
             }
         }
 
-        // ── Phase 2: crossfade ────────────────────────────────────────────────
-        if (remaining in 1L..(crossMs + 250L)) {
+        // ── Phase 2: beat-grid-aware or ordinary crossfade ────────────────────
+        if (beatMs != null && beatOffset != null && currentPosition < beatAlignedStart) {
+            // Use the service Handler rather than the 200 ms position ticker
+            // to reduce onset timing jitter after the standby has been prewarmed.
+            val prewarmWindowStart = (beatAlignedStart - PREWARM_LEAD_MS).coerceAtLeast(0L)
+            if (currentPosition >= prewarmWindowStart && beatAlignedStartRunnable == null) {
+                val expectedItemId = p.currentMediaItem?.mediaId
+                val delay = (beatAlignedStart - currentPosition).coerceAtLeast(1L)
+                val runnable = Runnable {
+                    beatAlignedStartRunnable = null
+                    if (getActivePlayer() !== p || p.currentMediaItem?.mediaId != expectedItemId ||
+                        crossfadeInProgress || promotionTriggered || isBitPerfectModeActive() ||
+                        isEndOfSongSleepTimerActive()
+                    ) return@Runnable
+                    val nowRemaining = (p.duration - p.currentPosition).coerceAtLeast(0L)
+                    val fade = minOf(crossMs, nowRemaining).coerceAtLeast(MIN_FADE_MS)
+                    beginCrossfade(fade)
+                }
+                beatAlignedStartRunnable = runnable
+                handler.postDelayed(runnable, delay)
+            }
+        } else if (remaining > 0L && currentPosition >= beatAlignedStart) {
+            beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
+            beatAlignedStartRunnable = null
             val actualFadeMs = minOf(crossMs, remaining).coerceAtLeast(MIN_FADE_MS)
-            log("Crossfade trigger: remaining=${remaining}ms fade=${actualFadeMs}ms")
+            log("Crossfade trigger: remaining=${remaining}ms fade=${actualFadeMs}ms " +
+                "beatAligned=${beatMs != null && beatOffset != null}")
             beginCrossfade(actualFadeMs)
         }
     }
@@ -183,6 +233,10 @@ class CrossfadeController(
     fun cancel(resetVolume: Boolean) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         crossfadeFadeRunnable = null
+        beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
+        beatAlignedStartRunnable = null
+        getActivePlayer()?.let { setAutoMixBassGain(it, 1f) }
+        promotionOwner?.let { setAutoMixBassGain(it, 1f) }
 
         // K1 fix: capture the mid-fade state BEFORE clearing the flags below. A
         // promoted standby owns a one-item timeline until the fade completes;
@@ -225,8 +279,10 @@ class CrossfadeController(
      */
     fun resetPromotionState() {
         if (!crossfadeInProgress) {
+            beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
+            beatAlignedStartRunnable = null
             promotionTriggered = false
-            prewarmTriggered   = false
+            prewarmTriggered = false
         }
     }
 
@@ -368,11 +424,26 @@ class CrossfadeController(
         emitAll()
         refreshNotification()
 
+        val applyBassSwap = isAutomixTransitionEnabled() &&
+            getAutoMixBpmForPlayer(current) != null &&
+            getAutoMixBpmForPlayer(standby) != null
+        if (applyBassSwap) {
+            setAutoMixBassGain(current, 1f)
+            setAutoMixBassGain(standby, 0f)
+            log("AutoMix bass swap enabled for confident BPM pair")
+        } else {
+            setAutoMixBassGain(current, 1f)
+            setAutoMixBassGain(standby, 1f)
+        }
+        beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
+        beatAlignedStartRunnable = null
+
         runEqualPowerFade(
-        standby,
-        current,
-        nextIndex,
-        actualFadeMs,
+            standby,
+            current,
+            nextIndex,
+            actualFadeMs,
+            applyBassSwap,
         )
         }
 
@@ -390,6 +461,7 @@ class CrossfadeController(
     oldPlayer: ExoPlayer,
     nextIndex: Int,
     durationMs: Long,
+    applyBassSwap: Boolean,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
@@ -415,6 +487,8 @@ class CrossfadeController(
                 }
 
                 if (step >= steps) {
+                    setAutoMixBassGain(newPlayer, 1f)
+                    setAutoMixBassGain(oldPlayer, 1f)
                     // ── Crossfade complete ─────────────────────────────────────
                     CrossfadeTimelineLogger.stampDual(
                         "runEqualPowerFade: COMPLETE (step=$step/$steps) — about to stop old player",
@@ -484,6 +558,16 @@ class CrossfadeController(
                 // pre-change volume at completion.
                 val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
                 val t      = step.toFloat() / steps.toFloat()
+                if (applyBassSwap) {
+                    // Keep outgoing bass until the blend is established, then
+                    // transfer the low band smoothly to the incoming deck.
+                    val outgoingBass = if (t <= 0.45f) 1f
+                        else (1f - (t - 0.45f) / 0.55f).coerceIn(0f, 1f)
+                    val incomingBass = if (t <= 0.40f) 0f
+                        else ((t - 0.40f) / 0.60f).coerceIn(0f, 1f)
+                    setAutoMixBassGain(oldPlayer, outgoingBass)
+                    setAutoMixBassGain(newPlayer, incomingBass)
+                }
                 val theta  = (t * PI / 2.0).toFloat()
                 oldPlayer.volume = (targetVol * cos(theta)).coerceIn(0f, targetVol)
                 newPlayer.volume = (targetVol * sin(theta)).coerceIn(0f, targetVol)
