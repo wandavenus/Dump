@@ -214,10 +214,12 @@ class AutomixService {
 
       if (automixEnabled.value) {
         final bpm = _usableBpm(currentFeatures);
-        final userSpeed = AudioEffectsService.playbackSpeed.value.clamp(0.25, 4.0);
+        // Crossfade duration is expressed in media-timeline seconds. Manual
+        // playback speed changes wall-clock duration, not the number of source
+        // beats covered by the planned fade.
         final fadeSeconds = bpm == null
             ? metrics.crossfadeSeconds
-            : (settings.value.crossfadeBeats * 60.0 / (bpm * userSpeed))
+            : (settings.value.crossfadeBeats * 60.0 / bpm)
                 .clamp(2.0, 16.0)
                 .toDouble();
         await _engageCrossfade(fadeSeconds);
@@ -480,8 +482,7 @@ class AutomixService {
     final firstBpm = _usableBpm(sequencedFeatures.first);
     final fadeSeconds = firstBpm == null
         ? planMetrics.crossfadeSeconds
-        : (settings.value.crossfadeBeats * 60.0 /
-                (firstBpm * AudioEffectsService.playbackSpeed.value.clamp(0.25, 4.0)))
+        : (settings.value.crossfadeBeats * 60.0 / firstBpm)
             .clamp(2.0, 16.0)
             .toDouble();
     await _engageCrossfade(fadeSeconds);
