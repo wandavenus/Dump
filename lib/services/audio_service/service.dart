@@ -762,6 +762,41 @@ class AudioService {
     targets: targets,
   );
 
+  /// Reorder only upcoming AutoMix items in a single native batch.
+  /// The active song is checked by ID on the native side and is never moved.
+  static Future<void> reorderUpcomingByIds({
+    required int currentId,
+    required List<int> orderedIds,
+  }) async {
+    if (_playlist.length < 2) return;
+    final currentIndex = _playlist.indexWhere((song) => song.id == currentId);
+    if (currentIndex < 0 || currentIndex >= _playlist.length - 1) return;
+    final tail = _playlist.skip(currentIndex + 1).toList(growable: false);
+    final tailIds = tail.map((song) => song.id).toList(growable: false);
+    if (orderedIds.length != tailIds.length ||
+        orderedIds.toSet().length != orderedIds.length ||
+        tailIds.toSet().length != tailIds.length ||
+        orderedIds.toSet().difference(tailIds.toSet()).isNotEmpty ||
+        tailIds.toSet().difference(orderedIds.toSet()).isNotEmpty) {
+      throw StateError('AutoMix planned queue no longer matches the current tail');
+    }
+    await PlaybackManager.reorderUpcomingByIds(
+      currentId: currentId,
+      orderedIds: orderedIds,
+    );
+    final byId = <int, LocalSong>{for (final song in tail) song.id: song};
+    final mutable = <LocalSong>[
+      ..._playlist.take(currentIndex + 1),
+      for (final id in orderedIds) byId[id]!,
+    ];
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+    _currentIndex = _playlist.indexWhere((song) => song.id == currentId);
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: _playlist,
+      currentIndex: _currentIndex,
+    ));
+  }
+
   /// Move a queue item to its final index and await native confirmation.
   /// AutoMix uses this to prepare upcoming tracks without restarting playback.
   static Future<void> reorderQueueAwaited(int oldIndex, int targetIndex) async {
