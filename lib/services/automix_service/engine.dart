@@ -66,17 +66,41 @@ const List<int> automixCamelotMinorNum = [
 /// this Dart mirror (the Kotlin side encodes the identical table).
 (int number, bool minor)? automixKeyToCamelot(int tonicPc, bool isMinor) {
   final pc = ((tonicPc % 12) + 12) % 12;
-  return isMinor ? (automixCamelotMinorNum[pc], true) : (automixCamelotMajorNum[pc], false);
+  return isMinor
+      ? (automixCamelotMinorNum[pc], true)
+      : (automixCamelotMajorNum[pc], false);
 }
 
 /// Canonical chroma distribution profiles (Krumhansl–Schmuckler). The native
 /// key extractor correlates measured chroma against 24 rotated versions of
 /// these; mirrored here so the Dart tests can verify the same tuning math.
 const List<double> automixKsMajorProfile = [
-  6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88,
+  6.35,
+  2.23,
+  3.48,
+  2.33,
+  4.38,
+  4.09,
+  2.52,
+  5.19,
+  2.39,
+  3.66,
+  2.29,
+  2.88,
 ];
 const List<double> automixKsMinorProfile = [
-  6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17,
+  6.33,
+  2.68,
+  3.52,
+  5.38,
+  2.60,
+  3.53,
+  2.54,
+  4.75,
+  3.98,
+  2.69,
+  3.34,
+  3.17,
 ];
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
@@ -159,9 +183,10 @@ const double automixTempoMatchTolerance = 0.06;
 /// Tempo pull for one deck, as `(matched, multiplier)`.
 ///
 /// [multiplier] is `1.0` (untouched) unless [trackBpm] can be pulled onto
-/// [referenceBpm] by at most [tolerance]; when it can, the returned value is
-/// that ratio, clamped to the ±8 % the native stretch stage accepts. A `false`
-/// match means the caller must not publish a beat grid for that deck either.
+/// [referenceBpm] by at most [tolerance]. The comparison includes half/double
+/// pulse folds so an octave-ambiguous detector result can still provide a
+/// usable beat grid without applying an audible 2× rate change. A `false` match
+/// means the caller must not publish a beat grid for that deck.
 (bool matched, double multiplier) automixTempoMatch({
   required double? referenceBpm,
   required double? trackBpm,
@@ -175,9 +200,26 @@ const double automixTempoMatchTolerance = 0.06;
       trackBpm <= 0) {
     return (false, 1.0);
   }
-  final delta = referenceBpm / trackBpm - 1.0;
-  if (!delta.isFinite || delta.abs() > tolerance) return (false, 1.0);
-  return (true, (1.0 + delta).clamp(0.92, 1.08).toDouble());
+
+  // Tempo analysis can report a track at half or double its musical pulse.
+  // Compare those octave folds as well as the raw estimate, but keep the
+  // resulting speed correction near 1.0 so this never applies a 2× rate change.
+  final candidates = <double>[trackBpm, trackBpm * 2.0, trackBpm / 2.0];
+  var bestMultiplier = 1.0;
+  var bestDistance = double.infinity;
+  for (final candidate in candidates) {
+    if (!candidate.isFinite || candidate <= 0) continue;
+    final multiplier = referenceBpm / candidate;
+    final distance = (multiplier - 1.0).abs();
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMultiplier = multiplier;
+    }
+  }
+  if (!bestDistance.isFinite || bestDistance > tolerance) {
+    return (false, 1.0);
+  }
+  return (true, bestMultiplier.clamp(0.92, 1.08).toDouble());
 }
 
 // ── Segmented (full-song) analysis ───────────────────────────────────────────
@@ -213,8 +255,9 @@ AutomixTrackFeatures automixMergeSegments({
   double? loudnessLufs,
 }) {
   // ── Tempo vote ────────────────────────────────────────────────────────────
-  final withBpm =
-      segments.where((s) => s.bpm != null && s.bpmConfidence > 0).toList();
+  final withBpm = segments
+      .where((s) => s.bpm != null && s.bpmConfidence > 0)
+      .toList();
   double? bpm;
   var bpmConfidence = 0.0;
   if (withBpm.isNotEmpty) {
@@ -235,14 +278,16 @@ AutomixTrackFeatures automixMergeSegments({
     if (weight > 0) {
       bpm = automixFoldToOctave(weighted / weight, anchor.bpm!);
       // A tempo only counts as confident when the windows agree with each other.
-      bpmConfidence =
-          automixClamp01((agreeing / weight) * anchor.bpmConfidence);
+      bpmConfidence = automixClamp01(
+        (agreeing / weight) * anchor.bpmConfidence,
+      );
     }
   }
 
   // ── Key vote ──────────────────────────────────────────────────────────────
-  final withKey =
-      segments.where((s) => s.camelotNumber != null && s.keyConfidence > 0).toList();
+  final withKey = segments
+      .where((s) => s.camelotNumber != null && s.keyConfidence > 0)
+      .toList();
   int? camelotNumber;
   bool? camelotMinor;
   var keyConfidence = 0.0;
@@ -380,7 +425,8 @@ class AutomixTransitionCue {
 ///
 /// Structure-aware: a dense outro gets a shorter, faster hand-over (less
 /// overlap of two busy sections) while a sparse outro gets a longer, gentler
-/// blend; a sparse intro tolerates extra overlap. Levels follow standard DJ
+/// blend; a sparse intro tolerates extra overlap. Confidently incompatible
+/// tempos or keys shorten the fade automatically. Levels follow standard DJ
 /// practice: only the louder deck is attenuated, by at most 6 dB.
 /// Tempo that governs a track's exit: its tail estimate when the tail window
 /// had one, else its head estimate.
@@ -417,6 +463,37 @@ AutomixTransitionCue automixTransitionCue({
   if (intro != null && intro <= 0.35) {
     // A sparse incoming intro can carry a longer overlap without clashing.
     fadeSeconds *= 1.15;
+  }
+
+  // Keep the transition fully automatic: when reliable analysis says the two
+  // pulse grids cannot match, hand over sooner instead of holding a long,
+  // rhythmically conflicting overlap. Confidently distant keys also get a
+  // shorter blend. Uncertain estimates stay neutral and keep the regular fade.
+  final exitTempo = automixExitBpm(outgoing);
+  if (outgoing.bpmConfidence >= 0.45 &&
+      incoming.bpmConfidence >= 0.45 &&
+      exitTempo != null &&
+      incoming.bpm != null &&
+      !automixTempoMatch(
+        referenceBpm: exitTempo,
+        trackBpm: incoming.bpm,
+        tolerance: settings.bpmTolerancePercent / 100.0,
+      ).$1) {
+    fadeSeconds *= 0.72;
+    gamma = math.max(gamma, 1.20);
+  }
+
+  final keyCost = automixCamelotCost(
+    outgoing.camelotNumber,
+    outgoing.camelotMinor,
+    incoming.camelotNumber,
+    incoming.camelotMinor,
+  );
+  if (outgoing.keyConfidence >= 0.55 &&
+      incoming.keyConfidence >= 0.55 &&
+      keyCost >= 0.60) {
+    fadeSeconds *= 0.82;
+    gamma = math.max(gamma, 1.15);
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
 
@@ -584,7 +661,8 @@ List<double> automixNormalizeEnergy(List<AutomixTrackFeatures> feats) {
   final hiRaw = pct(0.90);
   final span = (hiRaw - lo) < 0.08 ? 0.08 : (hiRaw - lo);
   return <double>[
-    for (final raw in raws) raw == null ? 0.5 : automixClamp01((raw - lo) / span),
+    for (final raw in raws)
+      raw == null ? 0.5 : automixClamp01((raw - lo) / span),
   ];
 }
 
@@ -636,7 +714,11 @@ double _transitionCost({
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
   final measuredTempo = automixTempoCost(
-    a.bpm, a.alternateBpm, b.bpm, b.alternateBpm, tolerance,
+    a.bpm,
+    a.alternateBpm,
+    b.bpm,
+    b.alternateBpm,
+    tolerance,
   );
   final tempoConfidence = automixClamp01(
     (a.bpmConfidence + b.bpmConfidence) / 2,
@@ -648,14 +730,13 @@ double _transitionCost({
   );
 
   final measuredKey = automixCamelotCost(
-    a.camelotNumber, a.camelotMinor, b.camelotNumber, b.camelotMinor,
+    a.camelotNumber,
+    a.camelotMinor,
+    b.camelotNumber,
+    b.camelotMinor,
   );
   final kConf = automixClamp01((a.keyConfidence + b.keyConfidence) / 2);
-  var key = automixConfidenceBlend(
-    measuredKey,
-    kConf,
-    neutralCost: 0.5,
-  );
+  var key = automixConfidenceBlend(measuredKey, kConf, neutralCost: 0.5);
   // Harmonic filter means a confidently incompatible key is strongly
   // discouraged. If detection is uncertain, confidence blending above keeps
   // it near neutral rather than rejecting a potentially compatible track.
@@ -684,9 +765,7 @@ double _transitionCost({
   final sameArtist =
       a.artist.trim().toLowerCase() == b.artist.trim().toLowerCase() &&
       a.artist.trim().isNotEmpty;
-  final variety = sameArtist
-      ? (settings.avoidArtistRepeat ? 0.55 : 0.20)
-      : 0.0;
+  final variety = sameArtist ? (settings.avoidArtistRepeat ? 0.55 : 0.20) : 0.0;
 
   final (wT, wK, wE, wV) = _profileWeights[settings.profile]!;
   return ((wT * tempo + wK * key + wE * energy + wV * variety) /
@@ -915,7 +994,9 @@ class AutomixEngine {
     // cost1 + γ · min over next-next.
     var best = scored.first.$1;
     var bestScore = double.infinity;
-    final limit = _lookaheadTopK < scored.length ? _lookaheadTopK : scored.length;
+    final limit = _lookaheadTopK < scored.length
+        ? _lookaheadTopK
+        : scored.length;
     for (int k = 0; k < limit; k++) {
       final (cand, base) = scored[k];
       var score = base;
@@ -1107,9 +1188,7 @@ class AutomixEngine {
       if (bpm != null && bpm > 0) bpms.add(bpm);
     }
     bpms.sort();
-    final median = bpms.isEmpty
-        ? _defaultBpm
-        : bpms[bpms.length ~/ 2];
+    final median = bpms.isEmpty ? _defaultBpm : bpms[bpms.length ~/ 2];
     return (settings.crossfadeBeats * 60.0 / median).clamp(1.5, 12.0);
   }
 }

@@ -47,26 +47,14 @@ void main() {
 
   group('automixConfidenceBlend', () {
     test('moves unreliable estimates toward a neutral cost', () {
-      expect(
-        automixConfidenceBlend(0.0, 0.0, neutralCost: 0.35),
-        0.35,
-      );
-      expect(
-        automixConfidenceBlend(1.0, 0.0, neutralCost: 0.35),
-        0.35,
-      );
-      expect(
-        automixConfidenceBlend(0.0, 1.0, neutralCost: 0.35),
-        0.0,
-      );
+      expect(automixConfidenceBlend(0.0, 0.0, neutralCost: 0.35), 0.35);
+      expect(automixConfidenceBlend(1.0, 0.0, neutralCost: 0.35), 0.35);
+      expect(automixConfidenceBlend(0.0, 1.0, neutralCost: 0.35), 0.0);
       expect(
         automixConfidenceBlend(0.0, 0.5, neutralCost: 0.35),
         closeTo(0.175, 1e-12),
       );
-      expect(
-        automixConfidenceBlend(0.0, 0.0, neutralCost: 0.5),
-        0.5,
-      );
+      expect(automixConfidenceBlend(0.0, 0.0, neutralCost: 0.5), 0.5);
     });
   });
 
@@ -232,7 +220,12 @@ void main() {
     test('deterministic across repeated calls', () {
       final tracks = [
         for (var i = 1; i <= 40; i++)
-          _f(i, bpm: 90 + (i % 11) * 4, camelot: ((i * 5) % 12) + 1, minor: i.isOdd),
+          _f(
+            i,
+            bpm: 90 + (i % 11) * 4,
+            camelot: ((i * 5) % 12) + 1,
+            minor: i.isOdd,
+          ),
       ];
       const settings = AutomixSettings(profile: AutomixProfile.harmonic);
       final a = AutomixEngine.planSet(
@@ -259,34 +252,30 @@ void main() {
       expect(plan.crossfadeSeconds, 0);
     });
 
-    test('harmonic profile avoids big camelot jumps when alternatives exist', () {
-      // Track 1: 8A; candidate 2: 8A-compatible; candidate 3: 1B (far).
-      final tracks = [
-        _f(1, bpm: 120, camelot: 8, minor: true),
-        _f(2, bpm: 120, camelot: 8, minor: true),
-        _f(3, bpm: 120, camelot: 1, minor: false),
-      ];
-      const settings = AutomixSettings(profile: AutomixProfile.harmonic);
-      final plan = AutomixEngine.planSet(
-        tracks: tracks,
-        settings: settings,
-        startIndex: 0,
-      );
-      expect(plan.order[1], 1); // compatible neighbor first
-    });
+    test(
+      'harmonic profile avoids big camelot jumps when alternatives exist',
+      () {
+        // Track 1: 8A; candidate 2: 8A-compatible; candidate 3: 1B (far).
+        final tracks = [
+          _f(1, bpm: 120, camelot: 8, minor: true),
+          _f(2, bpm: 120, camelot: 8, minor: true),
+          _f(3, bpm: 120, camelot: 1, minor: false),
+        ];
+        const settings = AutomixSettings(profile: AutomixProfile.harmonic);
+        final plan = AutomixEngine.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 0,
+        );
+        expect(plan.order[1], 1); // compatible neighbor first
+      },
+    );
 
     test('finds a half-time match outside the local raw-BPM window', () {
       // Raw-BPM order places 60 BPM more than 12 slots from 120 BPM. The
       // half/double-time candidate pool should still discover it immediately.
       final tracks = <AutomixTrackFeatures>[
-        _f(
-          1,
-          bpm: 120,
-          camelot: 8,
-          minor: true,
-          bpmConf: 0.99,
-          keyConf: 0.99,
-        ),
+        _f(1, bpm: 120, camelot: 8, minor: true, bpmConf: 0.99, keyConf: 0.99),
         for (var i = 0; i < 30; i++)
           _f(
             i + 2,
@@ -352,9 +341,9 @@ void main() {
         startIndex: 0,
       );
       final energies = automixNormalizeEnergy(tracks);
-      final peakIdx = energies.indexOf(energies.reduce(
-        (a, b) => a > b ? a : b,
-      ));
+      final peakIdx = energies.indexOf(
+        energies.reduce((a, b) => a > b ? a : b),
+      );
       final peakPos = plan.order.indexOf(peakIdx) / (plan.order.length - 1);
       expect(peakPos, greaterThan(0.3));
       expect(peakPos, lessThan(0.8));
@@ -423,11 +412,7 @@ void main() {
     test('structure markers describe the first and last window', () {
       final merged = automixMergeSegments(
         songId: 2,
-        segments: [
-          seg(0, rms: -30),
-          seg(120, rms: -8),
-          seg(240, rms: -22),
-        ],
+        segments: [seg(0, rms: -30), seg(120, rms: -8), seg(240, rms: -22)],
       );
       expect(merged.introEnergy, 0);
       expect(merged.outroEnergy, closeTo(0.3636, 0.01));
@@ -491,6 +476,105 @@ void main() {
       expect(cue.outgoingTrim, 1.0);
       expect(cue.incomingTrim, 1.0);
     });
+
+    test(
+      'shortens a confident transition when the pulse grids cannot match',
+      () {
+        final cue = automixTransitionCue(
+          outgoing: AutomixTrackFeatures(
+            songId: 1,
+            bpm: 120,
+            tailBpm: 120,
+            bpmConfidence: 0.9,
+          ),
+          incoming: const AutomixTrackFeatures(
+            songId: 2,
+            bpm: 150,
+            bpmConfidence: 0.9,
+          ),
+          settings: const AutomixSettings(),
+        );
+
+        // 16 beats at 120 BPM is 8 s; incompatible confident tempos use a
+        // shorter 5.76 s hand-off instead of a long rhythmic overlap.
+        expect(cue.fadeSeconds, closeTo(8.0 * 0.72, 0.01));
+        expect(cue.curveGamma, greaterThanOrEqualTo(1.20));
+      },
+    );
+
+    test(
+      'keeps tempo mismatches neutral when either estimate is uncertain',
+      () {
+        final cue = automixTransitionCue(
+          outgoing: const AutomixTrackFeatures(
+            songId: 1,
+            bpm: 120,
+            tailBpm: 120,
+            bpmConfidence: 0.9,
+          ),
+          incoming: const AutomixTrackFeatures(
+            songId: 2,
+            bpm: 150,
+            bpmConfidence: 0.1,
+          ),
+          settings: const AutomixSettings(),
+        );
+
+        expect(cue.fadeSeconds, 8.0);
+        expect(cue.curveGamma, 1.0);
+      },
+    );
+
+    test(
+      'shortens a confident harmonic clash but leaves uncertain keys neutral',
+      () {
+        final clash = automixTransitionCue(
+          outgoing: const AutomixTrackFeatures(
+            songId: 1,
+            bpm: 120,
+            tailBpm: 120,
+            bpmConfidence: 0.9,
+            camelotNumber: 8,
+            camelotMinor: false,
+            keyConfidence: 0.9,
+          ),
+          incoming: const AutomixTrackFeatures(
+            songId: 2,
+            bpm: 120,
+            bpmConfidence: 0.9,
+            camelotNumber: 1,
+            camelotMinor: false,
+            keyConfidence: 0.9,
+          ),
+          settings: const AutomixSettings(),
+        );
+        expect(clash.fadeSeconds, closeTo(8.0 * 0.82, 0.01));
+        expect(clash.curveGamma, greaterThanOrEqualTo(1.15));
+
+        final uncertain = automixTransitionCue(
+          outgoing: const AutomixTrackFeatures(
+            songId: 3,
+            bpm: 120,
+            tailBpm: 120,
+            bpmConfidence: 0.9,
+            camelotNumber: 8,
+            camelotMinor: false,
+            keyConfidence: 0.2,
+          ),
+          incoming: const AutomixTrackFeatures(
+            songId: 4,
+            bpm: 120,
+            bpmConfidence: 0.9,
+            camelotNumber: 1,
+            camelotMinor: false,
+            keyConfidence: 0.2,
+          ),
+          settings: const AutomixSettings(),
+        );
+        expect(uncertain.fadeSeconds, 8.0);
+        expect(uncertain.curveGamma, 1.0);
+      },
+    );
   });
 
   group('bounded planning window', () {
@@ -503,15 +587,21 @@ void main() {
       expect(automixPlanWindow<int>([1, 2, 3], 9, 2), [3]);
     });
 
-    test('ordered tail keeps the planned window and the untouched remainder', () {
-      expect(
-        automixOrderedTail<int>([3, 2, 1], [1, 2, 3, 4, 5], 3),
-        [3, 2, 1, 4, 5],
-      );
-      // A window larger than the tail is clamped, never padded.
-      expect(automixOrderedTail<int>([2, 1], [1, 2], 5), [2, 1]);
-      expect(automixOrderedTail<int>([], [1, 2, 3], 0), [1, 2, 3]);
-    });
+    test(
+      'ordered tail keeps the planned window and the untouched remainder',
+      () {
+        expect(automixOrderedTail<int>([3, 2, 1], [1, 2, 3, 4, 5], 3), [
+          3,
+          2,
+          1,
+          4,
+          5,
+        ]);
+        // A window larger than the tail is clamped, never padded.
+        expect(automixOrderedTail<int>([2, 1], [1, 2], 5), [2, 1]);
+        expect(automixOrderedTail<int>([], [1, 2, 3], 0), [1, 2, 3]);
+      },
+    );
 
     test('planning a 60-track queue only permutes its window', () {
       final tracks = [
@@ -524,7 +614,11 @@ void main() {
           ),
       ];
       const horizon = 25;
-      final window = automixPlanWindow<AutomixTrackFeatures>(tracks, 4, horizon);
+      final window = automixPlanWindow<AutomixTrackFeatures>(
+        tracks,
+        4,
+        horizon,
+      );
       expect(window.length, horizon + 1);
 
       final plan = AutomixEngine.planSet(
@@ -566,18 +660,41 @@ void main() {
       expect(far.$2, 1.0);
     });
 
+    test(
+      'matches half/double-time pulse estimates without octave speed changes',
+      () {
+        final halfTime = automixTempoMatch(referenceBpm: 120, trackBpm: 60);
+        expect(halfTime, (true, 1.0));
+
+        final doubleTime = automixTempoMatch(referenceBpm: 60, trackBpm: 120);
+        expect(doubleTime, (true, 1.0));
+
+        // A 61 BPM analysis can be interpreted as 122 BPM; only the small
+        // correction needed to line up that pulse is applied to the deck.
+        final nearHalfTime = automixTempoMatch(referenceBpm: 120, trackBpm: 61);
+        expect(nearHalfTime.$1, isTrue);
+        expect(nearHalfTime.$2, closeTo(120 / 122, 0.0005));
+      },
+    );
+
     test('stays neutral when a tempo is missing or unusable', () {
-      expect(automixTempoMatch(referenceBpm: null, trackBpm: 120), (false, 1.0));
-      expect(automixTempoMatch(referenceBpm: 120, trackBpm: null), (false, 1.0));
+      expect(automixTempoMatch(referenceBpm: null, trackBpm: 120), (
+        false,
+        1.0,
+      ));
+      expect(automixTempoMatch(referenceBpm: 120, trackBpm: null), (
+        false,
+        1.0,
+      ));
       expect(automixTempoMatch(referenceBpm: 0, trackBpm: 120), (false, 1.0));
-      expect(
-        automixTempoMatch(referenceBpm: double.nan, trackBpm: 120),
-        (false, 1.0),
-      );
-      expect(
-        automixTempoMatch(referenceBpm: double.infinity, trackBpm: 120),
-        (false, 1.0),
-      );
+      expect(automixTempoMatch(referenceBpm: double.nan, trackBpm: 120), (
+        false,
+        1.0,
+      ));
+      expect(automixTempoMatch(referenceBpm: double.infinity, trackBpm: 120), (
+        false,
+        1.0,
+      ));
     });
 
     test('the tolerance boundary is inclusive, just past it is not', () {
