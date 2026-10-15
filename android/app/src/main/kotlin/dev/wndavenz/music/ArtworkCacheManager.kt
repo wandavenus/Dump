@@ -46,7 +46,7 @@ class ArtworkCacheManager(private val context: Context) {
         // cross-instance lock.
         private const val TMP_MAX_AGE_MS = 60L * 60 * 1000
         private const val WEBP_QUALITY  = 90
-        private const val MAX_ARTWORK_SIZE = 2000
+        private const val MAX_ARTWORK_SIZE = 1000
         // A3 (1.5.21): raw-copy fast path extended beyond JPEG — any decodable
         // artwork up to this size (and ≤ MAX_ARTWORK_SIZE on both sides) is
         // byte-copied into the cache instead of paying the 50–150 ms
