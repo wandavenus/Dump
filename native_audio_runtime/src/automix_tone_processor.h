@@ -13,8 +13,7 @@ extern "C" {
 #define NAR_AUTOMIX_TONE_STREAM_COUNT 2
 #define NAR_AUTOMIX_TONE_MAX_CHANNELS 8
 
-// Keep the first seven floats at fixed offsets: automix_tone_neon.S uses them
-// directly for the two-channel hot path. See static assertions in the C file.
+// Keep offsets fixed: automix_tone_neon.S reads/writes this state directly.
 typedef struct NarAutomixToneState {
   float low_pass_state[NAR_AUTOMIX_TONE_MAX_CHANNELS];  // offset 0
   float high_cut_state[NAR_AUTOMIX_TONE_MAX_CHANNELS];  // offset 32
@@ -25,7 +24,8 @@ typedef struct NarAutomixToneState {
   float current_high_gain;                              // offset 80
   int32_t sample_rate;                                  // offset 84
   int32_t channel_count;                                // offset 88
-  int32_t configured;                                   // offset 92
+  float current_fade_gain;                              // offset 92
+  int32_t configured;                                   // offset 96
 } NarAutomixToneState;
 
 // Configure/reset are lifecycle calls; never call configure concurrently with
@@ -37,6 +37,14 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_bass_gain(
     int32_t stream_slot, float gain);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_high_gain(
     int32_t stream_slot, float gain);
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_fade_gain(
+    int32_t stream_slot, float gain);
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
+    float progress, float gamma, float outgoing_trim, float incoming_trim,
+    float* outgoing_gain, float* incoming_gain);
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_crossfade_gains(
+    int32_t outgoing_slot, int32_t incoming_slot, float progress, float gamma,
+    float outgoing_trim, float incoming_trim);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_reset(int32_t stream_slot);
 
 // In-place float32 interleaved PCM. Returns 1 on success, 0 on invalid or
