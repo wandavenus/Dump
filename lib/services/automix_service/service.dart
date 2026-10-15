@@ -86,6 +86,7 @@ class AutomixService {
 
   static bool _autoQueueListenerInstalled = false;
   static bool _autoMixPreparing = false;
+  static bool _autoMixCheckRunning = false;
   static String? _lastAutoQueueIdentity;
 
   /// Automatically prepares upcoming tracks on a newly loaded queue.
@@ -96,16 +97,75 @@ class AutomixService {
   }
 
   static void _onPlaybackStateForAutoMix() {
-    if (!automixEnabled.value || automixActive.value || _autoMixPreparing) return;
-    final state = AudioService.playbackState.value;
-    final queue = state.currentPlaylist;
-    if (!state.isPlaying || state.currentSong == null || queue.length < 3 ||
-        state.currentIndex < 0 || state.currentIndex >= queue.length) return;
-    final ids = queue.map((song) => song.id).toList()..sort();
-    final identity = ids.join(',');
-    if (_lastAutoQueueIdentity == identity) return;
-    _lastAutoQueueIdentity = identity;
-    unawaited(_prepareUpcomingTracks(queue, state.currentIndex));
+    if (_autoMixCheckRunning || _autoMixPreparing) return;
+    _autoMixCheckRunning = true;
+    unawaited(_checkPlaybackStateForAutoMix());
+  }
+
+  static Future<void> _checkPlaybackStateForAutoMix() async {
+    try {
+      await loadSettings();
+      if (!automixEnabled.value || automixActive.value || _autoMixPreparing) return;
+      final state = AudioService.playbackState.value;
+      final queue = state.currentPlaylist;
+      if (!state.isPlaying || state.currentSong == null || queue.length < 3 ||
+          state.currentIndex < 0 || state.currentIndex >= queue.length) return;
+      final ids = queue.map((song) => song.id).toList()..sort();
+      final identity = ids.join(',');
+      if (_lastAutoQueueIdentity == identity) return;
+      _lastAutoQueueIdentity = identity;
+      await _prepareUpcomingTracks(queue, state.currentIndex);
+    } finally {
+      _autoMixCheckRunning = false;
+    }
+  }
+
+  static double? _usableBpm(AutomixTrackFeatures features) {
+    final bpm = features.bpm;
+    if (bpm == null || !bpm.isFinite || bpm < 50 || bpm > 220 ||
+        features.bpmConfidence < 0.20) return null;
+    return bpm;
+  }
+
+  /// Builds conservative, pitch-preserving tempo targets for each upcoming deck.
+  /// Corrections outside ±8% are avoided; uncertain tracks are left untouched.
+  static List<Map<String, Object?>> _buildNativeTargets(
+    AutomixTrackFeatures current,
+    List<AutomixTrackFeatures> upcoming,
+  ) {
+    final currentBpm = _usableBpm(current);
+    AutomixTrackFeatures? firstAnalyzed;
+    for (final features in upcoming) {
+      if (_usableBpm(features) != null) {
+        firstAnalyzed = features;
+        break;
+      }
+    }
+    final reference = currentBpm ??
+        (firstAnalyzed == null ? null : _usableBpm(firstAnalyzed));
+    final referenceSongId = currentBpm != null
+        ? current.songId
+        : firstAnalyzed?.songId;
+
+    return <Map<String, Object?>>[
+      for (final features in <AutomixTrackFeatures>[current, ...upcoming])
+        () {
+          final sourceBpm = _usableBpm(features);
+          var multiplier = 1.0;
+          if (features.songId != current.songId &&
+              reference != null &&
+              sourceBpm != null &&
+              features.songId != referenceSongId) {
+            multiplier = (reference / sourceBpm).clamp(0.92, 1.08).toDouble();
+          }
+          return <String, Object?>{
+            'id': features.songId,
+            if (sourceBpm != null) 'bpm': sourceBpm * multiplier,
+            if (features.beatOffsetMs != null) 'beatOffsetMs': features.beatOffsetMs,
+            'multiplier': multiplier,
+          };
+        }(),
+    ];
   }
 
   static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
@@ -115,13 +175,23 @@ class AutomixService {
     _autoMixPreparing = true;
     try {
       await loadSettings();
-      final features = await featuresForAll(upcoming);
+      final currentSong = queue[currentIndex];
+      // Use cached analyses only on the playback path: never decode full tracks
+      // in the background while the current song is playing.
+      final allFeatures = await featuresForAll([currentSong, ...upcoming]);
       if (!automixEnabled.value) return;
+      final currentFeatures = allFeatures.first;
+      final upcomingFeatures = allFeatures.skip(1).toList(growable: false);
       final metrics = AutomixEngine.planSet(
-        tracks: features, settings: settings.value, startIndex: 0,
+        tracks: upcomingFeatures, settings: settings.value, startIndex: 0,
       );
       if (metrics.order.length != upcoming.length) return;
       final planned = [for (final index in metrics.order) upcoming[index]];
+      final plannedFeatures = [
+        for (final index in metrics.order) upcomingFeatures[index],
+      ];
+
+      // Mutate only the queue tail. The active player/timeline is not replaced.
       for (var target = 0; target < planned.length; target++) {
         final currentQueue = AudioService.currentPlaylist;
         final absoluteTarget = currentIndex + 1 + target;
@@ -135,9 +205,26 @@ class AutomixService {
           await AudioService.reorderQueueAwaited(oldIndex, absoluteTarget);
         }
       }
+
       if (automixEnabled.value) {
-        await _engageCrossfade(metrics.crossfadeSeconds);
-        LogService.log('Automix', 'Auto-prepared upcoming tracks; current track preserved');
+        final bpm = _usableBpm(currentFeatures);
+        final userSpeed = AudioEffectsService.playbackSpeed.value.clamp(0.25, 4.0);
+        final fadeSeconds = bpm == null
+            ? metrics.crossfadeSeconds
+            : (settings.value.crossfadeBeats * 60.0 / (bpm * userSpeed))
+                .clamp(2.0, 16.0)
+                .toDouble();
+        await _engageCrossfade(fadeSeconds);
+        await AudioService.setAutomixTransition(
+          enabled: true,
+          targets: _buildNativeTargets(currentFeatures, plannedFeatures),
+        );
+        LogService.log(
+          'Automix',
+          'DJ plan prepared (${planned.length} upcoming tracks; '
+              'beat/tempo matching ${bpm == null ? "fallback" : "enabled"}); '
+              'current track preserved',
+        );
       }
     } on Object catch (e, st) {
       LogService.warn('Automix', 'automatic queue preparation failed: $e');
@@ -169,7 +256,7 @@ class AutomixService {
 
   // Bump whenever the native DSP feature semantics or feature serialization
   // changes. Old cache entries must never be interpreted as current analysis.
-  static const int _analysisSchemaVersion = 2;
+  static const int _analysisSchemaVersion = 3;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -230,6 +317,7 @@ class AutomixService {
     bpm: features.bpm,
     bpmConfidence: features.bpmConfidence,
     alternateBpm: features.alternateBpm,
+    beatOffsetMs: features.beatOffsetMs,
     camelotNumber: features.camelotNumber,
     camelotMinor: features.camelotMinor,
     keyConfidence: features.keyConfidence,
@@ -382,7 +470,22 @@ class AutomixService {
       'cost ${planMetrics.averageCost.toStringAsFixed(3)})',
     );
 
-    await _engageCrossfade(planMetrics.crossfadeSeconds);
+    final sequencedFeatures = [for (final index in plan) features[index]];
+    final firstBpm = _usableBpm(sequencedFeatures.first);
+    final fadeSeconds = firstBpm == null
+        ? planMetrics.crossfadeSeconds
+        : (settings.value.crossfadeBeats * 60.0 /
+                (firstBpm * AudioEffectsService.playbackSpeed.value.clamp(0.25, 4.0)))
+            .clamp(2.0, 16.0)
+            .toDouble();
+    await _engageCrossfade(fadeSeconds);
+    await AudioService.setAutomixTransition(
+      enabled: true,
+      targets: _buildNativeTargets(
+        sequencedFeatures.first,
+        sequencedFeatures.skip(1).toList(growable: false),
+      ),
+    );
     await AudioService.playSongAt(
       playlist: sequenced,
       index: 0,
@@ -394,6 +497,14 @@ class AutomixService {
   /// Restores the user's crossfade and drops the "engaged" flag.
   static Future<void> disableAutomix() async {
     automixActive.value = false;
+    try {
+      await AudioService.setAutomixTransition(
+        enabled: false,
+        targets: const <Map<String, Object?>>[],
+      );
+    } on Object catch (e) {
+      LogService.warn('Automix', 'native transition reset failed: $e');
+    }
     await _restoreCrossfade();
   }
 
@@ -584,6 +695,7 @@ class AutomixService {
     final bpm = (res['bpm'] as num?)?.toDouble();
     final bpc = automixClamp01((res['bpmConfidence'] as num?)?.toDouble() ?? 0);
     final alt = (res['alternateBpm'] as num?)?.toDouble();
+    final beatOffsetMs = (res['beatOffsetMs'] as num?)?.toDouble();
     final camN = (res['camelotNumber'] as num?)?.toInt();
     final camM = res['camelotMinor'] as bool?;
     final kConf = automixClamp01((res['keyConfidence'] as num?)?.toDouble() ?? 0);
@@ -604,6 +716,7 @@ class AutomixService {
       bpm: bpc >= 0.15 ? bpm : null,
       bpmConfidence: bpc >= 0.15 ? bpc : 0,
       alternateBpm: bpm != null && bpc >= 0.15 ? alt : null,
+      beatOffsetMs: bpm != null && bpc >= 0.20 ? beatOffsetMs : null,
       camelotNumber: kConf >= 0.25 ? camN : null,
       camelotMinor: kConf >= 0.25 ? camM : null,
       keyConfidence: kConf >= 0.25 ? kConf : 0,
