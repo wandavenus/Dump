@@ -26,6 +26,8 @@ class PreloadManager(
     private val getActivePlayerRef:      () -> ExoPlayer?,
     private val getCrossfadeDurationSec: () -> Float,
     private val getQueue:                () -> List<Map<String, Any?>>,
+    /** Apply a per-track tempo/beat target after setMediaItem but before decoding. */
+    private val configureTrackForPreload: (ExoPlayer, Map<String, Any?>) -> Unit = { _, _ -> },
 ) {
     var preloadedQueueIndex: Int = C.INDEX_UNSET
         private set
@@ -94,6 +96,10 @@ class PreloadManager(
             standby.shuffleModeEnabled = current.shuffleModeEnabled
             standby.playbackParameters = current.playbackParameters
             standby.setMediaItem(MediaItemFactory.from(queue[nextIndex]))
+            // AutoMix must configure the silent standby before prepare() starts
+            // buffering audio; changing its rate afterwards would be too late
+            // for the opening PCM and estimated beat-phase seek.
+            configureTrackForPreload(standby, queue[nextIndex])
             standby.prepare()
             isPrewarmed         = false
             preloadedQueueIndex = nextIndex

@@ -124,6 +124,7 @@ object AutomixAnalysis {
             "bpm" to analysis.bpm,
             "bpmConfidence" to analysis.bpmConfidence,
             "alternateBpm" to analysis.alternateBpm,
+            "beatOffsetMs" to analysis.beatOffsetMs,
             "camelotNumber" to mapping?.first,
             "camelotMinor" to mapping?.second,
             "keyConfidence" to analysis.keyConfidence,

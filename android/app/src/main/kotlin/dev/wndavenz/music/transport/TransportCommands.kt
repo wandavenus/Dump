@@ -94,6 +94,7 @@ class TransportCommands(
      */
     private val onSpeedChanged: (Float) -> Unit = {},
     private val onPitchSemitonesChanged: (Float) -> Unit = {},
+    private val onAutomixTransitionChanged: (Boolean, List<Map<String, Any?>>) -> Unit = { _, _ -> },
 ) {
 
     // ── Rapid skip guard (SKIP-01) ───────────────────────────────────────────
@@ -161,6 +162,14 @@ class TransportCommands(
                 result.success(null); return
             }
 
+            "setAutomixTransition" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                val targets = call.argument<List<Map<String, Any?>>>("targets") ?: emptyList()
+                onAutomixTransitionChanged(enabled, targets)
+                result.success(null)
+                return
+            }
+
             "play" -> handlePlay(p, result)
             "pause" -> handlePause(p, result)
             "stop" -> handleStop(p, result)
@@ -194,6 +203,27 @@ class TransportCommands(
                 transportState.emitAll(emitQueue = true)
                 notificationManager.refresh()
                 result.success(null)
+            }
+
+            "reorderUpcomingByIds" -> {
+                val currentId = call.argument<Number>("currentId")?.toInt()
+                val desiredIds = call.argument<List<Number>>("orderedIds")?.map { it.toInt() }
+                if (currentId == null || desiredIds == null) {
+                    result.error("invalid_arguments", "currentId and orderedIds are required", null)
+                    return
+                }
+                // Refuse to reorder during a fade: its authoritative queue index
+                // is temporarily represented by a one-item promoted timeline.
+                val reordered = queueManager.reorderUpcomingByIds(currentId, desiredIds)
+                if (!reordered) {
+                    result.error("queue_changed", "AutoMix queue changed while planning", null)
+                    return
+                }
+                // Do not preload here. AutoMix applies the final tempo/beat targets
+                // immediately after this batch completes; that callback performs
+                // the one required standby rebuild using the finalized queue.
+                result.success(null)
+                return
             }
 
             "setTrack" -> {

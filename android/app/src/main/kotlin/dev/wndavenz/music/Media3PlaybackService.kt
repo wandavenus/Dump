@@ -158,6 +158,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
     private val playerReverbProcessors = IdentityHashMap<ExoPlayer, ReverbAudioProcessor>() // Reverb
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
+    private val playerAutomixToneProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.AutomixToneAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
     // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
@@ -175,6 +176,14 @@ class Media3PlaybackService : MediaSessionService() {
     // See StretchManager doc for why this needs its own manager (per-instance
     // native state, unlike the shared-global NativeDspAudioProcessor pipeline).
     private lateinit var stretchManager: dev.wndavenz.music.effects.StretchManager
+    private lateinit var automixToneManager: dev.wndavenz.music.effects.AutomixToneManager
+
+    // AutoMix target metadata keyed by stable MediaStore song ID. These are
+    // hints only; unknown/low-confidence features fall back to ordinary fade.
+    private var automixTransitionEnabled = false
+    private val automixTempoMultiplierBySongId = mutableMapOf<Int, Float>()
+    private val automixBpmBySongId = mutableMapOf<Int, Float>()
+    private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
 
     // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
     // activePlayerProxy is always the MediaSession's player. It dynamically
@@ -245,6 +254,7 @@ class Media3PlaybackService : MediaSessionService() {
         // must be tracked from the very first createConfiguredPlayer() call.
         reverbManager = ReverbManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
+        automixToneManager = dev.wndavenz.music.effects.AutomixToneManager()
 
         // Create primary player — always physical stream slot 0.
         primaryPlayer = createConfiguredPlayer(streamSlot = 0)
@@ -425,6 +435,23 @@ class Media3PlaybackService : MediaSessionService() {
             getActivePlayerRef = { activePlayer },
             getCrossfadeDurationSec = { crossfadeController.crossfadeDurationSec },
             getQueue           = { queueManager.queue },
+            configureTrackForPreload = { standby, item ->
+                val songId = (item["id"] as? Number)?.toInt()
+                val slot = if (standby === primaryPlayer) 0 else 1
+                val multiplier = songId?.let { automixTempoMultiplierBySongId[it] } ?: 1f
+                stretchManager.setAutoMixTempoMultiplier(slot, multiplier)
+                val beatOffset = songId?.let { automixBeatOffsetMsBySongId[it] }
+                val hasTempo = songId?.let { automixBpmBySongId[it] } != null
+                val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
+                val activeHasBeatGrid = activeId != null &&
+                    automixBpmBySongId[activeId] != null &&
+                    automixBeatOffsetMsBySongId[activeId] != null
+                if (automixTransitionEnabled && hasTempo && beatOffset != null && activeHasBeatGrid) {
+                    // Seek the silent standby only when both decks have confident
+                    // phase metadata; otherwise keep the incoming intro intact.
+                    standby.seekTo(beatOffset.coerceAtLeast(0L))
+                }
+            },
         )
 
         crossfadeController = CrossfadeController(
@@ -551,6 +578,23 @@ class Media3PlaybackService : MediaSessionService() {
             // setting can never start a fade on the clean player or reuse its
             // standby slot while the mode is active).
             isBitPerfectModeActive = { bitPerfectModeOn },
+            isAutomixTransitionEnabled = { automixTransitionEnabled },
+            getAutoMixBpmForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBpmBySongId[it] }
+            },
+            getAutoMixBeatOffsetMsForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBeatOffsetMsBySongId[it] }
+            },
+            setAutoMixBassGain = { p, gain ->
+                val slot = when (p) {
+                    primaryPlayer -> 0
+                    secondaryPlayer -> 1
+                    else -> -1
+                }
+                if (slot >= 0 && ::automixToneManager.isInitialized) {
+                    automixToneManager.setBassGain(slot, gain)
+                }
+            },
         )
 
         effectsManager = AudioEffectsManager(handler)
@@ -634,6 +678,9 @@ class Media3PlaybackService : MediaSessionService() {
             // (primary + secondary/crossfade) atomically.
             onSpeedChanged = { speed -> stretchManager.setSpeed(speed) },
             onPitchSemitonesChanged = { semitones -> stretchManager.setPitchSemitones(semitones) },
+            onAutomixTransitionChanged = { enabled, targets ->
+                applyAutomixTransition(enabled, targets)
+            },
 
             // Item 8: stereo widening — delegate to StereoWidthManager which
             // updates all ChannelMixingAudioProcessor instances atomically,
@@ -903,22 +950,11 @@ class Media3PlaybackService : MediaSessionService() {
         super.onStartCommand(intent, flags, startId)
 
         // Plan A: restore the persisted queue only on a system restart.
-        // START_STICKY redelivers a null intent when the system recreates the
-        // service after killing the process. Every non-null start is
-        // user/app initiated (Flutter play/setQueue, notification/BT action,
-        // ACTION_PLAY_URI) and builds its own queue, so restoring here would
-        // re-show the previous session's song in a fresh launch.
         if (intent == null) {
             restoreQueueFromPrefs()
         }
-        
-        // 2. Cek apakah ini panggilan dari overlay preview
+
         isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
-        // K3 fix: propagate preview mode to the notification manager so
-        // playNative()/player listeners can never start a foreground
-        // notification during the file-manager preview (previously only the
-        // first ensureMediaForeground() in handlePlayUri was guarded, while
-        // handlePlay and every listener refresh() still created it).
         notificationManager.setSuppressed(isPreviewMode)
 
         if (intent?.action == ACTION_PLAY_URI) {
@@ -934,14 +970,7 @@ class Media3PlaybackService : MediaSessionService() {
         return START_STICKY
     }
 
-
-    /**
-     * Plays a URI opened from a file manager / external app.
-     * Calls ensureMediaForeground() immediately (before any I/O) to satisfy
-     * Android's 5-second foreground-service deadline, then reads metadata on a
-     * background thread and triggers playback on the main thread.
-     */
-        private fun handlePlayUri(uriStr: String) {
+    private fun handlePlayUri(uriStr: String) {
         // Cuma tampilin notifikasi kalau BUKAN dalam mode preview
         if (!isPreviewMode) {
             notificationManager.ensureMediaForeground()
@@ -1234,8 +1263,14 @@ class Media3PlaybackService : MediaSessionService() {
         // pitch shift (see StretchManager / SignalsmithStretchAudioProcessor
         // docs). Placed last in the chain, exactly where Sonic used to sit.
         val stretchProc: dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor =
-            if (::stretchManager.isInitialized) stretchManager.createProcessor()
+            if (::stretchManager.isInitialized) stretchManager.createProcessor(streamSlot)
             else dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor()
+
+        // Low-band gain is independent per player so a DJ-style bass swap can
+        // happen during overlap without mutating the outgoing deck's playback.
+        val automixToneProc: dev.wndavenz.music.effects.AutomixToneAudioProcessor =
+            if (::automixToneManager.isInitialized) automixToneManager.createProcessor(streamSlot)
+            else dev.wndavenz.music.effects.AutomixToneAudioProcessor()
 
         // Custom DefaultRenderersFactory that injects the custom processor chain.
         //
@@ -1273,7 +1308,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,AutoMixTone,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1303,7 +1338,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, automixToneProc, stretchProc, toInt16Proc
                         )
                     )
                     .build()
@@ -1402,6 +1437,9 @@ class Media3PlaybackService : MediaSessionService() {
         }
         if (::stretchManager.isInitialized) {
             playerStretchProcessors[player] = stretchProc
+        }
+        if (::automixToneManager.isInitialized) {
+            playerAutomixToneProcessors[player] = automixToneProc
         }
 
         return player
@@ -2041,8 +2079,72 @@ class Media3PlaybackService : MediaSessionService() {
         playerReverbProcessors.remove(p)?.let { reverbManager.removeProcessor(it) }
         // Signalsmith Stretch: same rationale, for the speed/pitch processor.
         playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
+        // AutoMix tone processor is per-deck and must leave the registry on release.
+        playerAutomixToneProcessors.remove(p)?.let { automixToneManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.
         lastAudioMimeType.remove(p)
+    }
+
+    // ── AutoMix native deck configuration ─────────────────────────────────────
+
+    /**
+     * Receives cached offline feature targets from Flutter. Active audio is not
+     * sought/replaced: only independent per-player tempo controls and the
+     * already-silent/preloaded standby are updated.
+     */
+    private fun applyAutomixTransition(
+        enabled: Boolean,
+        targets: List<Map<String, Any?>>,
+    ) {
+        automixTransitionEnabled = enabled
+        automixTempoMultiplierBySongId.clear()
+        automixBpmBySongId.clear()
+        automixBeatOffsetMsBySongId.clear()
+
+        if (enabled) {
+            for (target in targets) {
+                val id = (target["id"] as? Number)?.toInt() ?: continue
+                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
+                if (multiplier.isFinite()) {
+                    automixTempoMultiplierBySongId[id] = multiplier.coerceIn(0.92f, 1.08f)
+                }
+                val bpm = (target["bpm"] as? Number)?.toFloat()
+                if (bpm != null && bpm.isFinite() && bpm in 50f..220f) {
+                    automixBpmBySongId[id] = bpm
+                }
+                val offsetMs = (target["beatOffsetMs"] as? Number)?.toDouble()
+                if (offsetMs != null && offsetMs.isFinite() && offsetMs >= 0.0) {
+                    automixBeatOffsetMsBySongId[id] = offsetMs.toLong()
+                }
+            }
+        }
+
+        val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
+        val activeSlot = if (activePlayer === primaryPlayer) 0 else 1
+        val activeMultiplier = if (enabled && activeId != null) {
+            automixTempoMultiplierBySongId[activeId] ?: 1f
+        } else {
+            1f
+        }
+        stretchManager.setAutoMixTempoMultiplier(activeSlot, activeMultiplier)
+        if (!enabled) {
+            stretchManager.setAutoMixTempoMultiplier(0, 1f)
+            stretchManager.setAutoMixTempoMultiplier(1, 1f)
+        }
+        automixToneManager.reset()
+
+        if (enabled && crossfadeController.crossfadeDurationSec > 0f) {
+            // Recreate the standby from its queue item so multiplier/beat seek
+            // are applied before prepare(), never half-way through decoded PCM.
+            preloadManager.preloadNextTrack(force = true)
+        }
+        NativeLogger.emit(
+            "info", "Automix",
+            "Native DJ targets ${if (enabled) "enabled" else "cleared"}: " +
+                "${automixTempoMultiplierBySongId.size} tempo targets, " +
+                "${automixBpmBySongId.size} confident BPMs, " +
+                "${automixBeatOffsetMsBySongId.size} beat phases",
+        )
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────

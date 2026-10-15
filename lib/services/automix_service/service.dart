@@ -84,8 +84,216 @@ class AutomixService {
   /// temporary crossfade override.
   static final ValueNotifier<bool> automixActive = ValueNotifier(false);
 
+  static bool _autoQueueListenerInstalled = false;
+  static bool _autoMixPreparing = false;
+  static bool _autoMixCheckRunning = false;
+  static String? _lastAutoQueueIdentity;
+
+  /// Automatically prepares upcoming tracks on a newly loaded queue.
+  static void initializeAutoMix() {
+    if (_autoQueueListenerInstalled) return;
+    _autoQueueListenerInstalled = true;
+    AudioService.playbackState.addListener(_onPlaybackStateForAutoMix);
+  }
+
+  static void _onPlaybackStateForAutoMix() {
+    if (_autoMixCheckRunning || _autoMixPreparing) return;
+    _autoMixCheckRunning = true;
+    unawaited(_checkPlaybackStateForAutoMix());
+  }
+
+  static Future<void> _checkPlaybackStateForAutoMix() async {
+    try {
+      await loadSettings();
+      if (!automixEnabled.value ||
+          AudioEffectsService.bitPerfectMode.value ||
+          _autoMixPreparing) return;
+      final state = AudioService.playbackState.value;
+      final queue = state.currentPlaylist;
+      if (!state.isPlaying || state.currentSong == null || queue.length < 2 ||
+          state.currentIndex < 0 || state.currentIndex >= queue.length) return;
+      // Include the active item and queue length as well as the sorted IDs.
+      // A newly loaded queue can contain the same library set but a different
+      // starting track; that must refresh native deck targets without replacing
+      // the currently playing item.
+      final ids = queue.map((song) => song.id).toList()..sort();
+      final identity =
+          '${state.currentSong!.id}:${queue.length}:${state.shuffleEnabled}:${ids.join(',')}';
+      if (_lastAutoQueueIdentity == identity) return;
+      _lastAutoQueueIdentity = identity;
+      await _prepareUpcomingTracks(queue, state.currentIndex);
+    } finally {
+      _autoMixCheckRunning = false;
+    }
+  }
+
+  static double? _usableBpm(AutomixTrackFeatures features) {
+    final bpm = features.bpm;
+    if (bpm == null || !bpm.isFinite || bpm < 50 || bpm > 220 ||
+        features.bpmConfidence < 0.35) return null;
+    return bpm;
+  }
+
+  /// Builds conservative, pitch-preserving tempo targets for each upcoming deck.
+  /// Corrections outside ±8% are avoided; uncertain tracks are left untouched.
+  static List<Map<String, Object?>> _buildNativeTargets(
+    AutomixTrackFeatures current,
+    List<AutomixTrackFeatures> upcoming,
+  ) {
+    final currentBpm = _usableBpm(current);
+    AutomixTrackFeatures? firstAnalyzed;
+    for (final features in upcoming) {
+      if (_usableBpm(features) != null) {
+        firstAnalyzed = features;
+        break;
+      }
+    }
+    final reference = currentBpm ??
+        (firstAnalyzed == null ? null : _usableBpm(firstAnalyzed));
+    final referenceSongId = currentBpm != null
+        ? current.songId
+        : firstAnalyzed?.songId;
+
+    final targets = <Map<String, Object?>>[];
+    for (final features in <AutomixTrackFeatures>[current, ...upcoming]) {
+      final sourceBpm = _usableBpm(features);
+      var multiplier = 1.0;
+      if (features.songId != current.songId &&
+          reference != null &&
+          sourceBpm != null &&
+          features.songId != referenceSongId) {
+        multiplier = (reference / sourceBpm).clamp(0.92, 1.08).toDouble();
+      }
+      targets.add(<String, Object?>{
+        'id': features.songId,
+        // Native beat-grid scheduling uses media-position time, so keep
+        // the source BPM here; the independent multiplier controls output tempo.
+        if (sourceBpm != null) 'bpm': sourceBpm,
+        // Beat phase is more fragile than BPM. Only publish it when the
+        // tempo estimate is strong and the phase is finite/non-negative;
+        // otherwise native deliberately uses the ordinary time-based fade.
+        if (sourceBpm != null &&
+            features.bpmConfidence >= 0.45 &&
+            features.beatOffsetMs != null &&
+            features.beatOffsetMs!.isFinite &&
+            features.beatOffsetMs! >= 0)
+          'beatOffsetMs': features.beatOffsetMs,
+        'multiplier': multiplier,
+      });
+    }
+    return targets;
+  }
+
+  static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
+    if (_autoMixPreparing ||
+        !automixEnabled.value ||
+        AudioEffectsService.bitPerfectMode.value) return;
+    final upcoming = queue.skip(currentIndex + 1).toList(growable: false);
+    if (upcoming.isEmpty) return;
+    _autoMixPreparing = true;
+    try {
+      await loadSettings();
+      final currentSong = queue[currentIndex];
+      // Use cached analyses only on the playback path: never decode full tracks
+      // in the background while the current song is playing.
+      final allFeatures = await featuresForAll([currentSong, ...upcoming]);
+      if (!automixEnabled.value) return;
+      final currentFeatures = allFeatures.first;
+      final upcomingFeatures = allFeatures.skip(1).toList(growable: false);
+      // Keep the current song anchored at index 0 while letting its BPM/key
+      // influence the first transition selected from the remaining tracks.
+      final metrics = AutomixEngine.planSet(
+        tracks: allFeatures, settings: settings.value, startIndex: 0,
+      );
+      if (metrics.order.length != upcoming.length + 1 || metrics.order.first != 0) {
+        return;
+      }
+      // A native shuffle order must not be confused with the canonical queue
+      // order. Keep the user's shuffle choice and still send per-track metadata
+      // (targets are keyed by stable song ID); only reorder when shuffle is off.
+      final latestState = AudioService.playbackState.value;
+      if (latestState.currentSong?.id != currentSong.id ||
+          latestState.currentIndex != currentIndex ||
+          latestState.currentPlaylist.length != queue.length) {
+        LogService.verbose('Automix', 'queue changed during planning; dropping stale plan');
+        _lastAutoQueueIdentity = null;
+        return;
+      }
+      final shuffleEnabled = latestState.shuffleEnabled;
+      final upcomingIds = upcoming.map((song) => song.id).toList(growable: false);
+      final hasUniqueIds = upcomingIds.toSet().length == upcomingIds.length;
+      final canReorder = !shuffleEnabled && hasUniqueIds;
+      final plannedIndices = canReorder
+          ? metrics.order.skip(1).toList(growable: false)
+          : List<int>.generate(upcoming.length, (index) => index + 1);
+      final planned = [
+        for (final index in plannedIndices) queue[currentIndex + index],
+      ];
+      final plannedFeatures = [
+        for (final index in plannedIndices) allFeatures[index],
+      ];
+
+      if (canReorder) {
+        // Reorder only upcoming items in one native transaction. Verify the
+        // active song on both sides so stale plans cannot affect a newly
+        // promoted deck or a queue that changed during analysis.
+        final orderedTailIds = planned.map((song) => song.id).toList(growable: false);
+        try {
+          await AudioService.reorderUpcomingByIds(
+            currentId: currentSong.id,
+            orderedIds: orderedTailIds,
+          );
+        } on Object catch (e) {
+          _lastAutoQueueIdentity = null;
+          LogService.verbose('Automix', 'native queue changed during plan; retry later: $e');
+          return;
+        }
+      } else {
+        LogService.verbose(
+          'Automix',
+          shuffleEnabled
+              ? 'shuffle is active; preserving native shuffle order and applying track metadata only'
+              : 'duplicate song IDs in the queue tail; preserving queue order and applying track metadata only',
+        );
+      }
+
+      if (automixEnabled.value) {
+        final bpm = _usableBpm(currentFeatures);
+        // Crossfade duration is expressed in media-timeline seconds. Manual
+        // playback speed changes wall-clock duration, not the number of source
+        // beats covered by the planned fade.
+        final fadeSeconds = bpm == null
+            ? metrics.crossfadeSeconds
+            : (settings.value.crossfadeBeats * 60.0 / bpm)
+                .clamp(2.0, 16.0)
+                .toDouble();
+        await _engageCrossfade(fadeSeconds);
+        await AudioService.setAutomixTransition(
+          enabled: true,
+          targets: _buildNativeTargets(currentFeatures, plannedFeatures),
+        );
+        LogService.log(
+          'Automix',
+          'DJ plan prepared (${planned.length} upcoming tracks; '
+              'beat/tempo matching ${bpm == null ? "fallback" : "enabled"}); '
+              'current track preserved',
+        );
+      }
+    } on Object catch (e, st) {
+      LogService.warn('Automix', 'automatic queue preparation failed: $e');
+      LogService.verbose('Automix', st.toString());
+      _lastAutoQueueIdentity = null;
+    } finally {
+      _autoMixPreparing = false;
+    }
+  }
+
   static Future<void> setAutomixEnabled(bool enabled) async {
     automixEnabled.value = enabled;
+    if (enabled) {
+      _lastAutoQueueIdentity = null;
+      _onPlaybackStateForAutoMix();
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('automixEnabled', enabled);
@@ -101,7 +309,7 @@ class AutomixService {
 
   // Bump whenever the native DSP feature semantics or feature serialization
   // changes. Old cache entries must never be interpreted as current analysis.
-  static const int _analysisSchemaVersion = 2;
+  static const int _analysisSchemaVersion = 3;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -162,6 +370,7 @@ class AutomixService {
     bpm: features.bpm,
     bpmConfidence: features.bpmConfidence,
     alternateBpm: features.alternateBpm,
+    beatOffsetMs: features.beatOffsetMs,
     camelotNumber: features.camelotNumber,
     camelotMinor: features.camelotMinor,
     keyConfidence: features.keyConfidence,
@@ -314,7 +523,21 @@ class AutomixService {
       'cost ${planMetrics.averageCost.toStringAsFixed(3)})',
     );
 
-    await _engageCrossfade(planMetrics.crossfadeSeconds);
+    final sequencedFeatures = [for (final index in plan) features[index]];
+    final firstBpm = _usableBpm(sequencedFeatures.first);
+    final fadeSeconds = firstBpm == null
+        ? planMetrics.crossfadeSeconds
+        : (settings.value.crossfadeBeats * 60.0 / firstBpm)
+            .clamp(2.0, 16.0)
+            .toDouble();
+    await _engageCrossfade(fadeSeconds);
+    await AudioService.setAutomixTransition(
+      enabled: true,
+      targets: _buildNativeTargets(
+        sequencedFeatures.first,
+        sequencedFeatures.skip(1).toList(growable: false),
+      ),
+    );
     await AudioService.playSongAt(
       playlist: sequenced,
       index: 0,
@@ -326,6 +549,14 @@ class AutomixService {
   /// Restores the user's crossfade and drops the "engaged" flag.
   static Future<void> disableAutomix() async {
     automixActive.value = false;
+    try {
+      await AudioService.setAutomixTransition(
+        enabled: false,
+        targets: const <Map<String, Object?>>[],
+      );
+    } on Object catch (e) {
+      LogService.warn('Automix', 'native transition reset failed: $e');
+    }
     await _restoreCrossfade();
   }
 
@@ -516,6 +747,7 @@ class AutomixService {
     final bpm = (res['bpm'] as num?)?.toDouble();
     final bpc = automixClamp01((res['bpmConfidence'] as num?)?.toDouble() ?? 0);
     final alt = (res['alternateBpm'] as num?)?.toDouble();
+    final beatOffsetMs = (res['beatOffsetMs'] as num?)?.toDouble();
     final camN = (res['camelotNumber'] as num?)?.toInt();
     final camM = res['camelotMinor'] as bool?;
     final kConf = automixClamp01((res['keyConfidence'] as num?)?.toDouble() ?? 0);
@@ -536,6 +768,7 @@ class AutomixService {
       bpm: bpc >= 0.15 ? bpm : null,
       bpmConfidence: bpc >= 0.15 ? bpc : 0,
       alternateBpm: bpm != null && bpc >= 0.15 ? alt : null,
+      beatOffsetMs: bpm != null && bpc >= 0.20 ? beatOffsetMs : null,
       camelotNumber: kConf >= 0.25 ? camN : null,
       camelotMinor: kConf >= 0.25 ? camM : null,
       keyConfidence: kConf >= 0.25 ? kConf : 0,
