@@ -142,18 +142,22 @@ class _SleepTimerSheetBody extends StatelessWidget {
               const SizedBox(height: 24),
             ],
             Padding(
-              padding: const EdgeInsets.only(bottom: 5),
+              padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
               child: Text(
                 context.l10n.sleepPresetSection,
                 style: TextStyle(
                   color: c.secondaryLabel,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
+                  fontSize: 14,
+                  height: 1.4,
                 ),
               ),
             ),
-            const _PresetList(dismissOnSelect: false),
+            Divider(
+              height: 0.5,
+              thickness: 0.5,
+              color: c.subtleSeparator,
+            ),
+            const _PresetList(dismissOnSelect: true),
           ],
         );
       },
