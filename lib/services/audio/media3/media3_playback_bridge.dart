@@ -315,6 +315,17 @@ class Media3PlaybackBridge {
   static Future<void> setPitch(double pitch) =>
       _invoke<void>('setPitch', {'pitch': pitch});
 
+  /// Configures offline AutoMix metadata for independent preloaded decks.
+  /// Targets contain track id, analyzed BPM/beat phase and a conservative
+  /// pitch-preserving tempo multiplier.
+  static Future<void> setAutomixTransition({
+    required bool enabled,
+    required List<Map<String, Object?>> targets,
+  }) => _invoke<void>('setAutomixTransition', {
+    'enabled': enabled,
+    'targets': targets,
+  });
+
   // ── Equalizer ─────────────────────────────────────────────────────────────
 
   static Future<void> setEqualizerEnabled(bool enabled) =>
