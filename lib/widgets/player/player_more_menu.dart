@@ -223,7 +223,7 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                       widget.onNavigate(() async {
                         if (AutomixService.automixActive.value) {
                           await AutomixService.disableAutomix();
-                        } else {
+                        } else if (AutomixService.automixEnabled.value) {
                           await AutomixService.startAutomix(
                             state.currentPlaylist,
                             state.currentIndex,
