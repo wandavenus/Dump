@@ -775,8 +775,9 @@ double _transitionCost({
 
 // ── Engine ───────────────────────────────────────────────────────────────────
 
-class AutomixEngine {
-  const AutomixEngine._();
+/// Pure-Dart reference retained as a regression oracle for the native port.
+class DartAutomixEngineReference {
+  const DartAutomixEngineReference._();
 
   /// How much the one-step lookahead's estimated cost counts toward the final
   /// score of the immediate pick (0..1).
@@ -1190,5 +1191,61 @@ class AutomixEngine {
     bpms.sort();
     final median = bpms.isEmpty ? _defaultBpm : bpms[bpms.length ~/ 2];
     return (settings.crossfadeBeats * 60.0 / median).clamp(1.5, 12.0);
+  }
+}
+
+/// Production sequencing runs in the shared native C AutoMix core.
+class AutomixEngine {
+  const AutomixEngine._();
+
+  static AutomixPlan planSet({
+    required List<AutomixTrackFeatures> tracks,
+    required AutomixSettings settings,
+    required int startIndex,
+  }) {
+    final artistGroups = <String, int>{};
+    final nativeTracks = <NativeAutomixTrack>[];
+    for (final track in tracks) {
+      final artist = track.artist.trim().toLowerCase();
+      final artistGroup = artist.isEmpty
+          ? 0
+          : artistGroups.putIfAbsent(artist, () => artistGroups.length + 1);
+      nativeTracks.add(
+        NativeAutomixTrack(
+          songId: track.songId,
+          artistGroup: artistGroup,
+          bpm: track.bpm,
+          bpmConfidence: track.bpmConfidence,
+          alternateBpm: track.alternateBpm,
+          beatOffsetMs: track.beatOffsetMs,
+          camelotNumber: track.camelotNumber,
+          camelotMinor: track.camelotMinor,
+          keyConfidence: track.keyConfidence,
+          loudnessLufs: track.loudnessLufs,
+          rmsDb: track.rmsDb,
+          centroidHz: track.centroidHz,
+          onsetRate: track.onsetRate,
+          tailBpm: track.tailBpm,
+          tailBeatOffsetMs: track.tailBeatOffsetMs,
+          introEnergy: track.introEnergy,
+          outroEnergy: track.outroEnergy,
+          analyzedFraction: track.analyzedFraction,
+        ),
+      );
+    }
+    final plan = NativeAutomix.planSet(
+      tracks: nativeTracks,
+      profile: settings.profile.index,
+      bpmTolerance: settings.bpmTolerancePercent / 100.0,
+      crossfadeBeats: settings.crossfadeBeats,
+      avoidArtistRepeat: settings.avoidArtistRepeat,
+      harmonicFilter: settings.harmonicFilter,
+      startIndex: startIndex,
+    );
+    return AutomixPlan(
+      order: List<int>.unmodifiable(plan.order),
+      crossfadeSeconds: plan.crossfadeSeconds,
+      averageCost: plan.averageCost,
+    );
   }
 }

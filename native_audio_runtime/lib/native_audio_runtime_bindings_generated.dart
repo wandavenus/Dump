@@ -18,6 +18,60 @@ final class NarAudioBuffer extends ffi.Opaque {}
 
 // ── native_audio_runtime.h ────────────────────────────────────────────────────
 
+/// Run AutoMix feature extraction on mono float32 PCM.
+@ffi.Native<
+  ffi.Int32 Function(
+    ffi.Pointer<ffi.Float>,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Pointer<ffi.Double>,
+    ffi.Int32,
+  )
+>()
+external int nar_automix_analyze(
+  ffi.Pointer<ffi.Float> mono,
+  int sampleCount,
+  int sampleRate,
+  ffi.Pointer<ffi.Double> output,
+  int outputCount,
+);
+
+/// Plan a deterministic track order using flattened track features.
+@ffi.Native<
+  ffi.Int32 Function(
+    ffi.Pointer<ffi.Int64>,
+    ffi.Pointer<ffi.Int32>,
+    ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Int32>,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Double,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Pointer<ffi.Int32>,
+    ffi.Pointer<ffi.Double>,
+    ffi.Int32,
+  )
+>()
+external int nar_automix_plan_set(
+  ffi.Pointer<ffi.Int64> songIds,
+  ffi.Pointer<ffi.Int32> artistGroups,
+  ffi.Pointer<ffi.Double> features,
+  ffi.Pointer<ffi.Int32> keys,
+  int trackCount,
+  int profile,
+  double bpmTolerance,
+  int crossfadeBeats,
+  int avoidArtistRepeat,
+  int harmonicFilter,
+  int startIndex,
+  ffi.Pointer<ffi.Int32> outputOrder,
+  ffi.Pointer<ffi.Double> outputMetrics,
+  int outputMetricsCount,
+);
+
 /// Initialize the native runtime. Idempotent and thread-safe.
 @ffi.Native<ffi.Int32 Function()>()
 external int native_runtime_init();

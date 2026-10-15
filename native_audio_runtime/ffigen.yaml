@@ -6,15 +6,17 @@
 # then diff against the hand-written version before trusting it blindly.
 name: NativeAudioRuntimeBindings
 description: |
-  Bindings for `src/native_audio_runtime.h`.
+  Bindings for the runtime and native AutoMix C APIs.
 
   Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
 output: 'lib/native_audio_runtime_bindings_generated.dart'
 headers:
   entry-points:
     - 'src/native_audio_runtime.h'
+    - 'src/automix_native.h'
   include-directives:
     - 'src/native_audio_runtime.h'
+    - 'src/automix_native.h'
 ffi-native:
 comments:
   style: any

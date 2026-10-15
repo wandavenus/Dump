@@ -21,3 +21,6 @@ export 'src/runtime_impl_unsupported.dart'
     if (dart.library.ffi) 'src/runtime_impl_io.dart';
 export 'src/dsp_pipeline_unsupported.dart'
     if (dart.library.ffi) 'src/dsp_pipeline_io.dart';
+export 'src/automix_native_types.dart';
+export 'src/automix_native_unsupported.dart'
+    if (dart.library.ffi) 'src/automix_native_io.dart';

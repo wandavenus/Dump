@@ -242,6 +242,56 @@ void main() {
       expect(a.averageCost, closeTo(b.averageCost, 1e-12));
     });
 
+    test('native planner preserves the Dart reference across profiles', () {
+      final tracks = [
+        for (var i = 0; i < 36; i++)
+          _f(
+            i + 1,
+            bpm: i % 9 == 0 ? null : 78 + (i * 17 % 83).toDouble(),
+            alt: i % 4 == 0 ? 120 + (i % 5).toDouble() : null,
+            camelot: i % 7 == 0 ? null : (i * 5 % 12) + 1,
+            minor: i % 7 == 0 ? null : i.isOdd,
+            lufs: i % 5 == 0 ? null : -24 + (i * 7 % 19).toDouble(),
+            rms: i % 3 == 0 ? -25 + (i % 18).toDouble() : null,
+            centroid: i % 4 == 0 ? 500 + (i * 131 % 3900).toDouble() : null,
+            onset: i % 6 == 0 ? null : 0.5 + (i % 6).toDouble(),
+            artist: i % 5 < 2 ? ' Artist ${i % 5} ' : '',
+            bpmConf: (i % 10) / 10,
+            keyConf: (i % 8) / 8,
+          ),
+      ];
+
+      for (final profile in AutomixProfile.values) {
+        final settings = AutomixSettings(
+          profile: profile,
+          bpmTolerancePercent: 7.5,
+          crossfadeBeats: 24,
+          harmonicFilter: profile == AutomixProfile.harmonic,
+        );
+        final reference = DartAutomixEngineReference.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 5,
+        );
+        final native = AutomixEngine.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 5,
+        );
+        expect(native.order, reference.order, reason: 'profile $profile');
+        expect(
+          native.crossfadeSeconds,
+          closeTo(reference.crossfadeSeconds, 1e-10),
+          reason: 'profile $profile crossfade',
+        );
+        expect(
+          native.averageCost,
+          closeTo(reference.averageCost, 1e-10),
+          reason: 'profile $profile average cost',
+        );
+      }
+    });
+
     test('empty list yields empty plan', () {
       final plan = AutomixEngine.planSet(
         tracks: const [],

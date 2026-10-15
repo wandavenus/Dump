@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:native_audio_runtime/native_audio_runtime.dart';
 
 import '../models/local_song.dart';
 import 'audio_service.dart';

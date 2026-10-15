@@ -6,10 +6,9 @@ import kotlin.math.roundToInt
 /**
  * Thin glue between MainActivity's Automix channel and the DSP analysis.
  * Decodes at most [MAX_ANALYZE_SECONDS] seconds of a track into mono PCM
- * (reusing the MediaExtractor/MediaCodec loop in [PcmDecoder]) and runs
- * [AudioFeatureExtractor] over it. MainActivity owns thread selection and
- * error mapping — this object only computes plain Kotlin result maps,
- * mirroring the ReplayGainBridge contract.
+ * (reusing the MediaExtractor/MediaCodec loop in [PcmDecoder]) and runs the
+ * native C analyzer through [AutomixNative]. MainActivity owns thread selection
+ * and error mapping — this object only computes plain result maps.
  */
 object AutomixAnalysis {
 
@@ -80,9 +79,8 @@ object AutomixAnalysis {
                 channels = fmt.channels
                 if (fmt.durationUs > 0) fileSeconds = fmt.durationUs / 1_000_000.0
                 if (sampleRate > 0) {
-                    // Match AudioFeatureExtractor's integer decimation, but do
-                    // it while decoding so we never retain boxed Floats or a
-                    // full-rate PCM copy for a multi-minute song.
+                    // Downsample during decoding to bound memory and keep the
+                    // native STFT input near its working rate.
                     decimationFactor = maxOf(
                         1,
                         (sampleRate / TARGET_RATE_HZ.toDouble()).roundToInt(),
@@ -130,35 +128,47 @@ object AutomixAnalysis {
         if (!decoded && !reachedCap) return null
         if (collected.size < analysisRate) return null // under 1 s of audio
 
-        val analysis = AudioFeatureExtractor.analyze(
+        if (!AutomixNative.ensureLoaded()) return null
+        val analysis = AutomixNative.nativeAnalyze(
             collected.toFloatArray(),
             analysisRate,
         ) ?: return null
 
-        val tonic = analysis.tonicPc
-        val mapping = if (tonic in 0 until 12 && analysis.keyConfidence > 0.0) {
-            keyToCamelot(tonic, analysis.isMinor)
+        // Native result contract is kept in sync with
+        // NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in automix_native.h.
+        if (analysis.size < 11) return null
+        fun optional(index: Int): Double? =
+            analysis[index].takeIf { it.isFinite() }
+        val bpm = optional(0)
+        val bpmConfidence = analysis[1]
+        val alternateBpm = optional(2)
+        val beatOffsetMs = optional(3)
+        val tonic = analysis[4].toInt()
+        val isMinor = analysis[5] > 0.5
+        val keyConfidence = analysis[6]
+        val mapping = if (tonic in 0 until 12 && keyConfidence > 0.0) {
+            keyToCamelot(tonic, isMinor)
         } else {
             null
         }
 
         return mapOf(
             "success" to true,
-            "bpm" to analysis.bpm,
-            "bpmConfidence" to analysis.bpmConfidence,
-            "alternateBpm" to analysis.alternateBpm,
-            "beatOffsetMs" to analysis.beatOffsetMs,
+            "bpm" to bpm,
+            "bpmConfidence" to bpmConfidence,
+            "alternateBpm" to alternateBpm,
+            "beatOffsetMs" to beatOffsetMs,
             "camelotNumber" to mapping?.first,
             "camelotMinor" to mapping?.second,
-            "keyConfidence" to analysis.keyConfidence,
-            "rmsDb" to analysis.rmsDb,
-            "centroidHz" to analysis.centroidHz,
-            "onsetRate" to analysis.onsetRate,
-            "analyzedSeconds" to analysis.analyzedSeconds,
+            "keyConfidence" to keyConfidence,
+            "rmsDb" to optional(7),
+            "centroidHz" to optional(8),
+            "onsetRate" to analysis[9],
+            "analyzedSeconds" to analysis[10],
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.
             "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),
-            "segmentSeconds" to analysis.analyzedSeconds,
+            "segmentSeconds" to analysis[10],
             "fileSeconds" to fileSeconds,
         )
     }

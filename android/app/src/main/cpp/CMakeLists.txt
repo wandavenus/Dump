@@ -71,12 +71,17 @@ FetchContent_MakeAvailable(taglib)
 # ── Our JNI + analysis/tag-writing sources ───────────────────────────────────
 add_library(replaygain_native SHARED
     replaygain/replaygain_jni.cpp
+    replaygain/automix_jni.cpp
     replaygain/ebur128_analyzer.cpp
     replaygain/tag_writer.cpp
     replaygain/metadata_region.cpp
+    ../../../../../native_audio_runtime/src/automix_analyzer.c
+    ../../../../../native_audio_runtime/src/automix_planner.c
+    ../../../../../native_audio_runtime/src/automix_neon.S
 )
 
 target_include_directories(replaygain_native PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/../../../../../native_audio_runtime/src
     ${libebur128_SOURCE_DIR}/ebur128
     ${taglib_SOURCE_DIR}/taglib
     ${taglib_SOURCE_DIR}/taglib/toolkit

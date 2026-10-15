@@ -58,6 +58,8 @@ void main(List<String> args) async {
         'src/loudness_processor.c', // Loudness Normalization (Phase 8.5)
         'src/acoustic_engine_processor.c', // Speaker-oriented perceptual enhancement
         'src/aaudio_probe.c', // AAudio exclusive/MMAP diagnostic probe
+        'src/automix_analyzer.c', // AutoMix PCM feature extraction
+        'src/automix_planner.c', // AutoMix deterministic queue planner
         // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
         // System.loadLibrary("native_audio_runtime") on Android; it is the
         // JVM/JNI counterpart to the Dart FFI entry points in this same
@@ -71,7 +73,8 @@ void main(List<String> args) async {
         // ARM64 NEON Assembly kernels — compiled by clang's integrated assembler.
         // Compiled only for arm64-v8a; the file is guarded by #ifdef __aarch64__
         // so x86_64 host builds (unit tests) get an empty translation unit.
-        'src/neon_kernels.S', // nar_gain_apply_neon, nar_biquad_stereo_neon
+        'src/neon_kernels.S', // Existing DSP kernels
+        'src/automix_neon.S', // ARM64 AutoMix STFT frame window/RMS kernel
       ],
       libraries: libraries,
     );
