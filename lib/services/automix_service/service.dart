@@ -147,27 +147,26 @@ class AutomixService {
         ? current.songId
         : firstAnalyzed?.songId;
 
-    return <Map<String, Object?>>[
-      for (final features in <AutomixTrackFeatures>[current, ...upcoming])
-        () {
-          final sourceBpm = _usableBpm(features);
-          var multiplier = 1.0;
-          if (features.songId != current.songId &&
-              reference != null &&
-              sourceBpm != null &&
-              features.songId != referenceSongId) {
-            multiplier = (reference / sourceBpm).clamp(0.92, 1.08).toDouble();
-          }
-          return <String, Object?>{
-            'id': features.songId,
-            // Native beat-grid scheduling uses media-position time, so keep
-            // the source BPM here; the independent multiplier controls output tempo.
-            if (sourceBpm != null) 'bpm': sourceBpm,
-            if (features.beatOffsetMs != null) 'beatOffsetMs': features.beatOffsetMs,
-            'multiplier': multiplier,
-          };
-        }(),
-    ];
+    final targets = <Map<String, Object?>>[];
+    for (final features in <AutomixTrackFeatures>[current, ...upcoming]) {
+      final sourceBpm = _usableBpm(features);
+      var multiplier = 1.0;
+      if (features.songId != current.songId &&
+          reference != null &&
+          sourceBpm != null &&
+          features.songId != referenceSongId) {
+        multiplier = (reference / sourceBpm).clamp(0.92, 1.08).toDouble();
+      }
+      targets.add(<String, Object?>{
+        'id': features.songId,
+        // Native beat-grid scheduling uses media-position time, so keep
+        // the source BPM here; the independent multiplier controls output tempo.
+        if (sourceBpm != null) 'bpm': sourceBpm,
+        if (features.beatOffsetMs != null) 'beatOffsetMs': features.beatOffsetMs,
+        'multiplier': multiplier,
+      });
+    }
+    return targets;
   }
 
   static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
