@@ -117,7 +117,8 @@ class AutomixService {
       // starting track; that must refresh native deck targets without replacing
       // the currently playing item.
       final ids = queue.map((song) => song.id).toList()..sort();
-      final identity = '${state.currentSong!.id}:${queue.length}:${ids.join(',')}';
+      final identity =
+          '${state.currentSong!.id}:${queue.length}:${state.shuffleEnabled}:${ids.join(',')}';
       if (_lastAutoQueueIdentity == identity) return;
       _lastAutoQueueIdentity = identity;
       await _prepareUpcomingTracks(queue, state.currentIndex);
@@ -199,15 +200,9 @@ class AutomixService {
       if (metrics.order.length != upcoming.length + 1 || metrics.order.first != 0) {
         return;
       }
-      final plannedIndices = metrics.order.skip(1).toList(growable: false);
-      final planned = [for (final index in plannedIndices) queue[currentIndex + index]];
-      final plannedFeatures = [
-        for (final index in plannedIndices) allFeatures[index],
-      ];
-
-      // Reorder only upcoming items in one native transaction. Verify the
-      // active song is still the same before mutating so a concurrent skip or
-      // queue replacement cannot apply a stale plan to the wrong tail.
+      // A native shuffle order must not be confused with the canonical queue
+      // order. Keep the user's shuffle choice and still send per-track metadata
+      // (targets are keyed by stable song ID); only reorder when shuffle is off.
       final latestState = AudioService.playbackState.value;
       if (latestState.currentSong?.id != currentSong.id ||
           latestState.currentIndex != currentIndex ||
@@ -216,19 +211,37 @@ class AutomixService {
         _lastAutoQueueIdentity = null;
         return;
       }
-      final orderedTailIds = planned.map((song) => song.id).toList(growable: false);
-      try {
-        await AudioService.reorderUpcomingByIds(
-          currentId: currentSong.id,
-          orderedIds: orderedTailIds,
+      final shuffleEnabled = latestState.shuffleEnabled;
+      final plannedIndices = shuffleEnabled
+          ? List<int>.generate(upcoming.length, (index) => index + 1)
+          : metrics.order.skip(1).toList(growable: false);
+      final planned = [
+        for (final index in plannedIndices) queue[currentIndex + index],
+      ];
+      final plannedFeatures = [
+        for (final index in plannedIndices) allFeatures[index],
+      ];
+
+      if (!shuffleEnabled) {
+        // Reorder only upcoming items in one native transaction. Verify the
+        // active song on both sides so stale plans cannot affect a newly
+        // promoted deck or a queue that changed during analysis.
+        final orderedTailIds = planned.map((song) => song.id).toList(growable: false);
+        try {
+          await AudioService.reorderUpcomingByIds(
+            currentId: currentSong.id,
+            orderedIds: orderedTailIds,
+          );
+        } on Object catch (e) {
+          _lastAutoQueueIdentity = null;
+          LogService.verbose('Automix', 'native queue changed during plan; retry later: $e');
+          return;
+        }
+      } else {
+        LogService.verbose(
+          'Automix',
+          'shuffle is active; preserving native shuffle order and applying track metadata only',
         );
-      } on Object catch (e) {
-        // A skip, queue mutation or active crossfade can invalidate the tail
-        // after analysis. Keep playback untouched and allow a later state
-        // event to retry against the fresh native queue.
-        _lastAutoQueueIdentity = null;
-        LogService.verbose('Automix', 'native queue changed during plan; retry later: $e');
-        return;
       }
 
       if (automixEnabled.value) {
