@@ -689,24 +689,18 @@ class CrossfadeController(
                             newBpm != null && newOffset != null &&
                             oldBpm > 0f && newBpm > 0f
                         ) {
-                            val errorMs = AutomixPhaseLock.phaseErrorMs(
+                            val tempoFactor = AutomixPhaseLock.factorFor(
                                 outgoingPositionMs = oldPlayer.currentPosition.toDouble(),
                                 outgoingPhaseOffsetMs = oldOffset.toDouble(),
-                                outgoingBeatMs = 60_000.0 / oldBpm.toDouble(),
+                                outgoingBpm = oldBpm.toDouble(),
                                 incomingPositionMs = newPlayer.currentPosition.toDouble(),
                                 incomingPhaseOffsetMs = newOffset.toDouble(),
-                                incomingBeatMs = 60_000.0 / newBpm.toDouble(),
+                                incomingBpm = newBpm.toDouble(),
+                                remainingMs = ((steps - step).coerceAtLeast(0).toLong() *
+                                    stepMs).toDouble(),
                             )
-                            if (errorMs != null) {
-                                val remainingMs =
-                                    ((steps - step).coerceAtLeast(0).toLong()) * stepMs
-                                setAutoMixTempoNudge(
-                                    newPlayer,
-                                    1f + AutomixPhaseLock.nudgeFor(
-                                        errorMs,
-                                        remainingMs.toDouble(),
-                                    ),
-                                )
+                            if (tempoFactor != null) {
+                                setAutoMixTempoNudge(newPlayer, tempoFactor)
                             }
                         }
                     }

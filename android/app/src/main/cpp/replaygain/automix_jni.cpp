@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include "automix_native.h"
+#include "automix_phase_lock.h"
 
 extern "C" JNIEXPORT jdoubleArray JNICALL
 Java_dev_wndavenz_music_automix_AutomixNative_nativeAnalyze(
@@ -26,4 +27,16 @@ Java_dev_wndavenz_music_automix_AutomixNative_nativeAnalyze(
   env->SetDoubleArrayRegion(result, 0, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT,
                             values);
   return result;
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_dev_wndavenz_music_automix_AutomixPhaseLock_nativePhaseLockFactor(
+    JNIEnv* /* env */, jobject /* thiz */, jdouble outgoing_position_ms,
+    jdouble outgoing_phase_offset_ms, jdouble outgoing_bpm,
+    jdouble incoming_position_ms, jdouble incoming_phase_offset_ms,
+    jdouble incoming_bpm, jdouble remaining_ms, jdouble max_nudge) {
+  return static_cast<jfloat>(nar_automix_phase_lock_factor(
+      outgoing_position_ms, outgoing_phase_offset_ms, outgoing_bpm,
+      incoming_position_ms, incoming_phase_offset_ms, incoming_bpm,
+      remaining_ms, max_nudge));
 }

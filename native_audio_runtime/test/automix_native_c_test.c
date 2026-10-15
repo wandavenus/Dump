@@ -1,4 +1,5 @@
 #include "automix_native.h"
+#include "automix_phase_lock.h"
 #include "automix_tone_processor.h"
 
 #include <assert.h>
@@ -53,6 +54,38 @@ static void test_planner_keeps_start_and_permutation(void) {
   }
   assert(metrics[0] >= 1.5 && metrics[0] <= 12.0);
   assert(metrics[1] >= 0.0 && metrics[1] <= 1.0);
+}
+
+static void test_phase_lock_factor(void) {
+  // Incoming is a quarter beat ahead at 120 BPM; it must slow down by the cap.
+  float factor = nar_automix_phase_lock_factor(
+      1000.0, 0.0, 120.0, 5125.0, 0.0, 120.0, 5000.0, 0.006);
+  assert(isfinite(factor));
+  assert(fabsf(factor - 0.994f) < 1e-6f);
+
+  // A small phase error is corrected proportionally when below the cap.
+  factor = nar_automix_phase_lock_factor(
+      0.0, 0.0, 120.0, 510.0, 0.0, 120.0, 4000.0, 0.006);
+  assert(fabsf(factor - 0.9975f) < 1e-6f);
+
+  // Circular phase wrap reports an incoming deck just behind, not almost a
+  // full beat ahead.
+  factor = nar_automix_phase_lock_factor(
+      0.0, 0.0, 120.0, 490.0, 0.0, 120.0, 4000.0, 0.006);
+  assert(fabsf(factor - 1.0025f) < 1e-6f);
+
+  // Dead-zone and too-short fade are intentionally left at unity.
+  factor = nar_automix_phase_lock_factor(
+      0.0, 0.0, 120.0, 505.0, 0.0, 120.0, 4000.0, 0.006);
+  assert(factor == 1.0f);
+  factor = nar_automix_phase_lock_factor(
+      0.0, 0.0, 120.0, 600.0, 0.0, 120.0, 250.0, 0.006);
+  assert(factor == 1.0f);
+
+  // Invalid tempo metadata is explicit so JNI can skip only phase correction.
+  factor = nar_automix_phase_lock_factor(
+      0.0, 0.0, NAN, 0.0, 0.0, 120.0, 4000.0, 0.006);
+  assert(isnan(factor));
 }
 
 static double rms_range(const float* samples, int32_t start, int32_t count) {
@@ -128,6 +161,7 @@ static void test_tone_filters_independent_streams(void) {
 int main(void) {
   test_analyzer_rms();
   test_planner_keeps_start_and_permutation();
+  test_phase_lock_factor();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
   return 0;
