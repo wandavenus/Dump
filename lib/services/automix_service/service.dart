@@ -212,9 +212,12 @@ class AutomixService {
         return;
       }
       final shuffleEnabled = latestState.shuffleEnabled;
-      final plannedIndices = shuffleEnabled
-          ? List<int>.generate(upcoming.length, (index) => index + 1)
-          : metrics.order.skip(1).toList(growable: false);
+      final upcomingIds = upcoming.map((song) => song.id).toList(growable: false);
+      final hasUniqueIds = upcomingIds.toSet().length == upcomingIds.length;
+      final canReorder = !shuffleEnabled && hasUniqueIds;
+      final plannedIndices = canReorder
+          ? metrics.order.skip(1).toList(growable: false)
+          : List<int>.generate(upcoming.length, (index) => index + 1);
       final planned = [
         for (final index in plannedIndices) queue[currentIndex + index],
       ];
@@ -222,7 +225,7 @@ class AutomixService {
         for (final index in plannedIndices) allFeatures[index],
       ];
 
-      if (!shuffleEnabled) {
+      if (canReorder) {
         // Reorder only upcoming items in one native transaction. Verify the
         // active song on both sides so stale plans cannot affect a newly
         // promoted deck or a queue that changed during analysis.
@@ -240,7 +243,9 @@ class AutomixService {
       } else {
         LogService.verbose(
           'Automix',
-          'shuffle is active; preserving native shuffle order and applying track metadata only',
+          shuffleEnabled
+              ? 'shuffle is active; preserving native shuffle order and applying track metadata only'
+              : 'duplicate song IDs in the queue tail; preserving queue order and applying track metadata only',
         );
       }
 
