@@ -84,8 +84,76 @@ class AutomixService {
   /// temporary crossfade override.
   static final ValueNotifier<bool> automixActive = ValueNotifier(false);
 
+  static bool _autoQueueListenerInstalled = false;
+  static bool _autoMixPreparing = false;
+  static String? _lastAutoQueueIdentity;
+
+  /// Automatically prepares upcoming tracks on a newly loaded queue.
+  static void initializeAutoMix() {
+    if (_autoQueueListenerInstalled) return;
+    _autoQueueListenerInstalled = true;
+    AudioService.playbackState.addListener(_onPlaybackStateForAutoMix);
+  }
+
+  static void _onPlaybackStateForAutoMix() {
+    if (!automixEnabled.value || automixActive.value || _autoMixPreparing) return;
+    final state = AudioService.playbackState.value;
+    final queue = state.currentPlaylist;
+    if (!state.isPlaying || state.currentSong == null || queue.length < 3 ||
+        state.currentIndex < 0 || state.currentIndex >= queue.length) return;
+    final ids = queue.map((song) => song.id).toList()..sort();
+    final identity = ids.join(',');
+    if (_lastAutoQueueIdentity == identity) return;
+    _lastAutoQueueIdentity = identity;
+    unawaited(_prepareUpcomingTracks(queue, state.currentIndex));
+  }
+
+  static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
+    if (_autoMixPreparing || !automixEnabled.value) return;
+    final upcoming = queue.skip(currentIndex + 1).toList(growable: false);
+    if (upcoming.length < 2) return;
+    _autoMixPreparing = true;
+    try {
+      await loadSettings();
+      final features = await featuresForAll(upcoming);
+      if (!automixEnabled.value) return;
+      final metrics = AutomixEngine.planSet(
+        tracks: features, settings: settings.value, startIndex: 0,
+      );
+      if (metrics.order.length != upcoming.length) return;
+      final planned = [for (final index in metrics.order) upcoming[index]];
+      for (var target = 0; target < planned.length; target++) {
+        final currentQueue = AudioService.currentPlaylist;
+        final absoluteTarget = currentIndex + 1 + target;
+        if (absoluteTarget >= currentQueue.length) break;
+        final wantedId = planned[target].id;
+        final oldIndex = currentQueue.indexWhere(
+          (song) => song.id == wantedId,
+          currentIndex + 1 + target,
+        );
+        if (oldIndex >= 0 && oldIndex != absoluteTarget) {
+          await AudioService.reorderQueueAwaited(oldIndex, absoluteTarget);
+        }
+      }
+      if (automixEnabled.value) {
+        await _engageCrossfade(metrics.crossfadeSeconds);
+        LogService.log('Automix', 'Auto-prepared upcoming tracks; current track preserved');
+      }
+    } on Object catch (e, st) {
+      LogService.warn('Automix', 'automatic queue preparation failed: $e');
+      LogService.verbose('Automix', st.toString());
+      _lastAutoQueueIdentity = null;
+    } finally {
+      _autoMixPreparing = false;
+    }
+  }
+
   static Future<void> setAutomixEnabled(bool enabled) async {
     automixEnabled.value = enabled;
+    if (enabled) {
+      _lastAutoQueueIdentity = null;
+      _onPlaybackStateForAutoMix();
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('automixEnabled', enabled);
