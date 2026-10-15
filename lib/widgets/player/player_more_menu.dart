@@ -11,6 +11,7 @@ import '../../services/audio_playback_state.dart';
 import '../../services/sleep_timer_service.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
+import '../../services/automix_service.dart';
 import 'player_song_info_sheet.dart';
 
 // ─── PlayerMoreMenu ────────────────────────────────────────────────────────────
@@ -252,14 +253,12 @@ class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
-  final bool marquee;
   final VoidCallback onTap;
 
   const _MenuItem({
     required this.icon,
     required this.label,
     this.active = false,
-    this.marquee = false,
     required this.onTap,
   });
 
@@ -279,25 +278,16 @@ class _MenuItem extends StatelessWidget {
             Icon(icon, color: iconColor, size: 20),
             const SizedBox(width: 12),
             Expanded(
-              child: marquee
-                  ? _MarqueeLabel(
-                      label,
-                      style: TextStyle(
-                        color: labelColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    )
-                  : Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: labelColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: labelColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
             ),
           ],
         ),
