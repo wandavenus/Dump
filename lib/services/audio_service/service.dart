@@ -752,6 +752,16 @@ class AudioService {
     );
   }
 
+  /// Apply per-track tempo/beat metadata for native DJ-style AutoMix.
+  /// This never replaces the queue or seeks the currently playing deck.
+  static Future<void> setAutomixTransition({
+    required bool enabled,
+    required List<Map<String, Object?>> targets,
+  }) => PlaybackManager.setAutomixTransition(
+    enabled: enabled,
+    targets: targets,
+  );
+
   /// Move a queue item to its final index and await native confirmation.
   /// AutoMix uses this to prepare upcoming tracks without restarting playback.
   static Future<void> reorderQueueAwaited(int oldIndex, int targetIndex) async {
