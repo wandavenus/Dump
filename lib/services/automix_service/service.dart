@@ -160,7 +160,9 @@ class AutomixService {
           }
           return <String, Object?>{
             'id': features.songId,
-            if (sourceBpm != null) 'bpm': sourceBpm * multiplier,
+            // Native beat-grid scheduling uses media-position time, so keep
+            // the source BPM here; the independent multiplier controls output tempo.
+            if (sourceBpm != null) 'bpm': sourceBpm,
             if (features.beatOffsetMs != null) 'beatOffsetMs': features.beatOffsetMs,
             'multiplier': multiplier,
           };
