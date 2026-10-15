@@ -786,6 +786,17 @@ class AudioService {
         tailIds.toSet().difference(orderedIds.toSet()).isNotEmpty) {
       throw StateError('AutoMix planned queue no longer matches the current tail');
     }
+    // Already in the planned order — the common case once a plan is active.
+    // Returning early keeps AutoMix from re-emitting playback state, which
+    // would otherwise send the planner through the identical plan again.
+    var unchanged = true;
+    for (var i = 0; i < tailIds.length; i++) {
+      if (tailIds[i] != orderedIds[i]) {
+        unchanged = false;
+        break;
+      }
+    }
+    if (unchanged) return;
     await PlaybackManager.reorderUpcomingByIds(
       currentId: currentId,
       orderedIds: orderedIds,

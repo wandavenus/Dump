@@ -28,11 +28,18 @@ object PcmDecoder {
      * [feed] must return true to continue decoding, or false to abort early
      * (e.g. libebur128 reported an internal error).
      */
+    /**
+     * [startUs] seeks the extractor before decoding, so a caller that only
+     * needs one window of a long file (AutoMix samples head/middle/tail)
+     * decodes just that window. Default 0 keeps every existing caller's
+     * behaviour (decode from the beginning) unchanged.
+     */
     fun decode(
         path: String,
         onFormat: (TrackFormat) -> Unit,
         feed: (buf: ShortArray, frameCount: Int) -> Boolean,
         onProgress: (Float) -> Unit,
+        startUs: Long = 0L,
     ): Boolean {
         val file = File(path)
         if (!file.exists()) return false
@@ -89,6 +96,17 @@ object PcmDecoder {
         } catch (_: Exception) {
             extractor.release()
             return false
+        }
+
+        if (startUs > 0L) {
+            // SEEK_TO_PREVIOUS_SYNC lands on a decoder-sync point; the window
+            // start reported back to Dart is the request, and the few frames of
+            // lead-in only help the extractor ramp up cleanly.
+            try {
+                extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            } catch (_: Exception) {
+                // Keep decoding from the beginning rather than failing the scan.
+            }
         }
 
         val info = MediaCodec.BufferInfo()

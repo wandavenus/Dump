@@ -11,6 +11,45 @@ part of '../automix_service.dart';
 // Any field may be null/zero when the analysis is unavailable or uncertain —
 // the engine uses neutral fallback costs instead of rejecting the track.
 
+/// One analyzed window of a file: the native extractor runs on a bounded PCM
+/// window so a long track can be sampled head/middle/tail instead of only its
+/// first five minutes. [automixMergeSegments] folds these into per-track
+/// features.
+@immutable
+class AutomixSegmentFeatures {
+  const AutomixSegmentFeatures({
+    required this.startSeconds,
+    required this.seconds,
+    this.bpm,
+    this.bpmConfidence = 0,
+    this.beatOffsetMs,
+    this.camelotNumber,
+    this.camelotMinor,
+    this.keyConfidence = 0,
+    this.rmsDb,
+    this.centroidHz,
+    this.onsetRate,
+  });
+
+  /// Window start in the file (seconds) and its length.
+  final double startSeconds;
+  final double seconds;
+
+  final double? bpm;
+  final double bpmConfidence;
+
+  /// Dominant-beat phase **relative to the window start** (ms).
+  final double? beatOffsetMs;
+
+  final int? camelotNumber;
+  final bool? camelotMinor;
+  final double keyConfidence;
+
+  final double? rmsDb;
+  final double? centroidHz;
+  final double? onsetRate;
+}
+
 @immutable
 class AutomixTrackFeatures {
   const AutomixTrackFeatures({
@@ -28,6 +67,11 @@ class AutomixTrackFeatures {
     this.rmsDb,
     this.centroidHz,
     this.onsetRate,
+    this.tailBpm,
+    this.tailBeatOffsetMs,
+    this.introEnergy,
+    this.outroEnergy,
+    this.analyzedFraction = 0,
   });
 
   final int songId;
@@ -68,6 +112,22 @@ class AutomixTrackFeatures {
   final double? centroidHz;
   final double? onsetRate;
 
+  /// Beat grid of the track's **exit** (`tailBpm` in the same octave as [bpm],
+  /// [tailBeatOffsetMs] measured from the start of the file). The end-of-track
+  /// fade happens there, so this — not the intro grid — is what the transition
+  /// is aligned against.
+  final double? tailBpm;
+  final double? tailBeatOffsetMs;
+
+  /// 0..1 energy of the first/last analyzed window relative to the loudest
+  /// window of the same track — the coarse "structure" signal used to pick the
+  /// fade length and curve.
+  final double? introEnergy;
+  final double? outroEnergy;
+
+  /// Share of the file that was actually analyzed (1.0 = whole file).
+  final double analyzedFraction;
+
   // ── Serialization (SharedPreferences JSON) ─────────────────────────────────
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -85,6 +145,11 @@ class AutomixTrackFeatures {
     if (rmsDb != null) 'rms': rmsDb,
     if (centroidHz != null) 'cen': centroidHz,
     if (onsetRate != null) 'on': onsetRate,
+    if (tailBpm != null) 'tbpm': tailBpm,
+    if (tailBeatOffsetMs != null) 'tbo': tailBeatOffsetMs,
+    if (introEnergy != null) 'ie': introEnergy,
+    if (outroEnergy != null) 'oe': outroEnergy,
+    if (analyzedFraction > 0) 'af': analyzedFraction,
   };
 
   factory AutomixTrackFeatures.fromMap(Map<dynamic, dynamic> map) {
@@ -103,6 +168,11 @@ class AutomixTrackFeatures {
       rmsDb: (map['rms'] as num?)?.toDouble(),
       centroidHz: (map['cen'] as num?)?.toDouble(),
       onsetRate: (map['on'] as num?)?.toDouble(),
+      tailBpm: (map['tbpm'] as num?)?.toDouble(),
+      tailBeatOffsetMs: (map['tbo'] as num?)?.toDouble(),
+      introEnergy: (map['ie'] as num?)?.toDouble(),
+      outroEnergy: (map['oe'] as num?)?.toDouble(),
+      analyzedFraction: (map['af'] as num?)?.toDouble() ?? 0,
     );
   }
 }

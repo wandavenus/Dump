@@ -30,18 +30,40 @@ object AutomixAnalysis {
             if (size == values.size) values else values.copyOf(size)
     }
 
-    /** Full-track tempo/key analysis budget (seconds of PCM). */
+    /**
+     * Default tempo/key analysis budget (seconds of PCM). Callers may request a
+     * different window: AutoMix samples the head/middle/tail of long files
+     * instead of truncating them, which is why the window is a parameter.
+     */
     const val MAX_ANALYZE_SECONDS = 300
     private const val TARGET_RATE_HZ = 22050
+    private const val MIN_WINDOW_SECONDS = 1.0
+    private const val MAX_WINDOW_SECONDS = 900.0
 
-    /** Handles the `analyze` channel method; takes the raw file path. */
-    fun analyze(filePath: String): Map<String, Any?> {
-        val result = analyzePcm(filePath)
+    /**
+     * Handles the `analyze` channel method. [startSeconds] selects the window's
+     * start inside the file (0 = beginning) and [maxSeconds] its length.
+     */
+    fun analyze(
+        filePath: String,
+        startSeconds: Double = 0.0,
+        maxSeconds: Double = MAX_ANALYZE_SECONDS.toDouble(),
+    ): Map<String, Any?> {
+        val result = analyzePcm(filePath, startSeconds, maxSeconds)
             ?: return mapOf("success" to false, "error" to "analysis_failed")
         return result
     }
 
-    private fun analyzePcm(path: String): Map<String, Any?>? {
+    private fun analyzePcm(
+        path: String,
+        startSeconds: Double,
+        maxSeconds: Double,
+    ): Map<String, Any?>? {
+        val windowSeconds =
+            maxSeconds.coerceIn(MIN_WINDOW_SECONDS, MAX_WINDOW_SECONDS).toInt()
+        val startUs =
+            (startSeconds.coerceAtLeast(0.0) * 1_000_000.0).toLong()
+        var fileSeconds = 0.0
         var sampleRate = 0
         var channels = 0
         var analysisRate = 0
@@ -52,9 +74,11 @@ object AutomixAnalysis {
 
         val decoded = PcmDecoder.decode(
             path = path,
+            startUs = startUs,
             onFormat = { fmt ->
                 sampleRate = fmt.sampleRate
                 channels = fmt.channels
+                if (fmt.durationUs > 0) fileSeconds = fmt.durationUs / 1_000_000.0
                 if (sampleRate > 0) {
                     // Match AudioFeatureExtractor's integer decimation, but do
                     // it while decoding so we never retain boxed Floats or a
@@ -64,14 +88,14 @@ object AutomixAnalysis {
                         (sampleRate / TARGET_RATE_HZ.toDouble()).roundToInt(),
                     )
                     analysisRate = sampleRate / decimationFactor
-                    samples = FloatSampleBuffer(analysisRate * MAX_ANALYZE_SECONDS)
+                    samples = FloatSampleBuffer(analysisRate * windowSeconds)
                 }
             },
             feed = { buf, frameCount ->
                 val ch = channels
                 val output = samples ?: return@decode false
                 if (ch <= 0 || analysisRate <= 0) return@decode false
-                val cap = analysisRate * MAX_ANALYZE_SECONDS
+                val cap = analysisRate * windowSeconds
 
                 for (f in 0 until frameCount) {
                     if (output.size >= cap) return@decode false
@@ -102,8 +126,7 @@ object AutomixAnalysis {
         // as success; all other decoder failures remain failures.
         val collected = samples ?: return null
         if (sampleRate <= 0 || analysisRate <= 0) return null
-        val reachedCap = collected.size.toLong() >=
-            analysisRate.toLong() * MAX_ANALYZE_SECONDS
+        val reachedCap = collected.size.toLong() >= analysisRate.toLong() * windowSeconds
         if (!decoded && !reachedCap) return null
         if (collected.size < analysisRate) return null // under 1 s of audio
 
@@ -132,6 +155,11 @@ object AutomixAnalysis {
             "centroidHz" to analysis.centroidHz,
             "onsetRate" to analysis.onsetRate,
             "analyzedSeconds" to analysis.analyzedSeconds,
+            // Window bookkeeping: the Dart side merges head/middle/tail windows
+            // and needs to know each window's position and the file length.
+            "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),
+            "segmentSeconds" to analysis.analyzedSeconds,
+            "fileSeconds" to fileSeconds,
         )
     }
 

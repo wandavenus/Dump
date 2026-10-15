@@ -184,6 +184,12 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixTempoMultiplierBySongId = mutableMapOf<Int, Float>()
     private val automixBpmBySongId = mutableMapOf<Int, Float>()
     private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
+    // Per-transition shaping, keyed by the INCOMING song id: its fade length,
+    // the transfer curve, and the level match with the outgoing deck.
+    private val automixFadeSecondsBySongId = mutableMapOf<Int, Float>()
+    private val automixCurveBySongId = mutableMapOf<Int, Float>()
+    private val automixIncomingTrimBySongId = mutableMapOf<Int, Float>()
+    private val automixOutgoingTrimBySongId = mutableMapOf<Int, Float>()
 
     // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
     // activePlayerProxy is always the MediaSession's player. It dynamically
@@ -440,18 +446,13 @@ class Media3PlaybackService : MediaSessionService() {
                 val slot = if (standby === primaryPlayer) 0 else 1
                 val multiplier = songId?.let { automixTempoMultiplierBySongId[it] } ?: 1f
                 stretchManager.setAutoMixTempoMultiplier(slot, multiplier)
-                val beatOffset = songId?.let { automixBeatOffsetMsBySongId[it] }
-                val hasTempo = songId?.let { automixBpmBySongId[it] } != null
-                val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
-                val activeHasBeatGrid = activeId != null &&
-                    automixBpmBySongId[activeId] != null &&
-                    automixBeatOffsetMsBySongId[activeId] != null
-                if (automixTransitionEnabled && hasTempo && beatOffset != null && activeHasBeatGrid) {
-                    // Seek the silent standby only when both decks have confident
-                    // phase metadata; otherwise keep the incoming intro intact.
-                    standby.seekTo(beatOffset.coerceAtLeast(0L))
-                }
+                // Seek the silent standby only when both decks have confident
+                // phase metadata; otherwise keep the incoming intro intact.
+                automixBeatSeekMsFor(standby)?.let { standby.seekTo(it) }
             },
+            // Same target for the later pre-warm: prewarmStandby() must not
+            // rewind a beat-aligned standby to 0 before the fade starts.
+            getAutomixBeatSeekMs = { player -> automixBeatSeekMsFor(player) },
         )
 
         crossfadeController = CrossfadeController(
@@ -595,6 +596,30 @@ class Media3PlaybackService : MediaSessionService() {
                     automixToneManager.setBassGain(slot, gain)
                 }
             },
+            // Per-transition shaping, looked up by the incoming deck's song id
+            // so native never has to know the planner's data structures.
+            getAutoMixFadeSecondsForPlayer = { p ->
+                if (!automixTransitionEnabled) null
+                else automixSongIdOf(p)?.let { automixFadeSecondsBySongId[it] }
+            },
+            getAutoMixCurveForPlayer = { p ->
+                if (!automixTransitionEnabled) 1f
+                else automixSongIdOf(p)?.let { automixCurveBySongId[it] } ?: 1f
+            },
+            getAutoMixTrimForPlayer = { p ->
+                if (!automixTransitionEnabled) 1f
+                else automixSongIdOf(p)?.let { automixIncomingTrimBySongId[it] } ?: 1f
+            },
+            getAutoMixOutgoingTrimForPlayer = { p ->
+                if (!automixTransitionEnabled) 1f
+                else automixSongIdOf(p)?.let { automixOutgoingTrimBySongId[it] } ?: 1f
+            },
+            // Phase-lock corrections are RELATIVE (1.0 = untouched) and are
+            // applied on top of the planner's multiplier, which stays the single
+            // source of truth for each deck.
+            setAutoMixTempoNudge = { p, factor -> applyAutomixTempoNudge(p, factor) },
+            // Outgoing-tail high-band gain (1 = transparent, 0 = high band gone).
+            setAutoMixTailFilter = { p, gain -> applyAutomixTailFilter(p, gain) },
         )
 
         effectsManager = AudioEffectsManager(handler)
@@ -2087,6 +2112,64 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── AutoMix native deck configuration ─────────────────────────────────────
 
+    /** Stable MediaStore id of the item a deck currently holds, if any. */
+    private fun automixSongIdOf(player: ExoPlayer): Int? =
+        player.currentMediaItem?.mediaId?.toIntOrNull()
+
+    /**
+     * AutoMix beat-grid seek target (ms from the start of the file) for
+     * [player], or null when the incoming/active deck pair is not confidently
+     * beat-matched.
+     *
+     * Shared by the preload path (which seeks the still-silent standby) and the
+     * pre-warm path, which must reuse the same phase instead of seekTo(0).
+     */
+    private fun automixBeatSeekMsFor(player: ExoPlayer): Long? {
+        if (!automixTransitionEnabled) return null
+        val incomingId = player.currentMediaItem?.mediaId?.toIntOrNull() ?: return null
+        if (automixBpmBySongId[incomingId] == null) return null
+        val offsetMs = automixBeatOffsetMsBySongId[incomingId] ?: return null
+        val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull() ?: return null
+        // Both decks need a confident beat grid, otherwise the incoming track
+        // keeps its original intro phase.
+        val activeHasBeatGrid =
+            automixBpmBySongId[activeId] != null &&
+                automixBeatOffsetMsBySongId[activeId] != null
+        return if (activeHasBeatGrid) offsetMs.coerceAtLeast(0L) else null
+    }
+
+    /** Deck slot (0 = primary, 1 = standby) of [player], or -1 when unknown. */
+    private fun playerSlotOf(player: ExoPlayer): Int = when (player) {
+        primaryPlayer -> 0
+        secondaryPlayer -> 1
+        else -> -1
+    }
+
+    /**
+     * Re-applies the incoming deck's planner multiplier times a live phase-lock
+     * factor.
+     *
+     * The base multiplier is read from the map on every call, so a correction can
+     * never accumulate across fades, and StretchManager's +-8 % clamp keeps even a
+     * bad measurement inaudible.
+     */
+    private fun applyAutomixTempoNudge(player: ExoPlayer, factor: Float) {
+        if (!automixTransitionEnabled) return
+        if (!factor.isFinite() || factor <= 0f) return
+        val songId = automixSongIdOf(player) ?: return
+        val base = automixTempoMultiplierBySongId[songId] ?: 1f
+        val slot = playerSlotOf(player)
+        if (slot < 0) return
+        stretchManager.setAutoMixTempoMultiplier(slot, base * factor)
+    }
+
+    /** High-band gain for one deck's AutoMix tone stage (1 = transparent). */
+    private fun applyAutomixTailFilter(player: ExoPlayer, gain: Float) {
+        val slot = playerSlotOf(player)
+        if (slot < 0 || !::automixToneManager.isInitialized) return
+        automixToneManager.setHighGain(slot, gain)
+    }
+
     /**
      * Receives cached offline feature targets from Flutter. Active audio is not
      * sought/replaced: only independent per-player tempo controls and the
@@ -2100,6 +2183,10 @@ class Media3PlaybackService : MediaSessionService() {
         automixTempoMultiplierBySongId.clear()
         automixBpmBySongId.clear()
         automixBeatOffsetMsBySongId.clear()
+        automixFadeSecondsBySongId.clear()
+        automixCurveBySongId.clear()
+        automixIncomingTrimBySongId.clear()
+        automixOutgoingTrimBySongId.clear()
 
         if (enabled) {
             for (target in targets) {
@@ -2115,6 +2202,22 @@ class Media3PlaybackService : MediaSessionService() {
                 val offsetMs = (target["beatOffsetMs"] as? Number)?.toDouble()
                 if (offsetMs != null && offsetMs.isFinite() && offsetMs >= 0.0) {
                     automixBeatOffsetMsBySongId[id] = offsetMs.toLong()
+                }
+                val fadeSeconds = (target["fadeSeconds"] as? Number)?.toFloat()
+                if (fadeSeconds != null && fadeSeconds.isFinite()) {
+                    automixFadeSecondsBySongId[id] = fadeSeconds.coerceIn(1.5f, 12f)
+                }
+                val curve = (target["fadeCurve"] as? Number)?.toFloat()
+                if (curve != null && curve.isFinite()) {
+                    automixCurveBySongId[id] = curve.coerceIn(0.6f, 1.6f)
+                }
+                val incomingTrim = (target["levelTrimIncoming"] as? Number)?.toFloat()
+                if (incomingTrim != null && incomingTrim.isFinite()) {
+                    automixIncomingTrimBySongId[id] = incomingTrim.coerceIn(0f, 1f)
+                }
+                val outgoingTrim = (target["levelTrimOutgoing"] as? Number)?.toFloat()
+                if (outgoingTrim != null && outgoingTrim.isFinite()) {
+                    automixOutgoingTrimBySongId[id] = outgoingTrim.coerceIn(0f, 1f)
                 }
             }
         }

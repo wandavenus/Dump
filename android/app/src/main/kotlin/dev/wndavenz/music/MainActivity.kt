@@ -7,8 +7,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Environment
+import android.os.PowerManager
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
@@ -43,6 +45,7 @@ class MainActivity : FlutterActivity() {
     private val media3PlaybackChannel = "musicplayer/media3_playback"
     private val ffmpegDecoderChannel  = "musicplayer/ffmpeg_decoder"
     private val automixChannel        = "musicplayer/automix"
+    private val deviceStateChannel    = "musicplayer/device_state"
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
@@ -169,6 +172,7 @@ class MainActivity : FlutterActivity() {
         setupOpenFileChannel(flutterEngine)
         setupNativePaletteChannel(flutterEngine)
         setupAutomixChannel(flutterEngine)
+        setupDeviceStateChannel(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -253,6 +257,13 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "analyze" -> {
                         val path = call.argument<String>("path") ?: ""
+                        // AutoMix analyzes head/middle/tail windows of a file,
+                        // so the window is part of the request.
+                        val startSeconds =
+                            call.argument<Number>("startSeconds")?.toDouble() ?: 0.0
+                        val maxSeconds =
+                            call.argument<Number>("maxSeconds")?.toDouble()
+                                ?: AutomixAnalysis.MAX_ANALYZE_SECONDS.toDouble()
                         if (path.isBlank()) {
                             result.error("invalid_args", "path required", null)
                         } else {
@@ -265,7 +276,11 @@ class MainActivity : FlutterActivity() {
                                 },
                             ) {
                                 try {
-                                    val map = AutomixAnalysis.analyze(path)
+                                    val map = AutomixAnalysis.analyze(
+                                        path,
+                                        startSeconds,
+                                        maxSeconds,
+                                    )
                                     postToFlutter {
                                         if (map["success"] == true) {
                                             result.success(map)
@@ -286,6 +301,53 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+
+    // ── Device power state ─────────────────────────────────────────────────
+    //
+    // Coarse battery + thermal reading for the idle AutoMix library sweep: two
+    // BatteryManager properties and one PowerManager thermal bucket. No
+    // permission, no receiver, nothing to unregister — the sweep polls it a few
+    // times per session and stands down whenever the phone would rather not be
+    // analyzed.
+    private fun setupDeviceStateChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceStateChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "powerState" -> {
+                        try {
+                            val battery = getSystemService(BatteryManager::class.java)
+                            val status = battery
+                                ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+                            val charging =
+                                status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                                    status == BatteryManager.BATTERY_STATUS_FULL
+                            val level = battery
+                                ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                                ?.takeIf { it in 0..100 }
+                            val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                getSystemService(PowerManager::class.java)
+                                    ?.currentThermalStatus ?: -1
+                            } else {
+                                // Thermal buckets only exist from API 29; older
+                                // devices report unknown and the Dart policy then
+                                // falls back to the battery level alone.
+                                -1
+                            }
+                            result.success(
+                                mapOf(
+                                    "charging" to charging,
+                                    "levelPercent" to level,
+                                    "thermal" to thermal,
+                                ),
+                            )
+                        } catch (e: Exception) {
+                            result.error("power_state_failed", e.message, null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
 
     private fun boundedExecutor(
         name: String,

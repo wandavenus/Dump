@@ -28,6 +28,13 @@ class PreloadManager(
     private val getQueue:                () -> List<Map<String, Any?>>,
     /** Apply a per-track tempo/beat target after setMediaItem but before decoding. */
     private val configureTrackForPreload: (ExoPlayer, Map<String, Any?>) -> Unit = { _, _ -> },
+    /**
+     * AutoMix beat-grid seek target for this deck, or null when the deck pair is
+     * not confidently beat-matched. prewarmStandby() reuses it instead of
+     * seekTo(0) so a pre-warm cannot undo the beat-phase alignment that
+     * configureTrackForPreload() already applied to the silent standby.
+     */
+    private val getAutomixBeatSeekMs: (ExoPlayer) -> Long? = { null },
 ) {
     var preloadedQueueIndex: Int = C.INDEX_UNSET
         private set
@@ -128,8 +135,12 @@ class PreloadManager(
                 CrossfadeTimelineLogger.stamp("prewarmStandby: standby.prepare() DONE", standby)
             }
             Player.STATE_ENDED -> {
-                CrossfadeTimelineLogger.stamp("prewarmStandby: standby.seekTo(0)+prepare() [was ENDED]", standby)
-                standby.seekTo(0L)
+                // Never rewind a beat-aligned standby to 0 — that would discard
+                // the AutoMix phase seek applied at preload time.
+                val seekTarget = getAutomixBeatSeekMs(standby) ?: 0L
+                CrossfadeTimelineLogger.stamp(
+                    "prewarmStandby: standby.seekTo($seekTarget)+prepare() [was ENDED]", standby)
+                standby.seekTo(seekTarget)
                 standby.prepare()
                 CrossfadeTimelineLogger.stamp("prewarmStandby: standby.seekTo+prepare() DONE", standby)
             }

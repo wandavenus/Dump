@@ -383,4 +383,245 @@ void main() {
       expect(fastPlan.crossfadeSeconds, closeTo(32 * 60 / 199, 0.35));
     });
   });
+
+  group('segmented analysis merge', () {
+    AutomixSegmentFeatures seg(
+      double start, {
+      double? bpm,
+      double conf = 0.8,
+      double? rms,
+      double? beatOffsetMs,
+    }) => AutomixSegmentFeatures(
+      startSeconds: start,
+      seconds: 120,
+      bpm: bpm,
+      bpmConfidence: conf,
+      beatOffsetMs: beatOffsetMs,
+      camelotNumber: 8,
+      camelotMinor: true,
+      keyConfidence: 0.8,
+      rmsDb: rms,
+    );
+
+    test('head and tail windows vote on one tempo and keep the exit grid', () {
+      final merged = automixMergeSegments(
+        songId: 1,
+        segments: [
+          seg(0, bpm: 120, conf: 0.9, rms: -12),
+          seg(240, bpm: 60, conf: 0.7, rms: -18, beatOffsetMs: 40),
+        ],
+      );
+      // The tail's 60 BPM folds onto the head's 120 BPM octave.
+      expect(merged.bpm, closeTo(120, 6));
+      expect(merged.tailBpm, closeTo(120, 6));
+      // Tail phase is reported in absolute file time (ms from the file start).
+      expect(merged.tailBeatOffsetMs, closeTo(240_040, 0.5));
+      // Both windows agreed, so the vote is not neutral.
+      expect(merged.bpmConfidence, greaterThan(0.3));
+    });
+
+    test('structure markers describe the first and last window', () {
+      final merged = automixMergeSegments(
+        songId: 2,
+        segments: [
+          seg(0, rms: -30),
+          seg(120, rms: -8),
+          seg(240, rms: -22),
+        ],
+      );
+      expect(merged.introEnergy, 0);
+      expect(merged.outroEnergy, closeTo(0.3636, 0.01));
+      expect(merged.analyzedFraction, closeTo(1.0, 0.001));
+    });
+  });
+
+  group('per-transition cue', () {
+    AutomixTrackFeatures track(
+      int id, {
+      double? lufs,
+      double? tailBpm,
+      double? outro,
+      double? intro,
+    }) => AutomixTrackFeatures(
+      songId: id,
+      bpm: tailBpm,
+      bpmConfidence: 0.9,
+      tailBpm: tailBpm,
+      loudnessLufs: lufs,
+      outroEnergy: outro,
+      introEnergy: intro,
+    );
+
+    test('dense outro hands over sooner and the louder deck is trimmed', () {
+      final cue = automixTransitionCue(
+        outgoing: track(1, lufs: -12, tailBpm: 120, outro: 0.9),
+        incoming: track(2, lufs: -16, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      // 16 beats at 120 BPM = 8 s, shortened for a busy outro.
+      expect(cue.fadeSeconds, closeTo(6.0, 0.01));
+      expect(cue.curveGamma, greaterThan(1.0));
+      expect(cue.outgoingTrim, closeTo(0.6309, 0.001)); // 4 dB
+      expect(cue.incomingTrim, 1.0);
+    });
+
+    test('sparse outro lengthens the blend and never boosts a deck', () {
+      final cue = automixTransitionCue(
+        outgoing: track(1, lufs: -20, tailBpm: 120, outro: 0.2),
+        incoming: track(2, lufs: -10, tailBpm: 120, intro: 0.2),
+        settings: const AutomixSettings(),
+      );
+      // 8 s × 1.25 (quiet outro) × 1.15 (sparse intro).
+      expect(cue.fadeSeconds, closeTo(11.5, 0.05));
+      expect(cue.curveGamma, lessThan(1.0));
+      expect(cue.outgoingTrim, 1.0);
+      // 10 dB apart, clamped to the 6 dB ceiling — always attenuation.
+      expect(cue.incomingTrim, closeTo(0.5012, 0.001));
+      expect(cue.incomingTrim, lessThanOrEqualTo(1.0));
+    });
+
+    test('unknown structure and levels keep the plain equal-power fade', () {
+      final cue = automixTransitionCue(
+        outgoing: track(1, tailBpm: 120),
+        incoming: track(2, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      expect(cue.fadeSeconds, closeTo(8.0, 0.01));
+      expect(cue.curveGamma, 1.0);
+      expect(cue.outgoingTrim, 1.0);
+      expect(cue.incomingTrim, 1.0);
+    });
+  });
+
+  group('bounded planning window', () {
+    test('window is the start track plus the bounded upcoming tail', () {
+      expect(automixPlanWindow<int>([1, 2, 3, 4, 5], 1, 2), [2, 3, 4]);
+      expect(automixPlanWindow<int>([1, 2, 3], 2, 5), [3]);
+      expect(automixPlanWindow<int>([1, 2, 3], 0, 0), [1]);
+      expect(automixPlanWindow<int>([], 0, 4), isEmpty);
+      // A stale index clamps instead of throwing.
+      expect(automixPlanWindow<int>([1, 2, 3], 9, 2), [3]);
+    });
+
+    test('ordered tail keeps the planned window and the untouched remainder', () {
+      expect(
+        automixOrderedTail<int>([3, 2, 1], [1, 2, 3, 4, 5], 3),
+        [3, 2, 1, 4, 5],
+      );
+      // A window larger than the tail is clamped, never padded.
+      expect(automixOrderedTail<int>([2, 1], [1, 2], 5), [2, 1]);
+      expect(automixOrderedTail<int>([], [1, 2, 3], 0), [1, 2, 3]);
+    });
+
+    test('planning a 60-track queue only permutes its window', () {
+      final tracks = [
+        for (var i = 1; i <= 60; i++)
+          _f(
+            i,
+            bpm: 100 + (i % 7) * 3.0,
+            camelot: (i % 12) + 1,
+            minor: i.isEven,
+          ),
+      ];
+      const horizon = 25;
+      final window = automixPlanWindow<AutomixTrackFeatures>(tracks, 4, horizon);
+      expect(window.length, horizon + 1);
+
+      final plan = AutomixEngine.planSet(
+        tracks: window,
+        settings: const AutomixSettings(),
+        startIndex: 0,
+      );
+      expect(plan.order.first, 0);
+      final plannedIds = [
+        for (final index in plan.order.skip(1)) window[index].songId,
+      ];
+      final tailIds = [for (final track in tracks.skip(5)) track.songId];
+      final ordered = automixOrderedTail<int>(plannedIds, tailIds, horizon);
+
+      expect(ordered.length, tailIds.length);
+      expect(ordered.toSet(), tailIds.toSet());
+      // Past the window the user's order is preserved byte-for-byte.
+      expect(ordered.sublist(horizon), tailIds.sublist(horizon));
+      // Inside the window the engine owns the order.
+      expect(ordered.take(horizon).toSet(), tailIds.take(horizon).toSet());
+      expect(ordered.take(horizon).toList(), plannedIds);
+    });
+  });
+
+  group('tempo match guard', () {
+    test('pulls only a pair that is already close', () {
+      final same = automixTempoMatch(referenceBpm: 120, trackBpm: 120);
+      expect(same.$1, isTrue);
+      expect(same.$2, 1.0);
+
+      final close = automixTempoMatch(referenceBpm: 120, trackBpm: 124);
+      expect(close.$1, isTrue);
+      expect(close.$2, closeTo(120 / 124, 0.0005));
+
+      // 120 → 140 is ~16 % away: a stretch the ear hears as a wobble, so the
+      // pair is left untouched and native runs a plain crossfade.
+      final far = automixTempoMatch(referenceBpm: 120, trackBpm: 140);
+      expect(far.$1, isFalse);
+      expect(far.$2, 1.0);
+    });
+
+    test('stays neutral when a tempo is missing or unusable', () {
+      expect(automixTempoMatch(referenceBpm: null, trackBpm: 120), (false, 1.0));
+      expect(automixTempoMatch(referenceBpm: 120, trackBpm: null), (false, 1.0));
+      expect(automixTempoMatch(referenceBpm: 0, trackBpm: 120), (false, 1.0));
+      expect(
+        automixTempoMatch(referenceBpm: double.nan, trackBpm: 120),
+        (false, 1.0),
+      );
+      expect(
+        automixTempoMatch(referenceBpm: double.infinity, trackBpm: 120),
+        (false, 1.0),
+      );
+    });
+
+    test('the tolerance boundary is inclusive, just past it is not', () {
+      // |100 / 94.34 − 1| = 6 % exactly → still matchable.
+      expect(automixTempoMatch(referenceBpm: 100, trackBpm: 94.34).$1, isTrue);
+      // |100 / 94 − 1| ≈ 6.4 % → not matchable.
+      expect(automixTempoMatch(referenceBpm: 100, trackBpm: 94).$1, isFalse);
+    });
+
+    test('never exceeds the ±8 % the native stretch stage accepts', () {
+      final faster = automixTempoMatch(
+        referenceBpm: 200,
+        trackBpm: 180,
+        tolerance: 1.0,
+      );
+      expect(faster.$1, isTrue);
+      expect(faster.$2, 1.08);
+
+      final slower = automixTempoMatch(
+        referenceBpm: 180,
+        trackBpm: 200,
+        tolerance: 1.0,
+      );
+      expect(slower.$2, 0.92);
+    });
+  });
+
+  group('whole-queue plan continuation', () {
+    test('accepts a plain track advance', () {
+      expect(automixPlanContinues([2, 3, 4], [3, 4]), isTrue);
+      // A skip the plan already covers is still a continuation.
+      expect(automixPlanContinues([2, 3, 4], [4]), isTrue);
+      expect(automixPlanContinues([2, 3, 4], <int>[]), isTrue);
+    });
+
+    test('rejects every edit the plan does not already cover', () {
+      // Reordered tail.
+      expect(automixPlanContinues([2, 3, 4], [4, 3]), isFalse);
+      // A track appended after the plan's last entry.
+      expect(automixPlanContinues([2, 3, 4], [3, 4, 5]), isFalse);
+      // A track the plan never saw became current.
+      expect(automixPlanContinues([2, 3, 4], [9]), isFalse);
+      // Nothing planned yet.
+      expect(automixPlanContinues(const <int>[], [1]), isFalse);
+    });
+  });
 }
