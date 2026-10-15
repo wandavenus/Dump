@@ -107,11 +107,15 @@ class AutomixService {
       await loadSettings();
       if (!automixEnabled.value ||
           AudioEffectsService.bitPerfectMode.value ||
-          _autoMixPreparing) return;
+          _autoMixPreparing) {
+        return;
+      }
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
       if (!state.isPlaying || state.currentSong == null || queue.length < 2 ||
-          state.currentIndex < 0 || state.currentIndex >= queue.length) return;
+          state.currentIndex < 0 || state.currentIndex >= queue.length) {
+        return;
+      }
       // Include the active item and queue length as well as the sorted IDs.
       // A newly loaded queue can contain the same library set but a different
       // starting track; that must refresh native deck targets without replacing
@@ -119,7 +123,9 @@ class AutomixService {
       final ids = queue.map((song) => song.id).toList()..sort();
       final identity =
           '${state.currentSong!.id}:${queue.length}:${state.shuffleEnabled}:${ids.join(',')}';
-      if (_lastAutoQueueIdentity == identity) return;
+      if (_lastAutoQueueIdentity == identity) {
+        return;
+      }
       _lastAutoQueueIdentity = identity;
       await _prepareUpcomingTracks(queue, state.currentIndex);
     } finally {
@@ -187,9 +193,13 @@ class AutomixService {
   static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
     if (_autoMixPreparing ||
         !automixEnabled.value ||
-        AudioEffectsService.bitPerfectMode.value) return;
+        AudioEffectsService.bitPerfectMode.value) {
+      return;
+    }
     final upcoming = queue.skip(currentIndex + 1).toList(growable: false);
-    if (upcoming.isEmpty) return;
+    if (upcoming.isEmpty) {
+      return;
+    }
     _autoMixPreparing = true;
     try {
       await loadSettings();
@@ -197,9 +207,10 @@ class AutomixService {
       // Use cached analyses only on the playback path: never decode full tracks
       // in the background while the current song is playing.
       final allFeatures = await featuresForAll([currentSong, ...upcoming]);
-      if (!automixEnabled.value) return;
+      if (!automixEnabled.value) {
+        return;
+      }
       final currentFeatures = allFeatures.first;
-      final upcomingFeatures = allFeatures.skip(1).toList(growable: false);
       // Keep the current song anchored at index 0 while letting its BPM/key
       // influence the first transition selected from the remaining tracks.
       final metrics = AutomixEngine.planSet(
