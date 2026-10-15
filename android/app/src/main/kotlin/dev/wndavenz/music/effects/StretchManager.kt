@@ -32,7 +32,11 @@ class StretchManager {
     var pitchSemitones: Float = 0f
         private set
 
-    private val processors = mutableListOf<SignalsmithStretchAudioProcessor>()
+    // The two Media3 players occupy stable physical slots (primary=0,
+    // secondary=1). Track each processor by slot so AutoMix can tempo-match
+    // only the incoming deck without touching the currently playing deck.
+    private val processors = mutableMapOf<Int, SignalsmithStretchAudioProcessor>()
+    private val autoMixMultipliers = mutableMapOf<Int, Float>()
     private val lock = Any()
 
     private var speedTarget: Float = 1f
@@ -43,29 +47,46 @@ class StretchManager {
     private val smoothingFactor: Float = 0.05f
     private val settleEpsilon: Float = 0.001f
 
-    fun createProcessor(): SignalsmithStretchAudioProcessor {
+    fun createProcessor(streamSlot: Int): SignalsmithStretchAudioProcessor {
         val p = SignalsmithStretchAudioProcessor()
         p.setSpeed(speed)
         p.setPitchSemitones(pitchSemitones)
+        val multiplier: Float
         val count: Int
         synchronized(lock) {
-            processors.add(p)
+            multiplier = autoMixMultipliers[streamSlot] ?: 1f
+            processors[streamSlot] = p
             count = processors.size
         }
+        p.setAutoMixTempoMultiplier(multiplier)
         NativeLogger.emit(
             "info", "Stretch",
-            "[Stretch] processor created hash=${System.identityHashCode(p)} count=$count speed=$speed pitch=${pitchSemitones}st",
+            "[Stretch] processor created slot=$streamSlot hash=${System.identityHashCode(p)} count=$count speed=$speed autoMix=$multiplier pitch=${pitchSemitones}st",
         )
         return p
     }
 
     fun removeProcessor(p: SignalsmithStretchAudioProcessor) {
+        val slot: Int?
         val count: Int
         synchronized(lock) {
-            processors.remove(p)
+            slot = processors.entries.firstOrNull { it.value === p }?.key
+            if (slot != null) processors.remove(slot)
             count = processors.size
         }
-        NativeLogger.emit("info", "Stretch", "[Stretch] processor destroyed hash=${System.identityHashCode(p)} count=$count")
+        NativeLogger.emit("info", "Stretch", "[Stretch] processor destroyed slot=$slot hash=${System.identityHashCode(p)} count=$count")
+    }
+
+    /** Applies a bounded pitch-preserving tempo correction to only one deck. */
+    fun setAutoMixTempoMultiplier(streamSlot: Int, multiplier: Float) {
+        val normalized = if (multiplier.isFinite()) multiplier.coerceIn(0.92f, 1.08f) else 1f
+        val processor: SignalsmithStretchAudioProcessor?
+        synchronized(lock) {
+            autoMixMultipliers[streamSlot] = normalized
+            processor = processors[streamSlot]
+        }
+        processor?.setAutoMixTempoMultiplier(normalized)
+        NativeLogger.emit("info", "Stretch", "[Stretch] AutoMix deck slot=$streamSlot multiplier=$normalized")
     }
 
     fun setSpeed(newSpeed: Float) {
@@ -93,7 +114,7 @@ class StretchManager {
                         speed = stepToward(speed, speedTarget, smoothingFactor)
                         pitchSemitones = stepToward(pitchSemitones, pitchTarget, smoothingFactor)
 
-                        snapshot = processors.toList()
+                        snapshot = processors.values.toList()
                         currentSpeed = speed
                         currentPitch = pitchSemitones
                         targetSpeed = speedTarget
@@ -136,6 +157,7 @@ class StretchManager {
             smoothingTimer?.cancel()
             smoothingTimer = null
             processors.clear()
+            autoMixMultipliers.clear()
         }
         NativeLogger.emit("info", "Stretch", "[Stretch] releaseAll — all processors cleared count=0")
     }
