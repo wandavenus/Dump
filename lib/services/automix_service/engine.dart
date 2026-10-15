@@ -344,8 +344,8 @@ class AutomixEngine {
   /// score of the immediate pick (0..1).
   static const double _lookaheadGamma = 0.35;
 
-  /// How many tempo-sorted neighbor slots to explore on each side of the
-  /// current track before falling back to a global scan.
+  /// Local raw-tempo neighborhood size. Equivalent tempo anchors add a second
+  /// bounded candidate set, including for half/double-time matches.
   static const int _window = 12;
 
   /// Also inspect nearby slots for the half/double-time interpretations of a
@@ -488,7 +488,6 @@ class AutomixEngine {
     required double medianBpm,
     required bool withLookahead,
   }) {
-    final n = tracks.length;
     final nTotal = tracks.length;
 
     // Score the raw-BPM neighborhood plus nearby positions around equivalent
