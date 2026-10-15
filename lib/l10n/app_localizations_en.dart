@@ -320,7 +320,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sleepPresetEndOfSong => 'End of song';
 
   @override
-  String get sleepPresetSection => 'CHOOSE DURATION';
+  String get sleepPresetSection => 'Music will fade out slowly when the timer ends';
 
   @override
   String get scanLibrary => 'Scan Library';
