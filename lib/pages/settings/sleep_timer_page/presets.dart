@@ -1,7 +1,7 @@
 part of '../sleep_timer_page.dart';
 
 class _PresetList extends StatelessWidget {
-  /// When true (bottom-sheet mode), dismiss the sheet after selecting a preset.
+  /// Dismiss the bottom sheet after selecting a preset.
   final bool dismissOnSelect;
 
   const _PresetList({this.dismissOnSelect = false});
@@ -32,14 +32,6 @@ class _PresetList extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        preset.duration == null
-                            ? Icons.music_note
-                            : Icons.timer,
-                        color: c.secondaryLabel,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 14),
                       Expanded(
                         child: Text(
                           _localizedPresetLabel(context, preset),
@@ -51,13 +43,6 @@ class _PresetList extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!isLast)
-                Divider(
-                  height: 0.5,
-                  thickness: 0.5,
-                  color: c.subtleSeparator,
-                  indent: 50,
-                ),
             ],
           );
         }),
@@ -88,26 +73,8 @@ class _PresetList extends StatelessWidget {
       SleepTimerService.startDuration(preset.duration!);
     }
 
-    if (dismissOnSelect) {
+    if (dismissOnSelect && context.mounted) {
       Navigator.of(context).pop();
-      return;
     }
-
-    final c = AppColors.of(context);
-    final label = _localizedPresetLabel(context, preset);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          preset.duration == null
-              ? context.l10n.timerAfterSong
-              : context.l10n.timerDuration(label),
-          style: TextStyle(color: c.primaryLabel),
-        ),
-        backgroundColor: c.surface,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 }
