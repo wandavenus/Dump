@@ -494,20 +494,19 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // mode. On shorter portrait screens, cap its size so its fade still ends well
     // above the song title instead of colliding with the header.
     const bottomCtrlH = 244.0;
-    final artworkBlurMaxSize =
-        (screenH - bottomCtrlH - 32.0)
-            .clamp(220.0, 430.0)
-            .toDouble();
-    final preferredCoverSize =
-        (screenW - (isArtworkBlurStyle ? 0.0 : 44.0))
-            .clamp(isArtworkBlurStyle ? 220.0 : 260.0, 430.0)
-            .toDouble();
+    final artworkBlurMaxSize = (screenH - bottomCtrlH - 32.0)
+        .clamp(220.0, 430.0)
+        .toDouble();
+    final preferredCoverSize = (screenW - (isArtworkBlurStyle ? 0.0 : 44.0))
+        .clamp(isArtworkBlurStyle ? 220.0 : 260.0, 430.0)
+        .toDouble();
     final portraitCoverSize = isArtworkBlurStyle
         ? preferredCoverSize.clamp(220.0, artworkBlurMaxSize).toDouble()
         : preferredCoverSize;
     // Artwork-blur mode intentionally overscales the square cover by 30%.
     // Horizontal overflow is allowed; the cover stays centered on the screen.
-    final largeCoverSize = wideColumns?.artwork.width ??
+    final largeCoverSize =
+        wideColumns?.artwork.width ??
         (isArtworkBlurStyle ? portraitCoverSize * 1.2597 : portraitCoverSize);
     final artFullLeft =
         wideColumns?.artwork.left ?? (screenW - largeCoverSize) / 2;
@@ -521,7 +520,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
     // Artwork extends behind the status bar, but is clipped at the physical
     // top edge of the screen. Side overflow remains intentional.
-    final artFullTop = wideColumns?.artwork.top ??
+    final artFullTop =
+        wideColumns?.artwork.top ??
         (isArtworkBlurStyle ? 0.0 : topInset + coverTopLocal);
 
     // Quadratic Bézier arc: artwork swings right then curves up to final pos.
@@ -766,7 +766,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           const targetScale = 1.0;
                           final artworkFadeStrength = isArtworkBlurStyle
                               ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
-                                    (1.0 - effectiveOverlayT))
+                                        (1.0 - effectiveOverlayT))
                                     .clamp(0.0, 1.0)
                                     .toDouble()
                               : 0.0;
@@ -829,14 +829,51 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                                     begin: Alignment.topCenter,
                                                     end: Alignment.bottomCenter,
                                                     colors: [
-                                                      Color.fromARGB(75, 0, 0, 0),
-                                                      Color.fromARGB(60, 0, 0, 0),
-                                                      Color.fromARGB(39, 0, 0, 0),
-                                                      Color.fromARGB(24, 0, 0, 0),
-                                                      Color.fromARGB(10, 0, 0, 0),
-                                                      Color.fromARGB(0, 0, 0, 0),
+                                                      Color.fromARGB(
+                                                        75,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                      ),
+                                                      Color.fromARGB(
+                                                        60,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                      ),
+                                                      Color.fromARGB(
+                                                        39,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                      ),
+                                                      Color.fromARGB(
+                                                        24,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                      ),
+                                                      Color.fromARGB(
+                                                        10,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                      ),
+                                                      Color.fromARGB(
+                                                        0,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                      ),
                                                     ],
-                                                    stops: [0.0, 0.18, 0.36, 0.56, 0.78, 1.0],
+                                                    stops: [
+                                                      0.0,
+                                                      0.18,
+                                                      0.36,
+                                                      0.56,
+                                                      0.78,
+                                                      1.0,
+                                                    ],
                                                   ),
                                                 ),
                                               ),

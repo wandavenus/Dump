@@ -141,11 +141,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
             ),
           ),
         ),
-        Divider(
-          height: 0.5,
-          thickness: 0.5,
-          color: c.subtleSeparator,
-        ),
+        Divider(height: 0.5, thickness: 0.5, color: c.subtleSeparator),
         const _PresetList(dismissOnSelect: true),
       ],
     );

@@ -254,7 +254,8 @@ class AutomixSettings {
 
   factory AutomixSettings.fromMap(Map<dynamic, dynamic> map) {
     return AutomixSettings(
-      profile: AutomixProfile.values.asNameMap()[(map['profile'] as String?)] ??
+      profile:
+          AutomixProfile.values.asNameMap()[(map['profile'] as String?)] ??
           AutomixProfile.dj,
       bpmTolerancePercent: (map['bpmTolerance'] as num?)?.toDouble() ?? 6.0,
       crossfadeBeats: (map['beats'] as num?)?.toInt() ?? 16,

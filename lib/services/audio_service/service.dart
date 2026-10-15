@@ -757,10 +757,8 @@ class AudioService {
   static Future<void> setAutomixTransition({
     required bool enabled,
     required List<Map<String, Object?>> targets,
-  }) => PlaybackManager.setAutomixTransition(
-    enabled: enabled,
-    targets: targets,
-  );
+  }) =>
+      PlaybackManager.setAutomixTransition(enabled: enabled, targets: targets);
 
   /// Reorder only upcoming AutoMix items in a single native batch.
   /// The active song is checked by ID on the native side and is never moved.
@@ -784,7 +782,9 @@ class AudioService {
         tailIds.toSet().length != tailIds.length ||
         orderedIds.toSet().difference(tailIds.toSet()).isNotEmpty ||
         tailIds.toSet().difference(orderedIds.toSet()).isNotEmpty) {
-      throw StateError('AutoMix planned queue no longer matches the current tail');
+      throw StateError(
+        'AutoMix planned queue no longer matches the current tail',
+      );
     }
     // Already in the planned order — the common case once a plan is active.
     // Returning early keeps AutoMix from re-emitting playback state, which
@@ -808,10 +808,12 @@ class AudioService {
     ];
     _playlist = List<LocalSong>.unmodifiable(mutable);
     _currentIndex = _playlist.indexWhere((song) => song.id == currentId);
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: _playlist,
-      currentIndex: _currentIndex,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentPlaylist: _playlist,
+        currentIndex: _currentIndex,
+      ),
+    );
   }
 
   /// Move a queue item to its final index and await native confirmation.
@@ -829,10 +831,12 @@ class AudioService {
       (song) => song.id == playbackState.value.currentSong?.id,
     );
     if (_currentIndex < 0) _currentIndex = playbackState.value.currentIndex;
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: _playlist,
-      currentIndex: _currentIndex,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentPlaylist: _playlist,
+        currentIndex: _currentIndex,
+      ),
+    );
   }
 
   /// Reorder the queue. Follows Flutter's ReorderableListView convention:
