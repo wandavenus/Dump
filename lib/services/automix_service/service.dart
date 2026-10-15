@@ -217,10 +217,19 @@ class AutomixService {
         return;
       }
       final orderedTailIds = planned.map((song) => song.id).toList(growable: false);
-      await AudioService.reorderUpcomingByIds(
-        currentId: currentSong.id,
-        orderedIds: orderedTailIds,
-      );
+      try {
+        await AudioService.reorderUpcomingByIds(
+          currentId: currentSong.id,
+          orderedIds: orderedTailIds,
+        );
+      } on Object catch (e) {
+        // A skip, queue mutation or active crossfade can invalidate the tail
+        // after analysis. Keep playback untouched and allow a later state
+        // event to retry against the fresh native queue.
+        _lastAutoQueueIdentity = null;
+        LogService.verbose('Automix', 'native queue changed during plan; retry later: $e');
+        return;
+      }
 
       if (automixEnabled.value) {
         final bpm = _usableBpm(currentFeatures);
