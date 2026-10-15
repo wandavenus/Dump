@@ -111,7 +111,7 @@ class AutomixService {
           _autoMixPreparing) return;
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
-      if (!state.isPlaying || state.currentSong == null || queue.length < 3 ||
+      if (!state.isPlaying || state.currentSong == null || queue.length < 2 ||
           state.currentIndex < 0 || state.currentIndex >= queue.length) return;
       final ids = queue.map((song) => song.id).toList()..sort();
       final identity = ids.join(',');
@@ -177,7 +177,7 @@ class AutomixService {
         !automixEnabled.value ||
         AudioEffectsService.bitPerfectMode.value) return;
     final upcoming = queue.skip(currentIndex + 1).toList(growable: false);
-    if (upcoming.length < 2) return;
+    if (upcoming.isEmpty) return;
     _autoMixPreparing = true;
     try {
       await loadSettings();
@@ -188,13 +188,18 @@ class AutomixService {
       if (!automixEnabled.value) return;
       final currentFeatures = allFeatures.first;
       final upcomingFeatures = allFeatures.skip(1).toList(growable: false);
+      // Keep the current song anchored at index 0 while letting its BPM/key
+      // influence the first transition selected from the remaining tracks.
       final metrics = AutomixEngine.planSet(
-        tracks: upcomingFeatures, settings: settings.value, startIndex: 0,
+        tracks: allFeatures, settings: settings.value, startIndex: 0,
       );
-      if (metrics.order.length != upcoming.length) return;
-      final planned = [for (final index in metrics.order) upcoming[index]];
+      if (metrics.order.length != upcoming.length + 1 || metrics.order.first != 0) {
+        return;
+      }
+      final plannedIndices = metrics.order.skip(1).toList(growable: false);
+      final planned = [for (final index in plannedIndices) queue[currentIndex + index]];
       final plannedFeatures = [
-        for (final index in metrics.order) upcomingFeatures[index],
+        for (final index in plannedIndices) allFeatures[index],
       ];
 
       // Mutate only the queue tail. The active player/timeline is not replaced.
