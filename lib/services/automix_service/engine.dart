@@ -276,19 +276,33 @@ double _transitionCost({
   required AutomixSettings settings,
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
-  final tempo = automixTempoCost(
+  final measuredTempo = automixTempoCost(
     a.bpm, a.alternateBpm, b.bpm, b.alternateBpm, tolerance,
   );
+  final tempoConfidence = automixClamp01(
+    (a.bpmConfidence + b.bpmConfidence) / 2,
+  );
+  final tempo = automixConfidenceBlend(
+    measuredTempo,
+    tempoConfidence,
+    neutralCost: 0.35,
+  );
 
-  var key = automixCamelotCost(
+  final measuredKey = automixCamelotCost(
     a.camelotNumber, a.camelotMinor, b.camelotNumber, b.camelotMinor,
   );
-  if (settings.harmonicFilter && key >= 0.6) {
-    key = (key * 1.5).clamp(0.0, 1.0);
-  }
-  // Uncertain key matches move the sub-cost halfway back to neutral.
   final kConf = automixClamp01((a.keyConfidence + b.keyConfidence) / 2);
-  key = key * (0.55 + 0.45 * kConf);
+  var key = automixConfidenceBlend(
+    measuredKey,
+    kConf,
+    neutralCost: 0.5,
+  );
+  // Harmonic filter means a confidently incompatible key is strongly
+  // discouraged. If detection is uncertain, confidence blending above keeps
+  // it near neutral rather than rejecting a potentially compatible track.
+  if (settings.harmonicFilter && kConf >= 0.55 && measuredKey >= 0.6) {
+    key = math.max(key, 0.9);
+  }
 
   // Energy: blend continuity with the arc target; the "energy" profile adds
   // an explicit wrong-direction penalty so the arc keeps flowing forward.
@@ -657,7 +671,7 @@ class AutomixEngine {
         high = mid;
       }
     }
-    return low.clamp(0, slotOrder.length - 1);
+    return low.clamp(0, slotOrder.length - 1).toInt();
   }
 
   /// Sum of all transition costs across a plan.
