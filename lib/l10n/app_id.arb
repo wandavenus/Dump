@@ -31,7 +31,6 @@
   "playerBackgroundTitle": "Latar Pemutar Full",
   "playerBackgroundFluid": "Warna Dinamis",
   "playerBackgroundArtwork": "Blur Artwork",
-  
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Efek blur transparan pada seluruh UI",
   "sectionLanguage": "BAHASA",
@@ -211,7 +210,6 @@
   "sleepFadingOut": "Memudar…",
   "timerAfterSong": "Timer: berhenti setelah lagu ini",
   "timerDuration": "Timer: {label}",
-  
   "shuffleOn": "Shuffle On",
   "shuffleOff": "Shuffle Off",
   "loopOff": "Loop Mati",
@@ -705,39 +703,39 @@
     }
   },
   "reverb": "Reverb",
-  "reverbDescription": "Membuat suara terasa berada di ruangan yang hangat dan lapang (reverb ruangan). Paling enak dengan headphone."
-  ,"acousticEngine": "Acoustic Engine"
-  ,"acousticEngineDescription": "Peningkatan khusus speaker dengan harmonik bass terkontrol, vokal lebih jelas, dan perlindungan adaptif terhadap suara tajam."
-  ,"automixTitle": "AutoMix"
-  ,"automixDescription": "Auto-mix gaya DJ tanpa AI dan sepenuhnya offline: mengurutkan antrean berdasarkan tempo, kunci Camelot, dan energi, lalu crossfade di tiap transisi. Jalankan dari menu overflow pemutar. Analisis murni DSP di perangkat — tanpa jaringan."
-  ,"automixProfileLabel": "Profil mix"
-  ,"automixProfileDj": "DJ"
- ,"automixProfileHarmonic": "Harmonik"
-  ,"automixProfileEnergy": "Energi"
-  ,"automixProfileDjDesc": "Kecocokan tempo utama — rantai BPM terdekat dengan sedikit kenaikan energi menyeluruh set."
-  ,"automixProfileHarmonicDesc": "Kecocokan kunci utama (roda Camelot: sama, relatif, ±1/±2); tempo jadi penentu bila seri."
-  ,"automixProfileEnergyDesc": "Merencanakan warm-up → puncak → cooldown memakai loudness, brightness, dan onset density hasil analisis."
-  ,"automixBpmTolerance": "Toleransi BPM"
-  ,"@automixBpmTolerance": {}
-  ,"automixBpmToleranceDesc": "Seberapa jauh tempo lagu berikutnya boleh bergeser (setelah penyesuaian setengah/dual waktu) sebelum biaya transisi naik."
-  ,"automixCrossfadeBeats": "Panjang crossfade"
-  ,"automixBeats": "{beats} ketukan"
-  ,"@automixBeats": {
+  "reverbDescription": "Membuat suara terasa berada di ruangan yang hangat dan lapang (reverb ruangan). Paling enak dengan headphone.",
+  "acousticEngine": "Acoustic Engine",
+  "acousticEngineDescription": "Peningkatan khusus speaker dengan harmonik bass terkontrol, vokal lebih jelas, dan perlindungan adaptif terhadap suara tajam.",
+  "automixTitle": "AutoMix",
+  "automixDescription": "Transisi DJ otomatis yang menyesuaikan tempo dan nada, sepenuhnya offline.",
+  "automixProfileLabel": "Profil mix",
+  "automixProfileDj": "DJ",
+  "automixProfileHarmonic": "Harmonik",
+  "automixProfileEnergy": "Energi",
+  "automixProfileDjDesc": "Kecocokan tempo utama — rantai BPM terdekat dengan sedikit kenaikan energi menyeluruh set.",
+  "automixProfileHarmonicDesc": "Kecocokan kunci utama (roda Camelot: sama, relatif, ±1/±2); tempo jadi penentu bila seri.",
+  "automixProfileEnergyDesc": "Merencanakan warm-up → puncak → cooldown memakai loudness, brightness, dan onset density hasil analisis.",
+  "automixBpmTolerance": "Toleransi BPM",
+  "@automixBpmTolerance": {},
+  "automixBpmToleranceDesc": "Seberapa jauh tempo lagu berikutnya boleh bergeser (setelah penyesuaian setengah/dual waktu) sebelum biaya transisi naik.",
+  "automixCrossfadeBeats": "Panjang crossfade",
+  "automixBeats": "{beats} ketukan",
+  "@automixBeats": {
     "placeholders": {
       "beats": {
         "type": "int"
       }
     }
-  }
-  ,"automixCrossfadeBeatsDesc": "Durasi fade transisi diukur dalam ketukan pada tempo analisis set (dibatasi 1,5–12 detik)."
-  ,"automixArtistVariety": "Variasi artis"
-  ,"automixHarmonicFilter": "Filter harmonik"
-  ,"automixHarmonicFilterDesc": "Penghukuman transisi jauh dari kunci lebih agresif (biaya lebih besar dari proporsional)."
-  ,"automixAnalyzeLibrary": "Analisis library (BPM & kunci)"
-  ,"automixAnalyzeHint": "Mendekode audio di perangkat untuk ekstrak tempo, kunci Camelot, dan energi. Lambat tapi sepenuhnya offline."
-  ,"automixAnalyzeAction": "Mulai"
-  ,"automixAnalyzingProgress": "Menganalisis {done}/{total}"
-  ,"@automixAnalyzingProgress": {
+  },
+  "automixCrossfadeBeatsDesc": "Durasi fade transisi diukur dalam ketukan pada tempo analisis set (dibatasi 1,5–12 detik).",
+  "automixArtistVariety": "Variasi artis",
+  "automixHarmonicFilter": "Filter harmonik",
+  "automixHarmonicFilterDesc": "Penghukuman transisi jauh dari kunci lebih agresif (biaya lebih besar dari proporsional).",
+  "automixAnalyzeLibrary": "Analisis library (BPM & kunci)",
+  "automixAnalyzeHint": "Mendekode audio di perangkat untuk ekstrak tempo, kunci Camelot, dan energi. Lambat tapi sepenuhnya offline.",
+  "automixAnalyzeAction": "Mulai",
+  "automixAnalyzingProgress": "Menganalisis {done}/{total}",
+  "@automixAnalyzingProgress": {
     "placeholders": {
       "done": {
         "type": "int"
@@ -746,7 +744,7 @@
         "type": "int"
       }
     }
-  }
-  ,"automixOn": "AutoMix: Aktif — pulihkan crossfade"
-  ,"automixOff": "AutoMix antrean ini"
+  },
+  "automixOn": "AutoMix: Aktif — pulihkan crossfade",
+  "automixOff": "AutoMix antrean ini"
 }
