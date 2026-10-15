@@ -508,7 +508,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Artwork-blur mode intentionally overscales the square cover by 30%.
     // Horizontal overflow is allowed; the cover stays centered on the screen.
     final largeCoverSize = wideColumns?.artwork.width ??
-        (isArtworkBlurStyle ? portraitCoverSize * 1.235 : portraitCoverSize);
+        (isArtworkBlurStyle ? portraitCoverSize * 1.2597 : portraitCoverSize);
     final artFullLeft =
         wideColumns?.artwork.left ?? (screenW - largeCoverSize) / 2;
 
