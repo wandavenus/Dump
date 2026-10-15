@@ -127,37 +127,27 @@ class _SleepTimerSheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
-    return ValueListenableBuilder<bool>(
-      valueListenable: SleepTimerService.isActive,
-      builder: (_, active, _) {
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          shrinkWrap: true,
-          children: [
-            if (active) ...[
-              const _ActiveTimerCard(),
-              const SizedBox(height: 24),
-            ],
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
-              child: Text(
-                context.l10n.sleepPresetSection,
-                style: TextStyle(
-                  color: c.secondaryLabel,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      shrinkWrap: true,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+          child: Text(
+            context.l10n.sleepPresetSection,
+            style: TextStyle(
+              color: c.secondaryLabel,
+              fontSize: 14,
+              height: 1.4,
             ),
-            Divider(
-              height: 0.5,
-              thickness: 0.5,
-              color: c.subtleSeparator,
-            ),
-            const _PresetList(dismissOnSelect: true),
-          ],
-        );
-      },
+          ),
+        ),
+        Divider(
+          height: 0.5,
+          thickness: 0.5,
+          color: c.subtleSeparator,
+        ),
+        const _PresetList(dismissOnSelect: true),
+      ],
     );
-  }
-}
+  }}
