@@ -574,6 +574,23 @@ class Media3PlaybackService : MediaSessionService() {
             // setting can never start a fade on the clean player or reuse its
             // standby slot while the mode is active).
             isBitPerfectModeActive = { bitPerfectModeOn },
+            isAutomixTransitionEnabled = { automixTransitionEnabled },
+            getAutoMixBpmForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBpmBySongId[it] }
+            },
+            getAutoMixBeatOffsetMsForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBeatOffsetMsBySongId[it] }
+            },
+            setAutoMixBassGain = { p, gain ->
+                val slot = when (p) {
+                    primaryPlayer -> 0
+                    secondaryPlayer -> 1
+                    else -> -1
+                }
+                if (slot >= 0 && ::automixToneManager.isInitialized) {
+                    automixToneManager.setBassGain(slot, gain)
+                }
+            },
         )
 
         effectsManager = AudioEffectsManager(handler)
