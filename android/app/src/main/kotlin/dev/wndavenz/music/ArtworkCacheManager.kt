@@ -45,7 +45,7 @@ class ArtworkCacheManager(private val context: Context) {
         // though Activity and playback service share the dir without a
         // cross-instance lock.
         private const val TMP_MAX_AGE_MS = 60L * 60 * 1000
-        private const val WEBP_QUALITY  = 85
+        private const val WEBP_QUALITY  = 90
         private const val MAX_ARTWORK_SIZE = 2000
         // A3 (1.5.21): raw-copy fast path extended beyond JPEG — any decodable
         // artwork up to this size (and ≤ MAX_ARTWORK_SIZE on both sides) is
