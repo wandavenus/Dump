@@ -387,7 +387,6 @@ class _LogPageState extends State<LogPage> {
     double safeBottom,
     AppThemeExtension c,
   ) => Container(
-    color: c.codeBackground,
     padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + safeBottom),
     child: Row(
       children: [
