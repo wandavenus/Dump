@@ -138,7 +138,9 @@ class AutomixService {
   static double? _usableBpm(AutomixTrackFeatures features) {
     final bpm = features.bpm;
     if (bpm == null || !bpm.isFinite || bpm < 50 || bpm > 220 ||
-        features.bpmConfidence < 0.35) return null;
+        features.bpmConfidence < 0.35) {
+      return null;
+    }
     return bpm;
   }
 
