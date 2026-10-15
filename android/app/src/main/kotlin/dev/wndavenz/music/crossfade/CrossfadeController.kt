@@ -483,6 +483,8 @@ class CrossfadeController(
                     prewarmTriggered      = false
                     promotionOwner        = null
                     crossfadeFadeRunnable = null
+                    setAutoMixBassGain(newPlayer, 1f)
+                    setAutoMixBassGain(oldPlayer, 1f)
                     log("Fade aborted — active player changed mid-fade")
                     // Reset epoch so a subsequent crossfade starts with a clean timeline.
                     CrossfadeTimelineLogger.end("runEqualPowerFade abort — player changed mid-fade")
