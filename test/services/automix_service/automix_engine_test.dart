@@ -32,6 +32,31 @@ AutomixTrackFeatures _f(
 }
 
 void main() {
+  group('automixConfidenceBlend', () {
+    test('moves unreliable estimates toward a neutral cost', () {
+      expect(
+        automixConfidenceBlend(0.0, 0.0, neutralCost: 0.35),
+        0.35,
+      );
+      expect(
+        automixConfidenceBlend(1.0, 0.0, neutralCost: 0.35),
+        0.35,
+      );
+      expect(
+        automixConfidenceBlend(0.0, 1.0, neutralCost: 0.35),
+        0.0,
+      );
+      expect(
+        automixConfidenceBlend(0.0, 0.5, neutralCost: 0.35),
+        closeTo(0.175, 1e-12),
+      );
+      expect(
+        automixConfidenceBlend(0.0, 0.0, neutralCost: 0.5),
+        0.5,
+      );
+    });
+  });
+
   group('automixCamelotCost', () {
     test('same key is free, relative pair cheap, unknown neutral', () {
       expect(automixCamelotCost(8, true, 8, true), 0.0); // 8A → 8A
@@ -235,6 +260,46 @@ void main() {
         startIndex: 0,
       );
       expect(plan.order[1], 1); // compatible neighbor first
+    });
+
+    test('finds a half-time match outside the local raw-BPM window', () {
+      // Raw-BPM order places 60 BPM more than 12 slots from 120 BPM. The
+      // half/double-time candidate pool should still discover it immediately.
+      final tracks = <AutomixTrackFeatures>[
+        _f(
+          1,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          bpmConf: 0.99,
+          keyConf: 0.99,
+        ),
+        for (var i = 0; i < 30; i++)
+          _f(
+            i + 2,
+            bpm: 90 + i.toDouble(),
+            camelot: 1,
+            minor: false,
+            bpmConf: 0.99,
+            keyConf: 0.99,
+          ),
+        _f(
+          1000,
+          bpm: 60,
+          camelot: 8,
+          minor: true,
+          bpmConf: 0.99,
+          keyConf: 0.99,
+        ),
+      ];
+      final plan = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: const AutomixSettings(profile: AutomixProfile.dj),
+        startIndex: 0,
+      );
+
+      expect(plan.order.first, 0);
+      expect(tracks[plan.order[1]].songId, 1000);
     });
 
     test('artist variety spreads same-artist tracks when possible', () {
