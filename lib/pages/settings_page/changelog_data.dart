@@ -20,6 +20,37 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.38',
+    date: '15 Oktober 2026',
+    changes: [
+      'AutoMix menyusun SELURUH antrean sekali di awal, bukan 25 lagu per transisi: urutan yang kamu dengar sudah diputuskan sekali, dan saat lagu berganti transisinya tinggal dipakai (tidak ada perhitungan ulang di tengah lagu).',
+      'Beat-phase resync saat overlap: dua deck tidak lagi dibiarkan melenceng sendiri-sendiri — deck masuk dirapikan temponya (maksimal 0,6 %, tanpa mengubah pitch) selama fade agar ketukan tetap nyambung sampai selesai.',
+      'Transisi kini pintar memilih: pasangan lagu yang temponya berdekatan baru ditarik biar ketukannya ketemu; kalau beda lagu terlalu jauh (lebih dari 6 %), AutoMix tidak memaksakan dan memakai crossfade halus biasa — jadi tidak ada suara "melengking/menggeser".',
+      'Efek ekor halus: lagu yang keluar meredupkan nada tingginya bertahap (maksimal −12 dB) di paruh akhir fade, sehingga perpindahan terdengar lembut dan disengaja.',
+      'Analisis seluruh library jalan sendiri di sela-sela pemutaran (beberapa lagu per sesi, jeda antar lagu) dan otomatis berhenti kalau baterai tidak dicas dan sudah di bawah 30 %, atau kalau HP kepanasan — jadi HP tidak lemot dan baterai aman.',
+      'Analisis tersimpan tidak lagi kehilangan data struktur dan beat grid ekor lagu saat dibaca ulang (fase & panjang fade jadi konsisten).',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.37',
+    date: '15 Oktober 2026',
+    changes: [
+      'Analisis AutoMix kini mencakup seluruh lagu: file dipotong menjadi jendela kepala/tengah/ekor, jadi lagu di atas 5 menit (dan outro-nya) ikut terukur — bukan cuma 300 detik pertama.',
+      'Sadar struktur lagu: energi jendela pertama/terakhir dipakai untuk memilih panjang fade dan kurva perpindahan tiap transisi (outro padat = fade lebih cepat, outro sepi = fade lebih panjang dan halus).',
+      'Beat grid transisi memakai tempo & fase di EKOR lagu yang keluar — titik fade sesungguhnya — bukan estimasi dari awal file.',
+      'Level antar-deck disamakan saat overlap: deck yang lebih keras diredam (maksimal 6 dB, tidak pernah booster) lalu diredam-dilepas di akhir fade supaya tidak ada lonjakan level.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.36',
+    date: '15 Oktober 2026',
+    changes: [
+      'AutoMix kini menganalisis sendiri di latar: BPM, kunci, dan fase ketukan lagu berikutnya diekstrak saat lagu berjalan — tanpa tombol "Analisis library", dan hasilnya tersimpan permanen per file.',
+      'Tempo matching per deck, penyelarasan ketukan saat crossfade, dan bass hand-off jadi benar-benar aktif karena data analisis sudah tersedia sebelum transisi terjadi.',
+      'Perencanaan antrean dibatasi ke 25 lagu berikutnya (urutan sisanya tidak diubah), dengan percobaan ulang terbatas ketika reorder ditolak di tengah crossfade.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.35',
     date: '15 Oktober 2026',
     changes: [

@@ -1,16 +1,19 @@
 package dev.wndavenz.music.crossfade
 
 import android.os.Handler
+import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import dev.wndavenz.music.automix.AutomixPhaseLock
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.pow
 
 /**
  * TRUE CROSSFADE ENGINE
@@ -87,6 +90,19 @@ class CrossfadeController(
     private val getAutoMixBpmForPlayer: (ExoPlayer) -> Float? = { null },
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    // Per-transition shaping from the offline planner, keyed by the INCOMING
+    // track: its own fade length, the equal-power transfer curve, and the level
+    // match between the two decks. All default to the pre-AutoMix behaviour.
+    private val getAutoMixFadeSecondsForPlayer: (ExoPlayer) -> Float? = { null },
+    private val getAutoMixCurveForPlayer: (ExoPlayer) -> Float = { 1f },
+    private val getAutoMixTrimForPlayer: (ExoPlayer) -> Float = { 1f },
+    private val getAutoMixOutgoingTrimForPlayer: (ExoPlayer) -> Float = { 1f },
+    // Beat-phase resync: re-times ONLY the incoming deck while the two decks
+    // overlap. The factor is relative (1.0 = leave the planner's multiplier as
+    // it is), so a correction can never accumulate across fades.
+    private val setAutoMixTempoNudge: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    // Gentle high-band filter-out on the outgoing deck's tail: 1.0 = transparent.
+    private val setAutoMixTailFilter: (ExoPlayer, Float) -> Unit = { _, _ -> },
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -97,6 +113,16 @@ class CrossfadeController(
 
         /** Minimum actual fade duration regardless of track-end proximity. */
         const val MIN_FADE_MS = 80L
+
+        /**
+         * How often an overlap re-measures the two beat grids and re-times the
+         * incoming deck. ~64 ms is frequent enough to stay locked while not
+         * fighting the 16 ms volume ramp.
+         */
+        const val PHASE_LOCK_INTERVAL_MS = 64L
+
+        /** Most high band the outgoing tail filter may remove (-12 dB). */
+        const val MAX_TAIL_FILTER = 0.75f
     }
 
     var crossfadeDurationSec: Float = 0f
@@ -111,6 +137,11 @@ class CrossfadeController(
     private var prewarmTriggered: Boolean = false
     private var crossfadeFadeRunnable: Runnable? = null
     private var beatAlignedStartRunnable: Runnable? = null
+
+    // Captured once per fade (read again on every 16 ms tick).
+    private var fadeGamma: Float = 1f
+    private var outgoingTrim: Float = 1f
+    private var incomingTrim: Float = 1f
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -148,7 +179,15 @@ class CrossfadeController(
         val standby = getStandbyPlayer() ?: return
         if (standby.mediaItemCount == 0) return
 
-        val crossMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(MIN_FADE_MS)
+        // AutoMix may shorten/lengthen this particular blend (dense outro →
+        // quicker hand-over, sparse outro → longer one); otherwise the user's
+        // crossfade duration applies unchanged.
+        val automixFadeSec = if (isAutomixTransitionEnabled()) {
+            getStandbyPlayer()?.let { getAutoMixFadeSecondsForPlayer(it) }
+        } else null
+        val crossMs = ((automixFadeSec ?: crossfadeDurationSec) * 1000f)
+            .toLong()
+            .coerceAtLeast(MIN_FADE_MS)
         val currentPosition = p.currentPosition.coerceAtLeast(0L)
         val remaining = (dur - currentPosition).coerceAtLeast(0L)
         val idealStart = (dur - crossMs).coerceAtLeast(0L)
@@ -245,8 +284,15 @@ class CrossfadeController(
         crossfadeFadeRunnable = null
         beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
         beatAlignedStartRunnable = null
-        getActivePlayer()?.let { setAutoMixBassGain(it, 1f) }
-        promotionOwner?.let { setAutoMixBassGain(it, 1f) }
+        getActivePlayer()?.let {
+            setAutoMixBassGain(it, 1f)
+            setAutoMixTempoNudge(it, 1f)
+            setAutoMixTailFilter(it, 1f)
+        }
+        promotionOwner?.let {
+            setAutoMixBassGain(it, 1f)
+            setAutoMixTailFilter(it, 1f)
+        }
 
         // K1 fix: capture the mid-fade state BEFORE clearing the flags below. A
         // promoted standby owns a one-item timeline until the fade completes;
@@ -337,6 +383,27 @@ class CrossfadeController(
                 CrossfadeTimelineLogger.stamp("beginCrossfade: warn standby state=${standby.playbackState}", standby)
             }
         }
+
+        // AutoMix per-transition shape, captured from the incoming deck's cue.
+        fadeGamma = if (isAutomixTransitionEnabled()) {
+            getAutoMixCurveForPlayer(standby).coerceIn(0.6f, 1.6f)
+        } else 1f
+        outgoingTrim = if (isAutomixTransitionEnabled()) {
+            getAutoMixOutgoingTrimForPlayer(standby).coerceIn(0f, 1f)
+        } else 1f
+        incomingTrim = if (isAutomixTransitionEnabled()) {
+            getAutoMixTrimForPlayer(standby).coerceIn(0f, 1f)
+        } else 1f
+
+        // A deck keeps its tone processor between blends, so every fade starts
+        // from a transparent filter state on both decks.
+        setAutoMixTailFilter(current, 1f)
+        setAutoMixTailFilter(standby, 1f)
+
+        // Beat-phase resync needs a phase grid on BOTH decks: with only one grid
+        // there is nothing to lock onto, so the plain fade runs unchanged.
+        val phaseLockActive = isAutomixTransitionEnabled() &&
+            hasUsableBeatGrid(current) && hasUsableBeatGrid(standby)
 
         crossfadeInProgress = true
         promotionTriggered  = true
@@ -454,8 +521,18 @@ class CrossfadeController(
             nextIndex,
             actualFadeMs,
             applyBassSwap,
+            phaseLockActive,
+            isAutomixTransitionEnabled(),
         )
         }
+
+    /** True when this deck has a plausible tempo *and* a usable beat phase. */
+    private fun hasUsableBeatGrid(player: ExoPlayer): Boolean {
+        val bpm = getAutoMixBpmForPlayer(player) ?: return false
+        val offsetMs = getAutoMixBeatOffsetMsForPlayer(player) ?: return false
+        if (!bpm.isFinite() || bpm !in 50f..250f) return false
+        return offsetMs >= 0L
+    }
 
     /**
      * Equal-power fade animation.
@@ -472,11 +549,14 @@ class CrossfadeController(
     nextIndex: Int,
     durationMs: Long,
     applyBassSwap: Boolean,
+    phaseLock: Boolean,
+    tailFilter: Boolean,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
         val stepMs     = (durationMs / steps).coerceAtLeast(1L)
         var step       = 0
+        var lastPhaseLockAt = 0L
 
         val runnable = object : Runnable {
             override fun run() {
@@ -492,6 +572,9 @@ class CrossfadeController(
                     crossfadeFadeRunnable = null
                     setAutoMixBassGain(newPlayer, 1f)
                     setAutoMixBassGain(oldPlayer, 1f)
+                    setAutoMixTempoNudge(newPlayer, 1f)
+                    setAutoMixTailFilter(newPlayer, 1f)
+                    setAutoMixTailFilter(oldPlayer, 1f)
                     log("Fade aborted — active player changed mid-fade")
                     // Reset epoch so a subsequent crossfade starts with a clean timeline.
                     CrossfadeTimelineLogger.end("runEqualPowerFade abort — player changed mid-fade")
@@ -501,6 +584,12 @@ class CrossfadeController(
                 if (step >= steps) {
                     setAutoMixBassGain(newPlayer, 1f)
                     setAutoMixBassGain(oldPlayer, 1f)
+                    // The promoted deck takes over at its own tempo and with a
+                    // dry tone: a phase correction or a tail filter must never
+                    // survive into the next track.
+                    setAutoMixTempoNudge(newPlayer, 1f)
+                    setAutoMixTailFilter(newPlayer, 1f)
+                    setAutoMixTailFilter(oldPlayer, 1f)
                     // ── Crossfade complete ─────────────────────────────────────
                     CrossfadeTimelineLogger.stampDual(
                         "runEqualPowerFade: COMPLETE (step=$step/$steps) — about to stop old player",
@@ -580,9 +669,77 @@ class CrossfadeController(
                     setAutoMixBassGain(oldPlayer, outgoingBass)
                     setAutoMixBassGain(newPlayer, incomingBass)
                 }
-                val theta  = (t * PI / 2.0).toFloat()
-                oldPlayer.volume = (targetVol * cos(theta)).coerceIn(0f, targetVol)
-                newPlayer.volume = (targetVol * sin(theta)).coerceIn(0f, targetVol)
+
+                // ── AutoMix phase lock ─────────────────────────────────────────
+                // The fade is scheduled ONCE, but the two ExoPlayers decode
+                // independently: buffer jitter and clock drift slide them apart
+                // while they overlap. Re-measure both grids and re-time the
+                // incoming deck (rate only, never a seek) so the beats stay
+                // locked until the hand-over. Each correction is re-derived from
+                // live positions, so a wrong measurement self-corrects.
+                if (phaseLock) {
+                    val now = SystemClock.uptimeMillis()
+                    if (now - lastPhaseLockAt >= PHASE_LOCK_INTERVAL_MS) {
+                        lastPhaseLockAt = now
+                        val oldBpm = getAutoMixBpmForPlayer(oldPlayer)
+                        val oldOffset = getAutoMixBeatOffsetMsForPlayer(oldPlayer)
+                        val newBpm = getAutoMixBpmForPlayer(newPlayer)
+                        val newOffset = getAutoMixBeatOffsetMsForPlayer(newPlayer)
+                        if (oldBpm != null && oldOffset != null &&
+                            newBpm != null && newOffset != null &&
+                            oldBpm > 0f && newBpm > 0f
+                        ) {
+                            val errorMs = AutomixPhaseLock.phaseErrorMs(
+                                outgoingPositionMs = oldPlayer.currentPosition.toDouble(),
+                                outgoingPhaseOffsetMs = oldOffset.toDouble(),
+                                outgoingBeatMs = 60_000.0 / oldBpm.toDouble(),
+                                incomingPositionMs = newPlayer.currentPosition.toDouble(),
+                                incomingPhaseOffsetMs = newOffset.toDouble(),
+                                incomingBeatMs = 60_000.0 / newBpm.toDouble(),
+                            )
+                            if (errorMs != null) {
+                                val remainingMs =
+                                    ((steps - step).coerceAtLeast(0).toLong()) * stepMs
+                                setAutoMixTempoNudge(
+                                    newPlayer,
+                                    1f + AutomixPhaseLock.nudgeFor(
+                                        errorMs,
+                                        remainingMs.toDouble(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+                // AutoMix shaping: transfer curve (gamma) and the level match
+                // between the decks. The louder deck's trim stays flat (it is
+                // silenced at the end anyway) while the incoming trim is
+                // released over the last quarter so the promoted deck ends at
+                // its own level — no step when the fade completes.
+                val shaped = if (fadeGamma == 1f) {
+                    t
+                } else {
+                    t.toDouble().pow(fadeGamma.toDouble()).toFloat()
+                }
+                val release = if (t <= 0.75f) 1f else 1f - (t - 0.75f) / 0.25f
+                val incomingTrimNow = incomingTrim + (1f - incomingTrim) * release
+                val theta  = (shaped * PI / 2.0).toFloat()
+                oldPlayer.volume =
+                    (targetVol * outgoingTrim * cos(theta)).coerceIn(0f, targetVol)
+                newPlayer.volume =
+                    (targetVol * incomingTrimNow * sin(theta)).coerceIn(0f, targetVol)
+
+                // ── Tail filter-out ────────────────────────────────────────────
+                // The outgoing deck eases its high band away over the second
+                // half of the blend (at most -12 dB) while the incoming deck
+                // stays dry, so the hand-over sounds intentional instead of cut
+                // short. An idle AutoMix deck is bit-transparent.
+                if (tailFilter) {
+                    val tail = ((t - 0.55f) / 0.45f).coerceIn(0f, 1f)
+                    val eased = tail * tail * (3f - 2f * tail)
+                    setAutoMixTailFilter(oldPlayer, 1f - MAX_TAIL_FILTER * eased)
+                    setAutoMixTailFilter(newPlayer, 1f)
+                }
                 step++
                 handler.postDelayed(this, stepMs)
             }

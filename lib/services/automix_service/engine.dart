@@ -94,6 +94,365 @@ double automixConfidenceBlend(
   return neutralCost + (measuredCost - neutralCost) * c;
 }
 
+// ── Planning window ──────────────────────────────────────────────────────────
+
+/// Bounded planning window: the start track plus up to [horizon] upcoming
+/// tracks.
+///
+/// Sequencing an entire 3000-song library buys nothing the first few
+/// transitions do not already deliver (the DJ flow is local by nature) while
+/// making every replan cost grow with the library. The user's order is kept
+/// untouched past the window.
+List<T> automixPlanWindow<T>(List<T> queue, int startIndex, int horizon) {
+  if (queue.isEmpty) return <T>[];
+  final start = startIndex.clamp(0, queue.length - 1);
+  if (horizon < 1) return <T>[queue[start]];
+  final end = math.min(queue.length, start + horizon + 1);
+  return queue.sublist(start, end);
+}
+
+/// Merges the planned window order back onto the full queue tail.
+///
+/// The engine may only permute the window ([plannedIds]); [tailIds] is the
+/// caller's authoritative tail, of which the first [windowUpcomingCount] items
+/// were the window's upcoming tracks. Everything after them keeps its original
+/// order, so the result is always a permutation of [tailIds].
+List<T> automixOrderedTail<T>(
+  List<T> plannedIds,
+  List<T> tailIds,
+  int windowUpcomingCount,
+) {
+  final kept = windowUpcomingCount <= 0
+      ? 0
+      : math.min(windowUpcomingCount, tailIds.length);
+  return <T>[...plannedIds, ...tailIds.skip(kept)];
+}
+
+/// True when [tail] is exactly the continuation of a plan that already
+/// sequenced [planned] — whose first entry is the track that just started.
+///
+/// This is what lets AutoMix sequence the whole remaining queue **once** instead
+/// of re-planning before every transition: a plain track advance leaves the
+/// plan valid, while any real queue edit (add / remove / reorder / skip)
+/// breaks it and triggers a fresh pass.
+bool automixPlanContinues(List<int> planned, List<int> tail) {
+  if (tail.isEmpty) return true;
+  final start = planned.indexOf(tail.first);
+  if (start < 0) return false;
+  if (planned.length - start != tail.length) return false;
+  for (var i = 0; i < tail.length; i++) {
+    if (planned[start + i] != tail[i]) return false;
+  }
+  return true;
+}
+
+// ── Tempo matching ───────────────────────────────────────────────────────────
+
+/// Relative tempo distance beyond which two decks are **not** pulled together.
+///
+/// Pulling a pair further apart than this needs a stretch the ear hears as a
+/// wobble, so those transitions stay a plain equal-power crossfade: no tempo
+/// pull, no beat-grid start, no bass swap. Only pairs that already sit close
+/// enough to sound like one record get beat-matched — the Apple-Music rule.
+const double automixTempoMatchTolerance = 0.06;
+
+/// Tempo pull for one deck, as `(matched, multiplier)`.
+///
+/// [multiplier] is `1.0` (untouched) unless [trackBpm] can be pulled onto
+/// [referenceBpm] by at most [tolerance]; when it can, the returned value is
+/// that ratio, clamped to the ±8 % the native stretch stage accepts. A `false`
+/// match means the caller must not publish a beat grid for that deck either.
+(bool matched, double multiplier) automixTempoMatch({
+  required double? referenceBpm,
+  required double? trackBpm,
+  double tolerance = automixTempoMatchTolerance,
+}) {
+  if (referenceBpm == null ||
+      trackBpm == null ||
+      !referenceBpm.isFinite ||
+      !trackBpm.isFinite ||
+      referenceBpm <= 0 ||
+      trackBpm <= 0) {
+    return (false, 1.0);
+  }
+  final delta = referenceBpm / trackBpm - 1.0;
+  if (!delta.isFinite || delta.abs() > tolerance) return (false, 1.0);
+  return (true, (1.0 + delta).clamp(0.92, 1.08).toDouble());
+}
+
+// ── Segmented (full-song) analysis ───────────────────────────────────────────
+
+/// Folds [value] onto [reference]'s octave (half/double-time ambiguity).
+double automixFoldToOctave(double value, double reference) {
+  if (value <= 0 || reference <= 0) return value;
+  var v = value;
+  while (v > reference * 1.4) {
+    v /= 2;
+  }
+  while (v < reference / 1.4) {
+    v *= 2;
+  }
+  return v;
+}
+
+/// Merges the analyzed windows of one file into per-track features.
+///
+/// Long tracks are *sampled* rather than truncated: tempo is a
+/// confidence-weighted vote of every window (folded onto the strongest
+/// window's octave), the key is a confidence-weighted vote, energy is
+/// duration-weighted, and the first/last window give the coarse structure
+/// markers the transition planner keys on. The last window additionally
+/// provides the exit beat grid ([AutomixTrackFeatures.tailBpm] /
+/// [AutomixTrackFeatures.tailBeatOffsetMs]) because the fade happens at the end
+/// of the file, not at its start.
+AutomixTrackFeatures automixMergeSegments({
+  required int songId,
+  String title = '',
+  String artist = '',
+  required List<AutomixSegmentFeatures> segments,
+  double? loudnessLufs,
+}) {
+  // ── Tempo vote ────────────────────────────────────────────────────────────
+  final withBpm =
+      segments.where((s) => s.bpm != null && s.bpmConfidence > 0).toList();
+  double? bpm;
+  var bpmConfidence = 0.0;
+  if (withBpm.isNotEmpty) {
+    final anchor = withBpm.reduce(
+      (a, b) => a.bpmConfidence >= b.bpmConfidence ? a : b,
+    );
+    var weighted = 0.0;
+    var weight = 0.0;
+    var agreeing = 0.0;
+    for (final s in withBpm) {
+      final folded = automixFoldToOctave(s.bpm!, anchor.bpm!);
+      weighted += folded * s.bpmConfidence;
+      weight += s.bpmConfidence;
+      if ((folded - anchor.bpm!).abs() / anchor.bpm! <= 0.04) {
+        agreeing += s.bpmConfidence;
+      }
+    }
+    if (weight > 0) {
+      bpm = automixFoldToOctave(weighted / weight, anchor.bpm!);
+      // A tempo only counts as confident when the windows agree with each other.
+      bpmConfidence =
+          automixClamp01((agreeing / weight) * anchor.bpmConfidence);
+    }
+  }
+
+  // ── Key vote ──────────────────────────────────────────────────────────────
+  final withKey =
+      segments.where((s) => s.camelotNumber != null && s.keyConfidence > 0).toList();
+  int? camelotNumber;
+  bool? camelotMinor;
+  var keyConfidence = 0.0;
+  if (withKey.isNotEmpty) {
+    final votes = <String, (int, bool, double)>{};
+    var total = 0.0;
+    for (final s in withKey) {
+      final minor = s.camelotMinor ?? false;
+      final key = '${s.camelotNumber}:$minor';
+      final previous = votes[key];
+      votes[key] = (
+        s.camelotNumber!,
+        minor,
+        (previous?.$3 ?? 0) + s.keyConfidence,
+      );
+      total += s.keyConfidence;
+    }
+    final best = votes.values.reduce((a, b) => b.$3 > a.$3 ? b : a);
+    camelotNumber = best.$1;
+    camelotMinor = best.$2;
+    keyConfidence = total <= 0
+        ? 0
+        : automixClamp01((best.$3 / total) * automixClamp01(best.$3));
+  }
+
+  // ── Duration-weighted raw energy ──────────────────────────────────────────
+  double? weightedMean(double? Function(AutomixSegmentFeatures) pick) {
+    var sum = 0.0;
+    var weight = 0.0;
+    for (final s in segments) {
+      final v = pick(s);
+      if (v == null) continue;
+      final w = s.seconds <= 0 ? 1.0 : s.seconds;
+      sum += v * w;
+      weight += w;
+    }
+    return weight <= 0 ? null : sum / weight;
+  }
+
+  final rmsDb = weightedMean((s) => s.rmsDb);
+  final centroidHz = weightedMean((s) => s.centroidHz);
+  final onsetRate = weightedMean((s) => s.onsetRate);
+
+  // ── Coarse structure: first/last window relative to this track's peak ─────
+  final segmentEnergy = <double?>[
+    for (final s in segments)
+      s.rmsDb == null ? null : automixClamp01((s.rmsDb! + 30.0) / 24.0),
+  ];
+  final present = segmentEnergy.whereType<double>().toList(growable: false);
+  double? introEnergy;
+  double? outroEnergy;
+  if (present.length >= 2) {
+    final peak = present.reduce(math.max);
+    if (peak > 0.05) {
+      introEnergy = segmentEnergy.first == null
+          ? null
+          : automixClamp01(segmentEnergy.first! / peak);
+      outroEnergy = segmentEnergy.last == null
+          ? null
+          : automixClamp01(segmentEnergy.last! / peak);
+    }
+  }
+
+  // ── Exit beat grid: the fade lives in the tail window ────────────────────
+  double? tailBpm;
+  double? tailBeatOffsetMs;
+  for (final s in segments.reversed) {
+    if (s.bpm == null || s.bpmConfidence < 0.20) continue;
+    tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
+    if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
+      tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
+    }
+    break;
+  }
+
+  var analyzedSeconds = 0.0;
+  for (final s in segments) {
+    analyzedSeconds += s.seconds;
+  }
+  final fileSeconds = segments.isEmpty
+      ? 0.0
+      : segments.last.startSeconds + segments.last.seconds;
+
+  return AutomixTrackFeatures(
+    songId: songId,
+    title: title,
+    artist: artist,
+    bpm: bpm,
+    bpmConfidence: bpmConfidence,
+    beatOffsetMs: segments.isEmpty ? null : segments.first.beatOffsetMs,
+    camelotNumber: camelotNumber,
+    camelotMinor: camelotMinor,
+    keyConfidence: keyConfidence,
+    loudnessLufs: loudnessLufs,
+    rmsDb: rmsDb,
+    centroidHz: centroidHz,
+    onsetRate: onsetRate,
+    tailBpm: tailBpm,
+    tailBeatOffsetMs: tailBeatOffsetMs,
+    introEnergy: introEnergy,
+    outroEnergy: outroEnergy,
+    analyzedFraction: fileSeconds <= 0
+        ? 0
+        : automixClamp01(analyzedSeconds / fileSeconds),
+  );
+}
+
+// ── Per-transition cue ───────────────────────────────────────────────────────
+
+/// Everything the native fade needs for ONE transition.
+@immutable
+class AutomixTransitionCue {
+  const AutomixTransitionCue({
+    required this.fadeSeconds,
+    required this.curveGamma,
+    required this.outgoingTrim,
+    required this.incomingTrim,
+  });
+
+  /// Fade length in media-timeline seconds (opposite deck's tempo governs).
+  final double fadeSeconds;
+
+  /// Equal-power transfer shape: 1.0 = the classic cos/sin curve, > 1 hands the
+  /// mix over faster (dense outros), < 1 slower (sparse outros).
+  final double curveGamma;
+
+  /// Level trims (≤ 1.0) applied across the overlap so the louder deck is
+  /// attenuated toward the quieter one. Never boosts, so nothing can clip.
+  final double outgoingTrim;
+  final double incomingTrim;
+}
+
+/// Derives the fade length, transfer curve and level match for [outgoing] →
+/// [incoming].
+///
+/// Structure-aware: a dense outro gets a shorter, faster hand-over (less
+/// overlap of two busy sections) while a sparse outro gets a longer, gentler
+/// blend; a sparse intro tolerates extra overlap. Levels follow standard DJ
+/// practice: only the louder deck is attenuated, by at most 6 dB.
+/// Tempo that governs a track's exit: its tail estimate when the tail window
+/// had one, else its head estimate.
+double? automixExitBpm(AutomixTrackFeatures features) =>
+    features.tailBpm ?? features.bpm;
+
+AutomixTransitionCue automixTransitionCue({
+  required AutomixTrackFeatures outgoing,
+  required AutomixTrackFeatures incoming,
+  required AutomixSettings settings,
+  double fallbackFadeSeconds = 6.0,
+}) {
+  // The fade lives in the outgoing track's tail, so its exit tempo (falling
+  // back to the head estimate) sets how many beats the blend spans.
+  final tempo = automixExitBpm(outgoing) ?? incoming.bpm;
+  var fadeSeconds = tempo == null || tempo <= 0
+      ? fallbackFadeSeconds
+      : settings.crossfadeBeats * 60.0 / tempo;
+
+  var gamma = 1.0;
+  final outro = outgoing.outroEnergy;
+  if (outro != null) {
+    if (outro >= 0.70) {
+      // Busy outro: hand over faster so two dense sections overlap less.
+      fadeSeconds *= 0.75;
+      gamma = 1.35;
+    } else if (outro <= 0.35) {
+      // Sparse/quiet outro: a longer, gentler blend sounds intentional.
+      fadeSeconds *= 1.25;
+      gamma = 0.85;
+    }
+  }
+  final intro = incoming.introEnergy;
+  if (intro != null && intro <= 0.35) {
+    // A sparse incoming intro can carry a longer overlap without clashing.
+    fadeSeconds *= 1.15;
+  }
+  fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
+
+  // Standard DJ level matching: attenuate the louder deck only.
+  var outgoingTrim = 1.0;
+  var incomingTrim = 1.0;
+  final outLufs = outgoing.loudnessLufs;
+  final inLufs = incoming.loudnessLufs;
+  if (outLufs != null && inLufs != null) {
+    final deltaDb = (outLufs - inLufs).clamp(-6.0, 6.0);
+    if (deltaDb > 0.5) {
+      outgoingTrim = math.pow(10, -deltaDb / 20).toDouble();
+    } else if (deltaDb < -0.5) {
+      incomingTrim = math.pow(10, deltaDb / 20).toDouble();
+    }
+  }
+
+  return AutomixTransitionCue(
+    fadeSeconds: fadeSeconds,
+    curveGamma: gamma,
+    outgoingTrim: outgoingTrim,
+    incomingTrim: incomingTrim,
+  );
+}
+
+/// Order-sensitive FNV-1a fingerprint of a queue. Detects real queue edits
+/// (add/remove/reorder) without building a string over thousands of ids.
+int automixQueueFingerprint(Iterable<int> ids) {
+  var hash = 0x811c9dc5;
+  for (final id in ids) {
+    hash ^= id & 0xFFFFFFFF;
+    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  }
+  return hash;
+}
+
 // ── Camelot cost ─────────────────────────────────────────────────────────────
 
 /// Camelot-distance base cost (0..1).
