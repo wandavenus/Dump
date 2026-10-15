@@ -692,10 +692,10 @@ abstract class AppLocalizations {
   /// **'End of song'**
   String get sleepPresetEndOfSong;
 
-  /// No description provided for @sleepPresetSection.
+  /// Description shown above sleep timer duration options.
   ///
   /// In en, this message translates to:
-  /// **'CHOOSE DURATION'**
+  /// **'Music will fade out slowly when the timer ends'**
   String get sleepPresetSection;
 
   /// No description provided for @scanLibrary.
