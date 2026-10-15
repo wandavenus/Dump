@@ -321,7 +321,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get sleepPresetEndOfSong => 'Akhir lagu';
 
   @override
-  String get sleepPresetSection => 'PILIH DURASI';
+  String get sleepPresetSection => 'Musik akan memudar perlahan ketika timer habis';
 
   @override
   String get scanLibrary => 'Pindai Perpustakaan';
