@@ -205,6 +205,27 @@ class TransportCommands(
                 result.success(null)
             }
 
+            "reorderUpcomingByIds" -> {
+                val currentId = call.argument<Number>("currentId")?.toInt()
+                val desiredIds = call.argument<List<Number>>("orderedIds")?.map { it.toInt() }
+                if (currentId == null || desiredIds == null) {
+                    result.error("invalid_arguments", "currentId and orderedIds are required", null)
+                    return
+                }
+                // Refuse to reorder during a fade: its authoritative queue index
+                // is temporarily represented by a one-item promoted timeline.
+                val reordered = queueManager.reorderUpcomingByIds(currentId, desiredIds)
+                if (!reordered) {
+                    result.error("queue_changed", "AutoMix queue changed while planning", null)
+                    return
+                }
+                if (crossfadeController.crossfadeDurationSec > 0f) {
+                    preloadManager.preloadNextTrack(force = true)
+                }
+                result.success(null)
+                return
+            }
+
             "setTrack" -> {
                 sleepTimerManager.cancelIfActive()
                 crossfadeController.cancel(resetVolume = true)
