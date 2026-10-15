@@ -8,7 +8,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import kotlin.math.PI
-import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -164,14 +164,20 @@ class CrossfadeController(
         } else null
         val beatAlignedStart = if (beatMs != null && beatOffset != null && beatMs > 0.0) {
             val phase = ((beatOffset % beatMs) + beatMs) % beatMs
-            val beatIndex = ceil((idealStart - phase) / beatMs)
-            val nextBeat = (phase + beatIndex * beatMs).toLong()
-            // Prefer a beat boundary at/after the ideal fade start so a fade
-            // shortened by the remaining duration still ends at the track boundary.
-            nextBeat.coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
+            // Start on the beat at/before the requested fade start. Starting on
+            // the next beat would leave less than the configured fade duration
+            // before EOS, even though the fade itself still ran for crossMs.
+            val previousBeat = phase + floor((idealStart - phase) / beatMs) * beatMs
+            val aligned = if (previousBeat >= 0.0 &&
+                idealStart - previousBeat <= beatMs * 1.05
+            ) previousBeat.toLong() else idealStart
+            aligned.coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
         } else {
             idealStart
         }
+        // Let the actual fade reach the outgoing track boundary. When a beat
+        // boundary lands just before idealStart, this may extend the fade by
+        // less than one beat rather than truncating it or running past EOS.
         val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
 
         // ── Phase 1: pre-warm ─────────────────────────────────────────────────
@@ -212,7 +218,7 @@ class CrossfadeController(
                         isEndOfSongSleepTimerActive()
                     ) return@Runnable
                     val nowRemaining = (p.duration - p.currentPosition).coerceAtLeast(0L)
-                    val fade = minOf(crossMs, nowRemaining).coerceAtLeast(MIN_FADE_MS)
+                    val fade = minOf(fadeLeadMs, nowRemaining).coerceAtLeast(MIN_FADE_MS)
                     beginCrossfade(fade)
                 }
                 beatAlignedStartRunnable = runnable
@@ -221,7 +227,8 @@ class CrossfadeController(
         } else if (remaining > 0L && currentPosition >= beatAlignedStart) {
             beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
             beatAlignedStartRunnable = null
-            val actualFadeMs = minOf(crossMs, remaining).coerceAtLeast(MIN_FADE_MS)
+            val requestedFadeMs = if (beatMs != null && beatOffset != null) fadeLeadMs else crossMs
+            val actualFadeMs = minOf(requestedFadeMs, remaining).coerceAtLeast(MIN_FADE_MS)
             log("Crossfade trigger: remaining=${remaining}ms fade=${actualFadeMs}ms " +
                 "beatAligned=${beatMs != null && beatOffset != null}")
             beginCrossfade(actualFadeMs)
