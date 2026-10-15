@@ -188,7 +188,18 @@ class QueueManager(
     fun reorderUpcomingByIds(expectedCurrentId: Int, desiredIds: List<Int>): Boolean {
         val player = getPlayer() ?: return false
         if (isCrossfadeInProgress()) return false
+        if (player.shuffleModeEnabled) {
+            log("reorderUpcomingByIds skipped: shuffle mode owns next-track order")
+            return false
+        }
         if (activeQueueIndex !in queue.indices) return false
+        if (player.mediaItemCount != queue.size ||
+            player.currentMediaItemIndex != activeQueueIndex ||
+            player.currentMediaItem?.mediaId != expectedCurrentId.toString()
+        ) {
+            log("reorderUpcomingByIds rejected: player timeline is not synchronized")
+            return false
+        }
         val activeId = (queue[activeQueueIndex]["id"] as? Number)?.toInt() ?: return false
         if (activeId != expectedCurrentId) return false
 
