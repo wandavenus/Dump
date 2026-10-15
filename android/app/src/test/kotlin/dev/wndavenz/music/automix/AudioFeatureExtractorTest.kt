@@ -25,6 +25,41 @@ class AudioFeatureExtractorTest {
     }
 
     @Test
+    fun beatPhaseEstimatorFindsStablePhaseForPeriodicOnsets() {
+        val workingRate = 22_050
+        val onsetEnvelope = FloatArray(430) { 0.01f }
+        // Synthetic 120 BPM pulses beginning five analysis hops after file time zero.
+        for (i in 5 until onsetEnvelope.size step 22) {
+            onsetEnvelope[i] = 1f
+        }
+
+        val phaseMs = AudioFeatureExtractor.estimateBeatPhaseMs(
+            onsetEnvelope,
+            workingRate,
+            120.0,
+        )
+        assertNotNull("A regular onset grid should yield a beat phase", phaseMs)
+        assertTrue(
+            "Expected phase near five 512-sample hops, got $phaseMs ms",
+            phaseMs!! in 70.0..170.0,
+        )
+    }
+
+    @Test
+    fun beatPhaseEstimatorRejectsInsufficientEvidence() {
+        val workingRate = 22_050
+        // A short clip cannot establish a stable repeating grid. Returning a
+        // guessed phase here could make the native preloader skip a real intro.
+        val tooShort = FloatArray(40) { 0.01f }
+        val phase = AudioFeatureExtractor.estimateBeatPhaseMs(
+            tooShort,
+            workingRate,
+            120.0,
+        )
+        assertEquals(null, phase)
+    }
+
+    @Test
     fun keyProfileRotationMapsEachTonicToItsPitchClass() {
         val profiles = listOf(
             AudioFeatureExtractor.KS_MAJOR to true,

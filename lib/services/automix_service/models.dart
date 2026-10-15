@@ -20,6 +20,7 @@ class AutomixTrackFeatures {
     this.bpm,
     this.bpmConfidence = 0,
     this.alternateBpm,
+    this.beatOffsetMs,
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -45,6 +46,10 @@ class AutomixTrackFeatures {
   /// Half/double-time alternative of [bpm], used for octave-ambiguity
   /// resolution when matching consecutive tempos.
   final double? alternateBpm;
+
+  /// Estimated dominant-beat phase in milliseconds from the start of the file.
+  /// This is a heuristic onset-grid phase, not a guaranteed musical downbeat.
+  final double? beatOffsetMs;
 
   /// Camelot wheel position 1..12, or null when key detection was too
   /// uncertain. Letter: `camelotMinor == true` → "A" (minor), else "B" (major).
@@ -72,6 +77,7 @@ class AutomixTrackFeatures {
     if (bpm != null) 'bpm': bpm,
     'bc': bpmConfidence,
     if (alternateBpm != null) 'alt': alternateBpm,
+    if (beatOffsetMs != null) 'bo': beatOffsetMs,
     if (camelotNumber != null) 'kn': camelotNumber,
     if (camelotMinor != null) 'km': camelotMinor,
     'kc': keyConfidence,
@@ -89,6 +95,7 @@ class AutomixTrackFeatures {
       bpm: (map['bpm'] as num?)?.toDouble(),
       bpmConfidence: (map['bc'] as num?)?.toDouble() ?? 0,
       alternateBpm: (map['alt'] as num?)?.toDouble(),
+      beatOffsetMs: (map['bo'] as num?)?.toDouble(),
       camelotNumber: (map['kn'] as num?)?.toInt(),
       camelotMinor: map['km'] as bool?,
       keyConfidence: (map['kc'] as num?)?.toDouble() ?? 0,

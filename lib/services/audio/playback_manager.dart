@@ -228,6 +228,13 @@ class PlaybackManager {
   static Future<void> setVolume(double v) => Media3PlaybackBridge.setVolume(v);
   static Future<void> setSpeed(double v) => Media3PlaybackBridge.setSpeed(v);
   static Future<void> setPitch(double v) => Media3PlaybackBridge.setPitch(v);
+  static Future<void> setAutomixTransition({
+    required bool enabled,
+    required List<Map<String, Object?>> targets,
+  }) => Media3PlaybackBridge.setAutomixTransition(
+    enabled: enabled,
+    targets: targets,
+  );
 
   // ── Queue mutations ───────────────────────────────────────────────────────
 
@@ -241,6 +248,14 @@ class PlaybackManager {
       Media3PlaybackBridge.removeFromQueue(i);
   static Future<void> reorderQueue(int o, int n) =>
       Media3PlaybackBridge.reorderQueue(o, n);
+
+  static Future<void> reorderUpcomingByIds({
+    required int currentId,
+    required List<int> orderedIds,
+  }) => Media3PlaybackBridge.reorderUpcomingByIds(
+    currentId: currentId,
+    orderedIds: orderedIds,
+  );
 
   // ── DSP effects ───────────────────────────────────────────────────────────
 

@@ -752,6 +752,78 @@ class AudioService {
     );
   }
 
+  /// Apply per-track tempo/beat metadata for native DJ-style AutoMix.
+  /// This never replaces the queue or seeks the currently playing deck.
+  static Future<void> setAutomixTransition({
+    required bool enabled,
+    required List<Map<String, Object?>> targets,
+  }) => PlaybackManager.setAutomixTransition(
+    enabled: enabled,
+    targets: targets,
+  );
+
+  /// Reorder only upcoming AutoMix items in a single native batch.
+  /// The active song is checked by ID on the native side and is never moved.
+  static Future<void> reorderUpcomingByIds({
+    required int currentId,
+    required List<int> orderedIds,
+  }) async {
+    if (_playlist.length < 2) return;
+    final state = playbackState.value;
+    final currentIndex = state.currentIndex;
+    if (state.currentSong?.id != currentId ||
+        currentIndex < 0 ||
+        currentIndex >= _playlist.length - 1 ||
+        _playlist[currentIndex].id != currentId) {
+      throw StateError('Active track changed before AutoMix queue reorder');
+    }
+    final tail = _playlist.skip(currentIndex + 1).toList(growable: false);
+    final tailIds = tail.map((song) => song.id).toList(growable: false);
+    if (orderedIds.length != tailIds.length ||
+        orderedIds.toSet().length != orderedIds.length ||
+        tailIds.toSet().length != tailIds.length ||
+        orderedIds.toSet().difference(tailIds.toSet()).isNotEmpty ||
+        tailIds.toSet().difference(orderedIds.toSet()).isNotEmpty) {
+      throw StateError('AutoMix planned queue no longer matches the current tail');
+    }
+    await PlaybackManager.reorderUpcomingByIds(
+      currentId: currentId,
+      orderedIds: orderedIds,
+    );
+    final byId = <int, LocalSong>{for (final song in tail) song.id: song};
+    final mutable = <LocalSong>[
+      ..._playlist.take(currentIndex + 1),
+      for (final id in orderedIds) byId[id]!,
+    ];
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+    _currentIndex = _playlist.indexWhere((song) => song.id == currentId);
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: _playlist,
+      currentIndex: _currentIndex,
+    ));
+  }
+
+  /// Move a queue item to its final index and await native confirmation.
+  /// AutoMix uses this to prepare upcoming tracks without restarting playback.
+  static Future<void> reorderQueueAwaited(int oldIndex, int targetIndex) async {
+    if (_playlist.length < 2 || oldIndex == targetIndex) return;
+    if (oldIndex < 0 || oldIndex >= _playlist.length) return;
+    if (targetIndex < 0 || targetIndex >= _playlist.length) return;
+    final mutable = List<LocalSong>.from(_playlist);
+    final item = mutable.removeAt(oldIndex);
+    mutable.insert(targetIndex, item);
+    await PlaybackManager.reorderQueue(oldIndex, targetIndex);
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+    _currentIndex = _playlist.indexWhere(
+      (song) => song.id == playbackState.value.currentSong?.id,
+    );
+    if (_currentIndex < 0) _currentIndex = playbackState.value.currentIndex;
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: _playlist,
+      currentIndex: _currentIndex,
+    ));
+  }
+
   /// Reorder the queue. Follows Flutter's ReorderableListView convention:
   /// [newIndex] is the insert point BEFORE the list is modified.
   static void reorderQueue(int oldIndex, int newIndex) {

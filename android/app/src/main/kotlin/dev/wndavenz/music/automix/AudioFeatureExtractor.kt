@@ -93,6 +93,8 @@ object AudioFeatureExtractor {
         val bpmConfidence: Double,
         /** Half or double-time alternative of [bpm] (or null). */
         val alternateBpm: Double?,
+        /** Estimated phase of the dominant beat grid relative to file start. */
+        val beatOffsetMs: Double?,
         /** Tonic pitch class 0..11 (0 = C), or -1 when key uncertain. */
         val tonicPc: Int,
         /** true = minor scale, false = major scale. */
@@ -195,6 +197,13 @@ object AudioFeatureExtractor {
             else null
         }
 
+        // Estimate the dominant periodic-onset phase relative to the start of
+        // the file. This is an onset-grid phase, not a guaranteed musical
+        // downbeat; callers must confidence-gate it and fall back gracefully.
+        val beatOffsetMs = tempo
+            ?.takeIf { it.confidence >= 0.20 }
+            ?.let { estimateBeatPhaseMs(odf, workingRate, it.bpm) }
+
         // ── Key ───────────────────────────────────────────────────────────
         val key = estimateKey(chroma)
 
@@ -206,6 +215,7 @@ object AudioFeatureExtractor {
             bpm = tempo?.bpm,
             bpmConfidence = tempo?.confidence ?: 0.0,
             alternateBpm = alternateBpm,
+            beatOffsetMs = beatOffsetMs,
             tonicPc = key?.first ?: -1,
             isMinor = key?.second?.let { !it } ?: false, // key.second: isMajor
             keyConfidence = key?.third ?: 0.0,
@@ -411,6 +421,69 @@ object AudioFeatureExtractor {
 
     private fun getLag(score: DoubleArray, lag: Int, lagMax: Int): Double =
         if (lag in 1..lagMax) score[lag] else 0.0
+
+    /**
+     * Estimates the onset-envelope phase that best repeats at the detected
+     * beat period. The result is deliberately nullable: diffuse or weak
+     * rhythmic material must use an ordinary crossfade rather than a guessed
+     * alignment. Resolution is one STFT hop (about 23 ms at 22.05 kHz).
+     */
+    internal fun estimateBeatPhaseMs(
+        odf: FloatArray,
+        workingRate: Int,
+        bpm: Double,
+    ): Double? {
+        if (!bpm.isFinite() || bpm !in BPM_MIN..BPM_MAX || workingRate <= 0) return null
+        val fps = workingRate.toDouble() / HOP
+        val periodFrames = (fps * 60.0 / bpm).roundToInt()
+        if (periodFrames < 2 || odf.size < periodFrames * 4) return null
+
+        var mean = 0.0
+        for (value in odf) mean += value.toDouble()
+        mean /= odf.size
+
+        val phaseScores = DoubleArray(periodFrames)
+        var peakCount = 0
+        var peakEnergy = 0.0
+        for (i in 1 until odf.size - 1) {
+            val value = odf[i].toDouble()
+            if (value > odf[i - 1] && value >= odf[i + 1] && value > mean) {
+                val weight = value - mean
+                phaseScores[i % periodFrames] += weight
+                peakEnergy += weight
+                peakCount++
+            }
+        }
+        if (peakCount < 8 || peakEnergy <= 1e-9) return null
+
+        // Circular smoothing reduces one-hop jitter without changing the
+        // phase epoch; beat periods need not land on an integer frame boundary.
+        val smoothed = DoubleArray(periodFrames)
+        for (phase in 0 until periodFrames) {
+            val previous = phaseScores[(phase - 1 + periodFrames) % periodFrames]
+            val current = phaseScores[phase]
+            val next = phaseScores[(phase + 1) % periodFrames]
+            smoothed[phase] = previous * 0.25 + current * 0.5 + next * 0.25
+        }
+
+        var bestPhase = 0
+        var bestScore = -Double.MAX_VALUE
+        var secondScore = -Double.MAX_VALUE
+        for (phase in smoothed.indices) {
+            val score = smoothed[phase]
+            if (score > bestScore) {
+                secondScore = bestScore
+                bestScore = score
+                bestPhase = phase
+            } else if (score > secondScore) {
+                secondScore = score
+            }
+        }
+        val average = peakEnergy / periodFrames
+        if (bestScore <= 0.0 || bestScore < average * 1.03) return null
+        if (secondScore > 0.0 && bestScore / secondScore < 1.005) return null
+        return bestPhase * HOP * 1000.0 / workingRate
+    }
 
     private fun sqr(x: Double): Double = x * x
 

@@ -308,12 +308,33 @@ class Media3PlaybackBridge {
     {'oldIndex': oldIndex, 'newIndex': newIndex},
   );
 
+  /// Reorders the upcoming queue in one native operation, keeping the active
+  /// song pinned and refreshing the standby preload only once.
+  static Future<void> reorderUpcomingByIds({
+    required int currentId,
+    required List<int> orderedIds,
+  }) => _invoke<void>('reorderUpcomingByIds', {
+    'currentId': currentId,
+    'orderedIds': orderedIds,
+  });
+
   // ── Playback parameters ────────────────────────────────────────────────────
 
   static Future<void> setSpeed(double speed) =>
       _invoke<void>('setSpeed', {'speed': speed});
   static Future<void> setPitch(double pitch) =>
       _invoke<void>('setPitch', {'pitch': pitch});
+
+  /// Configures offline AutoMix metadata for independent preloaded decks.
+  /// Targets contain track id, analyzed BPM/beat phase and a conservative
+  /// pitch-preserving tempo multiplier.
+  static Future<void> setAutomixTransition({
+    required bool enabled,
+    required List<Map<String, Object?>> targets,
+  }) => _invoke<void>('setAutomixTransition', {
+    'enabled': enabled,
+    'targets': targets,
+  });
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
 

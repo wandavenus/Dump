@@ -59,6 +59,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     }
 
     @Volatile private var speed: Float = 1f
+    @Volatile private var baseSpeed: Float = 1f
+    @Volatile private var autoMixTempoMultiplier: Float = 1f
     @Volatile private var pitchSemitones: Float = 0f
 
     private var handle: Long = 0L
@@ -79,8 +81,16 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var bypassRingFilled: Int = 0
     private var bypassPrimeBuf: ByteBuffer = ByteBuffer.allocateDirect(0)
 
+    /** User-selected speed, multiplied by the independent AutoMix deck tempo. */
     fun setSpeed(newSpeed: Float) {
-        speed = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
+        baseSpeed = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
+        speed = baseSpeed * autoMixTempoMultiplier
+    }
+
+    /** AutoMix-only tempo correction; it never changes the user's manual speed setting. */
+    fun setAutoMixTempoMultiplier(multiplier: Float) {
+        autoMixTempoMultiplier = if (multiplier.isFinite()) multiplier.coerceIn(0.92f, 1.08f) else 1f
+        speed = baseSpeed * autoMixTempoMultiplier
     }
 
     fun setPitchSemitones(newSemitones: Float) {

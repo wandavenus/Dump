@@ -11,7 +11,6 @@ import '../../services/audio_playback_state.dart';
 import '../../services/sleep_timer_service.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
-import '../../services/automix_service.dart';
 import 'player_song_info_sheet.dart';
 
 // ─── PlayerMoreMenu ────────────────────────────────────────────────────────────
@@ -221,22 +220,6 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                     ),
                   ),
                   _Divider(c: c),
-                  _AutomixItem(
-                    active: AutomixService.automixActive.value,
-                    onTap: () async {
-                      widget.onNavigate(() async {
-                        if (AutomixService.automixActive.value) {
-                          await AutomixService.disableAutomix();
-                        } else if (AutomixService.automixEnabled.value) {
-                          await AutomixService.startAutomix(
-                            state.currentPlaylist,
-                            state.currentIndex,
-                          );
-                        }
-                      });
-                    },
-                  ),
-                  _Divider(c: c),
                   _SleepTimerItem(
                     active: active,
                     sleepLabel: sleepLabel,
@@ -318,90 +301,6 @@ class _MenuItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// DJ-style auto-mixing of the active queue (offline, no-AI). Computes a
-/// deterministic transition-optimal order BPM/key/energy-aware ordering and
-/// lets the native dual-player crossfade handle the blend. Tapping while
-/// active restores the user's crossfade and ends the mix session.
-class _AutomixItem extends StatelessWidget {
-  const _AutomixItem({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = context.l10n;
-    return _MenuItem(
-      icon: CupertinoIcons.waveform,
-      label: active ? l.automixOn : l.automixOff,
-      active: active,
-      marquee: active,
-      onTap: onTap,
-    );
-  }
-}
-
-/// Keeps long active AutoMix labels inside the menu row and gently scrolls
-/// them back and forth only when the text is wider than the available space.
-class _MarqueeLabel extends StatefulWidget {
-  const _MarqueeLabel(this.text, {required this.style});
-
-  final String text;
-  final TextStyle style;
-
-  @override
-  State<_MarqueeLabel> createState() => _MarqueeLabelState();
-}
-
-class _MarqueeLabelState extends State<_MarqueeLabel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2200),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final painter = TextPainter(
-            text: TextSpan(text: widget.text, style: widget.style),
-            maxLines: 1,
-            textDirection: Directionality.of(context),
-          )..layout();
-          final overflow = (painter.width - constraints.maxWidth)
-              .clamp(0.0, double.infinity)
-              .toDouble();
-
-          return AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) => Transform.translate(
-              offset: Offset(-overflow * _controller.value, 0),
-              child: SizedBox(
-                width: overflow > 0 ? painter.width : constraints.maxWidth,
-                child: Text(
-                  widget.text,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                  style: widget.style,
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
