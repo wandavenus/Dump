@@ -320,7 +320,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sleepPresetEndOfSong => 'End of song';
 
   @override
-  String get sleepPresetSection => 'Music will fade out slowly when the timer ends';
+  String get sleepPresetSection =>
+      'Music will fade out slowly when the timer ends';
 
   @override
   String get scanLibrary => 'Scan Library';
@@ -1367,4 +1368,85 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get acousticEngineDescription =>
       'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.';
+
+  @override
+  String get automixTitle => 'AutoMix';
+
+  @override
+  String get automixDescription =>
+      'Offline DJ-style auto-mixing: reorders a queue by tempo, Camelot key and energy, then crossfades the transitions. Start it from the player\'s overflow menu. Analysis is 100% on-device DSP — no AI, no network.';
+
+  @override
+  String get automixProfileLabel => 'Mix profile';
+
+  @override
+  String get automixProfileDj => 'DJ';
+
+  @override
+  String get automixProfileHarmonic => 'Harmonic';
+
+  @override
+  String get automixProfileEnergy => 'Energy';
+
+  @override
+  String get automixProfileDjDesc =>
+      'Tempo match first — nearest-BPM chain with a small energy rise across the set.';
+
+  @override
+  String get automixProfileHarmonicDesc =>
+      'Key compatibility first (Camelot wheel: same, relative, ±1/±2) with tempo as tie-break.';
+
+  @override
+  String get automixProfileEnergyDesc =>
+      'Plans warm-up → peak → cooldown using analyzed loudness, brightness and onset density.';
+
+  @override
+  String get automixBpmTolerance => 'BPM tolerance';
+
+  @override
+  String get automixBpmToleranceDesc =>
+      'How far the next track\'s tempo may drift (after fitting half/double-time) before the transition cost ramps up.';
+
+  @override
+  String get automixCrossfadeBeats => 'Crossfade length';
+
+  @override
+  String automixBeats(int beats) {
+    return '$beats beats';
+  }
+
+  @override
+  String get automixCrossfadeBeatsDesc =>
+      'Transition fade length measured in beats at the analyzed tempo of the set (clamped 1.5–12 s).';
+
+  @override
+  String get automixArtistVariety => 'Artist variety';
+
+  @override
+  String get automixHarmonicFilter => 'Harmonic filter';
+
+  @override
+  String get automixHarmonicFilterDesc =>
+      'Penalize obviously out-of-key transitions more aggressively (stronger-than-proportional cost).';
+
+  @override
+  String get automixAnalyzeLibrary => 'Analyze library (BPM & keys)';
+
+  @override
+  String get automixAnalyzeHint =>
+      'Decodes audio on-device to extract tempo, Camelot key and energy. Slow but fully offline.';
+
+  @override
+  String get automixAnalyzeAction => 'Start';
+
+  @override
+  String automixAnalyzingProgress(int done, int total) {
+    return 'Analyzing $done/$total';
+  }
+
+  @override
+  String get automixOn => 'AutoMix: On — restore crossfade';
+
+  @override
+  String get automixOff => 'AutoMix this queue';
 }

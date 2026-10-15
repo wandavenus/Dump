@@ -708,4 +708,45 @@
   "reverbDescription": "Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones."
   ,"acousticEngine": "Acoustic Engine"
   ,"acousticEngineDescription": "Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection."
+  ,"automixTitle": "AutoMix"
+  ,"automixDescription": "Offline DJ-style auto-mixing: reorders a queue by tempo, Camelot key and energy, then crossfades the transitions. Start it from the player's overflow menu. Analysis is 100% on-device DSP — no AI, no network."
+  ,"automixProfileLabel": "Mix profile"
+  ,"automixProfileDj": "DJ"
+  ,"automixProfileHarmonic": "Harmonic"
+  ,"automixProfileEnergy": "Energy"
+  ,"automixProfileDjDesc": "Tempo match first — nearest-BPM chain with a small energy rise across the set."
+  ,"automixProfileHarmonicDesc": "Key compatibility first (Camelot wheel: same, relative, ±1/±2) with tempo as tie-break."
+  ,"automixProfileEnergyDesc": "Plans warm-up → peak → cooldown using analyzed loudness, brightness and onset density."
+  ,"automixBpmTolerance": "BPM tolerance"
+  ,"@automixBpmTolerance": {}
+  ,"automixBpmToleranceDesc": "How far the next track's tempo may drift (after fitting half/double-time) before the transition cost ramps up."
+  ,"automixCrossfadeBeats": "Crossfade length"
+  ,"automixBeats": "{beats} beats"
+  ,"@automixBeats": {
+    "placeholders": {
+      "beats": {
+        "type": "int"
+      }
+    }
+  }
+  ,"automixCrossfadeBeatsDesc": "Transition fade length measured in beats at the analyzed tempo of the set (clamped 1.5–12 s)."
+  ,"automixArtistVariety": "Artist variety"
+  ,"automixHarmonicFilter": "Harmonic filter"
+  ,"automixHarmonicFilterDesc": "Penalize obviously out-of-key transitions more aggressively (stronger-than-proportional cost)."
+  ,"automixAnalyzeLibrary": "Analyze library (BPM & keys)"
+  ,"automixAnalyzeHint": "Decodes audio on-device to extract tempo, Camelot key and energy. Slow but fully offline."
+  ,"automixAnalyzeAction": "Start"
+  ,"automixAnalyzingProgress": "Analyzing {done}/{total}"
+  ,"@automixAnalyzingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
+  ,"automixOn": "AutoMix: On — restore crossfade"
+  ,"automixOff": "AutoMix this queue"
 }

@@ -16,6 +16,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import dev.wndavenz.music.events.ServiceReadyGate
+import dev.wndavenz.music.automix.AutomixAnalysis
 import dev.wndavenz.music.metadata.ExoMetadataReader
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import dev.wndavenz.music.metadata.MetadataPrescanner
@@ -41,6 +42,7 @@ class MainActivity : FlutterActivity() {
     private val audioEffectsChannel   = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
     private val ffmpegDecoderChannel  = "musicplayer/ffmpeg_decoder"
+    private val automixChannel        = "musicplayer/automix"
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
@@ -80,6 +82,14 @@ class MainActivity : FlutterActivity() {
                        // supports multiple concurrent audio decoders without
                        // significant CPU contention.  Queue increased in proportion.
         queueCapacity = 8,
+    )
+    // Automix DSP analysis: single worker on purpose — a whole-library scan
+    // is a long serial job (decode → FFT → autocorrelation per track) and
+    // running it concurrently with the PerfGain scanner would starve both.
+    private val automixScanExecutor: ExecutorService = boundedExecutor(
+        name = "automix-scan",
+        threads = 1,
+        queueCapacity = 4,
     )
 
     @Volatile private var shuttingDown = false
@@ -158,6 +168,7 @@ class MainActivity : FlutterActivity() {
         setupFfmpegDecoderChannel(flutterEngine)
         setupOpenFileChannel(flutterEngine)
         setupNativePaletteChannel(flutterEngine)
+        setupAutomixChannel(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -226,6 +237,52 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NativePaletteBridge.CHANNEL)
             .setMethodCallHandler { call, result ->
                 nativePaletteBridge.handleCall(call.method, call.arguments, result)
+            }
+    }
+
+    // ── Automix channel ────────────────────────────────────────────────────
+    //
+    // Offline DSP feature extraction for DJ-style auto-mixing: per-track BPM
+    // (spectral-flux onset autocorrelation + comb filter), key
+    // (chroma → Krumhansl–Schmuckler profile correlation, Camelot-mapped) and
+    // energy raw stats. See Dev.automix.* / native_audio_runtime docs in
+    // `lib/services/automix_service/` for the consuming side.
+    private fun setupAutomixChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, automixChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "analyze" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        if (path.isBlank()) {
+                            result.error("invalid_args", "path required", null)
+                        } else {
+                            submitBackground(
+                                automixScanExecutor,
+                                onRejected = {
+                                    postToFlutter {
+                                        result.error("scan_busy", "Automix analysis queue is busy", null)
+                                    }
+                                },
+                            ) {
+                                try {
+                                    val map = AutomixAnalysis.analyze(path)
+                                    postToFlutter {
+                                        if (map["success"] == true) {
+                                            result.success(map)
+                                        } else {
+                                            result.error("analysis_failed", "Could not decode audio", null)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    postToFlutter {
+                                        result.error("analysis_error", e.message, null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
             }
     }
 
