@@ -442,9 +442,13 @@ class Media3PlaybackService : MediaSessionService() {
                 stretchManager.setAutoMixTempoMultiplier(slot, multiplier)
                 val beatOffset = songId?.let { automixBeatOffsetMsBySongId[it] }
                 val hasTempo = songId?.let { automixBpmBySongId[it] } != null
-                if (automixTransitionEnabled && hasTempo && beatOffset != null) {
-                    // Seek the silent standby to its estimated onset-grid phase
-                    // before prepare. The estimate is deliberately confidence-gated.
+                val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
+                val activeHasBeatGrid = activeId != null &&
+                    automixBpmBySongId[activeId] != null &&
+                    automixBeatOffsetMsBySongId[activeId] != null
+                if (automixTransitionEnabled && hasTempo && beatOffset != null && activeHasBeatGrid) {
+                    // Seek the silent standby only when both decks have confident
+                    // phase metadata; otherwise keep the incoming intro intact.
                     standby.seekTo(beatOffset.coerceAtLeast(0L))
                 }
             },
