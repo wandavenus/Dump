@@ -219,9 +219,9 @@ class TransportCommands(
                     result.error("queue_changed", "AutoMix queue changed while planning", null)
                     return
                 }
-                if (crossfadeController.crossfadeDurationSec > 0f) {
-                    preloadManager.preloadNextTrack(force = true)
-                }
+                // Do not preload here. AutoMix applies the final tempo/beat targets
+                // immediately after this batch completes; that callback performs
+                // the one required standby rebuild using the finalized queue.
                 result.success(null)
                 return
             }
