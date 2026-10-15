@@ -21,15 +21,18 @@ _Static_assert(offsetof(NarAutomixToneState, current_bass_gain) == 76,
                "NEON bass gain offset changed");
 _Static_assert(offsetof(NarAutomixToneState, current_high_gain) == 80,
                "NEON high gain offset changed");
+_Static_assert(offsetof(NarAutomixToneState, current_fade_gain) == 92,
+               "NEON fade gain offset changed");
 
 static NarAutomixToneState g_states[NAR_AUTOMIX_TONE_STREAM_COUNT];
 static _Atomic float g_target_bass[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 static _Atomic float g_target_high[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
+static _Atomic float g_target_fade[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 
 #if defined(__aarch64__)
 extern void nar_automix_tone_process_stereo_neon(
     float* interleaved, int32_t frame_count, NarAutomixToneState* state,
-    float target_bass, float target_high);
+    float target_bass, float target_high, float target_fade);
 #endif
 
 static int valid_stream_slot(int32_t stream_slot) {
@@ -62,6 +65,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_configure(
       atomic_load_explicit(&g_target_bass[stream_slot], memory_order_relaxed);
   state->current_high_gain =
       atomic_load_explicit(&g_target_high[stream_slot], memory_order_relaxed);
+  state->current_fade_gain =
+      atomic_load_explicit(&g_target_fade[stream_slot], memory_order_relaxed);
   state->sample_rate = sample_rate;
   state->channel_count = channel_count;
   state->configured = 1;
@@ -84,6 +89,58 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_high_gain(
   return 1;
 }
 
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_fade_gain(
+    int32_t stream_slot, float gain) {
+  if (!valid_stream_slot(stream_slot)) return 0;
+  atomic_store_explicit(&g_target_fade[stream_slot], clamp_gain(gain),
+                        memory_order_relaxed);
+  return 1;
+}
+
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
+    float progress, float gamma, float outgoing_trim, float incoming_trim,
+    float* outgoing_gain, float* incoming_gain) {
+  if (outgoing_gain == NULL || incoming_gain == NULL || !isfinite(progress) ||
+      !isfinite(gamma) || !isfinite(outgoing_trim) ||
+      !isfinite(incoming_trim)) {
+    return 0;
+  }
+
+  const float t = fminf(fmaxf(progress, 0.0f), 1.0f);
+  const float shape = powf(t, fminf(fmaxf(gamma, 0.6f), 1.6f));
+  const float theta = shape * (NAR_AUTOMIX_TONE_PI * 0.5f);
+  const float trim_out = fminf(fmaxf(outgoing_trim, 0.0f), 1.0f);
+  const float trim_in = fminf(fmaxf(incoming_trim, 0.0f), 1.0f);
+  const float release = t <= 0.75f ? 1.0f : 1.0f - (t - 0.75f) / 0.25f;
+  const float incoming_trim_now = trim_in + (1.0f - trim_in) * release;
+
+  *outgoing_gain = clamp_gain(trim_out * cosf(theta));
+  *incoming_gain = clamp_gain(incoming_trim_now * sinf(theta));
+  return 1;
+}
+
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_crossfade_gains(
+    int32_t outgoing_slot, int32_t incoming_slot, float progress, float gamma,
+    float outgoing_trim, float incoming_trim) {
+  if (!valid_stream_slot(outgoing_slot) || !valid_stream_slot(incoming_slot) ||
+      outgoing_slot == incoming_slot) {
+    return 0;
+  }
+
+  float outgoing_gain;
+  float incoming_gain;
+  if (!nar_automix_tone_compute_fade_gains(
+          progress, gamma, outgoing_trim, incoming_trim,
+          &outgoing_gain, &incoming_gain)) {
+    return 0;
+  }
+  atomic_store_explicit(&g_target_fade[outgoing_slot], outgoing_gain,
+                        memory_order_relaxed);
+  atomic_store_explicit(&g_target_fade[incoming_slot], incoming_gain,
+                        memory_order_relaxed);
+  return 1;
+}
+
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_reset(int32_t stream_slot) {
   if (!valid_stream_slot(stream_slot)) return 0;
   NarAutomixToneState* state = &g_states[stream_slot];
@@ -93,6 +150,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_reset(int32_t stream_slot) {
       atomic_load_explicit(&g_target_bass[stream_slot], memory_order_relaxed);
   state->current_high_gain =
       atomic_load_explicit(&g_target_high[stream_slot], memory_order_relaxed);
+  state->current_fade_gain =
+      atomic_load_explicit(&g_target_fade[stream_slot], memory_order_relaxed);
   return 1;
 }
 
@@ -111,24 +170,29 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
       atomic_load_explicit(&g_target_bass[stream_slot], memory_order_relaxed);
   const float target_high =
       atomic_load_explicit(&g_target_high[stream_slot], memory_order_relaxed);
+  const float target_fade =
+      atomic_load_explicit(&g_target_fade[stream_slot], memory_order_relaxed);
 
 #if defined(__aarch64__)
   if (channel_count == 2) {
     nar_automix_tone_process_stereo_neon(
-        interleaved, frame_count, state, target_bass, target_high);
+        interleaved, frame_count, state, target_bass, target_high, target_fade);
     return 1;
   }
 #endif
 
   float current_bass = state->current_bass_gain;
   float current_high = state->current_high_gain;
+  float current_fade = state->current_fade_gain;
   const float gain_alpha = state->gain_smoothing_alpha;
   const float low_alpha = state->low_pass_alpha;
   const float high_alpha = state->high_cut_alpha;
+  const float fade_step = (target_fade - current_fade) / (float)frame_count;
 
   for (int32_t frame = 0; frame < frame_count; ++frame) {
     current_bass += (target_bass - current_bass) * gain_alpha;
     current_high += (target_high - current_high) * gain_alpha;
+    current_fade += fade_step;
     for (int32_t channel = 0; channel < channel_count; ++channel) {
       const size_t index = (size_t)frame * channel_count + channel;
       float sample = interleaved[index];
@@ -142,11 +206,13 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
       state->high_cut_state[channel] = high_low;
       const float output =
           high_low + (bass_adjusted - high_low) * current_high;
-      interleaved[index] = isfinite(output) ? output : 0.0f;
+      const float faded = output * current_fade;
+      interleaved[index] = isfinite(faded) ? faded : 0.0f;
     }
   }
 
   state->current_bass_gain = current_bass;
   state->current_high_gain = current_high;
+  state->current_fade_gain = current_fade;
   return 1;
 }
