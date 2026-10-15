@@ -83,6 +83,11 @@ class AutomixService {
 
   // ── Feature cache ──────────────────────────────────────────────────────────
 
+  // Bump whenever the native DSP feature semantics or feature serialization
+  // changes. Old cache entries must never be interpreted as current analysis.
+  static const int _analysisSchemaVersion = 2;
+  static Future<void>? _analysisSchemaFuture;
+
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
   static final Map<int, String> _featuresIdentity = {};
 
@@ -101,6 +106,33 @@ class AutomixService {
   }
 
   static String _cacheKey(int songId) => 'automix_$songId';
+
+  /// Invalidates the previous DSP cache generation once per process and resets
+  /// the UI count, which otherwise would claim legacy (pre-fix) features were
+  /// analyzed with the current extractor. Legacy per-track entries are left in
+  /// place until each track is revisited, but version checks below make them a
+  /// cache miss and the fresh analysis overwrites them.
+  static Future<void> _ensureAnalysisSchemaVersion() =>
+      _analysisSchemaFuture ??= _migrateAnalysisSchema();
+
+  static Future<void> _migrateAnalysisSchema() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedVersion = prefs.getInt('automix_analysisSchemaVersion');
+      if (storedVersion != _analysisSchemaVersion) {
+        _analyzedCount = 0;
+        await prefs.setInt('automix_analyzedCount', 0);
+        await prefs.setInt(
+          'automix_analysisSchemaVersion',
+          _analysisSchemaVersion,
+        );
+      }
+    } on Object catch (e) {
+      // Per-entry version checks still prevent stale cache reads if migration
+      // persistence fails; log it so the count migration failure is visible.
+      LogService.warn('Automix', 'analysis cache migration failed: $e');
+    }
+  }
 
   /// Cached analysis predates artist/title hydration in some installations.
   /// Always pair DSP data with the current MediaStore metadata before scoring.
@@ -138,6 +170,7 @@ class AutomixService {
       );
     }
 
+    await _ensureAnalysisSchemaVersion();
     final identity = _identityForSong(song);
     final inMemory = _featuresCache[song.id];
     if (inMemory != null && _featuresIdentity[song.id] == identity) {
@@ -152,8 +185,11 @@ class AutomixService {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           final map = decoded.cast<String, dynamic>();
+          final storedVersion = (map['version'] as num?)?.toInt();
           final storedIdentity = map['ident'] as String?;
-          if (identity.isNotEmpty && storedIdentity == identity) {
+          if (storedVersion == _analysisSchemaVersion &&
+              identity.isNotEmpty &&
+              storedIdentity == identity) {
             final data = map['data'] as Map? ?? const <String, dynamic>{};
             cached = _withSongMetadata(
               AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
@@ -344,6 +380,7 @@ class AutomixService {
   }
 
   static Future<void> _loadAnalyzedCount() async {
+    await _ensureAnalysisSchemaVersion();
     if (_analyzedCount != null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -412,6 +449,7 @@ class AutomixService {
     LocalSong song,
     String identity,
   ) async {
+    await _ensureAnalysisSchemaVersion();
     // 1. Already analyzed for this exact file?
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -420,8 +458,11 @@ class AutomixService {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           final map = decoded.cast<String, dynamic>();
+          final storedVersion = (map['version'] as num?)?.toInt();
           final storedIdentity = map['ident'] as String?;
-          if (identity.isNotEmpty && storedIdentity == identity) {
+          if (storedVersion == _analysisSchemaVersion &&
+              identity.isNotEmpty &&
+              storedIdentity == identity) {
             final data = map['data'] as Map? ?? const <String, dynamic>{};
             final f = _withSongMetadata(
               AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
@@ -492,7 +533,11 @@ class AutomixService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           _cacheKey(song.id),
-          jsonEncode(<String, dynamic>{'ident': identity, 'data': features.toMap()}),
+          jsonEncode(<String, dynamic>{
+            'version': _analysisSchemaVersion,
+            'ident': identity,
+            'data': features.toMap(),
+          }),
         );
       } on Object catch (e) {
         LogService.verbose('Automix', 'analyze cache write failed: $e');
