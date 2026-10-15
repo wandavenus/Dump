@@ -46,6 +46,20 @@ class AudioFeatureExtractorTest {
     }
 
     @Test
+    fun beatPhaseEstimatorRejectsInsufficientEvidence() {
+        val workingRate = 22_050
+        // A short clip cannot establish a stable repeating grid. Returning a
+        // guessed phase here could make the native preloader skip a real intro.
+        val tooShort = FloatArray(40) { 0.01f }
+        val phase = AudioFeatureExtractor.estimateBeatPhaseMs(
+            tooShort,
+            workingRate,
+            120.0,
+        )
+        assertEquals(null, phase)
+    }
+
+    @Test
     fun keyProfileRotationMapsEachTonicToItsPitchClass() {
         val profiles = listOf(
             AudioFeatureExtractor.KS_MAJOR to true,
