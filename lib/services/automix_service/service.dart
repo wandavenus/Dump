@@ -105,7 +105,10 @@ class AutomixService {
   static Future<void> _checkPlaybackStateForAutoMix() async {
     try {
       await loadSettings();
-      if (!automixEnabled.value || automixActive.value || _autoMixPreparing) return;
+      if (!automixEnabled.value ||
+          AudioEffectsService.bitPerfectMode.value ||
+          automixActive.value ||
+          _autoMixPreparing) return;
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
       if (!state.isPlaying || state.currentSong == null || queue.length < 3 ||
@@ -170,7 +173,9 @@ class AutomixService {
   }
 
   static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
-    if (_autoMixPreparing || !automixEnabled.value) return;
+    if (_autoMixPreparing ||
+        !automixEnabled.value ||
+        AudioEffectsService.bitPerfectMode.value) return;
     final upcoming = queue.skip(currentIndex + 1).toList(growable: false);
     if (upcoming.length < 2) return;
     _autoMixPreparing = true;
