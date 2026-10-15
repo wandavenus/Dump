@@ -177,6 +177,54 @@ class QueueManager(
         log("reorderQueue: [$oldIndex] → [$newIndex]")
     }
 
+    /**
+     * Reorders only the upcoming queue tail as one native operation.
+     *
+     * The active track is pinned at its current index; the caller supplies the
+     * desired order by stable MediaStore IDs. Mutations are rejected unless the
+     * desired IDs exactly match the existing tail, preventing accidental drops
+     * or duplicate ambiguity from partially-applied plans.
+     */
+    fun reorderUpcomingByIds(expectedCurrentId: Int, desiredIds: List<Int>): Boolean {
+        val player = getPlayer() ?: return false
+        if (isCrossfadeInProgress()) return false
+        if (activeQueueIndex !in queue.indices) return false
+        val activeId = (queue[activeQueueIndex]["id"] as? Number)?.toInt() ?: return false
+        if (activeId != expectedCurrentId) return false
+
+        val tail = queue.drop(activeQueueIndex + 1)
+        val tailIds = tail.map { (it["id"] as? Number)?.toInt() ?: return false }
+        if (tailIds.size != desiredIds.size ||
+            tailIds.toSet().size != tailIds.size ||
+            desiredIds.toSet().size != desiredIds.size ||
+            tailIds.toSet() != desiredIds.toSet()
+        ) {
+            log("reorderUpcomingByIds rejected: tail identity mismatch")
+            return false
+        }
+        if (desiredIds == tailIds) return true
+
+        val mutable = queue.toMutableList()
+        for (offset in desiredIds.indices) {
+            val targetIndex = activeQueueIndex + 1 + offset
+            val sourceIndex = (activeQueueIndex + 1 until mutable.size).firstOrNull { idx ->
+                (mutable[idx]["id"] as? Number)?.toInt() == desiredIds[offset]
+            } ?: return false
+            if (sourceIndex == targetIndex) continue
+            val item = mutable.removeAt(sourceIndex)
+            mutable.add(targetIndex, item)
+            player.moveMediaItem(sourceIndex, targetIndex)
+        }
+
+        queue = mutable
+        // The pinned current item never moves, so activeQueueIndex is unchanged.
+        notifyQueueIdsChanged()
+        saveQueue()
+        emitAll(true)
+        log("reorderUpcomingByIds: reordered ${desiredIds.size} upcoming tracks in one batch")
+        return true
+    }
+
     fun setActiveQueueIndex(index: Int) {
         activeQueueIndex = index
     }
