@@ -1376,7 +1376,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get automixDescription =>
-      'Auto-mix gaya DJ tanpa AI dan sepenuhnya offline: mengurutkan antrean berdasarkan tempo, kunci Camelot, dan energi, lalu crossfade di tiap transisi. Jalankan dari menu overflow pemutar. Analisis murni DSP di perangkat — tanpa jaringan.';
+      'Transisi DJ otomatis yang menyesuaikan tempo dan nada, sepenuhnya offline.';
 
   @override
   String get automixProfileLabel => 'Profil mix';

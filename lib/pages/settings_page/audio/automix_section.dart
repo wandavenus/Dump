@@ -16,17 +16,18 @@ class _AutomixSection extends StatelessWidget {
     final l = context.l10n;
     return ValueListenableBuilder<bool>(
       valueListenable: AutomixService.automixEnabled,
-      builder: (context, enabled, _) => ValueListenableBuilder<AutomixAnalysisProgress>(
-        valueListenable: AutomixService.analysisProgress,
-        builder: (context, progress, _) => SettingsToggleRow(
-          title: l.automixTitle,
-          subtitle: enabled && progress.running
-              ? l.automixAnalyzingProgress(progress.done, progress.total)
-              : l.automixDescription,
-          value: enabled,
-          onChanged: AutomixService.setAutomixEnabled,
-        ),
-      ),
+      builder: (context, enabled, _) =>
+          ValueListenableBuilder<AutomixAnalysisProgress>(
+            valueListenable: AutomixService.analysisProgress,
+            builder: (context, progress, _) => SettingsToggleRow(
+              title: l.automixTitle,
+              subtitle: enabled && progress.running
+                  ? l.automixAnalyzingProgress(progress.done, progress.total)
+                  : l.automixDescription,
+              value: enabled,
+              onChanged: AutomixService.setAutomixEnabled,
+            ),
+          ),
     );
   }
 }

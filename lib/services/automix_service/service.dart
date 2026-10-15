@@ -37,8 +37,7 @@ class AutomixService {
   /// Shares one in-flight load between startup, the settings UI and AutoMix.
   /// The completed Future is retained so late callers never race a partially
   /// restored configuration.
-  static Future<void> loadSettings() =>
-      _settingsLoadFuture ??= _loadSettings();
+  static Future<void> loadSettings() => _settingsLoadFuture ??= _loadSettings();
 
   static Future<void> _loadSettings() async {
     try {
@@ -209,8 +208,11 @@ class AutomixService {
       }
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
-      if (!state.isPlaying || state.currentSong == null || queue.length < 2 ||
-          state.currentIndex < 0 || state.currentIndex >= queue.length) {
+      if (!state.isPlaying ||
+          state.currentSong == null ||
+          queue.length < 2 ||
+          state.currentIndex < 0 ||
+          state.currentIndex >= queue.length) {
         return;
       }
       final tailIds = _tailIdsOf(state, queue);
@@ -263,7 +265,10 @@ class AutomixService {
 
   static double? _usableBpm(AutomixTrackFeatures features) {
     final bpm = features.bpm;
-    if (bpm == null || !bpm.isFinite || bpm < 50 || bpm > 220 ||
+    if (bpm == null ||
+        !bpm.isFinite ||
+        bpm < 50 ||
+        bpm > 220 ||
         features.bpmConfidence < 0.35) {
       return null;
     }
@@ -301,10 +306,12 @@ class AutomixService {
       final features = ordered[i];
       final isOutgoing = i == 0;
       final bpm = isOutgoing ? exitBpm : features.bpm;
-      final beatOffsetMs =
-          isOutgoing ? features.tailBeatOffsetMs : features.beatOffsetMs;
-      final confidentBpm =
-          features.bpmConfidence >= 0.35 && _tempoInRange(bpm) ? bpm : null;
+      final beatOffsetMs = isOutgoing
+          ? features.tailBeatOffsetMs
+          : features.beatOffsetMs;
+      final confidentBpm = features.bpmConfidence >= 0.35 && _tempoInRange(bpm)
+          ? bpm
+          : null;
 
       // The outgoing deck is never pulled (referenceBpm: null), it only
       // publishes the grid the fade aligns to.
@@ -348,7 +355,10 @@ class AutomixService {
     return targets;
   }
 
-  static Future<void> _prepareUpcomingTracks(List<LocalSong> queue, int currentIndex) async {
+  static Future<void> _prepareUpcomingTracks(
+    List<LocalSong> queue,
+    int currentIndex,
+  ) async {
     if (_autoMixPreparing ||
         !automixEnabled.value ||
         AudioEffectsService.bitPerfectMode.value) {
@@ -400,8 +410,11 @@ class AutomixService {
         // built to treat missing features as neutral. The idle library sweep
         // fills that cache in the background, so plans sharpen over time.
         final horizon = math.min(_planHorizonCap, upcoming.length);
-        final window =
-            automixPlanWindow<LocalSong>(queue, currentIndex, horizon);
+        final window = automixPlanWindow<LocalSong>(
+          queue,
+          currentIndex,
+          horizon,
+        );
         final allFeatures = await _featuresForPlan(window);
         if (!automixEnabled.value) {
           return;
@@ -410,7 +423,9 @@ class AutomixService {
         // Keep the current song anchored at index 0 while letting its BPM/key
         // influence the first transition selected from the window.
         final metrics = AutomixEngine.planSet(
-          tracks: allFeatures, settings: settings.value, startIndex: 0,
+          tracks: allFeatures,
+          settings: settings.value,
+          startIndex: 0,
         );
         if (metrics.order.length != window.length || metrics.order.first != 0) {
           return;
@@ -424,7 +439,10 @@ class AutomixService {
         if (latestState.currentSong?.id != currentSong.id ||
             latestState.currentIndex != currentIndex ||
             latestState.currentPlaylist.length != queue.length) {
-          LogService.verbose('Automix', 'queue changed during planning; dropping stale plan');
+          LogService.verbose(
+            'Automix',
+            'queue changed during planning; dropping stale plan',
+          );
           _scheduleReplanRetry();
           return;
         }
@@ -466,7 +484,10 @@ class AutomixService {
           } on Object catch (e) {
             // A rejected reorder must never strand the session on a stale plan.
             _scheduleReplanRetry();
-            LogService.verbose('Automix', 'native queue changed during plan; retry later: $e');
+            LogService.verbose(
+              'Automix',
+              'native queue changed during plan; retry later: $e',
+            );
             return;
           }
         }
@@ -480,10 +501,14 @@ class AutomixService {
         final fadeSeconds = bpm == null
             ? (plannedCrossfadeSeconds ?? _fallbackFadeSeconds)
             : (settings.value.crossfadeBeats * 60.0 / bpm)
-                .clamp(2.0, 16.0)
-                .toDouble();
+                  .clamp(2.0, 16.0)
+                  .toDouble();
         final targets = _buildNativeTargets(currentFeatures, plannedFeatures);
-        final signature = _nativePlanSignature(currentSong.id, fadeSeconds, targets);
+        final signature = _nativePlanSignature(
+          currentSong.id,
+          fadeSeconds,
+          targets,
+        );
         if (signature == _lastNativeSignature) {
           // Native already holds this exact deck plan (only the far end of the
           // window changed) — re-pushing it would rebuild the standby decoder.
@@ -491,7 +516,10 @@ class AutomixService {
           return;
         }
         await _engageCrossfade(fadeSeconds);
-        await AudioService.setAutomixTransition(enabled: true, targets: targets);
+        await AudioService.setAutomixTransition(
+          enabled: true,
+          targets: targets,
+        );
         _lastNativeSignature = signature;
         _replanRetryCount = 0;
         LogService.log(
@@ -842,7 +870,8 @@ class AutomixService {
       // LoudnessData carries the *recommended replay gain* (target − LUFS),
       // not an LUFS value itself. Invert it against the standard −18 LUFS
       // ReplayGain target so the engine's LUFS→energy mapping stays uniform.
-      if (loudness.hasData) lufs = (-18.0 - loudness.gainDb).clamp(-24, -6).toDouble();
+      if (loudness.hasData)
+        lufs = (-18.0 - loudness.gainDb).clamp(-24, -6).toDouble();
     } on Object catch (e) {
       LogService.verbose('Automix', 'loudness fallback failed: $e');
     }
@@ -920,7 +949,10 @@ class AutomixService {
         }
       }
     } on Object catch (e) {
-      LogService.verbose('Automix', 'plan cache read failed for ${song.id}: $e');
+      LogService.verbose(
+        'Automix',
+        'plan cache read failed for ${song.id}: $e',
+      );
     }
     return AutomixTrackFeatures(
       songId: song.id,
@@ -994,8 +1026,8 @@ class AutomixService {
     LogService.log(
       'Automix',
       'Plan (${settings.value.profile.name}, ${sequenced.length} tracks, '
-      'crossfade ${planMetrics.crossfadeSeconds.toStringAsFixed(1)}s, '
-      'cost ${planMetrics.averageCost.toStringAsFixed(3)})',
+          'crossfade ${planMetrics.crossfadeSeconds.toStringAsFixed(1)}s, '
+          'cost ${planMetrics.averageCost.toStringAsFixed(3)})',
     );
 
     final sequencedFeatures = [for (final index in plan) features[index]];
@@ -1003,14 +1035,16 @@ class AutomixService {
     final fadeSeconds = firstBpm == null
         ? planMetrics.crossfadeSeconds
         : (settings.value.crossfadeBeats * 60.0 / firstBpm)
-            .clamp(2.0, 16.0)
-            .toDouble();
+              .clamp(2.0, 16.0)
+              .toDouble();
     // The whole playlist is already sequenced: record it as the live plan so the
     // automatic pipeline refreshes deck targets instead of sequencing the same
     // queue a second time, and ship only the near deck targets (native reads
     // them per song id anyway).
-    _plannedTail =
-        sequenced.map((song) => song.id).skip(1).toList(growable: false);
+    _plannedTail = sequenced
+        .map((song) => song.id)
+        .skip(1)
+        .toList(growable: false);
     await _engageCrossfade(fadeSeconds);
     await AudioService.setAutomixTransition(
       enabled: true,
@@ -1182,7 +1216,9 @@ class AutomixService {
     final bpm = (res['bpm'] as num?)?.toDouble();
     final bpc = automixClamp01((res['bpmConfidence'] as num?)?.toDouble() ?? 0);
     final beatOffsetMs = (res['beatOffsetMs'] as num?)?.toDouble();
-    final kConf = automixClamp01((res['keyConfidence'] as num?)?.toDouble() ?? 0);
+    final kConf = automixClamp01(
+      (res['keyConfidence'] as num?)?.toDouble() ?? 0,
+    );
     final camN = (res['camelotNumber'] as num?)?.toInt();
     final camM = res['camelotMinor'] as bool?;
 
@@ -1497,7 +1533,10 @@ class AutomixService {
     if (!power.allowsBackgroundAnalysis(
       minLevelPercent: _sweepMinBatteryPercent,
     )) {
-      LogService.verbose('Automix', 'library sweep paused (${power.describe()})');
+      LogService.verbose(
+        'Automix',
+        'library sweep paused (${power.describe()})',
+      );
       _scheduleLibrarySweep(_sweepRetryDelay);
       return;
     }
@@ -1525,7 +1564,10 @@ class AutomixService {
         if (!now.allowsBackgroundAnalysis(
           minLevelPercent: _sweepMinBatteryPercent,
         )) {
-          LogService.verbose('Automix', 'library sweep yielded (${now.describe()})');
+          LogService.verbose(
+            'Automix',
+            'library sweep yielded (${now.describe()})',
+          );
           break;
         }
         analysisProgress.value = AutomixAnalysisProgress(

@@ -2609,7 +2609,7 @@ abstract class AppLocalizations {
   /// No description provided for @automixDescription.
   ///
   /// In en, this message translates to:
-  /// **'Offline DJ-style auto-mixing: reorders a queue by tempo, Camelot key and energy, then crossfades the transitions. Start it from the player\'s overflow menu. Analysis is 100% on-device DSP — no AI, no network.'**
+  /// **'DJ-style transitions matched by tempo and key, fully offline.'**
   String get automixDescription;
 
   /// No description provided for @automixProfileLabel.

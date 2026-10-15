@@ -1374,7 +1374,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get automixDescription =>
-      'Offline DJ-style auto-mixing: reorders a queue by tempo, Camelot key and energy, then crossfades the transitions. Start it from the player\'s overflow menu. Analysis is 100% on-device DSP — no AI, no network.';
+      'DJ-style transitions matched by tempo and key, fully offline.';
 
   @override
   String get automixProfileLabel => 'Mix profile';

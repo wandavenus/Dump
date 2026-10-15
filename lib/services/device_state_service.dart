@@ -18,7 +18,9 @@ enum DeviceThermalStatus {
   shutdown;
 
   static DeviceThermalStatus fromNative(int? value) {
-    if (value == null || value < 0 || value >= DeviceThermalStatus.values.length) {
+    if (value == null ||
+        value < 0 ||
+        value >= DeviceThermalStatus.values.length) {
       return DeviceThermalStatus.unknown;
     }
     return DeviceThermalStatus.values[value];
@@ -94,7 +96,9 @@ class DevicePowerState {
 class DeviceStateService {
   DeviceStateService._();
 
-  static const MethodChannel _channel = MethodChannel('musicplayer/device_state');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/device_state',
+  );
 
   /// Reads the current power state. Never throws: unsupported platforms and
   /// bridge failures return [DevicePowerState.unknown].
@@ -106,8 +110,12 @@ class DeviceStateService {
       final level = (map['levelPercent'] as num?)?.toInt();
       return DevicePowerState(
         charging: map['charging'] as bool? ?? true,
-        levelPercent: (level != null && level >= 0 && level <= 100) ? level : null,
-        thermalStatus: DeviceThermalStatus.fromNative((map['thermal'] as num?)?.toInt()),
+        levelPercent: (level != null && level >= 0 && level <= 100)
+            ? level
+            : null,
+        thermalStatus: DeviceThermalStatus.fromNative(
+          (map['thermal'] as num?)?.toInt(),
+        ),
       );
     } on Object catch (e) {
       LogService.verbose('DeviceState', 'powerState unavailable: $e');
