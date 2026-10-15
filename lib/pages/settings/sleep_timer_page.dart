@@ -102,7 +102,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 0),
               // Body — constrained to 65% of screen height. Presets fit
               // within the constraint, so the whole card can safely
               // respond to swipe-to-dismiss drags.
@@ -132,7 +132,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
       shrinkWrap: true,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
           child: Text(
             context.l10n.sleepPresetSection,
             style: TextStyle(
