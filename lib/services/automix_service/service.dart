@@ -107,14 +107,17 @@ class AutomixService {
       await loadSettings();
       if (!automixEnabled.value ||
           AudioEffectsService.bitPerfectMode.value ||
-          automixActive.value ||
           _autoMixPreparing) return;
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
       if (!state.isPlaying || state.currentSong == null || queue.length < 2 ||
           state.currentIndex < 0 || state.currentIndex >= queue.length) return;
+      // Include the active item and queue length as well as the sorted IDs.
+      // A newly loaded queue can contain the same library set but a different
+      // starting track; that must refresh native deck targets without replacing
+      // the currently playing item.
       final ids = queue.map((song) => song.id).toList()..sort();
-      final identity = ids.join(',');
+      final identity = '${state.currentSong!.id}:${queue.length}:${ids.join(',')}';
       if (_lastAutoQueueIdentity == identity) return;
       _lastAutoQueueIdentity = identity;
       await _prepareUpcomingTracks(queue, state.currentIndex);
