@@ -94,6 +94,7 @@ class TransportCommands(
      */
     private val onSpeedChanged: (Float) -> Unit = {},
     private val onPitchSemitonesChanged: (Float) -> Unit = {},
+    private val onAutomixTransitionChanged: (Boolean, List<Map<String, Any?>>) -> Unit = { _, _ -> },
 ) {
 
     // ── Rapid skip guard (SKIP-01) ───────────────────────────────────────────
@@ -159,6 +160,14 @@ class TransportCommands(
                 setBitPerfectMode(enabled)
                 log("info", "setBitPerfectMode: $enabled")
                 result.success(null); return
+            }
+
+            "setAutomixTransition" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                val targets = call.argument<List<Map<String, Any?>>>("targets") ?: emptyList()
+                onAutomixTransitionChanged(enabled, targets)
+                result.success(null)
+                return
             }
 
             "play" -> handlePlay(p, result)
