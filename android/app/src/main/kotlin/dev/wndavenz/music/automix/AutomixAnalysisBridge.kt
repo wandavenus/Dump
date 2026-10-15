@@ -30,11 +30,9 @@ object AutomixAnalysis {
             if (size == values.size) values else values.copyOf(size)
     }
 
-    companion object {
-        /** Full-track tempo/key analysis budget (seconds of PCM). */
-        const val MAX_ANALYZE_SECONDS = 300
-        private const val TARGET_RATE_HZ = 22050
-    }
+    /** Full-track tempo/key analysis budget (seconds of PCM). */
+    const val MAX_ANALYZE_SECONDS = 300
+    private const val TARGET_RATE_HZ = 22050
 
     /** Handles the `analyze` channel method; takes the raw file path. */
     fun analyze(filePath: String): Map<String, Any?> {
