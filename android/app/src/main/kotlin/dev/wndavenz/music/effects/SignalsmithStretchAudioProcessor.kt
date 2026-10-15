@@ -59,6 +59,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     }
 
     @Volatile private var speed: Float = 1f
+    @Volatile private var baseSpeed: Float = 1f
+    @Volatile private var autoMixTempoMultiplier: Float = 1f
     @Volatile private var pitchSemitones: Float = 0f
 
     private var handle: Long = 0L
