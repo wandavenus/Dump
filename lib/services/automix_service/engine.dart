@@ -65,7 +65,7 @@ const List<int> automixCamelotMinorNum = [
 /// Exposed so tests can cross-check the native extractor's mapping against
 /// this Dart mirror (the Kotlin side encodes the identical table).
 (int number, bool minor)? automixKeyToCamelot(int tonicPc, bool isMinor) {
-  final pc = tonicPc % 12;
+  final pc = ((tonicPc % 12) + 12) % 12;
   return isMinor ? (automixCamelotMinorNum[pc], true) : (automixCamelotMajorNum[pc], false);
 }
 
@@ -117,8 +117,8 @@ double automixCamelotCost(int? numA, bool? minorA, int? numB, bool? minorB) {
 /// Tempo distance between two tracks across half/double-time interpretations,
 /// 0..1 (0 = beat-perfect, 1 = fully mismatched).
 ///
-/// Distance is measured in octaves (|log2 ratio|) and folded through the
-/// alternate tempo so a 120→60 BPM pair scores the same as 120→120.
+/// Distance is the relative ratio error against the slower tempo, folded
+/// through half/double-time variants so 120→60 scores like 120→120.
 double automixTempoCost(
   double? bpmA,
   double? altA,
@@ -141,7 +141,9 @@ double automixTempoCost(
   for (final x in tempoA) {
     for (final y in tempoB) {
       if (x <= 0 || y <= 0) continue;
-      final d = (math.log(x / y) / math.ln2).abs();
+      final slower = math.min(x, y);
+      final faster = math.max(x, y);
+      final d = faster / slower - 1.0;
       if (d < best) best = d;
     }
   }
@@ -151,8 +153,8 @@ double automixTempoCost(
     final t = (best / toleranceFrac).clamp(0.0, 1.0);
     return t * t * 0.5; // quadratic ramp inside tolerance
   }
-  // Beyond tolerance: ramp from 0.5 to a full 1.0 by the time the ratio
-  // distance reaches tolerance + 25 %.
+  // Beyond tolerance: ramp from 0.5 to a full 1.0 by the time the
+  // slower-relative tempo mismatch reaches tolerance + 25 percentage points.
   final over = (best - toleranceFrac) / 0.25;
   return (0.5 + over * 0.5).clamp(0.0, 1.0);
 }

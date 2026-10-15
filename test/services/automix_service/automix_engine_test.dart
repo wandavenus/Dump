@@ -79,14 +79,20 @@ void main() {
       expect(automixTempoCost(86, 172, 90, null, tol), lessThan(1.0));
     });
 
-    test('within tolerance ramps quadratically, beyond saturates', () {
+    test('percentage tolerance uses slower tempo as denominator', () {
       final near = automixTempoCost(120, null, 123, null, tol);
-      final edge = automixTempoCost(120, null, 126, null, tol);
+      final fivePercent = automixTempoCost(120, null, 126, null, tol);
+      final sixPercent = automixTempoCost(120, null, 127.2, null, tol);
+      final reverse = automixTempoCost(127.2, null, 120, null, tol);
       final way = automixTempoCost(120, null, 170, null, tol);
-      expect(near, inInclusiveRange(0, edge));
-      // 126/120 is just past ±6% → ramp picks up right at 0.5.
-      expect(edge, inInclusiveRange(0.5, 0.55));
-      expect(near, lessThan(edge));
+
+      expect(near, inInclusiveRange(0, fivePercent));
+      // 126 BPM is +5% relative to 120 BPM, so it remains inside 6%.
+      expect(fivePercent, inInclusiveRange(0, 0.5));
+      // 127.2 BPM is exactly +6%; either direction reaches the ramp boundary.
+      expect(sixPercent, closeTo(0.5, 0.01));
+      expect(reverse, closeTo(sixPercent, 1e-9));
+      expect(near, lessThan(fivePercent));
       expect(way, 1.0);
     });
 
@@ -102,6 +108,8 @@ void main() {
       expect(automixKeyToCamelot(9, true), (8, true)); // A minor = 8A
       expect(automixKeyToCamelot(1, false), (3, false)); // Db major = 3B
       expect(automixKeyToCamelot(4, false), (12, false)); // E major = 12B
+      expect(automixKeyToCamelot(-12, false), (8, false));
+      expect(automixKeyToCamelot(-3, false), automixKeyToCamelot(9, false));
     });
 
     test('relative pairs share the number', () {

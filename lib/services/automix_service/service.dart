@@ -32,11 +32,15 @@ class AutomixService {
     const AutomixSettings(),
   );
 
-  static bool _settingsLoaded = false;
+  static Future<void>? _settingsLoadFuture;
 
-  static Future<void> loadSettings() async {
-    if (_settingsLoaded) return;
-    _settingsLoaded = true;
+  /// Shares one in-flight load between startup, the settings UI and AutoMix.
+  /// The completed Future is retained so late callers never race a partially
+  /// restored configuration.
+  static Future<void> loadSettings() =>
+      _settingsLoadFuture ??= _loadSettings();
+
+  static Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('automixSettings');
@@ -44,8 +48,15 @@ class AutomixService {
         final map = jsonDecode(raw);
         if (map is Map) settings.value = AutomixSettings.fromMap(map);
       }
+
       final restored = prefs.getDouble('automixSavedCrossfade');
-      if (restored != null && _savedCrossfade == null) _savedCrossfade = restored;
+      if (restored != null && _savedCrossfade == null) {
+        _savedCrossfade = restored;
+        // automixActive is process-local. If the process was killed during a
+        // mix, no active session can restore this override later, so recover
+        // the user's saved crossfade immediately during startup.
+        if (!automixActive.value) await _restoreCrossfade();
+      }
     } on Object catch (e) {
       LogService.warn('Automix', 'loadSettings failed: $e');
     }
@@ -91,6 +102,27 @@ class AutomixService {
 
   static String _cacheKey(int songId) => 'automix_$songId';
 
+  /// Cached analysis predates artist/title hydration in some installations.
+  /// Always pair DSP data with the current MediaStore metadata before scoring.
+  static AutomixTrackFeatures _withSongMetadata(
+    AutomixTrackFeatures features,
+    LocalSong song,
+  ) => AutomixTrackFeatures(
+    songId: features.songId,
+    title: song.title,
+    artist: song.artist,
+    bpm: features.bpm,
+    bpmConfidence: features.bpmConfidence,
+    alternateBpm: features.alternateBpm,
+    camelotNumber: features.camelotNumber,
+    camelotMinor: features.camelotMinor,
+    keyConfidence: features.keyConfidence,
+    loudnessLufs: features.loudnessLufs,
+    rmsDb: features.rmsDb,
+    centroidHz: features.centroidHz,
+    onsetRate: features.onsetRate,
+  );
+
   /// Loaded (or freshly derived when nothing cached) features for [song].
   ///
   /// Fallback derivation is loudness-only (ReplayGain LUFS when available);
@@ -99,13 +131,17 @@ class AutomixService {
   /// paths free of multi-second decode jobs.
   static Future<AutomixTrackFeatures> featuresFor(LocalSong song) async {
     if (kIsWeb || song.path.isEmpty) {
-      return AutomixTrackFeatures(songId: song.id);
+      return AutomixTrackFeatures(
+        songId: song.id,
+        title: song.title,
+        artist: song.artist,
+      );
     }
 
     final identity = _identityForSong(song);
     final inMemory = _featuresCache[song.id];
     if (inMemory != null && _featuresIdentity[song.id] == identity) {
-      return inMemory;
+      return _withSongMetadata(inMemory, song);
     }
 
     AutomixTrackFeatures? cached;
@@ -119,7 +155,10 @@ class AutomixService {
           final storedIdentity = map['ident'] as String?;
           if (identity.isNotEmpty && storedIdentity == identity) {
             final data = map['data'] as Map? ?? const <String, dynamic>{};
-            cached = AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>());
+            cached = _withSongMetadata(
+              AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
+              song,
+            );
           }
         }
       }
@@ -146,7 +185,12 @@ class AutomixService {
     } on Object catch (e) {
       LogService.verbose('Automix', 'loudness fallback failed: $e');
     }
-    return AutomixTrackFeatures(songId: song.id, loudnessLufs: lufs);
+    return AutomixTrackFeatures(
+      songId: song.id,
+      title: song.title,
+      artist: song.artist,
+      loudnessLufs: lufs,
+    );
   }
 
   /// Bulk feature resolution used by [startAutomix] (one SharedPreferences
@@ -156,7 +200,8 @@ class AutomixService {
   ) async {
     if (kIsWeb) {
       return [
-        for (final s in songs) AutomixTrackFeatures(songId: s.id),
+        for (final s in songs)
+          AutomixTrackFeatures(songId: s.id, title: s.title, artist: s.artist),
       ];
     }
     final out = <AutomixTrackFeatures>[];
@@ -179,6 +224,13 @@ class AutomixService {
   ) async {
     await loadSettings();
     if (playlist.isEmpty) return -1;
+    if (AudioEffectsService.bitPerfectMode.value) {
+      LogService.verbose(
+        'Automix',
+        'startAutomix rejected: Bit-Perfect mode disables crossfade',
+      );
+      return -1;
+    }
 
     if (kIsWeb || playlist.length < 3) {
       // A straight shuffle of a tiny list beats a plan computed from nothing.
@@ -246,14 +298,25 @@ class AutomixService {
   static Future<void> _restoreCrossfade() async {
     final saved = _savedCrossfade;
     if (saved == null) return;
-    _savedCrossfade = null;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('automixSavedCrossfade');
-      if (!AudioEffectsService.bitPerfectMode.value) {
+      if (AudioEffectsService.bitPerfectMode.value) {
+        // While Bit-Perfect is on, update the persisted user value without
+        // pushing DSP settings into the dedicated clean player. Also repair
+        // its snapshot so turning Bit-Perfect off cannot resurrect the
+        // temporary AutoMix crossfade instead of the user's preference.
+        AudioEffectsService.crossfadeDuration.value = saved;
+        await prefs.setDouble('crossfade', saved);
+        if (prefs.getBool('bpmSnapValid') ?? false) {
+          await prefs.setDouble('bpmSnapCrossfade', saved);
+        }
+      } else {
         await AudioEffectsService.setCrossfade(saved);
       }
+      await prefs.remove('automixSavedCrossfade');
+      _savedCrossfade = null;
     } on Object catch (e) {
+      // Retain the in-memory value so a later disable/recovery can retry.
       LogService.warn('Automix', 'crossfade restore failed: $e');
     }
   }
@@ -360,8 +423,9 @@ class AutomixService {
           final storedIdentity = map['ident'] as String?;
           if (identity.isNotEmpty && storedIdentity == identity) {
             final data = map['data'] as Map? ?? const <String, dynamic>{};
-            final f = AutomixTrackFeatures.fromMap(
-              data.cast<dynamic, dynamic>(),
+            final f = _withSongMetadata(
+              AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
+              song,
             );
             _featuresCache[song.id] = f;
             _featuresIdentity[song.id] = identity;
@@ -397,21 +461,30 @@ class AutomixService {
     final camN = (res['camelotNumber'] as num?)?.toInt();
     final camM = res['camelotMinor'] as bool?;
     final kConf = automixClamp01((res['keyConfidence'] as num?)?.toDouble() ?? 0);
+    final rmsDb = (res['rmsDb'] as num?)?.toDouble();
+
+    // The native extractor currently exports RMS rather than integrated LUFS.
+    // Keep LUFS as an optional future native field, and fall back to cached
+    // ReplayGain metadata only when PCM RMS is unavailable.
+    final loudnessLufs = (res['lufs'] as num?)?.toDouble() ??
+        (rmsDb == null ? (await _fallbackFeatures(song)).loudnessLufs : null);
 
     // Confidence gates — store null (neutral) when the extractor is unsure,
     // so the engine never sequences against a wild guess.
     final features = AutomixTrackFeatures(
       songId: song.id,
+      title: song.title,
+      artist: song.artist,
       bpm: bpc >= 0.15 ? bpm : null,
       bpmConfidence: bpc >= 0.15 ? bpc : 0,
       alternateBpm: bpm != null && bpc >= 0.15 ? alt : null,
       camelotNumber: kConf >= 0.25 ? camN : null,
       camelotMinor: kConf >= 0.25 ? camM : null,
       keyConfidence: kConf >= 0.25 ? kConf : 0,
-      rmsDb: (res['rmsDb'] as num?)?.toDouble(),
+      rmsDb: rmsDb,
       centroidHz: (res['centroidHz'] as num?)?.toDouble(),
       onsetRate: (res['onsetRate'] as num?)?.toDouble(),
-      loudnessLufs: (res['lufs'] as num?)?.toDouble(),
+      loudnessLufs: loudnessLufs,
     );
 
     if (identity.isNotEmpty) {
@@ -498,6 +571,6 @@ class AutomixService {
     _analyzedCount = null;
     _savedCrossfade = null;
     automixActive.value = false;
-    _settingsLoaded = false;
+    _settingsLoadFuture = null;
   }
 }
