@@ -49,7 +49,7 @@ class AutomixService {
         if (map is Map) settings.value = AutomixSettings.fromMap(map);
       }
 
-      automixEnabled.value = prefs.getBool('automixEnabled') ?? true;
+      automixEnabled.value = prefs.getBool('automixEnabled') ?? false;
 
       final restored = prefs.getDouble('automixSavedCrossfade');
       if (restored != null && _savedCrossfade == null) {
@@ -78,7 +78,7 @@ class AutomixService {
 
   /// Persisted master switch for AutoMix. The active queue session remains
   /// separately tracked by [automixActive].
-  static final ValueNotifier<bool> automixEnabled = ValueNotifier(true);
+  static final ValueNotifier<bool> automixEnabled = ValueNotifier(false);
 
   /// Whether the current playback session has AutoMix engaged and owns its
   /// temporary crossfade override.
