@@ -130,7 +130,7 @@ class AutomixService {
   static double? _usableBpm(AutomixTrackFeatures features) {
     final bpm = features.bpm;
     if (bpm == null || !bpm.isFinite || bpm < 50 || bpm > 220 ||
-        features.bpmConfidence < 0.20) return null;
+        features.bpmConfidence < 0.35) return null;
     return bpm;
   }
 
@@ -169,7 +169,15 @@ class AutomixService {
         // Native beat-grid scheduling uses media-position time, so keep
         // the source BPM here; the independent multiplier controls output tempo.
         if (sourceBpm != null) 'bpm': sourceBpm,
-        if (features.beatOffsetMs != null) 'beatOffsetMs': features.beatOffsetMs,
+        // Beat phase is more fragile than BPM. Only publish it when the
+        // tempo estimate is strong and the phase is finite/non-negative;
+        // otherwise native deliberately uses the ordinary time-based fade.
+        if (sourceBpm != null &&
+            features.bpmConfidence >= 0.45 &&
+            features.beatOffsetMs != null &&
+            features.beatOffsetMs!.isFinite &&
+            features.beatOffsetMs! >= 0)
+          'beatOffsetMs': features.beatOffsetMs,
         'multiplier': multiplier,
       });
     }
