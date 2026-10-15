@@ -381,10 +381,9 @@ class _MarqueeLabelState extends State<_MarqueeLabel>
             maxLines: 1,
             textDirection: Directionality.of(context),
           )..layout();
-          final overflow = (painter.width - constraints.maxWidth).clamp(
-            0.0,
-            double.infinity,
-          );
+          final overflow = (painter.width - constraints.maxWidth)
+              .clamp(0.0, double.infinity)
+              .toDouble();
 
           return AnimatedBuilder(
             animation: _controller,
