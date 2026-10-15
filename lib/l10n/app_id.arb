@@ -114,7 +114,7 @@
     }
   },
   "sleepPresetEndOfSong": "Akhir lagu",
-  "sleepPresetSection": "PILIH DURASI",
+  "sleepPresetSection": "Musik akan memudar perlahan ketika timer habis",
   "scanLibrary": "Pindai Perpustakaan",
   "scanLibrarySubtitle": "Hitung dan Tanamkan ReplayGain untuk lagu yang belum punya data",
   "scanLibraryConfirmTitle": "Pindai Perpustakaan?",
