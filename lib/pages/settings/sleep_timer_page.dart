@@ -102,7 +102,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               // Body — constrained to 65% of screen height. Presets fit
               // within the constraint, so the whole card can safely
               // respond to swipe-to-dismiss drags.
@@ -120,10 +120,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
   }
 }
 
-/// Body for the bottom sheet. F6 fix: the old doc comment claimed preset taps
-/// dismiss the sheet, but [_PresetList] is created with `dismissOnSelect: false`
-/// — the sheet stays open and a snackbar confirms the choice. The comment now
-/// matches the code.
+/// Body for the bottom sheet.
 class _SleepTimerSheetBody extends StatelessWidget {
   const _SleepTimerSheetBody();
 
@@ -134,7 +131,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
       valueListenable: SleepTimerService.isActive,
       builder: (_, active, _) {
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
           shrinkWrap: true,
           children: [
             if (active) ...[
@@ -142,7 +139,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
               const SizedBox(height: 24),
             ],
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
               child: Text(
                 context.l10n.sleepPresetSection,
                 style: TextStyle(
