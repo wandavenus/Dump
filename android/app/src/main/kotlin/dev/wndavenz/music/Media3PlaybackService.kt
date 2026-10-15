@@ -2141,6 +2141,10 @@ class Media3PlaybackService : MediaSessionService() {
             1f
         }
         stretchManager.setAutoMixTempoMultiplier(activeSlot, activeMultiplier)
+        if (!enabled) {
+            stretchManager.setAutoMixTempoMultiplier(0, 1f)
+            stretchManager.setAutoMixTempoMultiplier(1, 1f)
+        }
         automixToneManager.reset()
 
         if (enabled && crossfadeController.crossfadeDurationSec > 0f) {
