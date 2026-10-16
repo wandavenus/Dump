@@ -88,8 +88,10 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   required double fallbackSeconds,
 }) {
   double? finiteValue(String key) {
-    final value = (map[key] as num?)?.toDouble();
-    return value != null && value.isFinite ? value : null;
+    final raw = map[key];
+    if (raw is! num) return null;
+    final value = raw.toDouble();
+    return value.isFinite ? value : null;
   }
 
   double unitValue(String key) {
@@ -113,7 +115,12 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final bpmConfidence = unitValue('bpmConfidence');
   final keyConfidence = unitValue('keyConfidence');
   final rawAlternateBpm = finiteValue('alternateBpm');
-  final camelotNumber = (map['camelotNumber'] as num?)?.toInt();
+  final rawCamelotNumber = map['camelotNumber'];
+  final camelotNumber = rawCamelotNumber is num
+      ? rawCamelotNumber.toInt()
+      : null;
+  final rawCamelotMinor = map['camelotMinor'];
+  final camelotMinor = rawCamelotMinor is bool ? rawCamelotMinor : null;
   final start = finiteValue('segmentStartSeconds');
   final seconds = finiteValue('segmentSeconds');
   final beatOffset = nonNegativeValue('beatOffsetMs');
@@ -153,9 +160,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
             camelotNumber <= 12
         ? camelotNumber
         : null,
-    camelotMinor: keyConfidence >= 0.25
-        ? map['camelotMinor'] as bool?
-        : null,
+    camelotMinor: keyConfidence >= 0.25 ? camelotMinor : null,
     keyConfidence: keyConfidence >= 0.25 ? keyConfidence : 0,
     rmsDb: finiteValue('rmsDb'),
     centroidHz: finiteValue('centroidHz'),
