@@ -1011,7 +1011,7 @@ class AutomixService {
     if (AudioEffectsService.bitPerfectMode.value) {
       LogService.verbose(
         'Automix',
-        'startAutomix rejected: Bit-Perfect mode disables crossfade',
+        'startAutomix rejected: Pure Playback disables crossfade',
       );
       return -1;
     }
