@@ -253,6 +253,7 @@ AutomixTrackFeatures automixMergeSegments({
   String artist = '',
   required List<AutomixSegmentFeatures> segments,
   double? loudnessLufs,
+  double? sourceDurationSeconds,
 }) {
   // ── Tempo vote ────────────────────────────────────────────────────────────
   final withBpm = segments
@@ -374,9 +375,18 @@ AutomixTrackFeatures automixMergeSegments({
   for (final s in segments) {
     analyzedSeconds += s.seconds;
   }
-  final fileSeconds = segments.isEmpty
+  final inferredFileSeconds = segments.isEmpty
       ? 0.0
       : segments.last.startSeconds + segments.last.seconds;
+  final hasSourceDuration = sourceDurationSeconds != null &&
+      sourceDurationSeconds.isFinite &&
+      sourceDurationSeconds > 0;
+  // A failed tail/middle decode must not shrink the actual source duration to
+  // the end of the last successful window. Keep the larger valid boundary as
+  // a defensive guard against slightly inconsistent window metadata.
+  final fileSeconds = hasSourceDuration
+      ? math.max(sourceDurationSeconds!, inferredFileSeconds).toDouble()
+      : inferredFileSeconds;
   final firstSegment = segments.isEmpty ? null : segments.first;
   final lastSegment = segments.isEmpty ? null : segments.last;
   final localDropCue = firstSegment?.dropCueMs;

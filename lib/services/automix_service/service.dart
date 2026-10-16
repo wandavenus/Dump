@@ -739,7 +739,7 @@ class AutomixService {
   //     markers, exit beat grid) — v3 entries only described the first 300 s.
   // v5: add 16-beat phrase phase to intro/outro grids for phrase locking.
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
-  // v7: preserve native half/double-time alternate BPM through segment merging.
+  // v7: preserve native half/double-time alternate BPM and true source duration.
   static const int _analysisSchemaVersion = 7;
   static Future<void>? _analysisSchemaFuture;
 
@@ -1281,16 +1281,25 @@ class AutomixService {
   /// the tail window is always analyzed for anything longer than one window,
   /// and the file length reported by native decides whether a middle window is
   /// worth the extra decode.
-  static Future<List<AutomixSegmentFeatures>> _analyzeSegments(
+  static Future<(List<AutomixSegmentFeatures>, double)> _analyzeSegments(
     LocalSong song,
   ) async {
     final head = await _analyzeWindow(song.path, 0, _segmentSeconds);
-    if (head == null) return const <AutomixSegmentFeatures>[];
+    if (head == null) return (const <AutomixSegmentFeatures>[], 0.0);
     final segments = <AutomixSegmentFeatures>[head.$1];
-    final fileSeconds = head.$2;
+    final reportedDuration = head.$2;
+    final mediaDuration = song.duration.inMilliseconds / 1000.0;
+    var fileSeconds = 0.0;
+    if (reportedDuration.isFinite && reportedDuration > 0) {
+      fileSeconds = reportedDuration;
+    } else if (mediaDuration.isFinite && mediaDuration > 0) {
+      fileSeconds = mediaDuration;
+    }
 
     // Anything shorter than one window is already covered completely.
-    if (fileSeconds <= 0 || fileSeconds <= _segmentSeconds) return segments;
+    if (fileSeconds <= 0 || fileSeconds <= _segmentSeconds) {
+      return (segments, fileSeconds);
+    }
 
     final tailStart = fileSeconds - _segmentSeconds;
     if (tailStart > 0) {
@@ -1305,7 +1314,7 @@ class AutomixService {
       }
     }
     segments.sort((a, b) => a.startSeconds.compareTo(b.startSeconds));
-    return segments;
+    return (segments, fileSeconds);
   }
 
   /// Runs the DSP analysis for ONE track, returning cached features when the
@@ -1384,7 +1393,8 @@ class AutomixService {
     }
 
     // 2. Native DSP, in bounded windows that cover the whole file.
-    final segments = await _analyzeSegments(song);
+    final analysis = await _analyzeSegments(song);
+    final segments = analysis.$1;
     if (segments.isEmpty) return null;
 
     // The native extractor exports RMS rather than integrated LUFS; fall back
@@ -1402,6 +1412,7 @@ class AutomixService {
       artist: song.artist,
       segments: segments,
       loudnessLufs: loudnessLufs,
+      sourceDurationSeconds: analysis.$2,
     );
 
     if (identity.isNotEmpty) {
