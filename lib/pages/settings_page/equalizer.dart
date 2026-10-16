@@ -33,12 +33,16 @@ class _EqualizerSection extends StatelessWidget {
                     } else {
                       trailing = l.equalizerCustom;
                     }
-                    return SettingsActionRow(
-                      title: l.equalizerTitle,
-                      subtitle: trailing,
-                      onTap: () => Navigator.of(
-                        context,
-                      ).push(ZoomFadeRoute<void>(page: const EqualizerPage())),
+                    return BitPerfectLock(
+                      child: SettingsActionRow(
+                        title: l.equalizerTitle,
+                        subtitle: trailing,
+                        onTap: () => Navigator.of(
+                          context,
+                        ).push(
+                          ZoomFadeRoute<void>(page: const EqualizerPage()),
+                        ),
+                      ),
                     );
                   },
                 );
