@@ -765,7 +765,10 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
         vocal_band_concentration_count >= 16 &&
         vocal_band_ratio >= 0.20f && vocal_richness >= 0.25 &&
         centroid_median >= 800.0f && centroid_median <= 3200.0f &&
-        rms_median > -40.0f) {
+        rms_median > -40.0f &&
+        // Gate this cue to rhythmic music-like material; broadband noise and
+        // isolated speech/music fragments should not drive DJ vocal avoidance.
+        output[1] >= 0.20 && output[9] <= 8.0) {
       const double band_score =
           fmin(1.0, fmax(0.0, (vocal_band_ratio - 0.20) / 0.55));
       const double center_score =
