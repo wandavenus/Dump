@@ -49,6 +49,7 @@ void main() {
       final feature = _f(
         17,
         bpm: 120,
+        alt: 240,
         beatOffsetMs: 123.5,
         downbeatOffsetMs: 350.0,
         tailDownbeatOffsetMs: 8350.0,
@@ -57,6 +58,7 @@ void main() {
         durationSeconds: 180.0,
       );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
+      expect(restored.alternateBpm, 240.0);
       expect(restored.beatOffsetMs, 123.5);
       expect(restored.downbeatOffsetMs, 350.0);
       expect(restored.tailDownbeatOffsetMs, 8350.0);
@@ -65,6 +67,7 @@ void main() {
       expect(restored.durationSeconds, 180.0);
 
       final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
+      expect(legacy.alternateBpm, isNull);
       expect(legacy.beatOffsetMs, isNull);
       expect(legacy.dropCueMs, isNull);
       expect(legacy.tailBreakdownCueMs, isNull);
@@ -454,6 +457,7 @@ void main() {
     AutomixSegmentFeatures seg(
       double start, {
       double? bpm,
+      double? alt,
       double conf = 0.8,
       double? rms,
       double? beatOffsetMs,
@@ -465,6 +469,7 @@ void main() {
       seconds: 120,
       bpm: bpm,
       bpmConfidence: conf,
+      alternateBpm: alt,
       beatOffsetMs: beatOffsetMs,
       downbeatOffsetMs: downbeatOffsetMs,
       dropCueMs: dropCueMs,
@@ -490,6 +495,18 @@ void main() {
       expect(merged.tailBeatOffsetMs, closeTo(240_040, 0.5));
       // Both windows agreed, so the vote is not neutral.
       expect(merged.bpmConfidence, greaterThan(0.3));
+    });
+
+    test('keeps alternate BPM from the highest-confidence tempo anchor', () {
+      final merged = automixMergeSegments(
+        songId: 4,
+        segments: [
+          seg(0, bpm: 80, alt: 160, conf: 0.9),
+          seg(240, bpm: 40, alt: 80, conf: 0.6),
+        ],
+      );
+      expect(merged.bpm, closeTo(80, 1.0));
+      expect(merged.alternateBpm, closeTo(160, 0.1));
     });
 
     test('structure markers describe the first and last window', () {
