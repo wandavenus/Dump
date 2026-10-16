@@ -758,7 +758,10 @@ class AutomixService {
   // v5: add 16-beat phrase phase to intro/outro grids for phrase locking.
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
   // v7: preserve native half/double-time alternate BPM and true source duration.
-  static const int _analysisSchemaVersion = 8;
+  // v9: persist vocal confidence and intro/tail structural-region metadata.
+  //     Older entries are re-analyzed because those fields affect planner costs
+  //     and the transition strategy, not merely diagnostics.
+  static const int _analysisSchemaVersion = 9;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -827,6 +830,9 @@ class AutomixService {
     dropConfidence: features.dropConfidence,
     tailBreakdownConfidence: features.tailBreakdownConfidence,
     structureRegion: features.structureRegion,
+    structureConfidence: features.structureConfidence,
+    tailStructureRegion: features.tailStructureRegion,
+    tailStructureConfidence: features.tailStructureConfidence,
     vocalLikelihood: features.vocalLikelihood,
     vocalConfidence: features.vocalConfidence,
     durationSeconds: features.durationSeconds,
@@ -1270,46 +1276,18 @@ class AutomixService {
       return null;
     }
 
-    final bpm = (res['bpm'] as num?)?.toDouble();
-    final rawAlternateBpm = (res['alternateBpm'] as num?)?.toDouble();
-    final alternateBpm =
-        rawAlternateBpm != null &&
-            rawAlternateBpm.isFinite &&
-            rawAlternateBpm > 0
-        ? rawAlternateBpm
-        : null;
-    final bpc = automixClamp01((res['bpmConfidence'] as num?)?.toDouble() ?? 0);
-    final beatOffsetMs = (res['beatOffsetMs'] as num?)?.toDouble();
-    final downbeatOffsetMs = (res['downbeatOffsetMs'] as num?)?.toDouble();
-    final dropCueMs = (res['dropCueMs'] as num?)?.toDouble();
-    final breakdownCueMs = (res['breakdownCueMs'] as num?)?.toDouble();
-    final kConf = automixClamp01(
-      (res['keyConfidence'] as num?)?.toDouble() ?? 0,
+    final segment = automixSegmentFeaturesFromAnalysisMap(
+      res,
+      fallbackStartSeconds: startSeconds,
+      fallbackSeconds: maxSeconds,
     );
-    final camN = (res['camelotNumber'] as num?)?.toInt();
-    final camM = res['camelotMinor'] as bool?;
-
-    return (
-      AutomixSegmentFeatures(
-        startSeconds:
-            (res['segmentStartSeconds'] as num?)?.toDouble() ?? startSeconds,
-        seconds: (res['segmentSeconds'] as num?)?.toDouble() ?? maxSeconds,
-        bpm: bpc >= 0.15 ? bpm : null,
-        bpmConfidence: bpc >= 0.15 ? bpc : 0,
-        alternateBpm: bpc >= 0.15 ? alternateBpm : null,
-        beatOffsetMs: bpm != null && bpc >= 0.20 ? beatOffsetMs : null,
-        downbeatOffsetMs: bpm != null && bpc >= 0.20 ? downbeatOffsetMs : null,
-        dropCueMs: dropCueMs,
-        breakdownCueMs: breakdownCueMs,
-        camelotNumber: kConf >= 0.25 ? camN : null,
-        camelotMinor: kConf >= 0.25 ? camM : null,
-        keyConfidence: kConf >= 0.25 ? kConf : 0,
-        rmsDb: (res['rmsDb'] as num?)?.toDouble(),
-        centroidHz: (res['centroidHz'] as num?)?.toDouble(),
-        onsetRate: (res['onsetRate'] as num?)?.toDouble(),
-      ),
-      (res['fileSeconds'] as num?)?.toDouble() ?? 0,
-    );
+    final rawFileSeconds = (res['fileSeconds'] as num?)?.toDouble();
+    final fileSeconds = rawFileSeconds != null &&
+            rawFileSeconds.isFinite &&
+            rawFileSeconds > 0
+        ? rawFileSeconds
+        : 0.0;
+    return (segment, fileSeconds);
   }
 
   /// Head / middle / tail windows covering the whole file, ordered by position.
