@@ -108,6 +108,57 @@ void main() {
   });
 
   group('native AutoMix analysis map contract', () {
+    test('rejects non-finite and non-integer Camelot values safely', () {
+      for (final value in <double>[
+        double.nan,
+        double.infinity,
+        double.negativeInfinity,
+        8.5,
+        0,
+        13,
+      ]) {
+        final segment = automixSegmentFeaturesFromAnalysisMap(
+          <String, dynamic>{
+            'camelotNumber': value,
+            'camelotMinor': true,
+            'keyConfidence': 0.9,
+          },
+          fallbackStartSeconds: 0,
+          fallbackSeconds: 120,
+        );
+        expect(segment.camelotNumber, isNull, reason: 'value=$value');
+        expect(segment.camelotMinor, isNull, reason: 'value=$value');
+        expect(segment.keyConfidence, 0, reason: 'value=$value');
+      }
+    });
+
+    test('invalid confidence and likelihood values fall back to zero', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'bpm': 120.0,
+          'bpmConfidence': 1.7,
+          'keyConfidence': double.infinity,
+          'dropConfidence': -0.1,
+          'breakdownConfidence': double.nan,
+          'structureConfidence': 4.0,
+          'vocalLikelihood': 1.2,
+          'vocalConfidence': -2.0,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.bpm, isNull);
+      expect(segment.bpmConfidence, 0);
+      expect(segment.keyConfidence, 0);
+      expect(segment.dropConfidence, 0);
+      expect(segment.breakdownConfidence, 0);
+      expect(segment.structureConfidence, 0);
+      expect(segment.vocalLikelihood, 0);
+      expect(segment.vocalConfidence, 0);
+    });
+
+
     test('forwards vocal and structural confidence with safe defaults', () {
       final segment = automixSegmentFeaturesFromAnalysisMap(
         <String, dynamic>{
