@@ -7,12 +7,20 @@ part of '../player_background.dart';
 /// This avoids repeatedly applying a full-screen ImageFilter while Now Playing
 /// animates. The source artwork and its repository cache are never modified.
 class ArtworkBlurPlayerBackground extends StatefulWidget {
-  const ArtworkBlurPlayerBackground({super.key, required this.songId});
+  const ArtworkBlurPlayerBackground({
+    super.key,
+    required this.songId,
+    required this.topOffset,
+  });
 
   static const int _targetSizePx = 384;
   static const double _blurSigma = 32;
 
   final int songId;
+
+  /// Offset that aligns the viewport-sized image to the physical screen origin
+  /// while the player panel grows and is clipped from the bottom.
+  final double topOffset;
 
   /// Prepare this song's blurred frame while the player is still collapsed,
   /// so opening Now Playing can use the cached image from its first frame.
@@ -188,69 +196,62 @@ class _ArtworkBlurPlayerBackgroundState
     final provider = _provider;
     if (provider == null) return const PlayerFallbackBackground();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewport = MediaQuery.sizeOf(context);
-        _ensureBlurredArtwork(
-          provider: provider,
-          width: viewport.width,
-          height: viewport.height,
-        );
+    final viewport = MediaQuery.sizeOf(context);
+    _ensureBlurredArtwork(
+      provider: provider,
+      width: viewport.width,
+      height: viewport.height,
+    );
 
-        // Keep the image at its final full-screen scale while the player panel
-        // grows. The parent still clips it to the animated panel bounds, so the
-        // cached blur radius and artwork framing do not change on every drag tick.
-        final viewportScale = math.max(
-          viewport.width / _targetSizePx,
-          viewport.height / _targetSizePx,
-        );
-        final panelScale = math.max(
-          constraints.maxWidth / _targetSizePx,
-          constraints.maxHeight / _targetSizePx,
-        );
-        final paintScale = panelScale > 0
-            ? (viewportScale / panelScale).clamp(1.0, 8.0).toDouble()
-            : 1.0;
-        final fallbackSigma = (_blurSigma / paintScale)
-            .clamp(0.5, _blurSigma)
-            .toDouble();
-        final cachedImage = _blurLease?.image;
+    final cachedImage = _blurLease?.image;
+    final Widget artwork = cachedImage != null
+        ? RawImage(
+            image: cachedImage,
+            width: viewport.width,
+            height: viewport.height,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.low,
+          )
+        : ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: _blurSigma,
+              sigmaY: _blurSigma,
+            ),
+            child: SizedBox(
+              width: viewport.width,
+              height: viewport.height,
+              child: Image(
+                image: provider,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) =>
+                    const PlayerFallbackBackground(),
+              ),
+            ),
+          );
 
-        final Widget artwork = Transform.scale(
-          scale: paintScale,
-          alignment: Alignment.center,
-          child: cachedImage != null
-              ? RawImage(
-                  image: cachedImage,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.low,
-                )
-              : ImageFiltered(
-                  // Immediate fallback while the pre-blurred frame is being
-                  // built. The outer scale keeps its apparent sigma consistent.
-                  imageFilter: ui.ImageFilter.blur(
-                    sigmaX: fallbackSigma,
-                    sigmaY: fallbackSigma,
-                  ),
-                  child: SizedBox.expand(
-                    child: Image(
-                      image: provider,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.low,
-                      gaplessPlayback: true,
-                      errorBuilder: (_, _, _) =>
-                          const PlayerFallbackBackground(),
-                    ),
-                  ),
-                ),
-        );
-
-        return RepaintBoundary(
-          child: ClipRect(
-            child: SizedBox.expand(child: artwork),
+    // Draw one viewport-sized background at a stable coordinate origin. The
+    // parent's animated panel clips it; drag updates only change this offset and
+    // the clip, never the artwork crop or the baked blur radius.
+    return RepaintBoundary(
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          minWidth: viewport.width,
+          maxWidth: viewport.width,
+          minHeight: viewport.height,
+          maxHeight: viewport.height,
+          child: Transform.translate(
+            offset: Offset(0, widget.topOffset),
+            child: SizedBox(
+              width: viewport.width,
+              height: viewport.height,
+              child: artwork,
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
