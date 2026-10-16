@@ -44,8 +44,8 @@ class AutomixSegmentFeatures {
   /// Dominant-beat phase relative to this analysis window (ms).
   final double? beatOffsetMs;
 
-  /// Estimated four-beat bar phase relative to this window (ms).
-  /// This remains heuristic and must only be used when tempo confidence is high.
+  /// Estimated 16-beat phrase-start phase relative to this window (ms).
+  /// It stays null unless repeated onset accents distinguish one phrase phase.
   final double? downbeatOffsetMs;
 
   /// Candidate structural cues relative to this window (ms), if detected.
@@ -108,10 +108,10 @@ class AutomixTrackFeatures {
   /// This is a heuristic onset-grid phase, not a guaranteed musical downbeat.
   final double? beatOffsetMs;
 
-  /// Estimated intro bar phase in milliseconds from the file start.
+  /// Estimated intro 16-beat phrase phase in milliseconds from the file start.
   final double? downbeatOffsetMs;
 
-  /// Estimated outro bar phase in milliseconds from the file start.
+  /// Estimated outro 16-beat phrase phase in milliseconds from the file start.
   final double? tailDownbeatOffsetMs;
 
   /// Camelot wheel position 1..12, or null when key detection was too
