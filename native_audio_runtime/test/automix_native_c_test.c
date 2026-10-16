@@ -357,6 +357,41 @@ static void test_stereo_mid_gain(void) {
   free(dry);
 }
 
+static void test_crossfade_sample_peak_budget(void) {
+  // Even fully correlated decks must have a combined gain budget <= 1.
+  for (int i = 0; i <= 100; ++i) {
+    const float progress = (float)i / 100.0f;
+    float outgoing = -1.0f;
+    float incoming = -1.0f;
+    assert(nar_automix_tone_compute_fade_gains(
+               progress, 1.0f, 1.0f, 1.0f, &outgoing, &incoming) == 1);
+    assert(isfinite(outgoing) && isfinite(incoming));
+    assert(outgoing >= 0.0f && outgoing <= 1.0f);
+    assert(incoming >= 0.0f && incoming <= 1.0f);
+    assert(outgoing + incoming <= 1.00001f);
+  }
+
+  // The scalar/multichannel and ARM64 NEON paths must enforce the same final
+  // sample-peak bound even if an upstream float PCM block contains overs.
+  const int32_t sample_rate = 48000;
+  const int32_t frames = 8;
+  float pcm[frames * 2];
+  for (int i = 0; i < frames * 2; ++i) {
+    pcm[i] = (i & 1) == 0 ? 2.0f : -2.0f;
+  }
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
+  assert(nar_automix_tone_process(pcm, frames, 2, 0) == 1);
+  for (int i = 0; i < frames * 2; ++i) {
+    assert(isfinite(pcm[i]));
+    assert(pcm[i] >= -1.0f && pcm[i] <= 1.0f);
+  }
+  assert(nar_automix_tone_reset(0) == 1);
+}
+
 static void test_ffi_contract_and_bounds(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
@@ -472,6 +507,7 @@ static void test_phrase_lock(void) {
 }
 
 int main(void) {
+  test_crossfade_sample_peak_budget();
   test_ffi_contract_and_bounds();
   test_analyzer_rms();
   test_analyzer_structural_cues();
