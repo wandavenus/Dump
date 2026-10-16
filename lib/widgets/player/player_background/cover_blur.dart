@@ -2,7 +2,7 @@ part of '../player_background.dart';
 
 /// Full-screen artwork-derived background for the alternate player style.
 ///
-/// Artwork is decoded at a bounded 384px size. The expensive blur is baked
+/// Artwork is decoded at a bounded 124px size. The expensive blur is baked
 /// once per song/viewport scale and kept in a small, memory-only LRU cache.
 /// This avoids repeatedly applying a full-screen ImageFilter while Now Playing
 /// animates. The source artwork and its repository cache are never modified.
@@ -13,7 +13,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
     required this.topOffset,
   });
 
-  static const int _targetSizePx = 384;
+  static const int _targetSizePx = 124;
   static const double _blurSigma = 32;
 
   final int songId;
