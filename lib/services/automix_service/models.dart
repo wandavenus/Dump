@@ -23,6 +23,9 @@ class AutomixSegmentFeatures {
     this.bpm,
     this.bpmConfidence = 0,
     this.beatOffsetMs,
+    this.downbeatOffsetMs,
+    this.dropCueMs,
+    this.breakdownCueMs,
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -38,8 +41,16 @@ class AutomixSegmentFeatures {
   final double? bpm;
   final double bpmConfidence;
 
-  /// Dominant-beat phase **relative to the window start** (ms).
+  /// Dominant-beat phase relative to this analysis window (ms).
   final double? beatOffsetMs;
+
+  /// Estimated four-beat bar phase relative to this window (ms).
+  /// This remains heuristic and must only be used when tempo confidence is high.
+  final double? downbeatOffsetMs;
+
+  /// Candidate structural cues relative to this window (ms), if detected.
+  final double? dropCueMs;
+  final double? breakdownCueMs;
 
   final int? camelotNumber;
   final bool? camelotMinor;
@@ -69,6 +80,8 @@ class AutomixTrackFeatures {
     this.onsetRate,
     this.tailBpm,
     this.tailBeatOffsetMs,
+    this.downbeatOffsetMs,
+    this.tailDownbeatOffsetMs,
     this.introEnergy,
     this.outroEnergy,
     this.analyzedFraction = 0,
@@ -94,6 +107,12 @@ class AutomixTrackFeatures {
   /// Estimated dominant-beat phase in milliseconds from the start of the file.
   /// This is a heuristic onset-grid phase, not a guaranteed musical downbeat.
   final double? beatOffsetMs;
+
+  /// Estimated intro bar phase in milliseconds from the file start.
+  final double? downbeatOffsetMs;
+
+  /// Estimated outro bar phase in milliseconds from the file start.
+  final double? tailDownbeatOffsetMs;
 
   /// Camelot wheel position 1..12, or null when key detection was too
   /// uncertain. Letter: `camelotMinor == true` → "A" (minor), else "B" (major).
@@ -138,6 +157,8 @@ class AutomixTrackFeatures {
     'bc': bpmConfidence,
     if (alternateBpm != null) 'alt': alternateBpm,
     if (beatOffsetMs != null) 'bo': beatOffsetMs,
+    if (downbeatOffsetMs != null) 'dbo': downbeatOffsetMs,
+    if (tailDownbeatOffsetMs != null) 'tdbo': tailDownbeatOffsetMs,
     if (camelotNumber != null) 'kn': camelotNumber,
     if (camelotMinor != null) 'km': camelotMinor,
     'kc': keyConfidence,
@@ -161,6 +182,8 @@ class AutomixTrackFeatures {
       bpmConfidence: (map['bc'] as num?)?.toDouble() ?? 0,
       alternateBpm: (map['alt'] as num?)?.toDouble(),
       beatOffsetMs: (map['bo'] as num?)?.toDouble(),
+      downbeatOffsetMs: (map['dbo'] as num?)?.toDouble(),
+      tailDownbeatOffsetMs: (map['tdbo'] as num?)?.toDouble(),
       camelotNumber: (map['kn'] as num?)?.toInt(),
       camelotMinor: map['km'] as bool?,
       keyConfidence: (map['kc'] as num?)?.toDouble() ?? 0,
