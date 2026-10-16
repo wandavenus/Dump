@@ -51,7 +51,7 @@ void main() {
       await prefs.setString(
         'automix_42',
         jsonEncode(<String, dynamic>{
-          'version': 6,
+          'version': 7,
           'ident': identityOf(file),
           'data': <String, dynamic>{
             'id': 42,
@@ -105,7 +105,7 @@ void main() {
       await prefs.setString(
         'automix_43',
         jsonEncode(<String, dynamic>{
-          'version': 6,
+          'version': 7,
           'ident': 'stale_identity',
           'data': <String, dynamic>{'id': 43, 'bpm': 90.0, 'tbpm': 90.0},
         }),
