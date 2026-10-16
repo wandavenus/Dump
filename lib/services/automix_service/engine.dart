@@ -171,6 +171,36 @@ bool automixPlanContinues(List<int> planned, List<int> tail) {
   return true;
 }
 
+/// Exact ordered-queue snapshot comparison. Membership alone is insufficient:
+/// reordering the same IDs while AutoMix is planning is a real queue edit.
+bool automixQueueSnapshotMatches(List<int> expected, List<int> actual) {
+  if (expected.length != actual.length) return false;
+  for (var i = 0; i < expected.length; i++) {
+    if (expected[i] != actual[i]) return false;
+  }
+  return true;
+}
+
+/// Returns tracks in the order AutoMix can safely target for the next fade.
+/// In shuffle mode Media3 owns the permutation; only its reported next index is
+/// authoritative, so do not infer further transitions from the linear queue.
+List<T> automixUpcomingTracks<T>(
+  List<T> queue,
+  int currentIndex, {
+  required bool shuffleEnabled,
+  required int? nextTrackIndex,
+}) {
+  if (currentIndex < 0 || currentIndex >= queue.length) return <T>[];
+  if (!shuffleEnabled) {
+    return queue.skip(currentIndex + 1).toList(growable: false);
+  }
+  final next = nextTrackIndex;
+  if (next == null || next < 0 || next >= queue.length || next == currentIndex) {
+    return <T>[];
+  }
+  return <T>[queue[next]];
+}
+
 // ── Tempo matching ───────────────────────────────────────────────────────────
 
 /// Relative tempo distance beyond which two decks are **not** pulled together.
