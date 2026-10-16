@@ -203,24 +203,28 @@ class AutomixToneAudioProcessor(
     }
 }
 
-/** Tracks bass-swap and tail-filter controls by physical player slot (primary=0, secondary=1). */
+/** Tracks per-band isolator controls by physical player slot (primary=0, secondary=1). */
 @UnstableApi
 class AutomixToneManager {
     private val processors = mutableMapOf<Int, AutomixToneAudioProcessor>()
     private val targetGains = mutableMapOf<Int, Float>()
+    private val targetMidGains = mutableMapOf<Int, Float>()
     private val targetHighGains = mutableMapOf<Int, Float>()
     private val lock = Any()
 
     fun createProcessor(streamSlot: Int): AutomixToneAudioProcessor {
         val processor = AutomixToneAudioProcessor(streamSlot)
         val target: Float
+        val midTarget: Float
         val highTarget: Float
         synchronized(lock) {
             processors[streamSlot] = processor
             target = targetGains[streamSlot] ?: 1f
+            midTarget = targetMidGains[streamSlot] ?: 1f
             highTarget = targetHighGains[streamSlot] ?: 1f
         }
         processor.setBassGain(target)
+        processor.setMidGain(midTarget)
         processor.setHighGain(highTarget)
         return processor
     }
@@ -245,6 +249,17 @@ class AutomixToneManager {
             processor = processors[streamSlot]
         }
         processor?.setBassGain(normalized)
+    }
+
+    /** Mid-band gain for one deck: 1 = transparent, 0 = mid band removed. */
+    fun setMidGain(streamSlot: Int, gain: Float) {
+        val normalized = if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
+        val processor: AutomixToneAudioProcessor?
+        synchronized(lock) {
+            targetMidGains[streamSlot] = normalized
+            processor = processors[streamSlot]
+        }
+        processor?.setMidGain(normalized)
     }
 
     /** High-band gain for one deck: 1 = transparent, 0 = high band removed. */
@@ -292,14 +307,17 @@ class AutomixToneManager {
         synchronized(lock) {
             snapshot = processors.toList()
             targetGains.clear()
+            targetMidGains.clear()
             targetHighGains.clear()
             for ((slot, _) in snapshot) {
                 targetGains[slot] = 1f
+                targetMidGains[slot] = 1f
                 targetHighGains[slot] = 1f
             }
         }
         snapshot.forEach { (slot, processor) ->
             processor.setBassGain(1f)
+            processor.setMidGain(1f)
             processor.setHighGain(1f)
             setFadeGain(slot, 1f)
         }
