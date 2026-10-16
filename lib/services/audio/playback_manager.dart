@@ -90,6 +90,8 @@ class PlaybackManager {
 
   static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
       Media3PlaybackBridge.playbackStateStream;
+  static Stream<bool> get crossfadeStateStream =>
+      Media3PlaybackBridge.crossfadeStateStream;
   static Stream<Duration> get positionStream =>
       Media3PlaybackBridge.positionStream;
   static Stream<Duration> get durationStream =>
