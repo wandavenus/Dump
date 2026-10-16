@@ -1,0 +1,89 @@
+name: Run Noisegraph Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Which test workflow to dispatch in Noisegraph"
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - flutter
+          - automix-dart
+          - native-c
+          - kotlin
+          - android-arm64
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate selected Dump revision
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::GitHub did not provide a valid source commit SHA."
+            exit 1
+          fi
+          {
+            echo "## Noisegraph test dispatch"
+            echo
+            echo "- Suite: ${{ inputs.suite }}"
+            echo "- Dump ref: ${{ github.ref_name }}"
+            echo "- Dump commit: $SOURCE_SHA"
+            echo "- Triggered by: @${{ github.actor }}"
+            echo
+            echo "Dispatch acceptance starts separate runs in https://github.com/wandavenus/Noisegraph/actions"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch Flutter analyze and full tests
+        if: ${{ inputs.suite == 'all' || inputs.suite == 'flutter' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          repository: wandavenus/Noisegraph
+          event-type: test-flutter
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref }}","suite":"flutter"}'
+
+      - name: Dispatch AutoMix Dart regression tests
+        if: ${{ inputs.suite == 'all' || inputs.suite == 'automix-dart' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          repository: wandavenus/Noisegraph
+          event-type: test-automix-dart
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref }}","suite":"automix-dart"}'
+
+      - name: Dispatch native C/DSP tests
+        if: ${{ inputs.suite == 'all' || inputs.suite == 'native-c' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          repository: wandavenus/Noisegraph
+          event-type: test-native-c
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref }}","suite":"native-c"}'
+
+      - name: Dispatch Kotlin unit tests
+        if: ${{ inputs.suite == 'all' || inputs.suite == 'kotlin' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          repository: wandavenus/Noisegraph
+          event-type: test-kotlin
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref }}","suite":"kotlin"}'
+
+      - name: Dispatch Android ARM64 build smoke test
+        if: ${{ inputs.suite == 'all' || inputs.suite == 'android-arm64' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          repository: wandavenus/Noisegraph
+          event-type: test-android-arm64
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref }}","suite":"android-arm64"}'
