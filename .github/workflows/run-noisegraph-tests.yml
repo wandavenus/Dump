@@ -26,6 +26,12 @@ jobs:
   dispatch-tests:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout PR source for setup-script validation
+        uses: actions/checkout@v7
+
+      - name: Validate Flutter setup script syntax
+        run: bash -n setup-flutter.sh
+
       - name: Validate selected Dump revision
         id: source
         env:
