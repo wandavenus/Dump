@@ -18,7 +18,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
 class _ArtworkBlurPlayerBackgroundState
     extends State<ArtworkBlurPlayerBackground> {
   static const int _targetSizePx = 384;
-  static const double _blurSigma = 28;
+  static const double _blurSigma = 32;
 
   ImageProvider? _provider;
   int _requestId = 0;
