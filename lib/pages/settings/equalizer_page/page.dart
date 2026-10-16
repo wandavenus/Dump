@@ -67,18 +67,16 @@ class _EqualizerPageState extends State<EqualizerPage> {
               child: child,
             ),
           ),
-          child: BitPerfectLock(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                const _EqPresetChips(),
-                _EqBandSliderSection(activeTouches: _activeBandTouches),
-                const _SectionDivider(),
-                const _AdvancedAudioControls(),
-                const SizedBox(height: 40),
-              ],
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              const _EqPresetChips(),
+              _EqBandSliderSection(activeTouches: _activeBandTouches),
+              const _SectionDivider(),
+              const _AdvancedAudioControls(),
+              const SizedBox(height: 40),
+            ],
           ),
         ),
       ),
