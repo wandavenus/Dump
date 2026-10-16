@@ -379,17 +379,20 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   float* imaginary = (float*)calloc(FFT_SIZE, sizeof(float));
   float* previous_log_magnitude = (float*)calloc(FFT_BINS, sizeof(float));
   float* odf = (float*)calloc((size_t)frame_count, sizeof(float));
+  // rms_values packs only non-silent frames for a robust median. The
+  // frame-aligned timeline preserves silent windows and is used for cue timing.
   float* rms_values = (float*)malloc((size_t)frame_count * sizeof(float));
+  float* rms_frame_values = (float*)malloc((size_t)frame_count * sizeof(float));
   float* centroid_values = (float*)malloc((size_t)frame_count * sizeof(float));
   float* twiddle_real = (float*)malloc(FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc(FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
       previous_log_magnitude == NULL || odf == NULL || rms_values == NULL ||
-      centroid_values == NULL || twiddle_real == NULL ||
+      rms_frame_values == NULL || centroid_values == NULL || twiddle_real == NULL ||
       twiddle_imaginary == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-    free(odf); free(rms_values); free(centroid_values); free(twiddle_real);
+    free(odf); free(rms_values); free(rms_frame_values); free(centroid_values); free(twiddle_real);
     free(twiddle_imaginary); free(bit_reverse);
     return 0;
   }
@@ -422,8 +425,12 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
 #endif
     memset(imaginary, 0, FFT_SIZE * sizeof(float));
     const double rms = sqrt(square_sum / FFT_SIZE);
+    // Store every frame on the same time axis. -120 dBFS is the explicit
+    // silence floor; the packed array below excludes these frames for median.
+    const float rms_db = (float)(20.0 * log(fmax(rms, 1e-6)) / LN10);
+    rms_frame_values[frame] = rms_db;
     if (rms > 1e-6) {
-      rms_values[rms_count++] = (float)(20.0 * log(rms) / LN10);
+      rms_values[rms_count++] = rms_db;
     }
 
     radix2_fft(real, imaginary, twiddle_real, twiddle_imaginary, bit_reverse);
@@ -519,7 +526,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   // onset envelope (drop) or by a high-to-low energy transition (breakdown).
   output[12] = NAN; // Drop cue
   output[13] = NAN; // Breakdown cue
-  if (frame_count > 16 && isfinite(rms_median) && rms_median > 1e-4f) {
+  if (frame_count > 16 && isfinite(rms_median) && rms_median > -80.0f) {
     float max_flux = 0.0f;
     for (int32_t i = 4; i < frame_count - 4; ++i) {
       if (isfinite(odf[i]) && odf[i] > max_flux) max_flux = odf[i];
@@ -539,9 +546,9 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       for (int32_t i = before_frames;
            i < frame_count - after_frames - 4; ++i) {
         const double before = mean_float_range(
-            rms_values, i - before_frames, i);
+            rms_frame_values, i - before_frames, i);
         const double after = mean_float_range(
-            rms_values, i, i + after_frames);
+            rms_frame_values, i, i + after_frames);
         if (!isfinite(before) || !isfinite(after)) continue;
 
         float nearby_flux = 0.0f;
@@ -549,14 +556,13 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
           if (odf[j] > nearby_flux) nearby_flux = odf[j];
         }
 
-        // Drop: a low-energy lead-in, a sustained energy rise, and a strong
-        // onset near the rise. Relative thresholds deliberately prefer no cue
-        // over a random transient on tracks with no obvious drop.
-        if (before <= (double)rms_median * 0.85 &&
-            after >= (double)rms_median * 0.80 &&
-            after >= before * 1.35 &&
+        // RMS values are dBFS: differences are additive (not ratios). A drop
+        // needs a quieter lead-in, a sustained rise, and a nearby onset.
+        if (before <= (double)rms_median - 3.0 &&
+            after >= (double)rms_median - 3.0 &&
+            after - before >= 4.0 &&
             nearby_flux >= max_flux * 0.20) {
-          const double score = (after - before) / rms_median +
+          const double score = (after - before) +
               0.25 * (double)nearby_flux / max_flux;
           if (score > best_drop_score) {
             best_drop_score = score;
@@ -565,11 +571,11 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
         }
 
         // Breakdown: sustained energy falls from above the track's typical
-        // level to clearly below it; transient-only dips don't qualify.
-        if (before >= (double)rms_median * 1.15 &&
-            after <= (double)rms_median * 0.85 &&
-            before >= after * 1.30) {
-          const double score = (before - after) / rms_median;
+        // level to clearly below it; short transient-only dips do not qualify.
+        if (before >= (double)rms_median + 2.0 &&
+            after <= (double)rms_median - 3.0 &&
+            before - after >= 4.0) {
+          const double score = before - after;
           if (score > best_breakdown_score) {
             best_breakdown_score = score;
             best_breakdown_idx = i;
@@ -589,7 +595,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   }
 
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-  free(odf); free(rms_values); free(centroid_values); free(twiddle_real);
+  free(odf); free(rms_values); free(rms_frame_values); free(centroid_values); free(twiddle_real);
   free(twiddle_imaginary); free(bit_reverse);
   return 1;
 }
