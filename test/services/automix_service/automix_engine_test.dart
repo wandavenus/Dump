@@ -1273,4 +1273,29 @@ void main() {
       expect(automixPlanContinues(const <int>[], [1]), isFalse);
     });
   });
+
+
+  group('queue snapshot validation', () {
+    test('requires the exact same ordered queue, not just matching IDs', () {
+      expect(automixQueueSnapshotMatches([10, 20, 30], [10, 20, 30]), isTrue);
+      expect(automixQueueSnapshotMatches([10, 20, 30], [20, 10, 30]), isFalse);
+      expect(automixQueueSnapshotMatches([10, 20, 30], [10, 20, 30, 40]), isFalse);
+      expect(automixQueueSnapshotMatches([10, 20, 30], [10, 30]), isFalse);
+    });
+  });
+
+  group('shuffle-aware upcoming tracks', () {
+    const queue = <String>['A', 'B', 'C', 'D'];
+    test('uses Media3 next index under shuffle', () {
+      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: 3), ['D']);
+    });
+    test('does not guess when native shuffle state is unknown or invalid', () {
+      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: null), isEmpty);
+      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: -1), isEmpty);
+      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: 1), isEmpty);
+    });
+    test('preserves full linear tail with shuffle disabled', () {
+      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: false, nextTrackIndex: 3), ['C', 'D']);
+    });
+  });
 }
