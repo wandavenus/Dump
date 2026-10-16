@@ -55,10 +55,27 @@ enum NarAutomixFeatureIndex {
 // Key fields per track: [Camelot number (0 means unknown), mode
 // (-1 unknown, 0 major, 1 minor)].
 //
-// Analysis values: [BPM (NaN when unknown), BPM confidence, alternate BPM,
-// beat offset ms, tonic pitch class (-1 unknown), isMinor (0/1), key
-// confidence, RMS dBFS, spectral centroid Hz, onset rate, analyzed seconds,
-// confident 16-beat phrase-start offset ms, drop cue ms, breakdown cue ms].
+// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 20):
+//  0: BPM (NaN when unknown)
+//  1: BPM confidence (0..1)
+//  2: Alternate BPM (NaN when unknown)
+//  3: Beat offset ms (NaN when unknown)
+//  4: Tonic pitch class (-1 unknown, 0..11)
+//  5: isMinor (0 = major, 1 = minor)
+//  6: Key confidence (0..1)
+//  7: RMS dBFS (active frame median)
+//  8: Spectral centroid Hz (active frame median)
+//  9: Onset rate (onsets/sec)
+// 10: Analyzed duration in seconds
+// 11: Confident 16-beat phrase-start offset ms (NaN when unknown)
+// 12: Drop cue ms (NaN when unknown)
+// 13: Breakdown cue ms (NaN when unknown)
+// 14: Drop confidence (0..1)
+// 15: Breakdown confidence (0..1)
+// 16: Structure region (enum NarAutomixStructureRegion 0..5)
+// 17: Structure confidence (0..1)
+// 18: Vocal likelihood (0..1)
+// 19: Vocal confidence (0..1)
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     const float* mono,
     int32_t sample_count,

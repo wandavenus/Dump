@@ -121,9 +121,9 @@ void main() {
             // The test font has wider glyph metrics than the app font. Scale
             // only this test's text so the unchanged page header does not
             // create a false overflow unrelated to the responsive grid.
-            data: MediaQuery.of(context).copyWith(
-              textScaler: const TextScaler.linear(0.8),
-            ),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(0.8)),
             child: const RadioPageContent(),
           ),
         ),

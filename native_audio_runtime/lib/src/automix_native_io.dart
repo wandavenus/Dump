@@ -21,9 +21,19 @@ class NativeAutomix {
     required bool harmonicFilter,
     required int startIndex,
   }) {
+    if (tracks.isEmpty) {
+      return const NativeAutomixPlan(
+        order: [],
+        crossfadeSeconds: 0,
+        averageCost: 0,
+      );
+    }
     final count = tracks.length;
+    final safeStartIndex = startIndex.clamp(0, count - 1);
     final trackAllocationCount = count < 1 ? 1 : count;
-    final featureAllocationCount = count * _featureCount < 1 ? 1 : count * _featureCount;
+    final featureAllocationCount = count * _featureCount < 1
+        ? 1
+        : count * _featureCount;
     final keyAllocationCount = count * 2 < 1 ? 1 : count * 2;
     final ids = pkg_ffi.calloc<ffi.Int64>(trackAllocationCount);
     final artists = pkg_ffi.calloc<ffi.Int32>(trackAllocationCount);
@@ -74,7 +84,7 @@ class NativeAutomix {
         crossfadeBeats,
         avoidArtistRepeat ? 1 : 0,
         harmonicFilter ? 1 : 0,
-        startIndex,
+        safeStartIndex,
         order,
         metrics,
         2,
@@ -100,7 +110,7 @@ class NativeAutomix {
   /// Analyze mono float32 PCM. The app's Android decoder uses the JNI entry
   /// point into this same C function; this FFI entry is useful for host tests.
   static NativeAutomixAnalysis? analyze(NativeAutomixPcm pcm, int sampleRate) {
-    if (pcm.isEmpty) return null;
+    if (pcm.isEmpty || sampleRate <= 0) return null;
     final samples = pkg_ffi.calloc<ffi.Float>(pcm.length);
     final output = pkg_ffi.calloc<ffi.Double>(_analysisOutputCount);
     try {

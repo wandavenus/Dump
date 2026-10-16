@@ -104,9 +104,9 @@ Future<void> _pumpOnDevice(
         builder: (context) => Scaffold(
           body: size.width <= 500
               ? MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: _testFontCompensation,
-                  ),
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: _testFontCompensation),
                   child: child,
                 )
               : child,
@@ -135,43 +135,48 @@ void main() {
   });
 
   group('aturan lebar konten bersama', () {
-    testWidgets('contentMaxWidth: lebar window di ponsel, dijepit di layar lebar', (
-      tester,
-    ) async {
-      final cases = <Size, double>{
-        // Ponsel: lebar apa adanya → tidak ada perubahan perilaku.
-        const Size(320, 600): 320,
-        const Size(393, 852): 393,
-        const Size(412, 915): 412,
-        const Size(600, 1024): 600,
-        const Size(719, 900): 719,
-        // Layar lebar: kolom baca yang sama untuk semua halaman.
-        const Size(720, 900): 720,
-        const Size(1024, 768): kMaxContentWidth,
-        const Size(1440, 900): kMaxContentWidth,
-      };
+    testWidgets(
+      'contentMaxWidth: lebar window di ponsel, dijepit di layar lebar',
+      (tester) async {
+        final cases = <Size, double>{
+          // Ponsel: lebar apa adanya → tidak ada perubahan perilaku.
+          const Size(320, 600): 320,
+          const Size(393, 852): 393,
+          const Size(412, 915): 412,
+          const Size(600, 1024): 600,
+          const Size(719, 900): 719,
+          // Layar lebar: kolom baca yang sama untuk semua halaman.
+          const Size(720, 900): 720,
+          const Size(1024, 768): kMaxContentWidth,
+          const Size(1440, 900): kMaxContentWidth,
+        };
 
-      for (final entry in cases.entries) {
-        double? captured;
-        tester.view.devicePixelRatio = 1.0;
-        tester.view.physicalSize = entry.key;
-        addTearDown(tester.view.reset);
+        for (final entry in cases.entries) {
+          double? captured;
+          tester.view.devicePixelRatio = 1.0;
+          tester.view.physicalSize = entry.key;
+          addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Builder(
-              builder: (context) {
-                captured = contentMaxWidth(context);
-                return const SizedBox.shrink();
-              },
+          await tester.pumpWidget(
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Builder(
+                builder: (context) {
+                  captured = contentMaxWidth(context);
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
-          ),
-        );
+          );
 
-        expect(captured, entry.value, reason: 'contentMaxWidth di ${entry.key}');
-      }
-    });
+          expect(
+            captured,
+            entry.value,
+            reason: 'contentMaxWidth di ${entry.key}',
+          );
+        }
+      },
+    );
 
     test('ambang tata letak lebar cuma satu angka: $kWideLayoutMinWidth', () {
       expect(kWideLayoutMinWidth, 600.0);
@@ -191,19 +196,20 @@ void main() {
       height: 40,
     );
 
-    testWidgets('window sempit: anak diteruskan apa adanya, mulai dari tepi kiri', (
-      tester,
-    ) async {
-      await _pumpOnDevice(
-        tester,
-        size: const Size(393, 852),
-        dpr: 2.0,
-        child: const ResponsivePageBody(child: probe),
-      );
+    testWidgets(
+      'window sempit: anak diteruskan apa adanya, mulai dari tepi kiri',
+      (tester) async {
+        await _pumpOnDevice(
+          tester,
+          size: const Size(393, 852),
+          dpr: 2.0,
+          child: const ResponsivePageBody(child: probe),
+        );
 
-      expect(tester.getSize(find.byKey(const ValueKey('probe'))).width, 393);
-      expect(tester.getTopLeft(find.byKey(const ValueKey('probe'))).dx, 0);
-    });
+        expect(tester.getSize(find.byKey(const ValueKey('probe'))).width, 393);
+        expect(tester.getTopLeft(find.byKey(const ValueKey('probe'))).dx, 0);
+      },
+    );
 
     testWidgets('window lebar: konten dijepit dan dipusatkan, bukan melebar', (
       tester,

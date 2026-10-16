@@ -14,10 +14,7 @@ void main() {
       expect(result.id, equals(''));
       expect(result.name, equals(''));
       expect(result.songIds, isEmpty);
-      expect(
-        result.createdAt,
-        equals(DateTime.fromMillisecondsSinceEpoch(0)),
-      );
+      expect(result.createdAt, equals(DateTime.fromMillisecondsSinceEpoch(0)));
     });
 
     test('fromJson preserves song ID order and duplicates', () {
@@ -70,8 +67,10 @@ void main() {
 
       final decoded = Playlist.decodeList(Playlist.encodeList(playlists));
 
-      expect(decoded.map((playlist) => playlist.id).toList(),
-          equals(['first', 'second', 'third']));
+      expect(
+        decoded.map((playlist) => playlist.id).toList(),
+        equals(['first', 'second', 'third']),
+      );
     });
 
     test('copyWith does not mutate the original playlist song IDs', () {

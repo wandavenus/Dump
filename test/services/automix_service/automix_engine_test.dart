@@ -46,15 +46,17 @@ AutomixTrackFeatures _f(
 void main() {
   group('AutomixTrackFeatures serialization', () {
     test('round trips phase/cue metadata and accepts older cache entries', () {
-      final feature = _f(
-        17,
+      final feature = AutomixTrackFeatures(
+        songId: 17,
         bpm: 120,
-        alt: 240,
+        alternateBpm: 240,
         beatOffsetMs: 123.5,
         downbeatOffsetMs: 350.0,
         tailDownbeatOffsetMs: 8350.0,
         dropCueMs: 32000.0,
         tailBreakdownCueMs: 178000.0,
+        vocalLikelihood: 0.85,
+        vocalConfidence: 0.9,
         durationSeconds: 180.0,
       );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
@@ -64,6 +66,8 @@ void main() {
       expect(restored.tailDownbeatOffsetMs, 8350.0);
       expect(restored.dropCueMs, 32000.0);
       expect(restored.tailBreakdownCueMs, 178000.0);
+      expect(restored.vocalLikelihood, 0.85);
+      expect(restored.vocalConfidence, 0.9);
       expect(restored.durationSeconds, 180.0);
 
       final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
@@ -516,8 +520,8 @@ void main() {
           songId: 5,
           segments: [seg(0, bpm: 120, rms: -12)],
           sourceDurationSeconds: 360,
-        tailSegmentAnalyzed: false,
-      );
+          tailSegmentAnalyzed: false,
+        );
 
         // Only the 120-second head window succeeded, but the source is 6 minutes.
         expect(merged.durationSeconds, 360);
@@ -543,10 +547,7 @@ void main() {
     test('retains head drop cue and absolute tail breakdown cue', () {
       final merged = automixMergeSegments(
         songId: 3,
-        segments: [
-          seg(0, dropCueMs: 28000),
-          seg(240, breakdownCueMs: 114000),
-        ],
+        segments: [seg(0, dropCueMs: 28000), seg(240, breakdownCueMs: 114000)],
       );
       expect(merged.dropCueMs, 28000);
       expect(merged.tailBreakdownCueMs, 354000);

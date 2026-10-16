@@ -893,21 +893,19 @@ class ReplayGainService {
       }
     }
     try {
-      final raw = await _channel.invokeMapMethod<String, dynamic>(
-        'writeReplayGain',
-        {
-          'path': song.path,
-          'songId': song.id,
-          'trackGainDb': trackGainDb,
-          'trackPeak': trackPeak,
-          'integratedLufs': trackIntegratedLufs,
-          'fileSize': ?expectedFileSize,
-          'fileMtimeMs': ?expectedFileMtimeMs,
-          'albumGainDb': ?albumGainDb,
-          'albumPeak': ?albumPeak,
-          'albumIntegratedLufs': ?albumIntegratedLufs,
-        },
-      );
+      final raw = await _channel
+          .invokeMapMethod<String, dynamic>('writeReplayGain', {
+            'path': song.path,
+            'songId': song.id,
+            'trackGainDb': trackGainDb,
+            'trackPeak': trackPeak,
+            'integratedLufs': trackIntegratedLufs,
+            'fileSize': ?expectedFileSize,
+            'fileMtimeMs': ?expectedFileMtimeMs,
+            'albumGainDb': ?albumGainDb,
+            'albumPeak': ?albumPeak,
+            'albumIntegratedLufs': ?albumIntegratedLufs,
+          });
       final success = raw?['success'] == true;
       if (!success) {
         LogService.warn(

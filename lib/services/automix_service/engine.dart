@@ -359,15 +359,17 @@ AutomixTrackFeatures automixMergeSegments({
   double? tailBpm;
   double? tailBeatOffsetMs;
   double? tailDownbeatOffsetMs;
-  for (final s in tailSegmentAnalyzed ? segments.reversed : const <AutomixSegmentFeatures>[]) {
+  for (final s
+      in tailSegmentAnalyzed
+          ? segments.reversed
+          : const <AutomixSegmentFeatures>[]) {
     if (s.bpm == null || s.bpmConfidence < 0.20) continue;
     tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
     if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
       tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
     }
     if (s.downbeatOffsetMs != null && s.bpmConfidence >= 0.25) {
-      tailDownbeatOffsetMs =
-          s.startSeconds * 1000.0 + s.downbeatOffsetMs!;
+      tailDownbeatOffsetMs = s.startSeconds * 1000.0 + s.downbeatOffsetMs!;
     }
     break;
   }
@@ -379,38 +381,59 @@ AutomixTrackFeatures automixMergeSegments({
   final inferredFileSeconds = segments.isEmpty
       ? 0.0
       : segments.last.startSeconds + segments.last.seconds;
-  final hasSourceDuration = sourceDurationSeconds != null &&
+  final hasSourceDuration =
+      sourceDurationSeconds != null &&
       sourceDurationSeconds.isFinite &&
       sourceDurationSeconds > 0;
   // A failed tail/middle decode must not shrink the actual source duration to
   // the end of the last successful window. Keep the larger valid boundary as
   // a defensive guard against slightly inconsistent window metadata.
   final fileSeconds = hasSourceDuration
-      ? math.max(sourceDurationSeconds, inferredFileSeconds)
-          .toDouble()
+      ? math.max(sourceDurationSeconds, inferredFileSeconds).toDouble()
       : inferredFileSeconds;
   final firstSegment = segments.isEmpty ? null : segments.first;
   final lastSegment = segments.isEmpty ? null : segments.last;
   final localDropCue = firstSegment?.dropCueMs;
-  final localBreakdownCue = tailSegmentAnalyzed ? lastSegment?.breakdownCueMs : null;
-  final dropCueMs = localDropCue != null &&
-          localDropCue.isFinite &&
-          localDropCue >= 0
+  final localBreakdownCue = tailSegmentAnalyzed
+      ? lastSegment?.breakdownCueMs
+      : null;
+  final dropCueMs =
+      localDropCue != null && localDropCue.isFinite && localDropCue >= 0
       ? firstSegment!.startSeconds * 1000.0 + localDropCue
       : null;
-  final tailBreakdownCueMs = localBreakdownCue != null &&
+  final tailBreakdownCueMs =
+      localBreakdownCue != null &&
           localBreakdownCue.isFinite &&
           localBreakdownCue >= 0
       ? lastSegment!.startSeconds * 1000.0 + localBreakdownCue
       : null;
 
   final anchorAlternateBpm = tempoAnchor?.alternateBpm;
-  final alternateBpm = bpm != null &&
+  final alternateBpm =
+      bpm != null &&
           anchorAlternateBpm != null &&
           anchorAlternateBpm.isFinite &&
           anchorAlternateBpm > 0
       ? anchorAlternateBpm
       : null;
+
+  // ── Vocal likelihood ─────────────────────────────────────────────────────
+  final withVocal = segments.where((s) => s.vocalConfidence > 0).toList();
+  var vocalLikelihood = 0.0;
+  var vocalConfidence = 0.0;
+  if (withVocal.isNotEmpty) {
+    var weightedLikelihood = 0.0;
+    var totalWeight = 0.0;
+    for (final s in withVocal) {
+      final w = s.vocalConfidence;
+      weightedLikelihood += s.vocalLikelihood * w;
+      totalWeight += w;
+    }
+    if (totalWeight > 0) {
+      vocalLikelihood = automixClamp01(weightedLikelihood / totalWeight);
+      vocalConfidence = automixClamp01(totalWeight / withVocal.length);
+    }
+  }
 
   return AutomixTrackFeatures(
     songId: songId,
@@ -420,14 +443,21 @@ AutomixTrackFeatures automixMergeSegments({
     bpmConfidence: bpmConfidence,
     alternateBpm: alternateBpm,
     beatOffsetMs: segments.isEmpty ? null : segments.first.beatOffsetMs,
-    downbeatOffsetMs: segments.isEmpty ||
-            segments.first.downbeatOffsetMs == null
+    downbeatOffsetMs:
+        segments.isEmpty || segments.first.downbeatOffsetMs == null
         ? null
         : segments.first.startSeconds * 1000.0 +
-            segments.first.downbeatOffsetMs!,
+              segments.first.downbeatOffsetMs!,
     tailDownbeatOffsetMs: tailDownbeatOffsetMs,
     dropCueMs: dropCueMs,
     tailBreakdownCueMs: tailBreakdownCueMs,
+    dropConfidence: firstSegment?.dropConfidence ?? 0,
+    tailBreakdownConfidence: tailSegmentAnalyzed
+        ? (lastSegment?.breakdownConfidence ?? 0)
+        : 0,
+    structureRegion: firstSegment?.structureRegion ?? 0,
+    vocalLikelihood: vocalLikelihood,
+    vocalConfidence: vocalConfidence,
     durationSeconds: fileSeconds,
     camelotNumber: camelotNumber,
     camelotMinor: camelotMinor,
@@ -837,8 +867,15 @@ double _transitionCost({
       a.artist.trim().isNotEmpty;
   final variety = sameArtist ? (settings.avoidArtistRepeat ? 0.55 : 0.20) : 0.0;
 
+  final vA = a.vocalLikelihood;
+  final vB = b.vocalLikelihood;
+  var vocalPenalty = 0.0;
+  if (vA.isFinite && vB.isFinite && vA > 0.5 && vB > 0.5) {
+    vocalPenalty = (vA - 0.5) * (vB - 0.5) * 0.4;
+  }
+
   final (wT, wK, wE, wV) = _profileWeights[settings.profile]!;
-  return ((wT * tempo + wK * key + wE * energy + wV * variety) /
+  return ((wT * tempo + wK * key + wE * energy + wV * variety + vocalPenalty) /
           (wT + wK + wE + wV))
       .clamp(0.0, 1.0);
 }
@@ -1300,6 +1337,7 @@ class AutomixEngine {
           introEnergy: track.introEnergy,
           outroEnergy: track.outroEnergy,
           analyzedFraction: track.analyzedFraction,
+          vocalLikelihood: track.vocalLikelihood,
         ),
       );
     }
