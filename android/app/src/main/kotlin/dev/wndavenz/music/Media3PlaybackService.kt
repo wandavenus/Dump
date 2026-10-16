@@ -184,6 +184,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixTempoMultiplierBySongId = mutableMapOf<Int, Float>()
     private val automixBpmBySongId = mutableMapOf<Int, Float>()
     private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
+    private val automixDownbeatOffsetMsBySongId = mutableMapOf<Int, Long>()
     // Per-transition shaping, keyed by the INCOMING song id: its fade length,
     // the transfer curve, and the level match with the outgoing deck.
     private val automixFadeSecondsBySongId = mutableMapOf<Int, Float>()
@@ -585,6 +586,11 @@ class Media3PlaybackService : MediaSessionService() {
             },
             getAutoMixBeatOffsetMsForPlayer = { p ->
                 p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBeatOffsetMsBySongId[it] }
+            },
+            getAutoMixDownbeatOffsetMsForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let {
+                    automixDownbeatOffsetMsBySongId[it]
+                }
             },
             setAutoMixBassGain = { p, gain ->
                 val slot = when (p) {
@@ -2206,6 +2212,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixTempoMultiplierBySongId.clear()
         automixBpmBySongId.clear()
         automixBeatOffsetMsBySongId.clear()
+        automixDownbeatOffsetMsBySongId.clear()
         automixFadeSecondsBySongId.clear()
         automixCurveBySongId.clear()
         automixIncomingTrimBySongId.clear()
@@ -2225,6 +2232,13 @@ class Media3PlaybackService : MediaSessionService() {
                 val offsetMs = (target["beatOffsetMs"] as? Number)?.toDouble()
                 if (offsetMs != null && offsetMs.isFinite() && offsetMs >= 0.0) {
                     automixBeatOffsetMsBySongId[id] = offsetMs.toLong()
+                }
+                val downbeatOffsetMs =
+                    (target["downbeatOffsetMs"] as? Number)?.toDouble()
+                if (downbeatOffsetMs != null &&
+                    downbeatOffsetMs.isFinite() && downbeatOffsetMs >= 0.0
+                ) {
+                    automixDownbeatOffsetMsBySongId[id] = downbeatOffsetMs.toLong()
                 }
                 val fadeSeconds = (target["fadeSeconds"] as? Number)?.toFloat()
                 if (fadeSeconds != null && fadeSeconds.isFinite()) {
