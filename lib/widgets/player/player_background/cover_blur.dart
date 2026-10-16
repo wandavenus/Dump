@@ -212,7 +212,7 @@ class _ArtworkBlurLease {
   void release() {
     if (_released) return;
     _released = true;
-    _ArtworkBlurCache.release(key, _frame);
+    _ArtworkBlurCache.release(_frame);
   }
 }
 
@@ -223,6 +223,7 @@ class _ArtworkBlurCache {
   static const int _maxEntries = 3;
   static final Map<String, _ArtworkBlurFrame> _frames = {};
   static final Map<String, _ArtworkBlurPending> _pending = {};
+  static bool _evictionScheduled = false;
 
   static Future<_ArtworkBlurLease?> acquire({
     required String key,
@@ -340,24 +341,34 @@ class _ArtworkBlurCache {
     }
   }
 
-  static void release(String key, _ArtworkBlurFrame frame) {
+  static void release(_ArtworkBlurFrame frame) {
     if (frame.users > 0) frame.users--;
     _evict();
   }
 
   static void _evict() {
-    while (_frames.length > _maxEntries) {
-      String? victimKey;
-      for (final entry in _frames.entries) {
-        if (entry.value.users == 0) {
-          victimKey = entry.key;
-          break;
-        }
-      }
-      if (victimKey == null) return;
+    if (_frames.length <= _maxEntries || _evictionScheduled) return;
+    if (!_frames.values.any((frame) => frame.users == 0)) return;
 
-      final victim = _frames.remove(victimKey);
-      victim?.image.dispose();
-    }
+    // Wait until the current frame has rebuilt/unmounted any RawImage that
+    // stopped leasing an entry; disposing the ui.Image earlier can race paint.
+    _evictionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _evictionScheduled = false;
+      while (_frames.length > _maxEntries) {
+        String? victimKey;
+        for (final entry in _frames.entries) {
+          if (entry.value.users == 0) {
+            victimKey = entry.key;
+            break;
+          }
+        }
+        if (victimKey == null) return;
+
+        final victim = _frames.remove(victimKey);
+        victim?.image.dispose();
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 }
