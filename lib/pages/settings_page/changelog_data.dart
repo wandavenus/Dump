@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.39',
+    date: '16 Oktober 2026',
+    changes: [
+      'Optimasi blur artwork Now Playing dengan cache memori terbatas agar hasil blur dipakai ulang saat animasi player.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.38',
     date: '16 Oktober 2026',
     changes: [
