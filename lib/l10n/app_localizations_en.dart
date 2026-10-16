@@ -427,7 +427,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionBitPerfect => 'PLAYER';
 
   @override
-  String get bitPerfectMode => 'Pure Audio Mode';
+  String get bitPerfectMode => 'Pure Playback';
 
   @override
   String get bitPerfectActiveSubtitle =>
