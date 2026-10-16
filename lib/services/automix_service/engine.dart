@@ -385,7 +385,7 @@ AutomixTrackFeatures automixMergeSegments({
   // the end of the last successful window. Keep the larger valid boundary as
   // a defensive guard against slightly inconsistent window metadata.
   final fileSeconds = hasSourceDuration
-      ? math.max(sourceDurationSeconds ?? inferredFileSeconds, inferredFileSeconds)
+      ? math.max(sourceDurationSeconds, inferredFileSeconds)
           .toDouble()
       : inferredFileSeconds;
   final firstSegment = segments.isEmpty ? null : segments.first;
