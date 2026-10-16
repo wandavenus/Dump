@@ -593,6 +593,11 @@ class Media3PlaybackService : MediaSessionService() {
                     automixDownbeatOffsetMsBySongId[it]
                 }
             },
+            getAutoMixTempoMultiplierForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let {
+                    automixTempoMultiplierBySongId[it]
+                }
+            },
             setAutoMixBassGain = { p, gain ->
                 val slot = when (p) {
                     primaryPlayer -> 0
