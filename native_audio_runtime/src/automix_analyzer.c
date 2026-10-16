@@ -370,6 +370,17 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[5] = 0.0;
   output[6] = 0.0;
   output[10] = 0.0;
+  // Confidence fields always obey their finite [0,1] contract, including
+  // silence/invalid-content frames where no section analysis is possible.
+  output[11] = NAN;
+  output[12] = NAN;
+  output[13] = NAN;
+  output[14] = 0.0;
+  output[15] = 0.0;
+  output[16] = (double)NAR_AUTOMIX_STRUCTURE_UNKNOWN;
+  output[17] = 0.0;
+  output[18] = 0.0;
+  output[19] = 0.0;
 
   const int32_t frame_count = (sample_count - FFT_SIZE) / HOP_SIZE + 1;
   if (frame_count < 8) return 0;
@@ -384,15 +395,19 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   float* rms_values = (float*)malloc((size_t)frame_count * sizeof(float));
   float* rms_frame_values = (float*)malloc((size_t)frame_count * sizeof(float));
   float* centroid_values = (float*)malloc((size_t)frame_count * sizeof(float));
+  float* vocal_band_ratio_values =
+      (float*)malloc((size_t)frame_count * sizeof(float));
   float* twiddle_real = (float*)malloc(FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc(FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
       previous_log_magnitude == NULL || odf == NULL || rms_values == NULL ||
-      rms_frame_values == NULL || centroid_values == NULL || twiddle_real == NULL ||
+      rms_frame_values == NULL || centroid_values == NULL ||
+      vocal_band_ratio_values == NULL || twiddle_real == NULL ||
       twiddle_imaginary == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-    free(odf); free(rms_values); free(rms_frame_values); free(centroid_values); free(twiddle_real);
+    free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
+    free(vocal_band_ratio_values); free(twiddle_real);
     free(twiddle_imaginary); free(bit_reverse);
     return 0;
   }
@@ -409,6 +424,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
 
   int32_t rms_count = 0;
   int32_t centroid_count = 0;
+  int32_t vocal_band_ratio_count = 0;
   float chroma[12] = {0};
   const double working_rate = sample_rate;
   for (int32_t frame = 0; frame < frame_count; ++frame) {
@@ -437,15 +453,21 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     float flux = 0.0f;
     double weight_sum = 0.0;
     double frequency_sum = 0.0;
+    double total_spectral_magnitude = 0.0;
+    double vocal_band_magnitude = 0.0;
     for (int32_t bin = 0; bin < FFT_BINS; ++bin) {
       const float magnitude = sqrtf(real[bin] * real[bin] +
                                     imaginary[bin] * imaginary[bin]);
       const float log_magnitude = logf(magnitude + 1.0f);
+      total_spectral_magnitude += magnitude;
+      const double frequency = bin * working_rate / FFT_SIZE;
+      if (frequency >= 300.0 && frequency <= 3500.0) {
+        vocal_band_magnitude += magnitude;
+      }
       const float difference = log_magnitude - previous_log_magnitude[bin];
       if (difference > 0.0f) flux += difference;
       previous_log_magnitude[bin] = log_magnitude;
 
-      const double frequency = bin * working_rate / FFT_SIZE;
       if (frequency >= CHROMA_MIN_FREQ && frequency <= CHROMA_MAX_FREQ) {
         weight_sum += magnitude;
         frequency_sum += magnitude * frequency;
@@ -462,6 +484,10 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     odf[frame] = flux;
     if (weight_sum > 1e-9) {
       centroid_values[centroid_count++] = (float)(frequency_sum / weight_sum);
+      if (total_spectral_magnitude > 1e-9 && rms > 1e-6) {
+        vocal_band_ratio_values[vocal_band_ratio_count++] =
+            (float)(vocal_band_magnitude / total_spectral_magnitude);
+      }
     }
   }
 
@@ -701,20 +727,43 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     output[16] = (double)region;
     output[17] = reg_conf;
 
-    // Vocal-likelihood estimation (300Hz-3.5kHz energy ratio + spectral centroid stability)
-    double vocal_like = 0.0;
-    double vocal_conf = 0.0;
-    if (centroid_median >= 800.0f && centroid_median <= 3200.0f && rms_median > -40.0f) {
-      const double c_score = 1.0 - fabs((centroid_median - 1800.0) / 1400.0);
-      vocal_like = fmin(1.0, fmax(0.0, c_score));
-      vocal_conf = fmin(1.0, fmax(0.3, 0.5 + 0.5 * vocal_like));
+    // Vocal-likelihood proxy from a broad speech-band magnitude ratio and
+    // centroid stability. These spectral cues cannot isolate a singer from
+    // instruments, so confidence is intentionally capped and low-quality or
+    // ambiguous windows remain below the planner's confidence gate.
+    const float vocal_band_ratio =
+        median_float(vocal_band_ratio_values, vocal_band_ratio_count);
+    double centroid_mad = 0.0;
+    for (int32_t i = 0; i < centroid_count; ++i) {
+      centroid_mad += fabs((double)centroid_values[i] - centroid_median);
+    }
+    if (centroid_count > 0) centroid_mad /= centroid_count;
+    const double centroid_stability =
+        fmin(1.0, fmax(0.0, 1.0 - centroid_mad / 1400.0));
+    if (isfinite(vocal_band_ratio) && isfinite(centroid_median) &&
+        centroid_count >= 16 && vocal_band_ratio >= 0.20f &&
+        centroid_median >= 300.0f && centroid_median <= 3500.0f &&
+        rms_median > -40.0f) {
+      const double band_score =
+          fmin(1.0, fmax(0.0, (vocal_band_ratio - 0.20) / 0.55));
+      const double center_score =
+          fmin(1.0, fmax(0.0, 1.0 - fabs(centroid_median - 1800.0) / 1800.0));
+      vocal_like = fmin(1.0, fmax(0.0,
+          0.50 * band_score + 0.25 * center_score +
+          0.25 * centroid_stability));
+      // This is confidence in the heuristic, not confidence that a singer is
+      // present. Cap it at 0.65 so ambiguous instrumental passages don't get
+      // treated like high-certainty vocal collisions.
+      vocal_conf = fmin(0.65, fmax(0.0,
+          0.10 + 0.35 * band_score + 0.20 * centroid_stability));
     }
     output[18] = vocal_like;
     output[19] = vocal_conf;
   }
 
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-  free(odf); free(rms_values); free(rms_frame_values); free(centroid_values); free(twiddle_real);
+  free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
+  free(vocal_band_ratio_values); free(twiddle_real);
   free(twiddle_imaginary); free(bit_reverse);
   return 1;
 }
