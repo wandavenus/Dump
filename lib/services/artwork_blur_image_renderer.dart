@@ -21,7 +21,7 @@ class ArtworkBlurImageRenderer {
         (info, _) {
           if (!completer.isCompleted) completer.complete(info.image);
         },
-        onError: (Object _, StackTrace? __) {
+        onError: (Object _, StackTrace? _) {
           if (!completer.isCompleted) completer.complete(null);
         },
       );
@@ -35,7 +35,7 @@ class ArtworkBlurImageRenderer {
       );
       if (source == null) return null;
       return await _renderBlur(source, sigma);
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     } finally {
       if (stream != null && listener != null) {
@@ -186,7 +186,7 @@ class ArtworkBlurImageRenderer {
       } finally {
         picture.dispose();
       }
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }
