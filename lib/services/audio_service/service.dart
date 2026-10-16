@@ -778,7 +778,11 @@ class AudioService {
     }
     final tail = _playlist.skip(currentIndex + 1).toList(growable: false);
     final tailIds = tail.map((song) => song.id).toList(growable: false);
-    if (!automixQueueSnapshotMatches(expectedTailIds, tailIds)) {
+    var snapshotMatches = expectedTailIds.length == tailIds.length;
+    for (var i = 0; snapshotMatches && i < tailIds.length; i++) {
+      snapshotMatches = expectedTailIds[i] == tailIds[i];
+    }
+    if (!snapshotMatches) {
       throw StateError('AutoMix queue order changed after planning');
     }
     if (orderedIds.length != tailIds.length ||
