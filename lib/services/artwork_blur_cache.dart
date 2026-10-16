@@ -20,7 +20,7 @@ class _PendingBlurredArtwork {
 
 /// Lease for a cached blurred image. A frame cannot be disposed while leased.
 class ArtworkBlurImageLease {
-  ArtworkBlurImageLease(this._frame);
+  ArtworkBlurImageLease._(this._frame);
 
   final _BlurredArtworkFrame _frame;
   bool _released = false;
@@ -55,7 +55,7 @@ class ArtworkBlurCache {
     if (cached != null) {
       _frames[key] = cached;
       cached.users++;
-      return ArtworkBlurImageLease(cached);
+      return ArtworkBlurImageLease._(cached);
     }
 
     final existingPending = _pending[key];
@@ -65,7 +65,7 @@ class ArtworkBlurCache {
       if (frame == null) return null;
       final current = _frames.remove(key);
       if (identical(current, frame)) _frames[key] = frame;
-      return ArtworkBlurImageLease(frame);
+      return ArtworkBlurImageLease._(frame);
     }
 
     final pending = _PendingBlurredArtwork();
@@ -85,7 +85,7 @@ class ArtworkBlurCache {
       _frames[key] = frame;
       pending.completer.complete(frame);
       _evict();
-      return ArtworkBlurImageLease(frame);
+      return ArtworkBlurImageLease._(frame);
     } catch (_) {
       if (!pending.completer.isCompleted) pending.completer.complete(null);
       return null;
