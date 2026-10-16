@@ -7,9 +7,9 @@
 ## Rendering path
 - When the artwork-blur background style is selected, `UnifiedMorphPlayer` schedules a prewarm after the current frame while the player is still collapsed. It is deduplicated by song and viewport size.
 - The prewarm resolves artwork through `ArtworkRepository` at the existing 384 px target.
-- Blur is rasterized once with `PictureRecorder` and `ImageFilter.blur`, then displayed with `RawImage` so the opening/drag animation can reuse the already-blurred image instead of repeatedly applying a full-screen filter.
+- `ArtworkBlurImageRenderer` rasterizes blur once with `PictureRecorder` and `ImageFilter.blur`; `ArtworkBlurCache` holds the generated image and `RawImage` reuses it during animation instead of repeatedly applying a full-screen filter.
 - The pre-blur sigma is scaled by the source-to-viewport size to preserve the current on-screen blur appearance (`sigma 32`).
-- During the morph, the pre-blurred image stays at final full-screen scale and is clipped by the animated panel; scale/key calculations use the stable viewport size, never the changing panel height, so drag frames do not trigger new blur renders.
+- During the morph, the pre-blurred image is drawn at viewport dimensions and aligned using `topOffset = bottom + panelHeight - viewportHeight`; the animated panel clips it. Cache keys use the stable viewport size, never the changing panel height, so drag frames do not trigger new blur renders.
 - While a new blurred frame is being generated, retain the existing `ImageFiltered` rendering as a visual fallback.
 
 ## Memory and lifecycle invariants
