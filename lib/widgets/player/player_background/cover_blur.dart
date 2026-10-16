@@ -44,7 +44,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
           .clamp(0.5, _blurSigma)
           .toDouble();
       final key = '$songId:${sigma.toStringAsFixed(1)}';
-      final lease = await _ArtworkBlurCache.acquire(
+      final lease = await ArtworkBlurCache.acquire(
         key: key,
         provider: provider,
         sigma: sigma,
@@ -67,7 +67,7 @@ class _ArtworkBlurPlayerBackgroundState
   static const double _blurSigma = ArtworkBlurPlayerBackground._blurSigma;
 
   ImageProvider? _provider;
-  _ArtworkBlurLease? _blurLease;
+  ArtworkBlurImageLease? _blurLease;
   String? _requestedBlurKey;
   int _artworkRequestId = 0;
   int _blurRequestId = 0;
@@ -157,7 +157,7 @@ class _ArtworkBlurPlayerBackgroundState
     required double sigma,
     required int requestId,
   }) async {
-    final lease = await _ArtworkBlurCache.acquire(
+    final lease = await ArtworkBlurCache.acquire(
       key: key,
       provider: provider,
       sigma: sigma,
@@ -255,188 +255,3 @@ class _ArtworkBlurPlayerBackgroundState
   }
 }
 
-class _ArtworkBlurFrame {
-  _ArtworkBlurFrame(this.image);
-
-  final ui.Image image;
-  int users = 0;
-}
-
-class _ArtworkBlurPending {
-  final Completer<_ArtworkBlurFrame?> completer =
-      Completer<_ArtworkBlurFrame?>();
-  int waiters = 1;
-}
-
-class _ArtworkBlurLease {
-  _ArtworkBlurLease(this.key, this._frame);
-
-  final String key;
-  final _ArtworkBlurFrame _frame;
-  bool _released = false;
-
-  ui.Image get image => _frame.image;
-
-  void release() {
-    if (_released) return;
-    _released = true;
-    _ArtworkBlurCache.release(_frame);
-  }
-}
-
-/// Small LRU cache for already-blurred frames. Only generated 384px images are
-/// stored; no source artwork or disk-cache settings are changed. Leases prevent
-/// an image being disposed while RawImage is still displaying it.
-class _ArtworkBlurCache {
-  static const int _maxEntries = 3;
-  static final Map<String, _ArtworkBlurFrame> _frames = {};
-  static final Map<String, _ArtworkBlurPending> _pending = {};
-  static bool _evictionScheduled = false;
-
-  static Future<_ArtworkBlurLease?> acquire({
-    required String key,
-    required ImageProvider provider,
-    required double sigma,
-  }) async {
-    final cached = _frames.remove(key);
-    if (cached != null) {
-      _frames[key] = cached;
-      cached.users++;
-      return _ArtworkBlurLease(key, cached);
-    }
-
-    final existingPending = _pending[key];
-    if (existingPending != null) {
-      existingPending.waiters++;
-      final frame = await existingPending.completer.future;
-      if (frame == null) return null;
-      final current = _frames.remove(key);
-      if (identical(current, frame)) _frames[key] = frame;
-      return _ArtworkBlurLease(key, frame);
-    }
-
-    final pending = _ArtworkBlurPending();
-    _pending[key] = pending;
-    try {
-      final source = await _resolveSource(provider);
-      if (source == null) {
-        pending.completer.complete(null);
-        return null;
-      }
-
-      final image = await _renderBlur(source, sigma);
-      if (image == null) {
-        pending.completer.complete(null);
-        return null;
-      }
-
-      final frame = _ArtworkBlurFrame(image)..users = pending.waiters;
-      _frames[key] = frame;
-      pending.completer.complete(frame);
-      _evict();
-      return _ArtworkBlurLease(key, frame);
-    } catch (_) {
-      if (!pending.completer.isCompleted) pending.completer.complete(null);
-      return null;
-    } finally {
-      if (identical(_pending[key], pending)) _pending.remove(key);
-    }
-  }
-
-  static Future<ui.Image?> _resolveSource(ImageProvider provider) async {
-    final completer = Completer<ui.Image?>();
-    ImageStream? stream;
-    ImageStreamListener? listener;
-
-    try {
-      stream = provider.resolve(ImageConfiguration.empty);
-      listener = ImageStreamListener(
-        (info, _) {
-          if (!completer.isCompleted) completer.complete(info.image);
-        },
-        onError: (Object _, StackTrace? __) {
-          if (!completer.isCompleted) completer.complete(null);
-        },
-      );
-      stream.addListener(listener);
-      return await completer.future.timeout(
-        const Duration(seconds: 6),
-        onTimeout: () => null,
-      );
-    } catch (_) {
-      return null;
-    } finally {
-      if (stream != null && listener != null) {
-        stream.removeListener(listener);
-      }
-    }
-  }
-
-  static Future<ui.Image?> _renderBlur(ui.Image source, double sigma) async {
-    final width = source.width;
-    final height = source.height;
-    if (width <= 0 || height <= 0) return null;
-
-    final bounds = Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
-    final recorder = ui.PictureRecorder();
-    try {
-      final canvas = ui.Canvas(recorder);
-      canvas.saveLayer(
-        bounds,
-        ui.Paint()
-          ..imageFilter = ui.ImageFilter.blur(
-            sigmaX: sigma,
-            sigmaY: sigma,
-            tileMode: ui.TileMode.clamp,
-          ),
-      );
-      canvas.drawImageRect(
-        source,
-        bounds,
-        bounds,
-        ui.Paint()..filterQuality = FilterQuality.low,
-      );
-      canvas.restore();
-
-      final picture = recorder.endRecording();
-      try {
-        return await picture.toImage(width, height);
-      } finally {
-        picture.dispose();
-      }
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static void release(_ArtworkBlurFrame frame) {
-    if (frame.users > 0) frame.users--;
-    _evict();
-  }
-
-  static void _evict() {
-    if (_frames.length <= _maxEntries || _evictionScheduled) return;
-    if (!_frames.values.any((frame) => frame.users == 0)) return;
-
-    // Wait until the current frame has rebuilt/unmounted any RawImage that
-    // stopped leasing an entry; disposing the ui.Image earlier can race paint.
-    _evictionScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _evictionScheduled = false;
-      while (_frames.length > _maxEntries) {
-        String? victimKey;
-        for (final entry in _frames.entries) {
-          if (entry.value.users == 0) {
-            victimKey = entry.key;
-            break;
-          }
-        }
-        if (victimKey == null) return;
-
-        final victim = _frames.remove(victimKey);
-        victim?.image.dispose();
-      }
-    });
-    WidgetsBinding.instance.scheduleFrame();
-  }
-}
