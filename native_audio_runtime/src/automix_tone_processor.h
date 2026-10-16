@@ -1,4 +1,4 @@
-// Per-stream AutoMix tone stage (bass swap + outgoing high-band filter).
+// Per-stream AutoMix three-band isolator and crossfade gain stage.
 #ifndef NAR_AUTOMIX_TONE_PROCESSOR_H_
 #define NAR_AUTOMIX_TONE_PROCESSOR_H_
 
