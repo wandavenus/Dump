@@ -20,6 +20,14 @@ AutomixTrackFeatures _f(
   double? dropCueMs,
   double? tailBreakdownCueMs,
   double durationSeconds = 0,
+  double vocalLikelihood = 0,
+  double vocalConfidence = 0,
+  int structureRegion = 0,
+  double structureConfidence = 0,
+  int tailStructureRegion = 0,
+  double tailStructureConfidence = 0,
+  double dropConfidence = 0,
+  double tailBreakdownConfidence = 0,
 }) {
   return AutomixTrackFeatures(
     songId: id,
@@ -31,6 +39,14 @@ AutomixTrackFeatures _f(
     tailDownbeatOffsetMs: tailDownbeatOffsetMs,
     dropCueMs: dropCueMs,
     tailBreakdownCueMs: tailBreakdownCueMs,
+    dropConfidence: dropConfidence,
+    tailBreakdownConfidence: tailBreakdownConfidence,
+    structureRegion: structureRegion,
+    structureConfidence: structureConfidence,
+    tailStructureRegion: tailStructureRegion,
+    tailStructureConfidence: tailStructureConfidence,
+    vocalLikelihood: vocalLikelihood,
+    vocalConfidence: vocalConfidence,
     durationSeconds: durationSeconds,
     camelotNumber: camelot,
     camelotMinor: minor,
@@ -57,6 +73,12 @@ void main() {
         tailBreakdownCueMs: 178000.0,
         vocalLikelihood: 0.85,
         vocalConfidence: 0.9,
+        structureRegion: 3,
+        structureConfidence: 0.8,
+        tailStructureRegion: 4,
+        tailStructureConfidence: 0.75,
+        dropConfidence: 0.7,
+        tailBreakdownConfidence: 0.9,
         durationSeconds: 180.0,
       );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
@@ -68,6 +90,12 @@ void main() {
       expect(restored.tailBreakdownCueMs, 178000.0);
       expect(restored.vocalLikelihood, 0.85);
       expect(restored.vocalConfidence, 0.9);
+      expect(restored.structureRegion, 3);
+      expect(restored.structureConfidence, 0.8);
+      expect(restored.tailStructureRegion, 4);
+      expect(restored.tailStructureConfidence, 0.75);
+      expect(restored.dropConfidence, 0.7);
+      expect(restored.tailBreakdownConfidence, 0.9);
       expect(restored.durationSeconds, 180.0);
 
       final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
@@ -76,6 +104,79 @@ void main() {
       expect(legacy.dropCueMs, isNull);
       expect(legacy.tailBreakdownCueMs, isNull);
       expect(legacy.durationSeconds, 0.0);
+    });
+  });
+
+  group('native AutoMix analysis map contract', () {
+    test('forwards vocal and structural confidence with safe defaults', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'segmentStartSeconds': 120.0,
+          'segmentSeconds': 118.0,
+          'bpm': 124.0,
+          'bpmConfidence': 0.9,
+          'alternateBpm': 62.0,
+          'beatOffsetMs': 24.0,
+          'downbeatOffsetMs': 240.0,
+          'dropCueMs': 34000.0,
+          'breakdownCueMs': 113000.0,
+          'dropConfidence': 0.81,
+          'breakdownConfidence': 0.77,
+          'structureRegion': 4,
+          'structureConfidence': 0.88,
+          'vocalLikelihood': 0.72,
+          'vocalConfidence': 0.93,
+          'camelotNumber': 8,
+          'camelotMinor': true,
+          'keyConfidence': 0.9,
+          'rmsDb': -11.0,
+          'centroidHz': 2600.0,
+          'onsetRate': 3.2,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.startSeconds, 120);
+      expect(segment.bpm, 124);
+      expect(segment.alternateBpm, 62);
+      expect(segment.dropConfidence, 0.81);
+      expect(segment.breakdownConfidence, 0.77);
+      expect(segment.structureRegion, 4);
+      expect(segment.structureConfidence, 0.88);
+      expect(segment.vocalLikelihood, 0.72);
+      expect(segment.vocalConfidence, 0.93);
+    });
+
+    test('rejects non-finite or out-of-range confidence metadata', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'bpm': double.nan,
+          'bpmConfidence': double.nan,
+          'dropConfidence': double.infinity,
+          'breakdownConfidence': -0.3,
+          'structureRegion': 99,
+          'structureConfidence': 4.0,
+          'vocalLikelihood': double.nan,
+          'vocalConfidence': 1.7,
+          'dropCueMs': double.infinity,
+          'camelotNumber': 99,
+          'keyConfidence': 1,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.bpm, isNull);
+      expect(segment.bpmConfidence, 0);
+      expect(segment.dropConfidence, 0);
+      expect(segment.breakdownConfidence, 0);
+      expect(segment.structureRegion, 0);
+      expect(segment.structureConfidence, 1);
+      expect(segment.vocalLikelihood, 0);
+      expect(segment.vocalConfidence, 1);
+      expect(segment.dropCueMs, isNull);
+      expect(segment.camelotNumber, isNull);
     });
   });
 
@@ -468,6 +569,12 @@ void main() {
       double? downbeatOffsetMs,
       double? dropCueMs,
       double? breakdownCueMs,
+      double dropConfidence = 0,
+      double breakdownConfidence = 0,
+      int structureRegion = 0,
+      double structureConfidence = 0,
+      double vocalLikelihood = 0,
+      double vocalConfidence = 0,
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
@@ -478,6 +585,12 @@ void main() {
       downbeatOffsetMs: downbeatOffsetMs,
       dropCueMs: dropCueMs,
       breakdownCueMs: breakdownCueMs,
+      dropConfidence: dropConfidence,
+      breakdownConfidence: breakdownConfidence,
+      structureRegion: structureRegion,
+      structureConfidence: structureConfidence,
+      vocalLikelihood: vocalLikelihood,
+      vocalConfidence: vocalConfidence,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -544,13 +657,40 @@ void main() {
       expect(merged.analyzedFraction, closeTo(1.0, 0.001));
     });
 
-    test('retains head drop cue and absolute tail breakdown cue', () {
+    test('retains confidence and absolute structure/vocal cues across windows', () {
       final merged = automixMergeSegments(
         songId: 3,
-        segments: [seg(0, dropCueMs: 28000), seg(240, breakdownCueMs: 114000)],
+        segments: [
+          seg(
+            0,
+            dropCueMs: 28000,
+            dropConfidence: 0.74,
+            structureRegion: 3,
+            structureConfidence: 0.82,
+            vocalLikelihood: 0.8,
+            vocalConfidence: 0.9,
+          ),
+          seg(
+            240,
+            breakdownCueMs: 114000,
+            breakdownConfidence: 0.88,
+            structureRegion: 4,
+            structureConfidence: 0.76,
+            vocalLikelihood: 0.4,
+            vocalConfidence: 0.5,
+          ),
+        ],
       );
       expect(merged.dropCueMs, 28000);
+      expect(merged.dropConfidence, 0.74);
       expect(merged.tailBreakdownCueMs, 354000);
+      expect(merged.tailBreakdownConfidence, 0.88);
+      expect(merged.structureRegion, 3);
+      expect(merged.structureConfidence, 0.82);
+      expect(merged.tailStructureRegion, 4);
+      expect(merged.tailStructureConfidence, 0.76);
+      expect(merged.vocalLikelihood, closeTo((0.8 * 0.9 + 0.4 * 0.5) / 1.4, 1e-9));
+      expect(merged.vocalConfidence, closeTo(0.7, 1e-9));
       expect(merged.durationSeconds, 360);
     });
   });
