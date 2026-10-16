@@ -23,6 +23,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.common.PlaybackException
 import dev.wndavenz.music.audio_focus.AudioFocusManager
+import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import dev.wndavenz.music.audio_offload.AudioOffloadManager
 import dev.wndavenz.music.crossfade.CrossfadeController
 import dev.wndavenz.music.crossfade.PreloadManager
