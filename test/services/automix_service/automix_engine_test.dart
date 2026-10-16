@@ -427,6 +427,48 @@ void main() {
       }
     });
 
+    test('high-confidence vocal clash prefers the low-confidence alternative', () {
+      final tracks = [
+        _f(
+          1,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.8,
+        ),
+        _f(
+          2,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.8,
+        ),
+        _f(
+          3,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.1,
+        ),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      expect(native.order, [0, 2, 1]);
+      expect(native.order, reference.order);
+    });
+
     test('empty list yields empty plan', () {
       final plan = AutomixEngine.planSet(
         tracks: const [],
@@ -704,7 +746,16 @@ void main() {
       double? intro,
       double durationSeconds = 0,
       double? tailBreakdownCueMs,
+      double tailBreakdownConfidence = 0,
       double? rmsDb,
+      double? centroidHz,
+      double? onsetRate,
+      int structureRegion = 0,
+      double structureConfidence = 0,
+      int tailStructureRegion = 0,
+      double tailStructureConfidence = 0,
+      double vocalLikelihood = 0,
+      double vocalConfidence = 0,
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: tailBpm,
@@ -712,10 +763,19 @@ void main() {
       tailBpm: tailBpm,
       loudnessLufs: lufs,
       rmsDb: rmsDb,
+      centroidHz: centroidHz,
+      onsetRate: onsetRate,
       outroEnergy: outro,
       introEnergy: intro,
       durationSeconds: durationSeconds,
       tailBreakdownCueMs: tailBreakdownCueMs,
+      tailBreakdownConfidence: tailBreakdownConfidence,
+      structureRegion: structureRegion,
+      structureConfidence: structureConfidence,
+      tailStructureRegion: tailStructureRegion,
+      tailStructureConfidence: tailStructureConfidence,
+      vocalLikelihood: vocalLikelihood,
+      vocalConfidence: vocalConfidence,
     );
 
     test('dense outro hands over sooner and the louder deck is trimmed', () {
@@ -724,11 +784,92 @@ void main() {
         incoming: track(2, lufs: -16, tailBpm: 120),
         settings: const AutomixSettings(),
       );
-      // 16 beats at 120 BPM = 8 s, shortened for a busy outro.
-      expect(cue.fadeSeconds, closeTo(6.0, 0.01));
-      expect(cue.curveGamma, greaterThan(1.0));
+      // Dense outro selects a quick handover rather than a generic 8 s fade.
+      expect(cue.strategy, AutomixTransitionStrategy.quickHandover);
+      expect(cue.fadeSeconds, lessThanOrEqualTo(3.0));
+      expect(cue.curveGamma, greaterThanOrEqualTo(1.35));
       expect(cue.outgoingTrim, closeTo(0.6309, 0.001)); // 4 dB
       expect(cue.incomingTrim, 1.0);
+    });
+
+    test('structure cues require reliable tail confidence and select alignment', () {
+      final aligned = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          durationSeconds: 180,
+          tailBreakdownCueMs: 174000,
+          tailBreakdownConfidence: 0.9,
+          tailStructureRegion: 4,
+          tailStructureConfidence: 0.8,
+        ),
+        incoming: track(2, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      expect(aligned.strategy, AutomixTransitionStrategy.structureAligned);
+      expect(aligned.fadeSeconds, 6.0);
+
+      final untrusted = automixTransitionCue(
+        outgoing: track(
+          3,
+          tailBpm: 120,
+          durationSeconds: 180,
+          tailBreakdownCueMs: 174000,
+          tailBreakdownConfidence: 0.1,
+        ),
+        incoming: track(4, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      expect(untrusted.strategy, AutomixTransitionStrategy.crossfade);
+      expect(untrusted.fadeSeconds, 8.0);
+    });
+
+    test('vocal conflict and spectral measurements drive EQ targets', () {
+      final clash = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.9,
+          centroidHz: 3000,
+          outro: 0.9,
+          onsetRate: 4.0,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          vocalLikelihood: 0.85,
+          vocalConfidence: 0.8,
+          centroidHz: 2800,
+          intro: 0.8,
+          onsetRate: 3.5,
+        ),
+        settings: const AutomixSettings(),
+      );
+      expect(clash.outgoingMidOverlapGain, 0.78);
+      expect(clash.incomingMidOverlapGain, 0.78);
+      expect(clash.outgoingBassOverlapGain, lessThan(1.0));
+      expect(clash.incomingBassOverlapGain, lessThan(1.0));
+      expect(clash.outgoingHighOverlapGain, lessThan(0.6));
+      expect(clash.incomingHighOverlapGain, lessThan(1.0));
+
+      final uncertain = automixTransitionCue(
+        outgoing: track(
+          3,
+          tailBpm: 120,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.2,
+        ),
+        incoming: track(
+          4,
+          tailBpm: 120,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.1,
+        ),
+        settings: const AutomixSettings(),
+      );
+      expect(uncertain.outgoingMidOverlapGain, 1.0);
+      expect(uncertain.incomingMidOverlapGain, 1.0);
     });
 
     test('uses paired RMS dBFS for level matching when LUFS is missing', () {
@@ -763,6 +904,7 @@ void main() {
           tailBpm: 120,
           durationSeconds: 180,
           tailBreakdownCueMs: 174000,
+          tailBreakdownConfidence: 0.9,
         ),
         incoming: track(2, tailBpm: 120),
         settings: const AutomixSettings(),
@@ -801,9 +943,9 @@ void main() {
           settings: const AutomixSettings(),
         );
 
-        // 16 beats at 120 BPM is 8 s; incompatible confident tempos use a
-        // shorter 5.76 s hand-off instead of a long rhythmic overlap.
-        expect(cue.fadeSeconds, closeTo(8.0 * 0.72, 0.01));
+        // A confident mismatch is classified and bounded as a short handover.
+        expect(cue.strategy, AutomixTransitionStrategy.shortHandover);
+        expect(cue.fadeSeconds, 4.0);
         expect(cue.curveGamma, greaterThanOrEqualTo(1.20));
       },
     );
