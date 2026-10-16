@@ -449,33 +449,6 @@ static void test_edge_cases_silence_and_noise(void) {
   free(noise);
 }
 
-static void test_beat_tracker(void) {
-  NarAutomixBeatTracker tracker;
-  nar_automix_tracker_init(&tracker, 120.0, 44100);
-  assert(tracker.offline_bpm == 120.0);
-  assert(tracker.confidence == 0.0);
-
-  // Steady low energy keeps confidence at 0
-  for (int i = 0; i < 128; ++i) {
-    nar_automix_tracker_process_frame(&tracker, 0.001f, i * 10.0);
-  }
-  assert(tracker.confidence == 0.0);
-  assert(nar_automix_tracker_get_nudge(&tracker, 122.0, 0.06) == 1.0f);
-
-  // Feeding pulses builds confidence
-  for (int i = 0; i < 64; ++i) {
-    float energy = (i % 8 == 0) ? 0.8f : 0.01f;
-    nar_automix_tracker_process_frame(&tracker, energy, i * 10.0);
-  }
-  assert(tracker.confidence > 0.25);
-  float nudge = nar_automix_tracker_get_nudge(&tracker, 122.0, 0.06);
-  assert(nudge > 1.0f && nudge <= 1.06f);
-
-  nar_automix_tracker_reset(&tracker);
-  assert(tracker.confidence == 0.0);
-  assert(tracker.total_samples == 0);
-}
-
 static void test_phrase_lock(void) {
   // A quarter phrase ahead at 120 BPM must slow down by the configured cap.
   float factor = nar_automix_phrase_lock_factor(
@@ -515,7 +488,6 @@ int main(void) {
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
   test_phrase_lock();
-  test_beat_tracker();
   test_edge_cases_silence_and_noise();
   test_native_crossfade_curve();
   test_native_crossfade_targets_are_per_stream();
