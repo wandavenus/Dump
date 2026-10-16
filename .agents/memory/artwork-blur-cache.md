@@ -9,10 +9,11 @@
 - The prewarm resolves artwork through `ArtworkRepository` at the existing 384 px target.
 - Blur is rasterized once with `PictureRecorder` and `ImageFilter.blur`, then displayed with `RawImage` so the opening/drag animation can reuse the already-blurred image instead of repeatedly applying a full-screen filter.
 - The pre-blur sigma is scaled by the source-to-viewport size to preserve the current on-screen blur appearance (`sigma 32`).
+- During the morph, the pre-blurred image stays at final full-screen scale and is clipped by the animated panel; scale/key calculations use the stable viewport size, never the changing panel height, so drag frames do not trigger new blur renders.
 - While a new blurred frame is being generated, retain the existing `ImageFiltered` rendering as a visual fallback.
 
 ## Memory and lifecycle invariants
-- Keep a small memory-only LRU of at most three generated frames; never write generated blur frames to disk.
+- Keep a small memory-only LRU capped at three generated frames when unleased entries are available; never write generated blur frames to disk. Active leases are never evicted, and cleanup happens after the current frame.
 - Cache keys include song identity and effective source blur sigma.
 - In-flight work is shared by identical keys; separate artwork/blur request IDs reject stale completions after rapid track changes.
 - Lease counts keep a cached `ui.Image` alive while widgets display it.
