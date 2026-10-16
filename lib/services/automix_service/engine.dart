@@ -105,7 +105,8 @@ const List<double> automixKsMinorProfile = [
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-double automixClamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+double automixClamp01(double v) =>
+    !v.isFinite ? 0 : (v < 0 ? 0 : (v > 1 ? 1 : v));
 
 /// Moves an uncertain feature cost toward its neutral fallback instead of
 /// treating a low-confidence estimate as ground truth.
@@ -456,6 +457,13 @@ AutomixTrackFeatures automixMergeSegments({
         ? (lastSegment?.breakdownConfidence ?? 0)
         : 0,
     structureRegion: firstSegment?.structureRegion ?? 0,
+    structureConfidence: firstSegment?.structureConfidence ?? 0,
+    tailStructureRegion: tailSegmentAnalyzed
+        ? (lastSegment?.structureRegion ?? 0)
+        : 0,
+    tailStructureConfidence: tailSegmentAnalyzed
+        ? (lastSegment?.structureConfidence ?? 0)
+        : 0,
     vocalLikelihood: vocalLikelihood,
     vocalConfidence: vocalConfidence,
     durationSeconds: fileSeconds,
@@ -479,6 +487,19 @@ AutomixTrackFeatures automixMergeSegments({
 
 // ── Per-transition cue ───────────────────────────────────────────────────────
 
+/// Strategy selected by the analyzer/transition planner. Codes are mirrored in
+/// Media3PlaybackService's target parser; changing a code requires changing both.
+enum AutomixTransitionStrategy {
+  crossfade(0),
+  structureAligned(1),
+  shortHandover(2),
+  longBlend(3),
+  quickHandover(4);
+
+  const AutomixTransitionStrategy(this.code);
+  final int code;
+}
+
 /// Everything the native fade needs for ONE transition.
 @immutable
 class AutomixTransitionCue {
@@ -487,7 +508,26 @@ class AutomixTransitionCue {
     required this.curveGamma,
     required this.outgoingTrim,
     required this.incomingTrim,
+    required this.strategy,
+    required this.outgoingBassOverlapGain,
+    required this.incomingBassOverlapGain,
+    required this.outgoingMidOverlapGain,
+    required this.incomingMidOverlapGain,
+    required this.outgoingHighOverlapGain,
+    required this.incomingHighOverlapGain,
   });
+
+  /// Strategy that controls the production fade behavior on Android.
+  final AutomixTransitionStrategy strategy;
+
+  /// Per-deck spectral/structure-driven isolator targets at the center of the
+  /// overlap. Native smoothing and an envelope return all bands to unity.
+  final double outgoingBassOverlapGain;
+  final double incomingBassOverlapGain;
+  final double outgoingMidOverlapGain;
+  final double incomingMidOverlapGain;
+  final double outgoingHighOverlapGain;
+  final double incomingHighOverlapGain;
 
   /// Fade length in media-timeline seconds (opposite deck's tempo governs).
   final double fadeSeconds;
@@ -547,12 +587,23 @@ AutomixTransitionCue automixTransitionCue({
     fadeSeconds *= 1.15;
   }
 
-  // Keep the transition fully automatic: when reliable analysis says the two
-  // pulse grids cannot match, hand over sooner instead of holding a long,
-  // rhythmically conflicting overlap. Confidently distant keys also get a
-  // shorter blend. Uncertain estimates stay neutral and keep the regular fade.
+  // Structure metadata only controls transition timing when confidence is
+  // strong. The cue is file-absolute and valid only if it lies near the tail.
+  final durationMs = outgoing.durationSeconds * 1000.0;
+  final breakdownMs = outgoing.tailBreakdownCueMs;
+  double? cueLeadSeconds;
+  if (outgoing.tailBreakdownConfidence >= 0.45 &&
+      durationMs.isFinite &&
+      durationMs > 0 &&
+      breakdownMs != null &&
+      breakdownMs.isFinite &&
+      breakdownMs >= 0) {
+    final lead = (durationMs - breakdownMs) / 1000.0;
+    if (lead >= 1.5 && lead <= 12.0) cueLeadSeconds = lead;
+  }
+
   final exitTempo = automixExitBpm(outgoing);
-  if (outgoing.bpmConfidence >= 0.45 &&
+  final tempoMismatch = outgoing.bpmConfidence >= 0.45 &&
       incoming.bpmConfidence >= 0.45 &&
       exitTempo != null &&
       incoming.bpm != null &&
@@ -560,39 +611,98 @@ AutomixTransitionCue automixTransitionCue({
         referenceBpm: exitTempo,
         trackBpm: incoming.bpm,
         tolerance: settings.bpmTolerancePercent / 100.0,
-      ).$1) {
-    fadeSeconds *= 0.72;
-    gamma = math.max(gamma, 1.20);
-  }
-
+      ).$1;
   final keyCost = automixCamelotCost(
     outgoing.camelotNumber,
     outgoing.camelotMinor,
     incoming.camelotNumber,
     incoming.camelotMinor,
   );
-  if (outgoing.keyConfidence >= 0.55 &&
+  final keyMismatch = outgoing.keyConfidence >= 0.55 &&
       incoming.keyConfidence >= 0.55 &&
-      keyCost >= 0.60) {
-    fadeSeconds *= 0.82;
-    gamma = math.max(gamma, 1.15);
+      keyCost >= 0.60;
+  final denseTail = (outro != null && outro >= 0.70) ||
+      (outgoing.tailStructureRegion == 3 &&
+          outgoing.tailStructureConfidence >= 0.65);
+  final sparseTail = (outro != null && outro <= 0.35) ||
+      (outgoing.tailStructureRegion == 1 &&
+          outgoing.tailStructureConfidence >= 0.75);
+  final sparseIntro = intro != null && intro <= 0.35;
+
+  final AutomixTransitionStrategy strategy;
+  if (cueLeadSeconds != null) {
+    strategy = AutomixTransitionStrategy.structureAligned;
+  } else if (tempoMismatch || keyMismatch) {
+    strategy = AutomixTransitionStrategy.shortHandover;
+  } else if (denseTail) {
+    strategy = AutomixTransitionStrategy.quickHandover;
+  } else if (sparseTail || sparseIntro) {
+    strategy = AutomixTransitionStrategy.longBlend;
+  } else {
+    strategy = AutomixTransitionStrategy.crossfade;
   }
 
-  // If a confidently detected breakdown lies in the outgoing track's final
-  // 1.5–12 seconds, align the fade start to that transition. Earlier cues are
-  // not used to avoid pulling the fade forward over unrelated song sections.
-  final durationMs = outgoing.durationSeconds * 1000.0;
-  final breakdownMs = outgoing.tailBreakdownCueMs;
-  if (durationMs > 0 &&
-      breakdownMs != null &&
-      breakdownMs.isFinite &&
-      breakdownMs >= 0) {
-    final cueLeadSeconds = (durationMs - breakdownMs) / 1000.0;
-    if (cueLeadSeconds >= 1.5 && cueLeadSeconds <= 12.0) {
-      fadeSeconds = cueLeadSeconds;
-    }
+  // Apply the selected strategy to the parameters sent to Media3. The values are
+  // subsequently consumed by the real CrossfadeController, not just logged.
+  switch (strategy) {
+    case AutomixTransitionStrategy.crossfade:
+      break;
+    case AutomixTransitionStrategy.structureAligned:
+      fadeSeconds = cueLeadSeconds!;
+      break;
+    case AutomixTransitionStrategy.shortHandover:
+      fadeSeconds = math.min(fadeSeconds, 4.0);
+      gamma = math.max(gamma, 1.20);
+      break;
+    case AutomixTransitionStrategy.longBlend:
+      fadeSeconds = math.max(fadeSeconds, 6.0);
+      gamma = math.min(gamma, 0.95);
+      break;
+    case AutomixTransitionStrategy.quickHandover:
+      fadeSeconds = math.min(fadeSeconds, 3.0);
+      gamma = math.max(gamma, 1.35);
+      break;
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
+
+  // Derive conservative per-deck EQ targets from actual measured features.
+  // Unknown metadata keeps bands neutral, except the historical outgoing-tail
+  // filter fallback. These are overlap-only attenuations; neither deck is boosted.
+  final confidentVocalClash = outgoing.vocalConfidence >= 0.45 &&
+      incoming.vocalConfidence >= 0.45 &&
+      outgoing.vocalLikelihood >= 0.55 &&
+      incoming.vocalLikelihood >= 0.55;
+  final outgoingBusy = (outgoing.outroEnergy ?? 0.5) >= 0.75 &&
+      (outgoing.onsetRate ?? 0) >= 2.5;
+  final incomingBusy = (incoming.introEnergy ?? 0.5) >= 0.75 &&
+      (incoming.onsetRate ?? 0) >= 2.5;
+  final outgoingBassGain = outgoingBusy ? 0.88 : 1.0;
+  final incomingBassGain = incomingBusy ? 0.90 : 1.0;
+  final outgoingMidGain = confidentVocalClash
+      ? 0.78
+      : (strategy == AutomixTransitionStrategy.quickHandover ? 0.92 : 1.0);
+  final incomingMidGain = confidentVocalClash
+      ? 0.78
+      : (incoming.structureRegion == 4 &&
+              incoming.structureConfidence >= 0.70
+          ? 0.90
+          : 1.0);
+  double highGain(AutomixTrackFeatures features, {required double fallback}) {
+    final centroid = features.centroidHz;
+    if (centroid == null || !centroid.isFinite || centroid <= 0) {
+      return fallback;
+    }
+    final brightness = automixClamp01((centroid - 900.0) / 2600.0);
+    return (0.90 - 0.55 * brightness).clamp(0.32, 0.90).toDouble();
+  }
+  final outgoingHighGain = highGain(outgoing, fallback: 0.25);
+  final incomingHighGain = incoming.centroidHz == null
+      ? 1.0
+      : (1.0 -
+              0.18 *
+                  automixClamp01((incoming.centroidHz! - 900.0) / 2600.0))
+          .clamp(0.82, 1.0)
+          .toDouble();
 
   // Standard DJ level matching: attenuate the louder deck only.
   var outgoingTrim = 1.0;
@@ -616,6 +726,13 @@ AutomixTransitionCue automixTransitionCue({
     curveGamma: gamma,
     outgoingTrim: outgoingTrim,
     incomingTrim: incomingTrim,
+    strategy: strategy,
+    outgoingBassOverlapGain: outgoingBassGain,
+    incomingBassOverlapGain: incomingBassGain,
+    outgoingMidOverlapGain: outgoingMidGain,
+    incomingMidOverlapGain: incomingMidGain,
+    outgoingHighOverlapGain: outgoingHighGain,
+    incomingHighOverlapGain: incomingHighGain,
   );
 }
 

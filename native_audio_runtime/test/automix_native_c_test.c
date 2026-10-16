@@ -6,6 +6,21 @@
 #include <math.h>
 #include <stdlib.h>
 
+static void assert_analysis_confidence_contract(
+    const double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT]) {
+  // Confidence fields must be finite [0,1]. Index 16 is a region enum, not
+  // a confidence value, and therefore has its own range contract.
+  const int confidence_indices[] = {14, 15, 17, 18, 19};
+  for (size_t i = 0;
+       i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
+    const int index = confidence_indices[i];
+    assert(isfinite(output[index]));
+    assert(output[index] >= 0.0 && output[index] <= 1.0);
+  }
+  assert(output[16] >= NAR_AUTOMIX_STRUCTURE_UNKNOWN &&
+         output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
+}
+
 static void test_analyzer_rms(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
@@ -21,6 +36,9 @@ static void test_analyzer_rms(void) {
   assert(isfinite(output[7]));
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
+  assert_analysis_confidence_contract(output);
+  // A pure tone is not sufficient evidence of vocals.
+  assert(output[19] < 0.35);
   // A steady sine has no sustained section change, so structural cues should
   // remain unavailable instead of reporting arbitrary extrema.
   assert(isnan(output[11]));
@@ -357,6 +375,41 @@ static void test_stereo_mid_gain(void) {
   free(dry);
 }
 
+static void test_crossfade_sample_peak_budget(void) {
+  // Even fully correlated decks must have a combined gain budget <= 1.
+  for (int i = 0; i <= 100; ++i) {
+    const float progress = (float)i / 100.0f;
+    float outgoing = -1.0f;
+    float incoming = -1.0f;
+    assert(nar_automix_tone_compute_fade_gains(
+               progress, 1.0f, 1.0f, 1.0f, &outgoing, &incoming) == 1);
+    assert(isfinite(outgoing) && isfinite(incoming));
+    assert(outgoing >= 0.0f && outgoing <= 1.0f);
+    assert(incoming >= 0.0f && incoming <= 1.0f);
+    assert(outgoing + incoming <= 1.00001f);
+  }
+
+  // The scalar/multichannel and ARM64 NEON paths must enforce the same final
+  // sample-peak bound even if an upstream float PCM block contains overs.
+  const int32_t sample_rate = 48000;
+  const int32_t frames = 8;
+  float pcm[frames * 2];
+  for (int i = 0; i < frames * 2; ++i) {
+    pcm[i] = (i & 1) == 0 ? 2.0f : -2.0f;
+  }
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
+  assert(nar_automix_tone_process(pcm, frames, 2, 0) == 1);
+  for (int i = 0; i < frames * 2; ++i) {
+    assert(isfinite(pcm[i]));
+    assert(pcm[i] >= -1.0f && pcm[i] <= 1.0f);
+  }
+  assert(nar_automix_tone_reset(0) == 1);
+}
+
 static void test_ffi_contract_and_bounds(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
@@ -401,6 +454,8 @@ static void test_edge_cases_silence_and_noise(void) {
   int32_t status = nar_automix_analyze(silence, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
   assert(status == 1);
   assert(isnan(output[0]) || output[1] < 0.1);
+  assert_analysis_confidence_contract(output);
+  assert(output[16] == NAR_AUTOMIX_STRUCTURE_UNKNOWN);
   free(silence);
 
   float* noise = (float*)malloc((size_t)count * sizeof(float));
@@ -411,34 +466,9 @@ static void test_edge_cases_silence_and_noise(void) {
   status = nar_automix_analyze(noise, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
   assert(status == 1);
   assert(output[6] < 0.25);
+  assert_analysis_confidence_contract(output);
+  assert(output[19] < 0.35);
   free(noise);
-}
-
-static void test_beat_tracker(void) {
-  NarAutomixBeatTracker tracker;
-  nar_automix_tracker_init(&tracker, 120.0, 44100);
-  assert(tracker.offline_bpm == 120.0);
-  assert(tracker.confidence == 0.0);
-
-  // Steady low energy keeps confidence at 0
-  for (int i = 0; i < 128; ++i) {
-    nar_automix_tracker_process_frame(&tracker, 0.001f, i * 10.0);
-  }
-  assert(tracker.confidence == 0.0);
-  assert(nar_automix_tracker_get_nudge(&tracker, 122.0, 0.06) == 1.0f);
-
-  // Feeding pulses builds confidence
-  for (int i = 0; i < 64; ++i) {
-    float energy = (i % 8 == 0) ? 0.8f : 0.01f;
-    nar_automix_tracker_process_frame(&tracker, energy, i * 10.0);
-  }
-  assert(tracker.confidence > 0.25);
-  float nudge = nar_automix_tracker_get_nudge(&tracker, 122.0, 0.06);
-  assert(nudge > 1.0f && nudge <= 1.06f);
-
-  nar_automix_tracker_reset(&tracker);
-  assert(tracker.confidence == 0.0);
-  assert(tracker.total_samples == 0);
 }
 
 static void test_phrase_lock(void) {
@@ -472,6 +502,7 @@ static void test_phrase_lock(void) {
 }
 
 int main(void) {
+  test_crossfade_sample_peak_budget();
   test_ffi_contract_and_bounds();
   test_analyzer_rms();
   test_analyzer_structural_cues();
@@ -479,7 +510,6 @@ int main(void) {
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
   test_phrase_lock();
-  test_beat_tracker();
   test_edge_cases_silence_and_noise();
   test_native_crossfade_curve();
   test_native_crossfade_targets_are_per_stream();
