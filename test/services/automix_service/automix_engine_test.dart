@@ -509,6 +509,21 @@ void main() {
       expect(merged.alternateBpm, closeTo(160, 0.1));
     });
 
+    test(
+      'preserves source duration when the tail analysis window is missing',
+      () {
+        final merged = automixMergeSegments(
+          songId: 5,
+          segments: [seg(0, bpm: 120, rms: -12)],
+          sourceDurationSeconds: 360,
+        );
+
+        // Only the 120-second head window succeeded, but the source is 6 minutes.
+        expect(merged.durationSeconds, 360);
+        expect(merged.analyzedFraction, closeTo(1 / 3, 0.001));
+      },
+    );
+
     test('structure markers describe the first and last window', () {
       final merged = automixMergeSegments(
         songId: 2,
