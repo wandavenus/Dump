@@ -128,8 +128,21 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
       t <= 0.75f ? 0.0f : (t - 0.75f) / 0.25f;
   const float incoming_trim_now = trim_in + (1.0f - trim_in) * release;
 
-  *outgoing_gain = clamp_gain(trim_out * cosf(theta));
-  *incoming_gain = clamp_gain(incoming_trim_now * sinf(theta));
+  float outgoing = clamp_gain(trim_out * cosf(theta));
+  float incoming = clamp_gain(incoming_trim_now * sinf(theta));
+
+  // Equal-power gains can sum above unity for correlated source material.
+  // Normalize their L1 budget to 1.0 so overlapping, sample-peak-bounded PCM
+  // streams cannot exceed unity when summed by the platform mixer.
+  const float gain_sum = outgoing + incoming;
+  if (gain_sum > 1.0f) {
+    const float scale = 1.0f / gain_sum;
+    outgoing *= scale;
+    incoming *= scale;
+  }
+
+  *outgoing_gain = outgoing;
+  *incoming_gain = incoming;
   return 1;
 }
 
@@ -231,7 +244,11 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
 
       const float output = low * current_bass + mid * current_mid + high * current_high;
       const float faded = output * current_fade;
-      interleaved[index] = isfinite(faded) ? faded : 0.0f;
+      // Clamp each stream's final PCM sample before Android mixes the decks.
+      // This is a sample-peak ceiling, not a reconstructed true-peak limiter.
+      interleaved[index] = isfinite(faded)
+          ? fminf(1.0f, fmaxf(-1.0f, faded))
+          : 0.0f;
     }
   }
 
