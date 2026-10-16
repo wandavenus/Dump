@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio/audio_effects_service.dart';
 import '../../services/automix_service.dart';
+import '../../services/audio/playback_manager.dart';
 import '../../utils/safe_num.dart';
 
 // ─── PlayerProgressSection ────────────────────────────────────────────────────
@@ -265,18 +266,27 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                     ],
                   ),
                   ValueListenableBuilder<bool>(
-                    valueListenable: AutomixService.automixActive,
-                    builder: (context, active, _) {
-                      if (!active) return const SizedBox.shrink();
-                      return const Text(
-                        'Mixing',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white70,
-                          letterSpacing: 0.2,
-                        ),
+                    valueListenable: AutomixService.automixEnabled,
+                    builder: (context, enabled, _) {
+                      if (!enabled) return const SizedBox.shrink();
+                      return StreamBuilder<bool>(
+                        stream: PlaybackManager.crossfadeStateStream,
+                        initialData: false,
+                        builder: (context, snapshot) {
+                          if (snapshot.data != true) {
+                            return const SizedBox.shrink();
+                          }
+                          return const Text(
+                            'Mixing',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white70,
+                              letterSpacing: 0.2,
+                            ),
+                          );
+                        },
                       );
                     },
                   ),
