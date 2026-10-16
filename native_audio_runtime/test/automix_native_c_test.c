@@ -53,9 +53,10 @@ static void test_analyzer_structural_cues(void) {
   // The low-energy lead-in rises into a strong onset near 5 s; the final
   // sustained high-to-low change begins near 8 s.
   assert(isfinite(output[12]));
-  assert(output[12] > 4.4 && output[12] < 5.7);
+  // The native ABI reports structural cue positions in milliseconds.
+  assert(output[12] > 4400.0 && output[12] < 5700.0);
   assert(isfinite(output[13]));
-  assert(output[13] > 7.3 && output[13] < 8.8);
+  assert(output[13] > 7300.0 && output[13] < 8800.0);
   free(pcm);
 }
 
