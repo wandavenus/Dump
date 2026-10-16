@@ -802,31 +802,31 @@ class Media3PlaybackService : MediaSessionService() {
         audioCapReceiver = AudioCapabilitiesReceiver(
             this,
             { _ ->
-            NativeLogger.emit(
-                "info", "AudioCap",
-                "Audio capabilities changed (output device may have changed) — " +
-                "re-evaluating track selection and scheduling effects reattach",
-            )
-            // Force a track re-selection on all live players so Media3 can adapt
-            // to any new passthrough / tunneling capabilities on the new output device.
-            forEachLivePlayer { p ->
-                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().build()
-            }
-            // MIUI 12: delay the effects re-attach slightly so the new AudioSession
-            // (if any) has time to be published by AudioFlinger before we attempt to
-            // bind Equalizer / BassBoost etc.
-            handler.postDelayed({
-                val sessionId = activePlayer?.audioSessionId ?: 0
-                // BP-03: never attach AudioEffects while Bit-Perfect Mode is
-                // active — the clean player must stay free of EQ/BassBoost/
-                // LoudnessEnhancer even across output-device changes (BT/HDMI).
-                if (sessionId > 0 && !bitPerfectModeOn) {
-                    effectsManager.resetAndReattach(sessionId)
+                NativeLogger.emit(
+                    "info", "AudioCap",
+                    "Audio capabilities changed (output device may have changed) — " +
+                    "re-evaluating track selection and scheduling effects reattach",
+                )
+                // Force a track re-selection on all live players so Media3 can adapt
+                // to any new passthrough / tunneling capabilities on the new output device.
+                forEachLivePlayer { p ->
+                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().build()
                 }
-            }, 500L)
-            // Notify Flutter so the UI can refresh device-specific info if needed.
-            EventEmitter.emit("audioCapabilitiesChanged",
-                mapOf("timestamp" to System.currentTimeMillis()))
+                // MIUI 12: delay the effects re-attach slightly so the new AudioSession
+                // (if any) has time to be published by AudioFlinger before we attempt to
+                // bind Equalizer / BassBoost etc.
+                handler.postDelayed({
+                    val sessionId = activePlayer?.audioSessionId ?: 0
+                    // BP-03: never attach AudioEffects while Bit-Perfect Mode is
+                    // active — the clean player must stay free of EQ/BassBoost/
+                    // LoudnessEnhancer even across output-device changes (BT/HDMI).
+                    if (sessionId > 0 && !bitPerfectModeOn) {
+                        effectsManager.resetAndReattach(sessionId)
+                    }
+                }, 500L)
+                // Notify Flutter so the UI can refresh device-specific info if needed.
+                EventEmitter.emit("audioCapabilitiesChanged",
+                    mapOf("timestamp" to System.currentTimeMillis()))
             },
             AudioAttributes.DEFAULT,
             null,
