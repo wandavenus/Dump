@@ -8,7 +8,10 @@ void main() {
   group('DevicePowerState background analysis policy', () {
     test('a charging phone is allowed unless it is genuinely overheating', () {
       expect(
-        const DevicePowerState(charging: true, levelPercent: 4).allowsBackgroundAnalysis(),
+        const DevicePowerState(
+          charging: true,
+          levelPercent: 4,
+        ).allowsBackgroundAnalysis(),
         isTrue,
       );
       expect(
@@ -39,18 +42,24 @@ void main() {
 
     test('an unplugged phone is left alone once the battery is low', () {
       expect(
-        const DevicePowerState(charging: false, levelPercent: 29)
-            .allowsBackgroundAnalysis(),
+        const DevicePowerState(
+          charging: false,
+          levelPercent: 29,
+        ).allowsBackgroundAnalysis(),
         isFalse,
       );
       expect(
-        const DevicePowerState(charging: false, levelPercent: 30)
-            .allowsBackgroundAnalysis(),
+        const DevicePowerState(
+          charging: false,
+          levelPercent: 30,
+        ).allowsBackgroundAnalysis(),
         isTrue,
       );
       expect(
-        const DevicePowerState(charging: false, levelPercent: 80)
-            .allowsBackgroundAnalysis(),
+        const DevicePowerState(
+          charging: false,
+          levelPercent: 80,
+        ).allowsBackgroundAnalysis(),
         isTrue,
       );
     });

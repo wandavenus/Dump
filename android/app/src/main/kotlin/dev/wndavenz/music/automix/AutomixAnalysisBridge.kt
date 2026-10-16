@@ -136,7 +136,7 @@ object AutomixAnalysis {
 
         // Native result contract is kept in sync with
         // NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in automix_native.h.
-        if (analysis.size < 14) return null
+        if (analysis.size < 20) return null
         fun optional(index: Int): Double? =
             analysis.getOrNull(index)?.takeIf { it.isFinite() }
         val bpm = optional(0)
@@ -170,12 +170,12 @@ object AutomixAnalysis {
             "downbeatOffsetMs" to optional(11),
             "dropCueMs" to optional(12),
             "breakdownCueMs" to optional(13),
-            "dropConfidence" to (if (analysis.size >= 18) analysis[14] else 0.0),
-            "breakdownConfidence" to (if (analysis.size >= 18) analysis[15] else 0.0),
-            "structureRegion" to (if (analysis.size >= 18) analysis[16].toInt() else 0),
-            "structureConfidence" to (if (analysis.size >= 18) analysis[17] else 0.0),
-            "vocalLikelihood" to (if (analysis.size >= 20) analysis[18] else 0.0),
-            "vocalConfidence" to (if (analysis.size >= 20) analysis[19] else 0.0),
+            "dropConfidence" to analysis[14],
+            "breakdownConfidence" to analysis[15],
+            "structureRegion" to analysis[16].toInt(),
+            "structureConfidence" to analysis[17],
+            "vocalLikelihood" to analysis[18],
+            "vocalConfidence" to analysis[19],
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.
             "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),
