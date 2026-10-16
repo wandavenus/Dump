@@ -1,6 +1,7 @@
 #include "automix_phase_lock.h"
 
 #include <math.h>
+#include <stddef.h>
 
 #define NAR_AUTOMIX_MIN_BPM 50.0
 #define NAR_AUTOMIX_MAX_BPM 250.0
@@ -53,6 +54,72 @@ float nar_automix_phase_lock_factor(
   const double rate = fmax(-limit, fmin(limit, -error_ms / remaining_ms));
   const double factor = 1.0 + rate;
   return isfinite(factor) ? (float)factor : NAN;
+}
+
+void nar_automix_tracker_init(NarAutomixBeatTracker* tracker,
+                              double offline_bpm, int32_t sample_rate) {
+  if (tracker == NULL) return;
+  for (int i = 0; i < NAR_AUTOMIX_TRACKER_WINDOW; ++i) {
+    tracker->onset_history[i] = 0.0f;
+  }
+  tracker->write_pos = 0;
+  tracker->total_samples = 0;
+  tracker->offline_bpm = isfinite(offline_bpm) && offline_bpm >= NAR_AUTOMIX_MIN_BPM
+                             ? offline_bpm
+                             : 120.0;
+  tracker->live_bpm = tracker->offline_bpm;
+  tracker->live_phase_ms = 0.0;
+  tracker->confidence = 0.0;
+  tracker->sample_rate = sample_rate > 0 ? sample_rate : 44100;
+}
+
+void nar_automix_tracker_reset(NarAutomixBeatTracker* tracker) {
+  if (tracker == NULL) return;
+  const double bpm = tracker->offline_bpm;
+  const int32_t sr = tracker->sample_rate;
+  nar_automix_tracker_init(tracker, bpm, sr);
+}
+
+void nar_automix_tracker_process_frame(NarAutomixBeatTracker* tracker,
+                                         float energy, double current_time_ms) {
+  if (tracker == NULL || !isfinite(energy)) return;
+  tracker->onset_history[tracker->write_pos] = energy;
+  tracker->write_pos = (tracker->write_pos + 1) % NAR_AUTOMIX_TRACKER_WINDOW;
+  tracker->total_samples++;
+
+  if (tracker->total_samples >= NAR_AUTOMIX_TRACKER_WINDOW &&
+      (tracker->total_samples % 16 == 0)) {
+    float sum = 0.0f;
+    float peak = 0.0f;
+    for (int i = 0; i < NAR_AUTOMIX_TRACKER_WINDOW; ++i) {
+      const float val = tracker->onset_history[i];
+      sum += val;
+      if (val > peak) peak = val;
+    }
+    const float mean = sum / NAR_AUTOMIX_TRACKER_WINDOW;
+    if (peak > mean * 1.5f && peak > 1e-4f) {
+      tracker->confidence = fmin(1.0, tracker->confidence + 0.1);
+      tracker->live_phase_ms = current_time_ms;
+    } else {
+      tracker->confidence = fmax(0.0, tracker->confidence - 0.05);
+    }
+  }
+}
+
+float nar_automix_tracker_get_nudge(NarAutomixBeatTracker* tracker,
+                                     double target_bpm, double max_nudge) {
+  if (tracker == NULL || tracker->confidence < 0.25 ||
+      !isfinite(target_bpm) || target_bpm < NAR_AUTOMIX_MIN_BPM ||
+      target_bpm > NAR_AUTOMIX_MAX_BPM) {
+    return 1.0f;
+  }
+  const double limit = fabs(max_nudge);
+  if (limit <= 0.0) return 1.0f;
+
+  const double desired_factor = target_bpm / tracker->live_bpm;
+  const double clamped_factor =
+      fmax(1.0 - limit, fmin(1.0 + limit, desired_factor));
+  return (float)clamped_factor;
 }
 
 float nar_automix_phrase_lock_factor(

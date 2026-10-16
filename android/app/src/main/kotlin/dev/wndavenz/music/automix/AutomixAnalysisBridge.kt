@@ -170,6 +170,12 @@ object AutomixAnalysis {
             "downbeatOffsetMs" to optional(11),
             "dropCueMs" to optional(12),
             "breakdownCueMs" to optional(13),
+            "dropConfidence" to (if (analysis.size >= 18) analysis[14] else 0.0),
+            "breakdownConfidence" to (if (analysis.size >= 18) analysis[15] else 0.0),
+            "structureRegion" to (if (analysis.size >= 18) analysis[16].toInt() else 0),
+            "structureConfidence" to (if (analysis.size >= 18) analysis[17] else 0.0),
+            "vocalLikelihood" to (if (analysis.size >= 20) analysis[18] else 0.0),
+            "vocalConfidence" to (if (analysis.size >= 20) analysis[19] else 0.0),
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.
             "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),

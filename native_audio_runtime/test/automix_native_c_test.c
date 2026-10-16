@@ -327,6 +327,58 @@ static void test_stereo_mid_gain(void) {
   free(dry);
 }
 
+static void test_edge_cases_silence_and_noise(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 3;
+  float* silence = (float*)calloc((size_t)count, sizeof(float));
+  assert(silence != NULL);
+
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  // Pure silence should handle safely without div-by-zero or crash
+  int32_t status = nar_automix_analyze(silence, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
+  assert(status == 1 || status == 0);
+  if (status == 1) {
+    assert(isnan(output[0]) || output[1] < 0.1);
+  }
+  free(silence);
+
+  float* noise = (float*)malloc((size_t)count * sizeof(float));
+  assert(noise != NULL);
+  for (int32_t i = 0; i < count; ++i) {
+    noise[i] = ((float)rand() / (float)RAND_MAX) * 0.2f - 0.1f;
+  }
+  status = nar_automix_analyze(noise, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
+  assert(status == 1 || status == 0);
+  free(noise);
+}
+
+static void test_beat_tracker(void) {
+  NarAutomixBeatTracker tracker;
+  nar_automix_tracker_init(&tracker, 120.0, 44100);
+  assert(tracker.offline_bpm == 120.0);
+  assert(tracker.confidence == 0.0);
+
+  // Steady low energy keeps confidence at 0
+  for (int i = 0; i < 128; ++i) {
+    nar_automix_tracker_process_frame(&tracker, 0.001f, i * 10.0);
+  }
+  assert(tracker.confidence == 0.0);
+  assert(nar_automix_tracker_get_nudge(&tracker, 122.0, 0.06) == 1.0f);
+
+  // Feeding pulses builds confidence
+  for (int i = 0; i < 64; ++i) {
+    float energy = (i % 8 == 0) ? 0.8f : 0.01f;
+    nar_automix_tracker_process_frame(&tracker, energy, i * 10.0);
+  }
+  assert(tracker.confidence > 0.25);
+  float nudge = nar_automix_tracker_get_nudge(&tracker, 122.0, 0.06);
+  assert(nudge > 1.0f && nudge <= 1.06f);
+
+  nar_automix_tracker_reset(&tracker);
+  assert(tracker.confidence == 0.0);
+  assert(tracker.total_samples == 0);
+}
+
 static void test_phrase_lock(void) {
   // A quarter phrase ahead at 120 BPM must slow down by the configured cap.
   float factor = nar_automix_phrase_lock_factor(
@@ -363,6 +415,8 @@ int main(void) {
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
   test_phrase_lock();
+  test_beat_tracker();
+  test_edge_cases_silence_and_noise();
   test_native_crossfade_curve();
   test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();

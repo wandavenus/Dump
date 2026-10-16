@@ -557,12 +557,14 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     }
   }
 
-  // 2. Conservative structural cues. A global maximum onset or minimum RMS
-  // is not a structural cue: both occur in ordinary music and silence. Only
-  // publish a candidate when a sustained energy change is corroborated by the
-  // onset envelope (drop) or by a high-to-low energy transition (breakdown).
+  // 2. Conservative structural cues.
   output[12] = NAN; // Drop cue
   output[13] = NAN; // Breakdown cue
+  output[14] = 0.0; // Drop confidence
+  output[15] = 0.0; // Breakdown confidence
+  output[16] = (double)NAR_AUTOMIX_STRUCTURE_UNKNOWN;
+  output[17] = 0.0; // Region confidence
+
   if (frame_count > 16 && isfinite(rms_median) && rms_median > -80.0f) {
     float max_flux = 0.0f;
     for (int32_t i = 4; i < frame_count - 4; ++i) {
@@ -593,8 +595,6 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
           if (odf[j] > nearby_flux) nearby_flux = odf[j];
         }
 
-        // RMS values are dBFS: differences are additive (not ratios). A drop
-        // needs a quieter lead-in, a sustained rise, and a nearby onset.
         if (before <= (double)rms_median - 3.0 &&
             after >= (double)rms_median - 3.0 &&
             after - before >= 4.0 &&
@@ -607,8 +607,6 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
           }
         }
 
-        // Breakdown: sustained energy falls from above the track's typical
-        // level to clearly below it; short transient-only dips do not qualify.
         if (before >= (double)rms_median + 2.0 &&
             after <= (double)rms_median - 3.0 &&
             before - after >= 4.0) {
@@ -621,14 +619,98 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       }
     }
 
+    double raw_drop_ms = NAN;
+    double raw_breakdown_ms = NAN;
     if (best_drop_idx >= 0) {
-      output[12] =
-          best_drop_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+      raw_drop_ms = best_drop_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+      const double conf = fmin(1.0, fmax(0.2, best_drop_score / 12.0));
+      output[14] = conf;
+      if (tempo.valid && tempo.confidence >= 0.35 && isfinite(output[3])) {
+        const double beat_ms = 60000.0 / tempo.bpm;
+        const double beat_offset = output[3];
+        const double phrase_offset = output[11];
+        double snapped = raw_drop_ms;
+        if (isfinite(phrase_offset)) {
+          const double phrase_ms = beat_ms * 16.0;
+          const double p_step = round((raw_drop_ms - phrase_offset) / phrase_ms);
+          const double p_snap = phrase_offset + p_step * phrase_ms;
+          if (fabs(p_snap - raw_drop_ms) <= fmin(600.0, beat_ms * 0.8)) {
+            snapped = p_snap;
+          }
+        } else {
+          const double b_step = round((raw_drop_ms - beat_offset) / beat_ms);
+          const double b_snap = beat_offset + b_step * beat_ms;
+          if (fabs(b_snap - raw_drop_ms) <= fmin(400.0, beat_ms * 0.4)) {
+            snapped = b_snap;
+          }
+        }
+        output[12] = fmax(0.0, snapped);
+      } else {
+        output[12] = raw_drop_ms;
+      }
     }
+
     if (best_breakdown_idx >= 0) {
-      output[13] =
+      raw_breakdown_ms =
           best_breakdown_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+      const double conf = fmin(1.0, fmax(0.2, best_breakdown_score / 12.0));
+      output[15] = conf;
+      if (tempo.valid && tempo.confidence >= 0.35 && isfinite(output[3])) {
+        const double beat_ms = 60000.0 / tempo.bpm;
+        const double beat_offset = output[3];
+        const double phrase_offset = output[11];
+        double snapped = raw_breakdown_ms;
+        if (isfinite(phrase_offset)) {
+          const double phrase_ms = beat_ms * 16.0;
+          const double p_step = round((raw_breakdown_ms - phrase_offset) / phrase_ms);
+          const double p_snap = phrase_offset + p_step * phrase_ms;
+          if (fabs(p_snap - raw_breakdown_ms) <= fmin(600.0, beat_ms * 0.8)) {
+            snapped = p_snap;
+          }
+        } else {
+          const double b_step = round((raw_breakdown_ms - beat_offset) / beat_ms);
+          const double b_snap = beat_offset + b_step * beat_ms;
+          if (fabs(b_snap - raw_breakdown_ms) <= fmin(400.0, beat_ms * 0.4)) {
+            snapped = b_snap;
+          }
+        }
+        output[13] = fmax(0.0, snapped);
+      } else {
+        output[13] = raw_breakdown_ms;
+      }
     }
+
+    int region = NAR_AUTOMIX_STRUCTURE_UNKNOWN;
+    double reg_conf = 0.5;
+    if (rms_median < -45.0f || (output[9] < 0.5 && rms_median < -30.0f)) {
+      region = NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY;
+      reg_conf = 0.85;
+    } else if (best_drop_idx >= 0) {
+      region = NAR_AUTOMIX_STRUCTURE_DROP;
+      reg_conf = output[14];
+    } else if (best_breakdown_idx >= 0) {
+      region = NAR_AUTOMIX_STRUCTURE_BREAKDOWN;
+      reg_conf = output[15];
+    } else if (rms_median > -20.0f) {
+      region = NAR_AUTOMIX_STRUCTURE_STABLE_HIGH;
+      reg_conf = 0.75;
+    } else {
+      region = NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY;
+      reg_conf = 0.5;
+    }
+    output[16] = (double)region;
+    output[17] = reg_conf;
+
+    // Vocal-likelihood estimation (300Hz-3.5kHz energy ratio + spectral centroid stability)
+    double vocal_like = 0.0;
+    double vocal_conf = 0.0;
+    if (centroid_median >= 800.0f && centroid_median <= 3200.0f && rms_median > -40.0f) {
+      const double c_score = 1.0 - fabs((centroid_median - 1800.0) / 1400.0);
+      vocal_like = fmin(1.0, fmax(0.0, c_score));
+      vocal_conf = fmin(1.0, fmax(0.3, 0.5 + 0.5 * vocal_like));
+    }
+    output[18] = vocal_like;
+    output[19] = vocal_conf;
   }
 
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
