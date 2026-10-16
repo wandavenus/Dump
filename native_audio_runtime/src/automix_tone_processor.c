@@ -23,6 +23,8 @@ _Static_assert(offsetof(NarAutomixToneState, current_high_gain) == 80,
                "NEON high gain offset changed");
 _Static_assert(offsetof(NarAutomixToneState, current_fade_gain) == 92,
                "NEON fade gain offset changed");
+_Static_assert(offsetof(NarAutomixToneState, current_mid_gain) == 100,
+               "NEON mid gain offset changed");
 
 static NarAutomixToneState g_states[NAR_AUTOMIX_TONE_STREAM_COUNT];
 static _Atomic float g_target_bass[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
