@@ -21,10 +21,40 @@ static void test_analyzer_rms(void) {
   assert(isfinite(output[7]));
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
-  // Downbeat & Cues exist in array
-  assert(isfinite(output[11]) || isnan(output[11]));
-  assert(isfinite(output[12]) || isnan(output[12]));
-  assert(isfinite(output[13]) || isnan(output[13]));
+  // A steady sine has no sustained section change, so structural cues should
+  // remain unavailable instead of reporting arbitrary extrema.
+  assert(isnan(output[12]));
+  assert(isnan(output[13]));
+  free(pcm);
+}
+
+static void test_analyzer_structural_cues(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t seconds = 10;
+  const int32_t count = sample_rate * seconds;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double amplitude;
+    if (t < 3.0) amplitude = 0.5;
+    else if (t < 5.0) amplitude = 0.05;
+    else if (t < 8.0) amplitude = 0.8;
+    else amplitude = 0.05;
+    pcm[i] = (float)(amplitude *
+        sin(2.0 * 3.14159265358979323846 * 220.0 * t));
+  }
+
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  // The low-energy lead-in rises into a strong onset near 5 s; the final
+  // sustained high-to-low change begins near 8 s.
+  assert(isfinite(output[12]));
+  assert(output[12] > 4.4 && output[12] < 5.7);
+  assert(isfinite(output[13]));
+  assert(output[13] > 7.3 && output[13] < 8.8);
   free(pcm);
 }
 
@@ -219,6 +249,32 @@ static void test_tone_filters_independent_streams(void) {
   const double bass_rms = rms_range(filtered, sample_rate / 4, frames * 3 / 4);
   assert(bass_rms < 0.5 / sqrt(2.0) * 0.55);
 
+  // The middle band is independently controllable, while the reference stream
+  // remains transparent. A 1 kHz tone should lose measurable energy only on
+  // the deck whose mid gain is zero.
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 1) == 1);
+  assert(nar_automix_tone_configure(1, sample_rate, 1) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    const float sample = 0.5f * sinf(
+        2.0f * 3.14159265358979323846f * 1000.0f * i / sample_rate);
+    filtered[i] = sample;
+    dry[i] = sample;
+  }
+  assert(nar_automix_tone_process(filtered, frames, 1, 0) == 1);
+  assert(nar_automix_tone_process(dry, frames, 1, 1) == 1);
+  const double mid_rms = rms_range(filtered, sample_rate / 4, frames * 3 / 4);
+  const double reference_rms = rms_range(dry, sample_rate / 4, frames * 3 / 4);
+  assert(mid_rms < reference_rms * 0.85);
+  assert(fabs(reference_rms - 0.5 / sqrt(2.0)) < 0.01);
+
   assert(nar_automix_tone_set_bass_gain(0, NAN) == 1);
   assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, INFINITY) == 1);
@@ -229,13 +285,35 @@ static void test_tone_filters_independent_streams(void) {
 }
 
 static void test_phrase_lock(void) {
+  // A quarter phrase ahead at 120 BPM must slow down by the configured cap.
   float factor = nar_automix_phrase_lock_factor(
       0.0, 0.0, 120.0, 1000.0, 0.0, 120.0, 4000.0, 0.006, 16);
-  assert(isfinite(factor));
+  assert(fabsf(factor - 0.994f) < 1e-6f);
+
+  // Small phase error is proportional when the remaining time is long enough.
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 100.0, 0.0, 120.0, 40000.0, 0.006, 16);
+  assert(fabsf(factor - 0.9975f) < 1e-6f);
+
+  // Circular wrap treats the incoming deck as slightly behind.
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 7900.0, 0.0, 120.0, 40000.0, 0.006, 16);
+  assert(fabsf(factor - 1.0025f) < 1e-6f);
+
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 5.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(factor == 1.0f);
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 500.0, 0.0, 120.0, 250.0, 0.006, 16);
+  assert(factor == 1.0f);
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, NAN, 0.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(isnan(factor));
 }
 
 int main(void) {
   test_analyzer_rms();
+  test_analyzer_structural_cues();
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
   test_phrase_lock();
