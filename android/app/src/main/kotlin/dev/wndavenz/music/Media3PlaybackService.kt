@@ -23,6 +23,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.common.PlaybackException
 import dev.wndavenz.music.audio_focus.AudioFocusManager
+import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import dev.wndavenz.music.audio_offload.AudioOffloadManager
 import dev.wndavenz.music.crossfade.CrossfadeController
 import dev.wndavenz.music.crossfade.PreloadManager
@@ -199,6 +200,17 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixCurveBySongId = mutableMapOf<Int, Float>()
     private val automixIncomingTrimBySongId = mutableMapOf<Int, Float>()
     private val automixOutgoingTrimBySongId = mutableMapOf<Int, Float>()
+    private data class AutomixBandOverlapGains(
+        val bassOutgoing: Float,
+        val bassIncoming: Float,
+        val midOutgoing: Float,
+        val midIncoming: Float,
+        val highOutgoing: Float,
+        val highIncoming: Float,
+    )
+    // Feature-driven, conservative per-band targets keyed by incoming song ID.
+    private val automixBandOverlapGainsByIncomingSongId =
+        mutableMapOf<Int, AutomixBandOverlapGains>()
 
     // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
     // activePlayerProxy is always the MediaSession's player. It dynamically
@@ -615,6 +627,30 @@ class Media3PlaybackService : MediaSessionService() {
                 if (slot >= 0 && ::automixToneManager.isInitialized) {
                     automixToneManager.setBassGain(slot, gain)
                 }
+            },
+            setAutoMixMidGain = { p, gain ->
+                val slot = playerSlotOf(p)
+                if (slot >= 0 && ::automixToneManager.isInitialized) {
+                    automixToneManager.setMidGain(slot, gain)
+                }
+            },
+            getAutoMixBassOverlapGainsForIncoming = { p ->
+                if (!automixTransitionEnabled) null
+                else automixSongIdOf(p)?.let {
+                    automixBandOverlapGainsByIncomingSongId[it]
+                }?.let { Pair(it.bassOutgoing, it.bassIncoming) }
+            },
+            getAutoMixMidOverlapGainsForIncoming = { p ->
+                if (!automixTransitionEnabled) null
+                else automixSongIdOf(p)?.let {
+                    automixBandOverlapGainsByIncomingSongId[it]
+                }?.let { Pair(it.midOutgoing, it.midIncoming) }
+            },
+            getAutoMixHighOverlapGainsForIncoming = { p ->
+                if (!automixTransitionEnabled) null
+                else automixSongIdOf(p)?.let {
+                    automixBandOverlapGainsByIncomingSongId[it]
+                }?.let { Pair(it.highOutgoing, it.highIncoming) }
             },
             // Per-transition shaping, looked up by the incoming deck's song id
             // so native never has to know the planner's data structures.
@@ -2294,6 +2330,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixCurveBySongId.clear()
         automixIncomingTrimBySongId.clear()
         automixOutgoingTrimBySongId.clear()
+        automixBandOverlapGainsByIncomingSongId.clear()
 
         if (enabled) {
             for (target in targets) {
@@ -2321,13 +2358,37 @@ class Media3PlaybackService : MediaSessionService() {
                 if (dropCueMs != null && dropCueMs.isFinite() && dropCueMs >= 0.0) {
                     automixDropCueMsBySongId[id] = dropCueMs.toLong()
                 }
-                val fadeSeconds = (target["fadeSeconds"] as? Number)?.toFloat()
-                if (fadeSeconds != null && fadeSeconds.isFinite()) {
-                    automixFadeSecondsBySongId[id] = fadeSeconds.coerceIn(1.5f, 12f)
+                val strategy = ((target["transitionStrategy"] as? Number)?.toInt() ?: 0)
+                    .coerceIn(
+                        AutomixTransitionPolicy.CROSSFADE,
+                        AutomixTransitionPolicy.QUICK_HANDOVER,
+                    )
+                val requestedFade = (target["fadeSeconds"] as? Number)?.toFloat()
+                AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade)?.let {
+                    automixFadeSecondsBySongId[id] = it
                 }
-                val curve = (target["fadeCurve"] as? Number)?.toFloat()
-                if (curve != null && curve.isFinite()) {
-                    automixCurveBySongId[id] = curve.coerceIn(0.6f, 1.6f)
+                val requestedCurve = (target["fadeCurve"] as? Number)?.toFloat()
+                AutomixTransitionPolicy.curveGamma(strategy, requestedCurve)?.let {
+                    automixCurveBySongId[id] = it
+                }
+
+                fun overlapGain(key: String, fallback: Float): Float =
+                    ((target[key] as? Number)?.toFloat())
+                        ?.takeIf { it.isFinite() }
+                        ?.coerceIn(0f, 1f)
+                        ?: fallback
+                if (target.containsKey("bassOverlapGainOutgoing") ||
+                    target.containsKey("midOverlapGainOutgoing") ||
+                    target.containsKey("highOverlapGainOutgoing")
+                ) {
+                    automixBandOverlapGainsByIncomingSongId[id] = AutomixBandOverlapGains(
+                        bassOutgoing = overlapGain("bassOverlapGainOutgoing", 1f),
+                        bassIncoming = overlapGain("bassOverlapGainIncoming", 1f),
+                        midOutgoing = overlapGain("midOverlapGainOutgoing", 1f),
+                        midIncoming = overlapGain("midOverlapGainIncoming", 1f),
+                        highOutgoing = overlapGain("highOverlapGainOutgoing", 0.25f),
+                        highIncoming = overlapGain("highOverlapGainIncoming", 1f),
+                    )
                 }
                 val incomingTrim = (target["levelTrimIncoming"] as? Number)?.toFloat()
                 if (incomingTrim != null && incomingTrim.isFinite()) {

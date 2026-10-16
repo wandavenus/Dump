@@ -29,28 +29,24 @@ flutter_version() {
   "$flutter_bin" --version 2>/dev/null | sed -nE '1s/^Flutter ([^ ]+).*/\1/p'
 }
 
-# Archive-based Flutter installs do not contain the upstream Git metadata.
-# Prefer a workspace SDK that already has a complete Dart cache; otherwise the
-# version probe itself can fail and incorrectly start a huge download.
-FLUTTER_VERSION=""
-FLUTTER_WS_READY=false
-if [ -x "$FLUTTER_WS_BIN" ] &&
-   [ -f "$FLUTTER_WS/bin/internal/shared.sh" ] &&
-   [ -x "$FLUTTER_WS/bin/cache/dart-sdk/bin/dart" ]; then
-  FLUTTER_WS_READY=true
-  if [ -d "$FLUTTER_WS/.git" ] &&
-     git -C "$FLUTTER_WS" describe --tags --exact-match HEAD >/dev/null 2>&1; then
-    FLUTTER_VERSION="$(git -C "$FLUTTER_WS" describe --tags --exact-match HEAD)"
-  else
-    FLUTTER_VERSION="$(flutter_version "$FLUTTER_WS_BIN")"
-  fi
-  echo "✓ Flutter workspace SDK ditemukan: $FLUTTER_VERSION"
-fi
+# An SDK is reusable only when this script previously verified the official
+# release archive checksum and stamped that exact stable release into it.
+flutter_release_matches() {
+  local root="$1"
+  local stamp
+  [ -x "$root/bin/flutter" ] || return 1
+  [ -f "$root/bin/internal/shared.sh" ] || return 1
+  [ -x "$root/bin/cache/dart-sdk/bin/dart" ] || return 1
+  [ "$(flutter_version "$root/bin/flutter" || true)" = "$FLUTTER_VERSION" ] || return 1
+  [ -f "$root/.flutter-release-stamp" ] || return 1
+  stamp="$(cat "$root/.flutter-release-stamp" 2>/dev/null || true)"
+  [ "$stamp" = "$FLUTTER_VERSION|$FLUTTER_RELEASE_HASH|$FLUTTER_RELEASE_SHA256" ]
+}
 
-# Resolve stable from Flutter's official release manifest instead of pinning
-# an old version. This keeps every workflow on the current stable channel.
-if [ -z "$FLUTTER_VERSION" ]; then
-  FLUTTER_RELEASE="$(curl -fsSL --max-time 30 "$FLUTTER_RELEASES_URL" | node -e '
+# Resolve the official stable version FIRST. A usable workspace binary can
+# still be stale; never let its own version or a synthetic local tag define the
+# version this setup is supposed to install.
+if ! FLUTTER_RELEASE="$(curl -fsSL --max-time 30 "$FLUTTER_RELEASES_URL" | node -e '
   let input = "";
   process.stdin.on("data", chunk => input += chunk);
   process.stdin.on("end", () => {
@@ -59,49 +55,69 @@ if [ -z "$FLUTTER_VERSION" ]; then
     const release = manifest.releases?.find(item =>
       item.hash === stableHash && item.channel === "stable"
     );
-    if (!release?.version || !release?.archive) process.exit(1);
-    process.stdout.write(`${release.version}|${release.archive}`);
+    if (!release?.version || !release?.archive || !release?.hash || !release?.sha256) process.exit(1);
+    process.stdout.write(`${release.version}|${release.archive}|${release.hash}|${release.sha256}`);
   });
-  ')"
-  if [ -z "$FLUTTER_RELEASE" ] || [[ "$FLUTTER_RELEASE" != *"|"* ]]; then
-    echo "✗ Gagal membaca stable release manifest Flutter."
-    exit 1
-  fi
-  FLUTTER_VERSION="${FLUTTER_RELEASE%%|*}"
-  FLUTTER_ARCHIVE="${FLUTTER_RELEASE#*|}"
-  FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_ARCHIVE}"
+  ')"; then
+  echo "✗ Gagal membaca stable release manifest Flutter."
+  exit 1
+fi
+if [ -z "$FLUTTER_RELEASE" ] || [[ "$FLUTTER_RELEASE" != *"|"* ]]; then
+  echo "✗ Manifest Flutter tidak berisi rilis stable yang valid."
+  exit 1
+fi
+FLUTTER_VERSION="${FLUTTER_RELEASE%%|*}"
+FLUTTER_RELEASE_REST="${FLUTTER_RELEASE#*|}"
+FLUTTER_ARCHIVE="${FLUTTER_RELEASE_REST%%|*}"
+FLUTTER_RELEASE_REST="${FLUTTER_RELEASE_REST#*|}"
+FLUTTER_RELEASE_HASH="${FLUTTER_RELEASE_REST%%|*}"
+FLUTTER_RELEASE_SHA256="${FLUTTER_RELEASE_REST#*|}"
+if [ -z "$FLUTTER_VERSION" ] || [ -z "$FLUTTER_ARCHIVE" ] ||
+   [ -z "$FLUTTER_RELEASE_HASH" ] || [ -z "$FLUTTER_RELEASE_SHA256" ]; then
+  echo "✗ Metadata versi/archive/hash/checksum Flutter tidak lengkap."
+  exit 1
+fi
+FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_ARCHIVE}"
+
+FLUTTER_WS_READY=false
+if flutter_release_matches "$FLUTTER_WS"; then
+  FLUTTER_WS_READY=true
+  echo "✓ Flutter workspace SDK cocok dengan rilis stable terverifikasi: $FLUTTER_VERSION"
+elif [ -x "$FLUTTER_WS_BIN" ]; then
+  FLUTTER_WS_VERSION="$(flutter_version "$FLUTTER_WS_BIN" || true)"
+  echo "⚠ Flutter workspace SDK belum terverifikasi atau stale (versi '$FLUTTER_WS_VERSION', target '$FLUTTER_VERSION'); akan diperbarui."
 fi
 
-if [ -x "$FLUTTER_SRC_BIN" ] &&
-   [ -f "$FLUTTER_SRC/bin/internal/shared.sh" ] &&
-   [ "$(flutter_version "$FLUTTER_SRC_BIN")" = "$FLUTTER_VERSION" ]; then
-  echo "✓ Flutter source ada di $FLUTTER_SRC"
+if flutter_release_matches "$FLUTTER_SRC"; then
+  echo "✓ Flutter source cocok dengan rilis stable terverifikasi: $FLUTTER_VERSION"
   FLUTTER_SOURCE_READY=true
 elif [ "$FLUTTER_WS_READY" = true ]; then
-  echo "✓ Flutter workspace SDK siap; download source dilewati"
-  FLUTTER_SOURCE_READY=false
-elif [ -x "$FLUTTER_WS_BIN" ] &&
-     [ -f "$FLUTTER_WS/bin/internal/shared.sh" ] &&
-     [ "$(flutter_version "$FLUTTER_WS_BIN")" = "$FLUTTER_VERSION" ]; then
-  echo "✓ Flutter workspace copy valid; download source dilewati"
+  echo "✓ Flutter workspace SDK terverifikasi; download source dilewati"
   FLUTTER_SOURCE_READY=false
 else
-  echo "▶ Flutter stable $FLUTTER_VERSION tidak tersedia; mengunduh..."
+  echo "▶ Mengunduh Flutter stable $FLUTTER_VERSION..."
   cd /home/runner
-  FLUTTER_ARCHIVE="/home/runner/flutter_setup.tar.xz"
-  FLUTTER_TMP="/home/runner/flutter.extract.$$"
-  rm -rf "$FLUTTER_TMP" "$FLUTTER_ARCHIVE"
+  FLUTTER_ARCHIVE_FILE="/home/runner/flutter_setup.tar.xz"
+  FLUTTER_TMP="/home/runner/flutter.extract.$"
+  rm -rf "$FLUTTER_TMP" "$FLUTTER_ARCHIVE_FILE"
   mkdir -p "$FLUTTER_TMP"
-  curl -# -L "$FLUTTER_URL" -o "$FLUTTER_ARCHIVE"
-  echo "Download selesai. Extracting..."
-  tar -xJf "$FLUTTER_ARCHIVE" -C "$FLUTTER_TMP"
-  rm "$FLUTTER_ARCHIVE"
+  curl -# -fL "$FLUTTER_URL" -o "$FLUTTER_ARCHIVE_FILE"
+  ACTUAL_SHA256="$(sha256sum "$FLUTTER_ARCHIVE_FILE" | awk '{print $1}')"
+  if [ "$ACTUAL_SHA256" != "$FLUTTER_RELEASE_SHA256" ]; then
+    echo "✗ Flutter archive checksum mismatch (expected $FLUTTER_RELEASE_SHA256, got $ACTUAL_SHA256)."
+    rm -rf "$FLUTTER_TMP" "$FLUTTER_ARCHIVE_FILE"
+    exit 1
+  fi
+  echo "✓ Flutter archive checksum cocok dengan manifest resmi."
+  tar -xJf "$FLUTTER_ARCHIVE_FILE" -C "$FLUTTER_TMP"
+  rm "$FLUTTER_ARCHIVE_FILE"
   rm -rf "$FLUTTER_SRC"
   mv "$FLUTTER_TMP/flutter" "$FLUTTER_SRC"
   rmdir "$FLUTTER_TMP" 2>/dev/null || true
   test -x "$FLUTTER_SRC_BIN"
   test -f "$FLUTTER_SRC/bin/internal/shared.sh"
-  echo "✓ Flutter $FLUTTER_VERSION berhasil diinstall di $FLUTTER_SRC"
+  printf '%s|%s|%s\n' "$FLUTTER_VERSION" "$FLUTTER_RELEASE_HASH" "$FLUTTER_RELEASE_SHA256" > "$FLUTTER_SRC/.flutter-release-stamp"
+  echo "✓ Flutter $FLUTTER_VERSION berhasil diinstall dan diverifikasi di $FLUTTER_SRC"
   FLUTTER_SOURCE_READY=true
 fi
 
@@ -112,10 +128,7 @@ fi
 #    Salinan di workspace bisa tulis ke cache-nya sendiri.
 #    Dibuat sekali (~1.5GB, cp -a, ±1 menit pertama kali).
 # ──────────────────────────────────────────────────
-if [ "$FLUTTER_WS_READY" = true ] ||
-   { [ -x "$FLUTTER_WS_BIN" ] &&
-   [ -f "$FLUTTER_WS/bin/internal/shared.sh" ] &&
-   [ "$(flutter_version "$FLUTTER_WS_BIN")" = "$FLUTTER_VERSION" ]; }; then
+if [ "$FLUTTER_WS_READY" = true ]; then
   echo "✓ Flutter workspace copy ada: $FLUTTER_WS"
 elif [ "$FLUTTER_SOURCE_READY" = true ]; then
   echo "▶ Membuat salinan Flutter atomik di workspace (setup 1x, ~1.5GB)..."

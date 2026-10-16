@@ -20,7 +20,7 @@ void main() {
       expect(result!.rmsDb, closeTo(-9.03, 1.0));
       expect(result.analyzedSeconds, closeTo(2.0, 1e-9));
       expect(result.onsetRate, greaterThanOrEqualTo(0));
-      // The analyzer's ABI has 14 output slots. The FFI facade must pass the
+      // The analyzer ABI has 20 output slots. The FFI facade must pass the
       // full count or native rejects the call before writing any analysis.
       expect(result.bpmConfidence, inInclusiveRange(0.0, 1.0));
       expect(result.keyConfidence, inInclusiveRange(0.0, 1.0));

@@ -20,6 +20,14 @@ AutomixTrackFeatures _f(
   double? dropCueMs,
   double? tailBreakdownCueMs,
   double durationSeconds = 0,
+  double vocalLikelihood = 0,
+  double vocalConfidence = 0,
+  int structureRegion = 0,
+  double structureConfidence = 0,
+  int tailStructureRegion = 0,
+  double tailStructureConfidence = 0,
+  double dropConfidence = 0,
+  double tailBreakdownConfidence = 0,
 }) {
   return AutomixTrackFeatures(
     songId: id,
@@ -31,6 +39,14 @@ AutomixTrackFeatures _f(
     tailDownbeatOffsetMs: tailDownbeatOffsetMs,
     dropCueMs: dropCueMs,
     tailBreakdownCueMs: tailBreakdownCueMs,
+    dropConfidence: dropConfidence,
+    tailBreakdownConfidence: tailBreakdownConfidence,
+    structureRegion: structureRegion,
+    structureConfidence: structureConfidence,
+    tailStructureRegion: tailStructureRegion,
+    tailStructureConfidence: tailStructureConfidence,
+    vocalLikelihood: vocalLikelihood,
+    vocalConfidence: vocalConfidence,
     durationSeconds: durationSeconds,
     camelotNumber: camelot,
     camelotMinor: minor,
@@ -57,6 +73,12 @@ void main() {
         tailBreakdownCueMs: 178000.0,
         vocalLikelihood: 0.85,
         vocalConfidence: 0.9,
+        structureRegion: 3,
+        structureConfidence: 0.8,
+        tailStructureRegion: 4,
+        tailStructureConfidence: 0.75,
+        dropConfidence: 0.7,
+        tailBreakdownConfidence: 0.9,
         durationSeconds: 180.0,
       );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
@@ -68,6 +90,12 @@ void main() {
       expect(restored.tailBreakdownCueMs, 178000.0);
       expect(restored.vocalLikelihood, 0.85);
       expect(restored.vocalConfidence, 0.9);
+      expect(restored.structureRegion, 3);
+      expect(restored.structureConfidence, 0.8);
+      expect(restored.tailStructureRegion, 4);
+      expect(restored.tailStructureConfidence, 0.75);
+      expect(restored.dropConfidence, 0.7);
+      expect(restored.tailBreakdownConfidence, 0.9);
       expect(restored.durationSeconds, 180.0);
 
       final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
@@ -76,6 +104,161 @@ void main() {
       expect(legacy.dropCueMs, isNull);
       expect(legacy.tailBreakdownCueMs, isNull);
       expect(legacy.durationSeconds, 0.0);
+    });
+  });
+
+  group('native AutoMix analysis map contract', () {
+    test('rejects non-finite and non-integer Camelot values safely', () {
+      for (final value in <double>[
+        double.nan,
+        double.infinity,
+        double.negativeInfinity,
+        8.5,
+        0,
+        13,
+      ]) {
+        final segment = automixSegmentFeaturesFromAnalysisMap(
+          <String, dynamic>{
+            'camelotNumber': value,
+            'camelotMinor': true,
+            'keyConfidence': 0.9,
+          },
+          fallbackStartSeconds: 0,
+          fallbackSeconds: 120,
+        );
+        expect(segment.camelotNumber, isNull, reason: 'value=$value');
+        expect(segment.camelotMinor, isNull, reason: 'value=$value');
+        expect(segment.keyConfidence, 0, reason: 'value=$value');
+      }
+    });
+
+    test('invalid confidence and likelihood values fall back to zero', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'bpm': 120.0,
+          'bpmConfidence': 1.7,
+          'keyConfidence': double.infinity,
+          'dropConfidence': -0.1,
+          'breakdownConfidence': double.nan,
+          'structureConfidence': 4.0,
+          'vocalLikelihood': 1.2,
+          'vocalConfidence': -2.0,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.bpm, isNull);
+      expect(segment.bpmConfidence, 0);
+      expect(segment.keyConfidence, 0);
+      expect(segment.dropConfidence, 0);
+      expect(segment.breakdownConfidence, 0);
+      expect(segment.structureConfidence, 0);
+      expect(segment.vocalLikelihood, 0);
+      expect(segment.vocalConfidence, 0);
+    });
+
+
+    test('forwards vocal and structural confidence with safe defaults', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'segmentStartSeconds': 120.0,
+          'segmentSeconds': 118.0,
+          'bpm': 124.0,
+          'bpmConfidence': 0.9,
+          'alternateBpm': 62.0,
+          'beatOffsetMs': 24.0,
+          'downbeatOffsetMs': 240.0,
+          'dropCueMs': 34000.0,
+          'breakdownCueMs': 113000.0,
+          'dropConfidence': 0.81,
+          'breakdownConfidence': 0.77,
+          'structureRegion': 4,
+          'structureConfidence': 0.88,
+          'vocalLikelihood': 0.72,
+          'vocalConfidence': 0.93,
+          'camelotNumber': 8,
+          'camelotMinor': true,
+          'keyConfidence': 0.9,
+          'rmsDb': -11.0,
+          'centroidHz': 2600.0,
+          'onsetRate': 3.2,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.startSeconds, 120);
+      expect(segment.bpm, 124);
+      expect(segment.alternateBpm, 62);
+      expect(segment.dropConfidence, 0.81);
+      expect(segment.breakdownConfidence, 0.77);
+      expect(segment.structureRegion, 4);
+      expect(segment.structureConfidence, 0.88);
+      expect(segment.vocalLikelihood, 0.72);
+      expect(segment.vocalConfidence, 0.93);
+    });
+
+    test('uses neutral fallbacks for malformed field types', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'segmentStartSeconds': 'not-a-number',
+          'segmentSeconds': false,
+          'bpm': 'fast',
+          'bpmConfidence': 'certain',
+          'alternateBpm': 'double-time',
+          'keyConfidence': 0.9,
+          'camelotNumber': '8',
+          'camelotMinor': 'true',
+          'vocalLikelihood': true,
+          'vocalConfidence': <String, Object>{'value': 0.9},
+          'structureRegion': 'drop',
+        },
+        fallbackStartSeconds: 12,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.startSeconds, 12);
+      expect(segment.seconds, 120);
+      expect(segment.bpm, isNull);
+      expect(segment.bpmConfidence, 0);
+      expect(segment.alternateBpm, isNull);
+      expect(segment.camelotNumber, isNull);
+      expect(segment.camelotMinor, isNull);
+      expect(segment.vocalLikelihood, 0);
+      expect(segment.vocalConfidence, 0);
+      expect(segment.structureRegion, 0);
+    });
+
+    test('rejects non-finite or out-of-range confidence metadata', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'bpm': double.nan,
+          'bpmConfidence': double.nan,
+          'dropConfidence': double.infinity,
+          'breakdownConfidence': -0.3,
+          'structureRegion': 99,
+          'structureConfidence': 4.0,
+          'vocalLikelihood': double.nan,
+          'vocalConfidence': 1.7,
+          'dropCueMs': double.infinity,
+          'camelotNumber': 99,
+          'keyConfidence': 1,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.bpm, isNull);
+      expect(segment.bpmConfidence, 0);
+      expect(segment.dropConfidence, 0);
+      expect(segment.breakdownConfidence, 0);
+      expect(segment.structureRegion, 0);
+      expect(segment.structureConfidence, 1);
+      expect(segment.vocalLikelihood, 0);
+      expect(segment.vocalConfidence, 1);
+      expect(segment.dropCueMs, isNull);
+      expect(segment.camelotNumber, isNull);
     });
   });
 
@@ -326,6 +509,48 @@ void main() {
       }
     });
 
+    test('high-confidence vocal clash prefers the low-confidence alternative', () {
+      final tracks = [
+        _f(
+          1,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.8,
+        ),
+        _f(
+          2,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.8,
+        ),
+        _f(
+          3,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.1,
+        ),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      expect(native.order, [0, 2, 1]);
+      expect(native.order, reference.order);
+    });
+
     test('empty list yields empty plan', () {
       final plan = AutomixEngine.planSet(
         tracks: const [],
@@ -468,6 +693,12 @@ void main() {
       double? downbeatOffsetMs,
       double? dropCueMs,
       double? breakdownCueMs,
+      double dropConfidence = 0,
+      double breakdownConfidence = 0,
+      int structureRegion = 0,
+      double structureConfidence = 0,
+      double vocalLikelihood = 0,
+      double vocalConfidence = 0,
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
@@ -478,6 +709,12 @@ void main() {
       downbeatOffsetMs: downbeatOffsetMs,
       dropCueMs: dropCueMs,
       breakdownCueMs: breakdownCueMs,
+      dropConfidence: dropConfidence,
+      breakdownConfidence: breakdownConfidence,
+      structureRegion: structureRegion,
+      structureConfidence: structureConfidence,
+      vocalLikelihood: vocalLikelihood,
+      vocalConfidence: vocalConfidence,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -544,13 +781,40 @@ void main() {
       expect(merged.analyzedFraction, closeTo(1.0, 0.001));
     });
 
-    test('retains head drop cue and absolute tail breakdown cue', () {
+    test('retains confidence and absolute structure/vocal cues across windows', () {
       final merged = automixMergeSegments(
         songId: 3,
-        segments: [seg(0, dropCueMs: 28000), seg(240, breakdownCueMs: 114000)],
+        segments: [
+          seg(
+            0,
+            dropCueMs: 28000,
+            dropConfidence: 0.74,
+            structureRegion: 3,
+            structureConfidence: 0.82,
+            vocalLikelihood: 0.8,
+            vocalConfidence: 0.9,
+          ),
+          seg(
+            240,
+            breakdownCueMs: 114000,
+            breakdownConfidence: 0.88,
+            structureRegion: 4,
+            structureConfidence: 0.76,
+            vocalLikelihood: 0.4,
+            vocalConfidence: 0.5,
+          ),
+        ],
       );
       expect(merged.dropCueMs, 28000);
+      expect(merged.dropConfidence, 0.74);
       expect(merged.tailBreakdownCueMs, 354000);
+      expect(merged.tailBreakdownConfidence, 0.88);
+      expect(merged.structureRegion, 3);
+      expect(merged.structureConfidence, 0.82);
+      expect(merged.tailStructureRegion, 4);
+      expect(merged.tailStructureConfidence, 0.76);
+      expect(merged.vocalLikelihood, closeTo((0.8 * 0.9 + 0.4 * 0.5) / 1.4, 1e-9));
+      expect(merged.vocalConfidence, closeTo(0.7, 1e-9));
       expect(merged.durationSeconds, 360);
     });
   });
@@ -564,7 +828,16 @@ void main() {
       double? intro,
       double durationSeconds = 0,
       double? tailBreakdownCueMs,
+      double tailBreakdownConfidence = 0,
       double? rmsDb,
+      double? centroidHz,
+      double? onsetRate,
+      int structureRegion = 0,
+      double structureConfidence = 0,
+      int tailStructureRegion = 0,
+      double tailStructureConfidence = 0,
+      double vocalLikelihood = 0,
+      double vocalConfidence = 0,
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: tailBpm,
@@ -572,10 +845,19 @@ void main() {
       tailBpm: tailBpm,
       loudnessLufs: lufs,
       rmsDb: rmsDb,
+      centroidHz: centroidHz,
+      onsetRate: onsetRate,
       outroEnergy: outro,
       introEnergy: intro,
       durationSeconds: durationSeconds,
       tailBreakdownCueMs: tailBreakdownCueMs,
+      tailBreakdownConfidence: tailBreakdownConfidence,
+      structureRegion: structureRegion,
+      structureConfidence: structureConfidence,
+      tailStructureRegion: tailStructureRegion,
+      tailStructureConfidence: tailStructureConfidence,
+      vocalLikelihood: vocalLikelihood,
+      vocalConfidence: vocalConfidence,
     );
 
     test('dense outro hands over sooner and the louder deck is trimmed', () {
@@ -584,11 +866,92 @@ void main() {
         incoming: track(2, lufs: -16, tailBpm: 120),
         settings: const AutomixSettings(),
       );
-      // 16 beats at 120 BPM = 8 s, shortened for a busy outro.
-      expect(cue.fadeSeconds, closeTo(6.0, 0.01));
-      expect(cue.curveGamma, greaterThan(1.0));
+      // Dense outro selects a quick handover rather than a generic 8 s fade.
+      expect(cue.strategy, AutomixTransitionStrategy.quickHandover);
+      expect(cue.fadeSeconds, lessThanOrEqualTo(3.0));
+      expect(cue.curveGamma, greaterThanOrEqualTo(1.35));
       expect(cue.outgoingTrim, closeTo(0.6309, 0.001)); // 4 dB
       expect(cue.incomingTrim, 1.0);
+    });
+
+    test('structure cues require reliable tail confidence and select alignment', () {
+      final aligned = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          durationSeconds: 180,
+          tailBreakdownCueMs: 174000,
+          tailBreakdownConfidence: 0.9,
+          tailStructureRegion: 4,
+          tailStructureConfidence: 0.8,
+        ),
+        incoming: track(2, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      expect(aligned.strategy, AutomixTransitionStrategy.structureAligned);
+      expect(aligned.fadeSeconds, 6.0);
+
+      final untrusted = automixTransitionCue(
+        outgoing: track(
+          3,
+          tailBpm: 120,
+          durationSeconds: 180,
+          tailBreakdownCueMs: 174000,
+          tailBreakdownConfidence: 0.1,
+        ),
+        incoming: track(4, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      expect(untrusted.strategy, AutomixTransitionStrategy.crossfade);
+      expect(untrusted.fadeSeconds, 8.0);
+    });
+
+    test('vocal conflict and spectral measurements drive EQ targets', () {
+      final clash = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.9,
+          centroidHz: 3000,
+          outro: 0.9,
+          onsetRate: 4.0,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          vocalLikelihood: 0.85,
+          vocalConfidence: 0.8,
+          centroidHz: 2800,
+          intro: 0.8,
+          onsetRate: 3.5,
+        ),
+        settings: const AutomixSettings(),
+      );
+      expect(clash.outgoingMidOverlapGain, 0.78);
+      expect(clash.incomingMidOverlapGain, 0.78);
+      expect(clash.outgoingBassOverlapGain, lessThan(1.0));
+      expect(clash.incomingBassOverlapGain, lessThan(1.0));
+      expect(clash.outgoingHighOverlapGain, lessThan(0.6));
+      expect(clash.incomingHighOverlapGain, lessThan(1.0));
+
+      final uncertain = automixTransitionCue(
+        outgoing: track(
+          3,
+          tailBpm: 120,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.2,
+        ),
+        incoming: track(
+          4,
+          tailBpm: 120,
+          vocalLikelihood: 0.9,
+          vocalConfidence: 0.1,
+        ),
+        settings: const AutomixSettings(),
+      );
+      expect(uncertain.outgoingMidOverlapGain, 1.0);
+      expect(uncertain.incomingMidOverlapGain, 1.0);
     });
 
     test('uses paired RMS dBFS for level matching when LUFS is missing', () {
@@ -623,6 +986,7 @@ void main() {
           tailBpm: 120,
           durationSeconds: 180,
           tailBreakdownCueMs: 174000,
+          tailBreakdownConfidence: 0.9,
         ),
         incoming: track(2, tailBpm: 120),
         settings: const AutomixSettings(),
@@ -661,9 +1025,9 @@ void main() {
           settings: const AutomixSettings(),
         );
 
-        // 16 beats at 120 BPM is 8 s; incompatible confident tempos use a
-        // shorter 5.76 s hand-off instead of a long rhythmic overlap.
-        expect(cue.fadeSeconds, closeTo(8.0 * 0.72, 0.01));
+        // A confident mismatch is classified and bounded as a short handover.
+        expect(cue.strategy, AutomixTransitionStrategy.shortHandover);
+        expect(cue.fadeSeconds, 4.0);
         expect(cue.curveGamma, greaterThanOrEqualTo(1.20));
       },
     );
@@ -714,8 +1078,10 @@ void main() {
           ),
           settings: const AutomixSettings(),
         );
-        expect(clash.fadeSeconds, closeTo(8.0 * 0.82, 0.01));
-        expect(clash.curveGamma, greaterThanOrEqualTo(1.15));
+        // A confident key mismatch selects a short handover, bounded at 4 s.
+        expect(clash.strategy, AutomixTransitionStrategy.shortHandover);
+        expect(clash.fadeSeconds, 4.0);
+        expect(clash.curveGamma, greaterThanOrEqualTo(1.20));
 
         final uncertain = automixTransitionCue(
           outgoing: const AutomixTrackFeatures(

@@ -92,6 +92,10 @@ class CrossfadeController(
     private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float? = { null },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    private val setAutoMixMidGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    private val getAutoMixBassOverlapGainsForIncoming: (ExoPlayer) -> Pair<Float, Float>? = { null },
+    private val getAutoMixMidOverlapGainsForIncoming: (ExoPlayer) -> Pair<Float, Float>? = { null },
+    private val getAutoMixHighOverlapGainsForIncoming: (ExoPlayer) -> Pair<Float, Float>? = { null },
     // Per-transition shaping from the offline planner, keyed by the INCOMING
     // track: its own fade length, the equal-power transfer curve, and the level
     // match between the two decks. All default to the pre-AutoMix behaviour.
@@ -295,12 +299,14 @@ class CrossfadeController(
         beatAlignedStartRunnable = null
         getActivePlayer()?.let {
             setAutoMixBassGain(it, 1f)
+            setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
         }
         promotionOwner?.let {
             setAutoMixBassGain(it, 1f)
+            setAutoMixMidGain(it, 1f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
         }
@@ -524,6 +530,15 @@ class CrossfadeController(
         val applyBassSwap = isAutomixTransitionEnabled() &&
             getAutoMixBpmForPlayer(current) != null &&
             getAutoMixBpmForPlayer(standby) != null
+        val bassOverlapGains = if (isAutomixTransitionEnabled()) {
+            getAutoMixBassOverlapGainsForIncoming(standby)
+        } else null
+        val midOverlapGains = if (isAutomixTransitionEnabled()) {
+            getAutoMixMidOverlapGainsForIncoming(standby)
+        } else null
+        val highOverlapGains = if (isAutomixTransitionEnabled()) {
+            getAutoMixHighOverlapGainsForIncoming(standby)
+        } else null
         if (applyBassSwap) {
             setAutoMixBassGain(current, 1f)
             setAutoMixBassGain(standby, 0f)
@@ -544,6 +559,9 @@ class CrossfadeController(
             phaseLockActive,
             isAutomixTransitionEnabled(),
             nativeFadeAvailable,
+            bassOverlapGains,
+            midOverlapGains,
+            highOverlapGains,
         )
         }
 
@@ -573,6 +591,9 @@ class CrossfadeController(
     phaseLock: Boolean,
     tailFilter: Boolean,
     nativeFadeEnabled: Boolean,
+    bassOverlapGains: Pair<Float, Float>?,
+    midOverlapGains: Pair<Float, Float>?,
+    highOverlapGains: Pair<Float, Float>?,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
@@ -595,6 +616,8 @@ class CrossfadeController(
                     crossfadeFadeRunnable = null
                     setAutoMixBassGain(newPlayer, 1f)
                     setAutoMixBassGain(oldPlayer, 1f)
+                    setAutoMixMidGain(newPlayer, 1f)
+                    setAutoMixMidGain(oldPlayer, 1f)
                     setAutoMixTempoNudge(newPlayer, 1f)
                     setAutoMixTailFilter(newPlayer, 1f)
                     setAutoMixTailFilter(oldPlayer, 1f)
@@ -609,6 +632,8 @@ class CrossfadeController(
                 if (step >= steps) {
                     setAutoMixBassGain(newPlayer, 1f)
                     setAutoMixBassGain(oldPlayer, 1f)
+                    setAutoMixMidGain(newPlayer, 1f)
+                    setAutoMixMidGain(oldPlayer, 1f)
                     // The promoted deck takes over at its own tempo and with a
                     // dry tone: a phase correction or a tail filter must never
                     // survive into the next track.
@@ -686,15 +711,33 @@ class CrossfadeController(
                 // pre-change volume at completion.
                 val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
                 val t      = step.toFloat() / steps.toFloat()
+                // Transition-specific three-band targets are attenuations only.
+                // Apply them with a bounded overlap envelope; the native DSP
+                // smooths every target over ~20 ms without audio-thread locks.
+                val overlapEnvelope = sin(PI * t.toDouble()).toFloat().coerceIn(0f, 1f)
+                var outgoingBass = 1f
+                var incomingBass = 1f
                 if (applyBassSwap) {
                     // Keep outgoing bass until the blend is established, then
                     // transfer the low band smoothly to the incoming deck.
-                    val outgoingBass = if (t <= 0.45f) 1f
+                    outgoingBass = if (t <= 0.45f) 1f
                         else (1f - (t - 0.45f) / 0.55f).coerceIn(0f, 1f)
-                    val incomingBass = if (t <= 0.40f) 0f
+                    incomingBass = if (t <= 0.40f) 0f
                         else ((t - 0.40f) / 0.60f).coerceIn(0f, 1f)
+                }
+                if (bassOverlapGains != null) {
+                    outgoingBass *= 1f - (1f - bassOverlapGains.first.coerceIn(0f, 1f)) * overlapEnvelope
+                    incomingBass *= 1f - (1f - bassOverlapGains.second.coerceIn(0f, 1f)) * overlapEnvelope
+                }
+                if (applyBassSwap || bassOverlapGains != null) {
                     setAutoMixBassGain(oldPlayer, outgoingBass)
                     setAutoMixBassGain(newPlayer, incomingBass)
+                }
+                if (midOverlapGains != null) {
+                    val outgoingMid = 1f - (1f - midOverlapGains.first.coerceIn(0f, 1f)) * overlapEnvelope
+                    val incomingMid = 1f - (1f - midOverlapGains.second.coerceIn(0f, 1f)) * overlapEnvelope
+                    setAutoMixMidGain(oldPlayer, outgoingMid)
+                    setAutoMixMidGain(newPlayer, incomingMid)
                 }
 
                 // ── AutoMix phase lock ─────────────────────────────────────────
@@ -797,10 +840,16 @@ class CrossfadeController(
                     val release = if (t <= 0.75f) 0f else (t - 0.75f) / 0.25f
                     val incomingTrimNow = incomingTrim + (1f - incomingTrim) * release
                     val theta = (shaped * PI / 2.0).toFloat()
+                    val outgoingGain = outgoingTrim * cos(theta)
+                    val incomingGain = incomingTrimNow * sin(theta)
+                    // Correlated decks can exceed unity under an equal-power
+                    // curve. Bound the combined gain for the Kotlin fallback too.
+                    val gainSum = outgoingGain + incomingGain
+                    val headroomScale = if (gainSum > 1f) 1f / gainSum else 1f
                     oldPlayer.volume =
-                        (targetVol * outgoingTrim * cos(theta)).coerceIn(0f, targetVol)
+                        (targetVol * outgoingGain * headroomScale).coerceIn(0f, targetVol)
                     newPlayer.volume =
-                        (targetVol * incomingTrimNow * sin(theta)).coerceIn(0f, targetVol)
+                        (targetVol * incomingGain * headroomScale).coerceIn(0f, targetVol)
                 }
 
                 // ── Tail filter-out ────────────────────────────────────────────
@@ -811,8 +860,11 @@ class CrossfadeController(
                 if (tailFilter) {
                     val tail = ((t - 0.55f) / 0.45f).coerceIn(0f, 1f)
                     val eased = tail * tail * (3f - 2f * tail)
-                    setAutoMixTailFilter(oldPlayer, 1f - MAX_TAIL_FILTER * eased)
-                    setAutoMixTailFilter(newPlayer, 1f)
+                    val outgoingHigh = highOverlapGains?.first?.coerceIn(0f, 1f)
+                        ?: (1f - MAX_TAIL_FILTER)
+                    val incomingHigh = highOverlapGains?.second?.coerceIn(0f, 1f) ?: 1f
+                    setAutoMixTailFilter(oldPlayer, 1f - (1f - outgoingHigh) * eased)
+                    setAutoMixTailFilter(newPlayer, 1f - (1f - incomingHigh) * eased)
                 }
                 step++
                 handler.postDelayed(this, stepMs)

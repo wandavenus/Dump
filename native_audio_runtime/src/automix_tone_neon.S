@@ -81,6 +81,11 @@ nar_automix_tone_process_stereo_neon:
     fmla    v3.2s, v7.2s, v9.2s
     dup     v9.2s, v18.s[0]
     fmul    v3.2s, v3.2s, v9.2s
+    // Enforce the same sample-peak ceiling as the scalar C path.
+    ldr     q29, .Lautomix_tone_one
+    ldr     q30, .Lautomix_tone_negative_one
+    fmax    v3.2s, v3.2s, v30.2s
+    fmin    v3.2s, v3.2s, v29.2s
     st1     {v3.2s}, [x0]
     add     x0, x0, #8
     subs    w1, w1, #1
@@ -103,6 +108,10 @@ nar_automix_tone_process_stereo_neon:
     .align  4
 .Lautomix_tone_max_finite:
     .word   0x7f7fffff, 0x7f7fffff, 0, 0
+.Lautomix_tone_one:
+    .word   0x3f800000, 0x3f800000, 0x3f800000, 0x3f800000
+.Lautomix_tone_negative_one:
+    .word   0xbf800000, 0xbf800000, 0xbf800000, 0xbf800000
 
     .size nar_automix_tone_process_stereo_neon, . - nar_automix_tone_process_stereo_neon
 #endif

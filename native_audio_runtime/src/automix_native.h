@@ -24,15 +24,6 @@ enum NarAutomixStructureRegion {
   NAR_AUTOMIX_STRUCTURE_STABLE_HIGH = 5,
 };
 
-// Explicit transition strategies selected by the planner.
-enum NarAutomixTransitionStrategy {
-  NAR_AUTOMIX_STRATEGY_CROSSFADE = 0,
-  NAR_AUTOMIX_STRATEGY_STRUCTURE_ALIGNED = 1,
-  NAR_AUTOMIX_STRATEGY_SHORT_HANDOVER = 2,
-  NAR_AUTOMIX_STRATEGY_LONG_BLEND = 3,
-  NAR_AUTOMIX_STRATEGY_QUICK_HANDOVER = 4,
-};
-
 // Flattened feature row order. A missing double is represented by NAN.
 enum NarAutomixFeatureIndex {
   NAR_AUTOMIX_BPM = 0,
