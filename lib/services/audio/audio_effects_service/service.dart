@@ -915,7 +915,7 @@ class AudioEffectsService {
       await PlaybackManager.setBitPerfectMode(true);
       LogService.log(
         'AudioEffects',
-        'Bit-Perfect Mode: ON — all audio processing bypassed',
+        'Pure Playback: ON — all audio processing bypassed',
       );
     } else {
       // Switch back to the normal dual-player pipeline first, so the
@@ -924,7 +924,7 @@ class AudioEffectsService {
       await _restoreFromBitPerfectSnapshot();
       LogService.log(
         'AudioEffects',
-        'Bit-Perfect Mode: OFF — previous settings restored',
+        'Pure Playback: OFF — previous settings restored',
       );
     }
   }
