@@ -803,6 +803,11 @@ class AutomixService {
     bpmConfidence: features.bpmConfidence,
     alternateBpm: features.alternateBpm,
     beatOffsetMs: features.beatOffsetMs,
+    downbeatOffsetMs: features.downbeatOffsetMs,
+    tailDownbeatOffsetMs: features.tailDownbeatOffsetMs,
+    dropCueMs: features.dropCueMs,
+    tailBreakdownCueMs: features.tailBreakdownCueMs,
+    durationSeconds: features.durationSeconds,
     camelotNumber: features.camelotNumber,
     camelotMinor: features.camelotMinor,
     keyConfidence: features.keyConfidence,
@@ -810,9 +815,8 @@ class AutomixService {
     rmsDb: features.rmsDb,
     centroidHz: features.centroidHz,
     onsetRate: features.onsetRate,
-    // Structure and exit-grid fields must survive the metadata re-hydration:
-    // dropping them here silently disabled the tail beat grid and the
-    // structure-aware fade for every cached read.
+    // Keep all structural cues and both phrase/beat grids intact when cached
+    // DSP data is paired with fresh MediaStore title/artist metadata.
     tailBpm: features.tailBpm,
     tailBeatOffsetMs: features.tailBeatOffsetMs,
     introEnergy: features.introEnergy,
