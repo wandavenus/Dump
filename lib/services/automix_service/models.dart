@@ -82,6 +82,9 @@ class AutomixTrackFeatures {
     this.tailBeatOffsetMs,
     this.downbeatOffsetMs,
     this.tailDownbeatOffsetMs,
+    this.dropCueMs,
+    this.tailBreakdownCueMs,
+    this.durationSeconds = 0,
     this.introEnergy,
     this.outroEnergy,
     this.analyzedFraction = 0,
@@ -113,6 +116,17 @@ class AutomixTrackFeatures {
 
   /// Estimated outro 16-beat phrase phase in milliseconds from the file start.
   final double? tailDownbeatOffsetMs;
+
+  /// Intro drop cue (absolute milliseconds from file start), if confidently
+  /// detected in the head analysis window.
+  final double? dropCueMs;
+
+  /// Outgoing breakdown cue (absolute milliseconds from file start), if
+  /// confidently detected in the tail analysis window.
+  final double? tailBreakdownCueMs;
+
+  /// Source duration inferred from the native analysis windows, in seconds.
+  final double durationSeconds;
 
   /// Camelot wheel position 1..12, or null when key detection was too
   /// uncertain. Letter: `camelotMinor == true` → "A" (minor), else "B" (major).
@@ -159,6 +173,9 @@ class AutomixTrackFeatures {
     if (beatOffsetMs != null) 'bo': beatOffsetMs,
     if (downbeatOffsetMs != null) 'dbo': downbeatOffsetMs,
     if (tailDownbeatOffsetMs != null) 'tdbo': tailDownbeatOffsetMs,
+    if (dropCueMs != null) 'dc': dropCueMs,
+    if (tailBreakdownCueMs != null) 'tbkc': tailBreakdownCueMs,
+    if (durationSeconds > 0) 'dur': durationSeconds,
     if (camelotNumber != null) 'kn': camelotNumber,
     if (camelotMinor != null) 'km': camelotMinor,
     'kc': keyConfidence,
@@ -184,6 +201,9 @@ class AutomixTrackFeatures {
       beatOffsetMs: (map['bo'] as num?)?.toDouble(),
       downbeatOffsetMs: (map['dbo'] as num?)?.toDouble(),
       tailDownbeatOffsetMs: (map['tdbo'] as num?)?.toDouble(),
+      dropCueMs: (map['dc'] as num?)?.toDouble(),
+      tailBreakdownCueMs: (map['tbkc'] as num?)?.toDouble(),
+      durationSeconds: (map['dur'] as num?)?.toDouble() ?? 0,
       camelotNumber: (map['kn'] as num?)?.toInt(),
       camelotMinor: map['km'] as bool?,
       keyConfidence: (map['kc'] as num?)?.toDouble() ?? 0,
