@@ -899,7 +899,7 @@ abstract class AppLocalizations {
   /// No description provided for @bitPerfectConfirmTitle.
   ///
   /// In en, this message translates to:
-  /// **'Activate Pure Audio Mode?'**
+  /// **'Activate Pure Playback?'**
   String get bitPerfectConfirmTitle;
 
   /// No description provided for @bitPerfectConfirmBody.
@@ -2399,7 +2399,7 @@ abstract class AppLocalizations {
   /// No description provided for @lockedInactive.
   ///
   /// In en, this message translates to:
-  /// **'Controls locked — Bit-Perfect Mode is active'**
+  /// **'Controls locked — Pure Playback is active'**
   String get lockedInactive;
 
   /// No description provided for @bandEq.
