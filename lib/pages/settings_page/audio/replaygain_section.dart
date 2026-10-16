@@ -84,7 +84,6 @@ class _ReplayGainSection extends StatelessWidget {
                   ),
                 ),
               ),
-,
           ],
         );
       },
