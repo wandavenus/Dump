@@ -112,6 +112,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final bpm = finiteValue('bpm');
   final bpmConfidence = unitValue('bpmConfidence');
   final keyConfidence = unitValue('keyConfidence');
+  final rawAlternateBpm = finiteValue('alternateBpm');
   final camelotNumber = (map['camelotNumber'] as num?)?.toInt();
   final start = finiteValue('segmentStartSeconds');
   final seconds = finiteValue('segmentSeconds');
@@ -127,9 +128,10 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     bpmConfidence: bpm != null && bpm > 0 && bpmConfidence >= 0.15
         ? bpmConfidence
         : 0,
-    alternateBpm: bpmConfidence >= 0.15
-        ? finiteValue('alternateBpm') case final alt?
-            when alt > 0
+    alternateBpm: bpmConfidence >= 0.15 &&
+            rawAlternateBpm != null &&
+            rawAlternateBpm > 0
+        ? rawAlternateBpm
         : null,
     beatOffsetMs: bpm != null && bpm > 0 && bpmConfidence >= 0.20
         ? beatOffset
