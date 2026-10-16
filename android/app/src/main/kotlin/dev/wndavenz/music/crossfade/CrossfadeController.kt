@@ -90,6 +90,7 @@ class CrossfadeController(
     private val getAutoMixBpmForPlayer: (ExoPlayer) -> Float? = { null },
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
+    private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float? = { null },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Per-transition shaping from the offline planner, keyed by the INCOMING
     // track: its own fade length, the equal-power transfer curve, and the level
@@ -713,8 +714,15 @@ class CrossfadeController(
                             newBpm != null && newOffset != null &&
                             oldBpm > 0f && newBpm > 0f
                         ) {
-                            val remainingMs =
+                            val remainingWallMs =
                                 ((steps - step).coerceAtLeast(0).toLong() * stepMs).toDouble()
+                            // Beat/phrase error is measured in incoming-media milliseconds,
+                            // while the fade timer is wall-clock time. Convert the remaining
+                            // horizon by the base playback multiplier before solving the
+                            // small relative rate correction.
+                            val baseMultiplier = getAutoMixTempoMultiplierForPlayer(newPlayer)
+                                ?.takeIf { it.isFinite() && it > 0f }?.toDouble() ?: 1.0
+                            val remainingMediaMs = remainingWallMs * baseMultiplier
                             val oldDownbeat =
                                 getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)
                             val newDownbeat =
@@ -732,7 +740,7 @@ class CrossfadeController(
                                         incomingPositionMs = newPlayer.currentPosition.toDouble(),
                                         incomingDownbeatOffsetMs = newDownbeat.toDouble(),
                                         incomingBpm = newBpm.toDouble(),
-                                        remainingMs = remainingMs,
+                                        remainingMs = remainingMediaMs,
                                         beatsPerPhrase = 16,
                                     )
                                 } else {
@@ -745,7 +753,7 @@ class CrossfadeController(
                                 incomingPositionMs = newPlayer.currentPosition.toDouble(),
                                 incomingPhaseOffsetMs = newOffset.toDouble(),
                                 incomingBpm = newBpm.toDouble(),
-                                remainingMs = remainingMs,
+                                remainingMs = remainingMediaMs,
                             )
                             if (tempoFactor != null) {
                                 setAutoMixTempoNudge(newPlayer, tempoFactor)
