@@ -86,7 +86,7 @@ class ArtworkBlurCache {
       pending.completer.complete(frame);
       _evict();
       return ArtworkBlurImageLease._(frame);
-    } catch (_) {
+    } on Object catch (_) {
       if (!pending.completer.isCompleted) pending.completer.complete(null);
       return null;
     } finally {
