@@ -27,6 +27,12 @@ class AutomixSegmentFeatures {
     this.downbeatOffsetMs,
     this.dropCueMs,
     this.breakdownCueMs,
+    this.dropConfidence = 0,
+    this.breakdownConfidence = 0,
+    this.structureRegion = 0,
+    this.structureConfidence = 0,
+    this.vocalLikelihood = 0,
+    this.vocalConfidence = 0,
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -55,6 +61,15 @@ class AutomixSegmentFeatures {
   /// Candidate structural cues relative to this window (ms), if detected.
   final double? dropCueMs;
   final double? breakdownCueMs;
+  final double dropConfidence;
+  final double breakdownConfidence;
+
+  /// Structural region (0=unknown, 1=low_activity, 2=buildup, 3=drop, 4=breakdown, 5=stable_high)
+  final int structureRegion;
+  final double structureConfidence;
+
+  final double vocalLikelihood;
+  final double vocalConfidence;
 
   final int? camelotNumber;
   final bool? camelotMinor;
@@ -88,6 +103,11 @@ class AutomixTrackFeatures {
     this.tailDownbeatOffsetMs,
     this.dropCueMs,
     this.tailBreakdownCueMs,
+    this.dropConfidence = 0,
+    this.tailBreakdownConfidence = 0,
+    this.structureRegion = 0,
+    this.vocalLikelihood = 0,
+    this.vocalConfidence = 0,
     this.durationSeconds = 0,
     this.introEnergy,
     this.outroEnergy,
@@ -129,6 +149,12 @@ class AutomixTrackFeatures {
   /// Outgoing breakdown cue (absolute milliseconds from file start), if
   /// confidently detected in the tail analysis window.
   final double? tailBreakdownCueMs;
+
+  final double dropConfidence;
+  final double tailBreakdownConfidence;
+  final int structureRegion;
+  final double vocalLikelihood;
+  final double vocalConfidence;
 
   /// Source duration inferred from the native analysis windows, in seconds.
   final double durationSeconds;
@@ -185,6 +211,11 @@ class AutomixTrackFeatures {
     if (tailDownbeatOffsetMs != null) 'tdbo': tailDownbeatOffsetMs,
     if (dropCueMs != null) 'dc': dropCueMs,
     if (tailBreakdownCueMs != null) 'tbkc': tailBreakdownCueMs,
+    if (dropConfidence > 0) 'dconf': dropConfidence,
+    if (tailBreakdownConfidence > 0) 'tbconf': tailBreakdownConfidence,
+    if (structureRegion > 0) 'sreg': structureRegion,
+    if (vocalLikelihood > 0) 'vlike': vocalLikelihood,
+    if (vocalConfidence > 0) 'vconf': vocalConfidence,
     if (durationSeconds > 0) 'dur': durationSeconds,
     if (camelotNumber != null) 'kn': camelotNumber,
     if (camelotMinor != null) 'km': camelotMinor,
@@ -214,6 +245,11 @@ class AutomixTrackFeatures {
       tailDownbeatOffsetMs: (map['tdbo'] as num?)?.toDouble(),
       dropCueMs: (map['dc'] as num?)?.toDouble(),
       tailBreakdownCueMs: (map['tbkc'] as num?)?.toDouble(),
+      dropConfidence: (map['dconf'] as num?)?.toDouble() ?? 0,
+      tailBreakdownConfidence: (map['tbconf'] as num?)?.toDouble() ?? 0,
+      structureRegion: (map['sreg'] as num?)?.toInt() ?? 0,
+      vocalLikelihood: (map['vlike'] as num?)?.toDouble() ?? 0,
+      vocalConfidence: (map['vconf'] as num?)?.toDouble() ?? 0,
       durationSeconds: (map['dur'] as num?)?.toDouble() ?? 0,
       camelotNumber: (map['kn'] as num?)?.toInt(),
       camelotMinor: map['km'] as bool?,

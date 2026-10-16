@@ -234,11 +234,20 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
                           artist_groups[a] == artist_groups[b];
   const double variety = same_artist
       ? (avoid_artist_repeat ? 0.55 : 0.20) : 0.0;
+
+  // Vocal conflict penalty
+  const double vocal_a = feature(rows, a, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
+  const double vocal_b = feature(rows, b, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
+  double vocal_penalty = 0.0;
+  if (isfinite(vocal_a) && isfinite(vocal_b) && vocal_a > 0.5 && vocal_b > 0.5) {
+    vocal_penalty = (vocal_a - 0.5) * (vocal_b - 0.5) * 0.4;
+  }
+
   const double* weights = kProfileWeights[profile];
   const double denominator =
       weights[0] + weights[1] + weights[2] + weights[3];
   const double total = weights[0] * tempo + weights[1] * key +
-                       weights[2] * energy + weights[3] * variety;
+                       weights[2] * energy + weights[3] * variety + vocal_penalty;
   (void)song_ids;
   return fmin(1.0, fmax(0.0, total / denominator));
 }

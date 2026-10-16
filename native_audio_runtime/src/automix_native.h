@@ -10,9 +10,28 @@
 extern "C" {
 #endif
 
-#define NAR_AUTOMIX_FEATURE_COUNT 14
+#define NAR_AUTOMIX_FEATURE_COUNT 15
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 14
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 20
+
+// Structural region classification labels.
+enum NarAutomixStructureRegion {
+  NAR_AUTOMIX_STRUCTURE_UNKNOWN = 0,
+  NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY = 1,
+  NAR_AUTOMIX_STRUCTURE_BUILDUP = 2,
+  NAR_AUTOMIX_STRUCTURE_DROP = 3,
+  NAR_AUTOMIX_STRUCTURE_BREAKDOWN = 4,
+  NAR_AUTOMIX_STRUCTURE_STABLE_HIGH = 5,
+};
+
+// Explicit transition strategies selected by the planner.
+enum NarAutomixTransitionStrategy {
+  NAR_AUTOMIX_STRATEGY_CROSSFADE = 0,
+  NAR_AUTOMIX_STRATEGY_STRUCTURE_ALIGNED = 1,
+  NAR_AUTOMIX_STRATEGY_SHORT_HANDOVER = 2,
+  NAR_AUTOMIX_STRATEGY_LONG_BLEND = 3,
+  NAR_AUTOMIX_STRATEGY_QUICK_HANDOVER = 4,
+};
 
 // Flattened feature row order. A missing double is represented by NAN.
 enum NarAutomixFeatureIndex {
@@ -30,6 +49,7 @@ enum NarAutomixFeatureIndex {
   NAR_AUTOMIX_INTRO_ENERGY = 11,
   NAR_AUTOMIX_OUTRO_ENERGY = 12,
   NAR_AUTOMIX_ANALYZED_FRACTION = 13,
+  NAR_AUTOMIX_VOCAL_LIKELIHOOD = 14,
 };
 
 // Key fields per track: [Camelot number (0 means unknown), mode
