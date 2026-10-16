@@ -29,24 +29,30 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
       return;
     }
 
-    final provider = await ArtworkRepository.instance.getProvider(
-      songId,
-      targetSizePx: _targetSizePx,
-    );
-    if (provider == null) return;
+    try {
+      final provider = await ArtworkRepository.instance.getProvider(
+        songId,
+        targetSizePx: _targetSizePx,
+      );
+      if (provider == null) return;
 
-    final imageScale = math.max(
-      width / _targetSizePx,
-      height / _targetSizePx,
-    );
-    final sigma = (_blurSigma / imageScale).clamp(0.5, _blurSigma).toDouble();
-    final key = '$songId:${sigma.toStringAsFixed(1)}';
-    final lease = await _ArtworkBlurCache.acquire(
-      key: key,
-      provider: provider,
-      sigma: sigma,
-    );
-    lease?.release();
+      final imageScale = math.max(
+        width / _targetSizePx,
+        height / _targetSizePx,
+      );
+      final sigma = (_blurSigma / imageScale)
+          .clamp(0.5, _blurSigma)
+          .toDouble();
+      final key = '$songId:${sigma.toStringAsFixed(1)}';
+      final lease = await _ArtworkBlurCache.acquire(
+        key: key,
+        provider: provider,
+        sigma: sigma,
+      );
+      lease?.release();
+    } on Exception catch (_) {
+      // The player keeps the runtime-blur fallback if prewarming fails.
+    }
   }
 
   @override
