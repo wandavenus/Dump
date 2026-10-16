@@ -509,10 +509,25 @@ class AutomixTransitionCue {
     required this.outgoingTrim,
     required this.incomingTrim,
     required this.strategy,
+    required this.outgoingBassOverlapGain,
+    required this.incomingBassOverlapGain,
+    required this.outgoingMidOverlapGain,
+    required this.incomingMidOverlapGain,
+    required this.outgoingHighOverlapGain,
+    required this.incomingHighOverlapGain,
   });
 
   /// Strategy that controls the production fade behavior on Android.
   final AutomixTransitionStrategy strategy;
+
+  /// Per-deck spectral/structure-driven isolator targets at the center of the
+  /// overlap. Native smoothing and an envelope return all bands to unity.
+  final double outgoingBassOverlapGain;
+  final double incomingBassOverlapGain;
+  final double outgoingMidOverlapGain;
+  final double incomingMidOverlapGain;
+  final double outgoingHighOverlapGain;
+  final double incomingHighOverlapGain;
 
   /// Fade length in media-timeline seconds (opposite deck's tempo governs).
   final double fadeSeconds;
@@ -665,17 +680,60 @@ AutomixTransitionCue automixTransitionCue({
       break;
     case AutomixTransitionStrategy.structureAligned:
       fadeSeconds = cueLeadSeconds!;
+      break;
     case AutomixTransitionStrategy.shortHandover:
       fadeSeconds = math.min(fadeSeconds, 4.0);
       gamma = math.max(gamma, 1.20);
+      break;
     case AutomixTransitionStrategy.longBlend:
       fadeSeconds = math.max(fadeSeconds, 6.0);
       gamma = math.min(gamma, 0.95);
+      break;
     case AutomixTransitionStrategy.quickHandover:
       fadeSeconds = math.min(fadeSeconds, 3.0);
       gamma = math.max(gamma, 1.35);
+      break;
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
+
+  // Derive conservative per-deck EQ targets from actual measured features.
+  // Unknown metadata keeps bands neutral, except the historical outgoing-tail
+  // filter fallback. These are overlap-only attenuations; neither deck is boosted.
+  final confidentVocalClash = outgoing.vocalConfidence >= 0.45 &&
+      incoming.vocalConfidence >= 0.45 &&
+      outgoing.vocalLikelihood >= 0.55 &&
+      incoming.vocalLikelihood >= 0.55;
+  final outgoingBusy = (outgoing.outroEnergy ?? 0.5) >= 0.75 &&
+      (outgoing.onsetRate ?? 0) >= 2.5;
+  final incomingBusy = (incoming.introEnergy ?? 0.5) >= 0.75 &&
+      (incoming.onsetRate ?? 0) >= 2.5;
+  final outgoingBassGain = outgoingBusy ? 0.88 : 1.0;
+  final incomingBassGain = incomingBusy ? 0.90 : 1.0;
+  final outgoingMidGain = confidentVocalClash
+      ? 0.78
+      : (strategy == AutomixTransitionStrategy.quickHandover ? 0.92 : 1.0);
+  final incomingMidGain = confidentVocalClash
+      ? 0.78
+      : (incoming.structureRegion == 4 &&
+              incoming.structureConfidence >= 0.70
+          ? 0.90
+          : 1.0);
+  double highGain(AutomixTrackFeatures features, {required double fallback}) {
+    final centroid = features.centroidHz;
+    if (centroid == null || !centroid.isFinite || centroid <= 0) {
+      return fallback;
+    }
+    final brightness = automixClamp01((centroid - 900.0) / 2600.0);
+    return (0.90 - 0.55 * brightness).clamp(0.32, 0.90).toDouble();
+  }
+  final outgoingHighGain = highGain(outgoing, fallback: 0.25);
+  final incomingHighGain = incoming.centroidHz == null
+      ? 1.0
+      : (1.0 -
+              0.18 *
+                  automixClamp01((incoming.centroidHz! - 900.0) / 2600.0))
+          .clamp(0.82, 1.0)
+          .toDouble();
 
   // Standard DJ level matching: attenuate the louder deck only.
   var outgoingTrim = 1.0;
@@ -700,6 +758,12 @@ AutomixTransitionCue automixTransitionCue({
     outgoingTrim: outgoingTrim,
     incomingTrim: incomingTrim,
     strategy: strategy,
+    outgoingBassOverlapGain: outgoingBassGain,
+    incomingBassOverlapGain: incomingBassGain,
+    outgoingMidOverlapGain: outgoingMidGain,
+    incomingMidOverlapGain: incomingMidGain,
+    outgoingHighOverlapGain: outgoingHighGain,
+    incomingHighOverlapGain: incomingHighGain,
   );
 }
 
