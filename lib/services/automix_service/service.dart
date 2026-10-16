@@ -824,6 +824,11 @@ class AutomixService {
     tailDownbeatOffsetMs: features.tailDownbeatOffsetMs,
     dropCueMs: features.dropCueMs,
     tailBreakdownCueMs: features.tailBreakdownCueMs,
+    dropConfidence: features.dropConfidence,
+    tailBreakdownConfidence: features.tailBreakdownConfidence,
+    structureRegion: features.structureRegion,
+    vocalLikelihood: features.vocalLikelihood,
+    vocalConfidence: features.vocalConfidence,
     durationSeconds: features.durationSeconds,
     camelotNumber: features.camelotNumber,
     camelotMinor: features.camelotMinor,
@@ -1267,7 +1272,8 @@ class AutomixService {
 
     final bpm = (res['bpm'] as num?)?.toDouble();
     final rawAlternateBpm = (res['alternateBpm'] as num?)?.toDouble();
-    final alternateBpm = rawAlternateBpm != null &&
+    final alternateBpm =
+        rawAlternateBpm != null &&
             rawAlternateBpm.isFinite &&
             rawAlternateBpm > 0
         ? rawAlternateBpm
@@ -1292,8 +1298,7 @@ class AutomixService {
         bpmConfidence: bpc >= 0.15 ? bpc : 0,
         alternateBpm: bpc >= 0.15 ? alternateBpm : null,
         beatOffsetMs: bpm != null && bpc >= 0.20 ? beatOffsetMs : null,
-        downbeatOffsetMs:
-            bpm != null && bpc >= 0.20 ? downbeatOffsetMs : null,
+        downbeatOffsetMs: bpm != null && bpc >= 0.20 ? downbeatOffsetMs : null,
         dropCueMs: dropCueMs,
         breakdownCueMs: breakdownCueMs,
         camelotNumber: kConf >= 0.25 ? camN : null,

@@ -1244,8 +1244,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get noSongSelected => 'Belum ada lagu yang dipilih';
 
   @override
-  String get lockedInactive =>
-      'Kontrol dikunci — Pure Playback sedang aktif';
+  String get lockedInactive => 'Kontrol dikunci — Pure Playback sedang aktif';
 
   @override
   String get bandEq => 'BAND EQ';

@@ -48,9 +48,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
         width / _targetSizePx,
         height / _targetSizePx,
       );
-      final sigma = (_blurSigma / imageScale)
-          .clamp(0.5, _blurSigma)
-          .toDouble();
+      final sigma = (_blurSigma / imageScale).clamp(0.5, _blurSigma).toDouble();
       final key = '$songId:${sigma.toStringAsFixed(1)}';
       final lease = await ArtworkBlurCache.acquire(
         key: key,
@@ -161,10 +159,7 @@ class _ArtworkBlurPlayerBackgroundState
     // ImageFilter sigma is expressed in the destination coordinate space.
     // Scale the pre-blur radius to preserve the existing 32px on-screen look
     // after the 384px source is enlarged to fill the player.
-    final imageScale = math.max(
-      width / _targetSizePx,
-      height / _targetSizePx,
-    );
+    final imageScale = math.max(width / _targetSizePx, height / _targetSizePx);
     final sourceSigma = (_blurSigma / imageScale)
         .clamp(0.5, _blurSigma)
         .toDouble();

@@ -22,6 +22,7 @@ class NativeAutomixTrack {
     this.outroEnergy,
     this.analyzedFraction = 0,
     this.vocalLikelihood = 0,
+    this.vocalConfidence = 0,
   });
 
   final int songId;
@@ -43,6 +44,7 @@ class NativeAutomixTrack {
   final double? outroEnergy;
   final double analyzedFraction;
   final double vocalLikelihood;
+  final double vocalConfidence;
 }
 
 class NativeAutomixPlan {

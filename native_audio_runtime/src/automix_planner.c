@@ -235,12 +235,19 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const double variety = same_artist
       ? (avoid_artist_repeat ? 0.55 : 0.20) : 0.0;
 
-  // Vocal conflict penalty
+  // Vocal conflict penalty: confidence-aware
   const double vocal_a = feature(rows, a, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
   const double vocal_b = feature(rows, b, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
+  const double conf_a = feature(rows, a, NAR_AUTOMIX_VOCAL_CONFIDENCE);
+  const double conf_b = feature(rows, b, NAR_AUTOMIX_VOCAL_CONFIDENCE);
   double vocal_penalty = 0.0;
-  if (isfinite(vocal_a) && isfinite(vocal_b) && vocal_a > 0.5 && vocal_b > 0.5) {
-    vocal_penalty = (vocal_a - 0.5) * (vocal_b - 0.5) * 0.4;
+  if (isfinite(vocal_a) && isfinite(vocal_b) &&
+      isfinite(conf_a) && isfinite(conf_b) &&
+      conf_a >= 0.35 && conf_b >= 0.35 &&
+      vocal_a > 0.5 && vocal_b > 0.5) {
+    const double effective_a = (vocal_a - 0.5) * conf_a;
+    const double effective_b = (vocal_b - 0.5) * conf_b;
+    vocal_penalty = effective_a * effective_b * 0.4;
   }
 
   const double* weights = kProfileWeights[profile];
