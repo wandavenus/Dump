@@ -428,7 +428,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get sectionBitPerfect => 'PEMUTAR';
 
   @override
-  String get bitPerfectMode => 'Mode Pemutar Bersih';
+  String get bitPerfectMode => 'Pure Playback';
 
   @override
   String get bitPerfectActiveSubtitle =>
