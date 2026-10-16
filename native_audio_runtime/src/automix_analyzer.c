@@ -492,32 +492,69 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[9] = estimate_onset_rate(odf, frame_count, fps);
   output[10] = (double)sample_count / working_rate;
 
-  // 1. Downbeat (Bar 1) phase estimation (4-beat downbeat offset in ms).
-  if (tempo.valid && tempo.confidence >= 0.20 && isfinite(output[3])) {
-    const double beat_ms = 60000.0 / tempo.bpm;
-    const double bar_ms = beat_ms * 4.0;
-    // Downbeat is estimated from the strongest 4-beat periodic onset pulse.
-    const double beat_offset = output[3];
-    double best_bar_offset = beat_offset;
-    double max_bar_energy = -1.0;
-    for (int b = 0; b < 4; ++b) {
-      const double cand_offset = beat_offset + b * beat_ms;
-      double bar_energy = 0.0;
-      for (int i = 0; i < frame_count; ++i) {
-        const double t_ms = i * (double)HOP_SIZE * 1000.0 / working_rate;
-        const double phase = fmod(t_ms - cand_offset, bar_ms);
-        if (fabs(phase) < beat_ms * 0.25 || fabs(phase - bar_ms) < beat_ms * 0.25) {
-          bar_energy += odf[i];
+  // 1. Phrase-start phase (16-beat / four-bar loop) in milliseconds.
+  // A bar downbeat alone cannot identify a phrase boundary. Evaluate all 16
+  // beat positions as possible phrase starts and publish a phase only when
+  // one position has a clear repeated onset accent; otherwise leave it unknown
+  // so playback falls back to beat-level locking.
+  output[11] = NAN;
+  if (tempo.valid && tempo.confidence >= 0.45 && isfinite(output[3])) {
+    const int32_t beat_period_frames =
+        (int32_t)round(fps * 60.0 / tempo.bpm);
+    const int32_t phrase_period_frames = beat_period_frames * 16;
+    const int32_t beat_phase_frame =
+        (int32_t)round(output[3] * fps / 1000.0);
+    if (beat_period_frames >= 2 && phrase_period_frames > 0 &&
+        frame_count >= phrase_period_frames * 2) {
+      double phase_scores[16] = {0.0};
+      int32_t phase_counts[16] = {0};
+      const int32_t base_phase =
+          ((beat_phase_frame % beat_period_frames) + beat_period_frames) %
+          beat_period_frames;
+
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        const int32_t phase =
+            (base_phase + beat * beat_period_frames) % phrase_period_frames;
+        for (int32_t frame = phase; frame < frame_count;
+             frame += phrase_period_frames) {
+          // A small timing tolerance absorbs STFT hop quantization without
+          // allowing a single neighboring transient to dominate the score.
+          float pulse = odf[frame];
+          if (frame > 0 && odf[frame - 1] > pulse) pulse = odf[frame - 1];
+          if (frame + 1 < frame_count && odf[frame + 1] > pulse) {
+            pulse = odf[frame + 1];
+          }
+          phase_scores[beat] += pulse;
+          phase_counts[beat]++;
         }
       }
-      if (bar_energy > max_bar_energy) {
-        max_bar_energy = bar_energy;
-        best_bar_offset = cand_offset;
+
+      int32_t best_phase_beat = -1;
+      double best_score = -1.0;
+      double second_score = -1.0;
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        if (phase_counts[beat] <= 0) continue;
+        const double score = phase_scores[beat] / phase_counts[beat];
+        if (score > best_score) {
+          second_score = best_score;
+          best_score = score;
+          best_phase_beat = beat;
+        } else if (score > second_score) {
+          second_score = score;
+        }
+      }
+
+      // If repeated bars have no distinct phrase accent, phrase phase is
+      // genuinely ambiguous. Do not manufacture phrase alignment from BPM.
+      if (best_phase_beat >= 0 && best_score > 1e-8 &&
+          (second_score <= 1e-8 || best_score >= second_score * 1.12)) {
+        const int32_t phase_frame =
+            (base_phase + best_phase_beat * beat_period_frames) %
+            phrase_period_frames;
+        output[11] =
+            phase_frame * (double)HOP_SIZE * 1000.0 / working_rate;
       }
     }
-    output[11] = fmod(best_bar_offset, bar_ms);
-  } else {
-    output[11] = NAN;
   }
 
   // 2. Conservative structural cues. A global maximum onset or minimum RMS
