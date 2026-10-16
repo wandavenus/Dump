@@ -140,6 +140,7 @@ class TransportState(
         }
 
         EventEmitter.emit("playbackState",  mapOf("playing" to p.isPlaying, "processingState" to state))
+        EventEmitter.emit("crossfadeState", crossfadeController.crossfadeInProgress)
         EventEmitter.emit("bufferingState", p.playbackState == Player.STATE_BUFFERING)
         EventEmitter.emit("position",       p.currentPosition.coerceAtLeast(0L))
         EventEmitter.emit("duration",       p.duration.coerceAtLeast(0L))
@@ -165,6 +166,7 @@ class TransportState(
             else                   -> "idle"
         }
         EventEmitter.emit("playbackState",  mapOf("playing" to p.isPlaying, "processingState" to state))
+        EventEmitter.emit("crossfadeState", crossfadeController.crossfadeInProgress)
         EventEmitter.emit("bufferingState", p.playbackState == Player.STATE_BUFFERING)
         EventEmitter.emit("position",       p.currentPosition.coerceAtLeast(0L))
         EventEmitter.emit("duration",       p.duration.coerceAtLeast(0L))
