@@ -435,6 +435,21 @@ class AutomixService {
       if (!_isAutoMixGenerationCurrent(generation)) {
         return;
       }
+      // Validate again after awaits: Shuffle can pick another next item, or a
+      // queue edit can land while the feature cache is loading.
+      final postLoadState = AudioService.playbackState.value;
+      if (postLoadState.currentSong?.id != currentSong.id ||
+          postLoadState.currentIndex != currentIndex ||
+          postLoadState.shuffleEnabled != playbackSnapshot.shuffleEnabled ||
+          postLoadState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
+          !automixQueueSnapshotMatches(
+            queue.map((song) => song.id).toList(growable: false),
+            postLoadState.currentPlaylist.map((song) => song.id).toList(growable: false),
+          )) {
+        LogService.verbose('Automix', 'playback queue changed during feature loading; dropping stale targets');
+        _scheduleReplanRetry();
+        return;
+      }
 
       // Fresh analysis for the decks about to mix makes the current order worth
       // re-deciding once: the whole-queue plan was built with the data that
@@ -830,9 +845,9 @@ class AutomixService {
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
   // v7: preserve native half/double-time alternate BPM and true source duration.
   // v9: persist vocal confidence and intro/tail structural-region metadata.
-  //     Older entries are re-analyzed because those fields affect planner costs
-  //     and the transition strategy, not merely diagnostics.
-  static const int _analysisSchemaVersion = 9;
+  // v10: include absolute source path in file identity so same-sized files at
+  //      different paths cannot reuse a prior track's analysis.
+  static const int _analysisSchemaVersion = 10;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -846,7 +861,7 @@ class AutomixService {
       final f = File(song.path);
       if (!f.existsSync()) return '';
       final st = f.statSync();
-      return '${st.size}_${st.modified.millisecondsSinceEpoch}';
+      return '${f.absolute.path}_${st.size}_${st.modified.millisecondsSinceEpoch}';
     } on Object {
       return '';
     }
@@ -875,6 +890,12 @@ class AutomixService {
   }
 
   static bool _needsDspAnalysis(LocalSong song) {
+    // Unseen tracks have no in-memory negative/positive status to invalidate;
+    // their persisted cache is checked by analyzeOne when selected for work.
+    // Avoid a synchronous stat for every item in a large library sweep.
+    if (!_dspReady.contains(song.id) && !_dspUnavailable.contains(song.id)) {
+      return true;
+    }
     final identity = _refreshDspStatusFor(song);
     final ready = identity.isNotEmpty && _dspReady.contains(song.id) &&
         _dspReadyIdentity[song.id] == identity;
@@ -1330,7 +1351,7 @@ class AutomixService {
   static bool _analysisCancelled = false;
   static Future<void>? _analysisFuture;
   static int? _analyzedCount;
-  static final Map<int, Future<AutomixTrackFeatures?>> _inFlight = {};
+  static final Map<String, Future<AutomixTrackFeatures?>> _inFlight = {};
 
   /// Whether any song has had a full DSP analysis recorded already — used by
   /// the UI to motivate running the batch scan.
@@ -1481,21 +1502,21 @@ class AutomixService {
   static Future<AutomixTrackFeatures?> analyzeOne(LocalSong song) async {
     if (kIsWeb || song.path.isEmpty) return null;
 
-    final existing = _inFlight[song.id];
+    final identity = _identityForSong(song);
+    final flightKey = '${song.id}:${song.path}:$identity';
+    final existing = _inFlight[flightKey];
     if (existing != null) return existing;
 
-    final identity = _identityForSong(song);
     final completer = Completer<AutomixTrackFeatures?>();
-    _inFlight[song.id] = completer.future;
-
+    _inFlight[flightKey] = completer.future;
     unawaited(_runAnalysis(completer, song, identity));
 
     try {
       return await completer.future;
     } finally {
-      // remove() hands back the stored Future — nothing awaits it here: the
-      // awaiting caller already got it above.
-      _inFlight.remove(song.id)?.ignore();
+      // Only evict this exact source version; an edit to the same MediaStore ID
+      // may have started a separate analysis while the old decode was in flight.
+      _inFlight.remove(flightKey)?.ignore();
     }
   }
 
@@ -1556,6 +1577,10 @@ class AutomixService {
 
     // 2. Native DSP, in bounded windows that cover the whole file.
     final analysis = await _analyzeSegments(song);
+    if (identity.isNotEmpty && _identityForSong(song) != identity) {
+      LogService.verbose('Automix', 'source changed during DSP decode for ${song.id}; discarding stale features');
+      return null;
+    }
     final segments = analysis.$1;
     if (segments.isEmpty) return null;
 
@@ -1577,6 +1602,10 @@ class AutomixService {
       sourceDurationSeconds: analysis.$2,
       tailSegmentAnalyzed: analysis.$3,
     );
+    if (identity.isNotEmpty && _identityForSong(song) != identity) {
+      LogService.verbose('Automix', 'source changed before cache commit for ${song.id}; discarding stale features');
+      return null;
+    }
 
     if (identity.isNotEmpty) {
       try {
