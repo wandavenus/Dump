@@ -48,9 +48,9 @@ Phrase alignment uses the offline beat/downbeat grids with current Media3 player
 
 `automixTransitionCue` derives conservative attenuation-only targets from measured RMS-relative energy, onset rate, spectral centroid, structure metadata, and confidence-gated vocal overlap. `CrossfadeController` applies those targets during the overlap; `AutomixToneManager` keeps state per physical player slot; `AutomixToneAudioProcessor` passes controls to the native per-stream tone processor. The native processor smooths atomic target gains and splits bass/mid/high bands without making the audio callback acquire Kotlin locks.
 
-Crossfade gain calculation enforces an outgoing-plus-incoming gain budget no greater than unity. The scalar C path and ARM64 NEON path clamp each processed PCM sample to [-1, 1]. Native tests cover overlap gain budgets and oversampled input samples, and native C tests run with AddressSanitizer/UndefinedBehaviorSanitizer.
+Crossfade gain calculation enforces an outgoing-plus-incoming gain budget no greater than unity; for source samples already normalized to [-1, 1] with neutral EQ this bounds the correlated-stream mix at the gain stage. The scalar C path and ARM64 NEON path also clamp each stream's processed PCM sample to [-1, 1]. Native tests cover the overlap-gain budget and per-stream over-range sample clamp, and native C tests run with AddressSanitizer/UndefinedBehaviorSanitizer.
 
-**Safety limit:** this is a **sample-peak ceiling**, not an oversampled true-peak limiter. The PR does not claim that inter-sample true peaks are guaranteed below 0 dBFS.
+**Safety limit:** the current app does not have a common post-mix limiter after the two independent Media3 streams are mixed by Android. Therefore this is **not a guarantee that the final system mix stays below 0 dBFS** when EQ changes band phase, upstream DSP produces over-range samples, or inter-sample peaks occur. No true-peak/oversampling-limiter claim is made; the proven guarantees are the fader coefficient budget and each native stream's sample clamp.
 
 ## 5. Reproducible SDK setup and validation
 
