@@ -795,15 +795,18 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                 // Shadow in background so it renders behind the artwork.
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(4),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: shadowAlpha,
-                                      ),
-                                      blurRadius: shadowBlur,
-                                      offset: Offset(0, shadowOff),
-                                    ),
-                                  ],
+                                  // Artwork Blur mode has no artwork shadow at all.
+                                  boxShadow: isArtworkBlurStyle
+                                      ? const []
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: shadowAlpha,
+                                            ),
+                                            blurRadius: shadowBlur,
+                                            offset: Offset(0, shadowOff),
+                                          ),
+                                        ],
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(
