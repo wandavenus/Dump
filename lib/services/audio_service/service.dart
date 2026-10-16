@@ -764,6 +764,7 @@ class AudioService {
   /// The active song is checked by ID on the native side and is never moved.
   static Future<void> reorderUpcomingByIds({
     required int currentId,
+    required List<int> expectedTailIds,
     required List<int> orderedIds,
   }) async {
     if (_playlist.length < 2) return;
@@ -777,6 +778,9 @@ class AudioService {
     }
     final tail = _playlist.skip(currentIndex + 1).toList(growable: false);
     final tailIds = tail.map((song) => song.id).toList(growable: false);
+    if (!automixQueueSnapshotMatches(expectedTailIds, tailIds)) {
+      throw StateError('AutoMix queue order changed after planning');
+    }
     if (orderedIds.length != tailIds.length ||
         orderedIds.toSet().length != orderedIds.length ||
         tailIds.toSet().length != tailIds.length ||
@@ -799,6 +803,7 @@ class AudioService {
     if (unchanged) return;
     await PlaybackManager.reorderUpcomingByIds(
       currentId: currentId,
+      expectedTailIds: expectedTailIds,
       orderedIds: orderedIds,
     );
     final byId = <int, LocalSong>{for (final song in tail) song.id: song};
