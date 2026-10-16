@@ -84,34 +84,7 @@ class _ReplayGainSection extends StatelessWidget {
                   ),
                 ),
               ),
-            if (mode != ReplayGainMode.off) ...[
-              const SizedBox(height: 4),
-              ValueListenableBuilder<double>(
-                valueListenable: AudioEffectsService.replayGainPreamp,
-                builder: (_, preamp, _) => SettingsSliderRow(
-                  title: context.l10n.replayGainPreampLabel,
-                  subtitle: preamp == 0
-                      ? '0 dB'
-                      : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
-                  value: preamp,
-                  min: -15,
-                  max: 15,
-                  onChanged: AudioEffectsService.setReplayGainPreamp,
-                  divisions: 30,
-                  showReset: preamp != 0,
-                  onReset: () => AudioEffectsService.setReplayGainPreamp(0),
-                ),
-              ),
-              ValueListenableBuilder<bool>(
-                valueListenable: AudioEffectsService.clippingProtection,
-                builder: (_, clip, _) => SettingsToggleRow(
-                  title: context.l10n.clippingProtection,
-                  subtitle: context.l10n.clippingProtectionSubtitle,
-                  value: clip,
-                  onChanged: AudioEffectsService.setClippingProtection,
-                ),
-              ),
-            ],
+,
           ],
         );
       },
