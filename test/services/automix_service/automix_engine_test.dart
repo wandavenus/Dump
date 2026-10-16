@@ -148,6 +148,37 @@ void main() {
       expect(segment.vocalConfidence, 0.93);
     });
 
+    test('uses neutral fallbacks for malformed field types', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'segmentStartSeconds': 'not-a-number',
+          'segmentSeconds': false,
+          'bpm': 'fast',
+          'bpmConfidence': 'certain',
+          'alternateBpm': 'double-time',
+          'keyConfidence': 0.9,
+          'camelotNumber': '8',
+          'camelotMinor': 'true',
+          'vocalLikelihood': true,
+          'vocalConfidence': <String, Object>{'value': 0.9},
+          'structureRegion': 'drop',
+        },
+        fallbackStartSeconds: 12,
+        fallbackSeconds: 120,
+      );
+
+      expect(segment.startSeconds, 12);
+      expect(segment.seconds, 120);
+      expect(segment.bpm, isNull);
+      expect(segment.bpmConfidence, 0);
+      expect(segment.alternateBpm, isNull);
+      expect(segment.camelotNumber, isNull);
+      expect(segment.camelotMinor, isNull);
+      expect(segment.vocalLikelihood, 0);
+      expect(segment.vocalConfidence, 0);
+      expect(segment.structureRegion, 0);
+    });
+
     test('rejects non-finite or out-of-range confidence metadata', () {
       final segment = automixSegmentFeaturesFromAnalysisMap(
         <String, dynamic>{
