@@ -323,9 +323,11 @@ class Media3PlaybackBridge {
   /// song pinned and refreshing the standby preload only once.
   static Future<void> reorderUpcomingByIds({
     required int currentId,
+    required List<int> expectedTailIds,
     required List<int> orderedIds,
   }) => _invoke<void>('reorderUpcomingByIds', {
     'currentId': currentId,
+    'expectedTailIds': expectedTailIds,
     'orderedIds': orderedIds,
   });
 
