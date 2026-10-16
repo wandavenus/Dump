@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../services/artwork_blur_cache.dart';
 import '../../services/artwork_repository.dart';
 import '../../services/native_palette_service.dart';
 
