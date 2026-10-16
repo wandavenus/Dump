@@ -21,6 +21,10 @@ static void test_analyzer_rms(void) {
   assert(isfinite(output[7]));
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
+  // Downbeat & Cues exist in array
+  assert(isfinite(output[11]) || isnan(output[11]));
+  assert(isfinite(output[12]) || isnan(output[12]));
+  assert(isfinite(output[13]) || isnan(output[13]));
   free(pcm);
 }
 
@@ -177,8 +181,10 @@ static void test_tone_filters_independent_streams(void) {
   assert(filtered != NULL && dry != NULL);
 
   assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, 0.0f) == 1);
   assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
   assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
@@ -201,6 +207,7 @@ static void test_tone_filters_independent_streams(void) {
 
   // Bass swap must attenuate the low band without changing the other stream.
   assert(nar_automix_tone_set_bass_gain(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_configure(0, sample_rate, 1) == 1);
   for (int32_t i = 0; i < frames; ++i) {
@@ -213,6 +220,7 @@ static void test_tone_filters_independent_streams(void) {
   assert(bass_rms < 0.5 / sqrt(2.0) * 0.55);
 
   assert(nar_automix_tone_set_bass_gain(0, NAN) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, INFINITY) == 1);
   assert(nar_automix_tone_set_bass_gain(-1, 0.0f) == 0);
   assert(nar_automix_tone_configure(2, sample_rate, 2) == 0);
@@ -220,10 +228,17 @@ static void test_tone_filters_independent_streams(void) {
   free(dry);
 }
 
+static void test_phrase_lock(void) {
+  float factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 1000.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(isfinite(factor));
+}
+
 int main(void) {
   test_analyzer_rms();
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
+  test_phrase_lock();
   test_native_crossfade_curve();
   test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();

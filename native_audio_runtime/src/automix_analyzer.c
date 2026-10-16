@@ -471,6 +471,65 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[9] = estimate_onset_rate(odf, frame_count, fps);
   output[10] = (double)sample_count / working_rate;
 
+  // 1. Downbeat (Bar 1) phase estimation (4-beat downbeat offset in ms).
+  if (tempo.valid && tempo.confidence >= 0.20 && isfinite(output[3])) {
+    const double beat_ms = 60000.0 / tempo.bpm;
+    const double bar_ms = beat_ms * 4.0;
+    // Downbeat is estimated from the strongest 4-beat periodic onset pulse.
+    const double beat_offset = output[3];
+    double best_bar_offset = beat_offset;
+    double max_bar_energy = -1.0;
+    for (int b = 0; b < 4; ++b) {
+      const double cand_offset = beat_offset + b * beat_ms;
+      double bar_energy = 0.0;
+      for (int i = 0; i < frame_count; ++i) {
+        const double t_ms = i * (double)HOP_SIZE * 1000.0 / working_rate;
+        const double phase = fmod(t_ms - cand_offset, bar_ms);
+        if (fabs(phase) < beat_ms * 0.25 || fabs(phase - bar_ms) < beat_ms * 0.25) {
+          bar_energy += odf[i];
+        }
+      }
+      if (bar_energy > max_bar_energy) {
+        max_bar_energy = bar_energy;
+        best_bar_offset = cand_offset;
+      }
+    }
+    output[11] = fmod(best_bar_offset, bar_ms);
+  } else {
+    output[11] = NAN;
+  }
+
+  // 2. Structural Cues: Drop Cue ms & Breakdown Cue ms.
+  // Breakdown cue: local minimum in RMS/onset energy before a sudden jump.
+  // Drop cue: sharp peak/onset jump after low energy.
+  output[12] = NAN; // Drop cue
+  output[13] = NAN; // Breakdown cue
+  if (frame_count > 16) {
+    float max_flux = 0.0f;
+    int max_flux_idx = -1;
+    for (int i = 4; i < frame_count - 4; ++i) {
+      if (odf[i] > max_flux) {
+        max_flux = odf[i];
+        max_flux_idx = i;
+      }
+    }
+    if (max_flux_idx > 0) {
+      output[12] = max_flux_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+    }
+    // Breakdown: find frame with minimum local energy
+    float min_local = FLT_MAX;
+    int min_idx = -1;
+    for (int i = 4; i < frame_count - 4; ++i) {
+      if (rms_values[i] < min_local) {
+        min_local = rms_values[i];
+        min_idx = i;
+      }
+    }
+    if (min_idx > 0) {
+      output[13] = min_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+    }
+  }
+
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
   free(odf); free(rms_values); free(centroid_values); free(twiddle_real);
   free(twiddle_imaginary); free(bit_reverse);

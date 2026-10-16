@@ -38,6 +38,9 @@ class AutomixToneAudioProcessor(
         private external fun nativeSetBassGain(streamSlot: Int, gain: Float): Int
 
         @JvmStatic
+        private external fun nativeSetMidGain(streamSlot: Int, gain: Float): Int
+
+        @JvmStatic
         private external fun nativeSetHighGain(streamSlot: Int, gain: Float): Int
 
         @JvmStatic
@@ -109,6 +112,12 @@ class AutomixToneAudioProcessor(
     fun setBassGain(gain: Float) {
         if (NativeDspAudioProcessor.isLibraryAvailable) {
             nativeSetBassGain(streamSlot, normalizeGain(gain))
+        }
+    }
+
+    fun setMidGain(gain: Float) {
+        if (NativeDspAudioProcessor.isLibraryAvailable) {
+            nativeSetMidGain(streamSlot, normalizeGain(gain))
         }
     }
 

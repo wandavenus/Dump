@@ -26,6 +26,7 @@ typedef struct NarAutomixToneState {
   int32_t channel_count;                                // offset 88
   float current_fade_gain;                              // offset 92
   int32_t configured;                                   // offset 96
+  float current_mid_gain;                               // offset 100
 } NarAutomixToneState;
 
 // Configure/reset are lifecycle calls; never call configure concurrently with
@@ -34,6 +35,8 @@ typedef struct NarAutomixToneState {
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_configure(
     int32_t stream_slot, int32_t sample_rate, int32_t channel_count);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_bass_gain(
+    int32_t stream_slot, float gain);
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_mid_gain(
     int32_t stream_slot, float gain);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_high_gain(
     int32_t stream_slot, float gain);

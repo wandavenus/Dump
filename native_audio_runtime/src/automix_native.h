@@ -12,7 +12,7 @@ extern "C" {
 
 #define NAR_AUTOMIX_FEATURE_COUNT 14
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 11
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 14
 
 // Flattened feature row order. A missing double is represented by NAN.
 enum NarAutomixFeatureIndex {
@@ -37,7 +37,8 @@ enum NarAutomixFeatureIndex {
 //
 // Analysis values: [BPM (NaN when unknown), BPM confidence, alternate BPM,
 // beat offset ms, tonic pitch class (-1 unknown), isMinor (0/1), key
-// confidence, RMS dBFS, spectral centroid Hz, onset rate, analyzed seconds].
+// confidence, RMS dBFS, spectral centroid Hz, onset rate, analyzed seconds,
+// downbeat offset ms, drop cue ms, breakdown cue ms].
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     const float* mono,
     int32_t sample_count,
