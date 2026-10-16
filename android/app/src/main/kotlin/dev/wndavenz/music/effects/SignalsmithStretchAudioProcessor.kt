@@ -388,6 +388,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         return (durationUs.toDouble() / s).toLong().coerceAtLeast(0L)
     }
 
+    @Deprecated("Deprecated by Media3; retained for BaseAudioProcessor lifecycle compatibility.")
     override fun onFlush() {
         val h = handle
         NativeLogger.emit("info", "Stretch", "[Stretch] onFlush resetting DSP state handle=0x${h.toString(16)}")

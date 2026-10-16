@@ -60,6 +60,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         this.intensity = if (enabled && intensity.isFinite()) intensity.coerceIn(0f, 1f) else 0f
     }
 
+    @Deprecated("Deprecated by Media3; retained for BaseAudioProcessor lifecycle compatibility.")
     override fun onFlush() = clearState()
     override fun onReset() = clearState()
 
