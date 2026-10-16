@@ -2,10 +2,6 @@ part of '../../settings_page.dart';
 
 // ── ReplayGain Section ─────────────────────────────────────────────────────
 
-class _ReplayGainSection extends StatelessWidget {
-  const _ReplayGainSection();
-}
-
 String _replayGainLabel(BuildContext context, ReplayGainMode mode) {
   final l = context.l10n;
   return switch (mode) {
