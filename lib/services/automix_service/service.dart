@@ -370,6 +370,12 @@ class AutomixService {
         target['midOverlapGainIncoming'] = cue.incomingMidOverlapGain;
         target['highOverlapGainOutgoing'] = cue.outgoingHighOverlapGain;
         target['highOverlapGainIncoming'] = cue.incomingHighOverlapGain;
+        target['bassOverlapGainOutgoing'] = cue.outgoingBassOverlapGain;
+        target['bassOverlapGainIncoming'] = cue.incomingBassOverlapGain;
+        target['midOverlapGainOutgoing'] = cue.outgoingMidOverlapGain;
+        target['midOverlapGainIncoming'] = cue.incomingMidOverlapGain;
+        target['highOverlapGainOutgoing'] = cue.outgoingHighOverlapGain;
+        target['highOverlapGainIncoming'] = cue.incomingHighOverlapGain;
       }
       targets.add(target);
     }
