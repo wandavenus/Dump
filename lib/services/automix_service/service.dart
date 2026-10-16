@@ -344,6 +344,10 @@ class AutomixService {
             downbeatOffsetMs.isFinite &&
             downbeatOffsetMs >= 0)
           'downbeatOffsetMs': downbeatOffsetMs,
+        if (features.dropCueMs != null &&
+            features.dropCueMs!.isFinite &&
+            features.dropCueMs! >= 0)
+          'dropCueMs': features.dropCueMs,
         'multiplier': isOutgoing ? 1.0 : match.$2,
       };
 
@@ -735,8 +739,9 @@ class AutomixService {
   // changes. Old cache entries must never be interpreted as current analysis.
   // v4: segmented head/middle/tail analysis (tempo/key votes, structure
   //     markers, exit beat grid) — v3 entries only described the first 300 s.
-  // v5: add four-beat downbeat phase to intro/outro grids for phrase locking.
-  static const int _analysisSchemaVersion = 5;
+  // v5: add 16-beat phrase phase to intro/outro grids for phrase locking.
+  // v6: retain structural cues and analyzed duration for cue-aware transitions.
+  static const int _analysisSchemaVersion = 6;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
