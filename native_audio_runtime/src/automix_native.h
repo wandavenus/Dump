@@ -38,7 +38,7 @@ enum NarAutomixFeatureIndex {
 // Analysis values: [BPM (NaN when unknown), BPM confidence, alternate BPM,
 // beat offset ms, tonic pitch class (-1 unknown), isMinor (0/1), key
 // confidence, RMS dBFS, spectral centroid Hz, onset rate, analyzed seconds,
-// downbeat offset ms, drop cue ms, breakdown cue ms].
+// confident 16-beat phrase-start offset ms, drop cue ms, breakdown cue ms].
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     const float* mono,
     int32_t sample_count,
