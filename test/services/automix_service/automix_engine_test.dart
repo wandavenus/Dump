@@ -523,7 +523,7 @@ void main() {
       double? tailBpm,
       double? outro,
       double? intro,
-      double? durationSeconds = 0,
+      double durationSeconds = 0,
       double? tailBreakdownCueMs,
     }) => AutomixTrackFeatures(
       songId: id,
@@ -533,7 +533,7 @@ void main() {
       loudnessLufs: lufs,
       outroEnergy: outro,
       introEnergy: intro,
-      durationSeconds: durationSeconds ?? 0,
+      durationSeconds: durationSeconds,
       tailBreakdownCueMs: tailBreakdownCueMs,
     );
 
