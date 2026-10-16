@@ -875,7 +875,7 @@ abstract class AppLocalizations {
   /// No description provided for @bitPerfectMode.
   ///
   /// In en, this message translates to:
-  /// **'Pure Audio Mode'**
+  /// **'Pure Playback'**
   String get bitPerfectMode;
 
   /// No description provided for @bitPerfectActiveSubtitle.
