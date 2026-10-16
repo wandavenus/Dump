@@ -284,6 +284,47 @@ static void test_tone_filters_independent_streams(void) {
   free(dry);
 }
 
+static void test_stereo_mid_gain(void) {
+  // This uses the stereo path on ARM64 (NEON) and the scalar fallback
+  // elsewhere, so the new mid control is covered in both implementations.
+  const int32_t sample_rate = 48000;
+  const int32_t frames = sample_rate;
+  const size_t sample_count = (size_t)frames * 2;
+  float* filtered = (float*)malloc(sample_count * sizeof(float));
+  float* dry = (float*)malloc(sample_count * sizeof(float));
+  assert(filtered != NULL && dry != NULL);
+
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
+  assert(nar_automix_tone_configure(1, sample_rate, 2) == 1);
+
+  for (int32_t frame = 0; frame < frames; ++frame) {
+    const float sample = 0.5f * sinf(
+        2.0f * 3.14159265358979323846f * 1000.0f * frame / sample_rate);
+    filtered[frame * 2] = filtered[frame * 2 + 1] = sample;
+    dry[frame * 2] = dry[frame * 2 + 1] = sample;
+  }
+
+  assert(nar_automix_tone_process(filtered, frames, 2, 0) == 1);
+  assert(nar_automix_tone_process(dry, frames, 2, 1) == 1);
+  const int32_t start = sample_rate / 4 * 2;
+  const int32_t count = frames * 3 / 4 * 2;
+  const double mid_rms = rms_range(filtered, start, count);
+  const double reference_rms = rms_range(dry, start, count);
+  assert(mid_rms < reference_rms * 0.85);
+  assert(fabs(reference_rms - 0.5 / sqrt(2.0)) < 0.01);
+
+  free(filtered);
+  free(dry);
+}
+
 static void test_phrase_lock(void) {
   // A quarter phrase ahead at 120 BPM must slow down by the configured cap.
   float factor = nar_automix_phrase_lock_factor(
@@ -321,5 +362,6 @@ int main(void) {
   test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
+  test_stereo_mid_gain();
   return 0;
 }
