@@ -238,51 +238,50 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
               ),
             ),
             const SizedBox(height: 1),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  widget.formatTime(displayPosition),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 12,
-                    color: Colors.white38,
+            SizedBox(
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        widget.formatTime(displayPosition),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 12,
+                          color: Colors.white38,
+                        ),
+                      ),
+                      Text(
+                        '-${widget.formatTime(duration - displayPosition)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 12,
+                          color: Colors.white38,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                ValueListenableBuilder<bool>(
-                  valueListenable: AutomixService.automixActive,
-                  builder: (context, active, _) {
-                    if (!active) return const SizedBox.shrink();
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Mixing...',
+                  ValueListenableBuilder<bool>(
+                    valueListenable: AutomixService.automixActive,
+                    builder: (context, active, _) {
+                      if (!active) return const SizedBox.shrink();
+                      return const Text(
+                        'Mixing',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: Colors.white70,
                           letterSpacing: 0.2,
                         ),
-                      ),
-                    );
-                  },
-                ),
-                Text(
-                  '-${widget.formatTime(duration - displayPosition)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 12,
-                    color: Colors.white38,
+                      );
+                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         );
