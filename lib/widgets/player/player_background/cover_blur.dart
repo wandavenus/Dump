@@ -9,7 +9,45 @@ part of '../player_background.dart';
 class ArtworkBlurPlayerBackground extends StatefulWidget {
   const ArtworkBlurPlayerBackground({super.key, required this.songId});
 
+  static const int _targetSizePx = 384;
+  static const double _blurSigma = 32;
+
   final int songId;
+
+  /// Prepare this song's blurred frame while the player is still collapsed,
+  /// so opening Now Playing can use the cached image from its first frame.
+  static Future<void> prewarm({
+    required int songId,
+    required double width,
+    required double height,
+  }) async {
+    if (songId <= 0 ||
+        width <= 0 ||
+        height <= 0 ||
+        !width.isFinite ||
+        !height.isFinite) {
+      return;
+    }
+
+    final provider = await ArtworkRepository.instance.getProvider(
+      songId,
+      targetSizePx: _targetSizePx,
+    );
+    if (provider == null) return;
+
+    final imageScale = math.max(
+      width / _targetSizePx,
+      height / _targetSizePx,
+    );
+    final sigma = (_blurSigma / imageScale).clamp(0.5, _blurSigma).toDouble();
+    final key = '$songId:${sigma.toStringAsFixed(1)}';
+    final lease = await _ArtworkBlurCache.acquire(
+      key: key,
+      provider: provider,
+      sigma: sigma,
+    );
+    lease?.release();
+  }
 
   @override
   State<ArtworkBlurPlayerBackground> createState() =>
@@ -18,8 +56,8 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
 
 class _ArtworkBlurPlayerBackgroundState
     extends State<ArtworkBlurPlayerBackground> {
-  static const int _targetSizePx = 384;
-  static const double _blurSigma = 32;
+  static const int _targetSizePx = ArtworkBlurPlayerBackground._targetSizePx;
+  static const double _blurSigma = ArtworkBlurPlayerBackground._blurSigma;
 
   ImageProvider? _provider;
   _ArtworkBlurLease? _blurLease;
