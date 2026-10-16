@@ -191,8 +191,6 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                         ),
                       ),
                     ],
-                    const _BatchScanSection(),
-                    const SizedBox(height: 4),
                   ],
                 ),
               ),
