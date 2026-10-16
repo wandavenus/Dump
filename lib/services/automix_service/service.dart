@@ -739,7 +739,8 @@ class AutomixService {
   //     markers, exit beat grid) — v3 entries only described the first 300 s.
   // v5: add 16-beat phrase phase to intro/outro grids for phrase locking.
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
-  static const int _analysisSchemaVersion = 6;
+  // v7: preserve native half/double-time alternate BPM through segment merging.
+  static const int _analysisSchemaVersion = 7;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1232,6 +1233,12 @@ class AutomixService {
     }
 
     final bpm = (res['bpm'] as num?)?.toDouble();
+    final rawAlternateBpm = (res['alternateBpm'] as num?)?.toDouble();
+    final alternateBpm = rawAlternateBpm != null &&
+            rawAlternateBpm.isFinite &&
+            rawAlternateBpm > 0
+        ? rawAlternateBpm
+        : null;
     final bpc = automixClamp01((res['bpmConfidence'] as num?)?.toDouble() ?? 0);
     final beatOffsetMs = (res['beatOffsetMs'] as num?)?.toDouble();
     final downbeatOffsetMs = (res['downbeatOffsetMs'] as num?)?.toDouble();
@@ -1250,6 +1257,7 @@ class AutomixService {
         seconds: (res['segmentSeconds'] as num?)?.toDouble() ?? maxSeconds,
         bpm: bpc >= 0.15 ? bpm : null,
         bpmConfidence: bpc >= 0.15 ? bpc : 0,
+        alternateBpm: bpc >= 0.15 ? alternateBpm : null,
         beatOffsetMs: bpm != null && bpc >= 0.20 ? beatOffsetMs : null,
         downbeatOffsetMs:
             bpm != null && bpc >= 0.20 ? downbeatOffsetMs : null,
