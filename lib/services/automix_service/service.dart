@@ -309,6 +309,9 @@ class AutomixService {
       final beatOffsetMs = isOutgoing
           ? features.tailBeatOffsetMs
           : features.beatOffsetMs;
+      final downbeatOffsetMs = isOutgoing
+          ? features.tailDownbeatOffsetMs
+          : features.downbeatOffsetMs;
       final confidentBpm = features.bpmConfidence >= 0.35 && _tempoInRange(bpm)
           ? bpm
           : null;
@@ -335,6 +338,16 @@ class AutomixService {
             beatOffsetMs.isFinite &&
             beatOffsetMs >= 0)
           'beatOffsetMs': beatOffsetMs,
+        if (gridBpm != null &&
+            features.bpmConfidence >= 0.45 &&
+            downbeatOffsetMs != null &&
+            downbeatOffsetMs.isFinite &&
+            downbeatOffsetMs >= 0)
+          'downbeatOffsetMs': downbeatOffsetMs,
+        if (features.dropCueMs != null &&
+            features.dropCueMs!.isFinite &&
+            features.dropCueMs! >= 0)
+          'dropCueMs': features.dropCueMs,
         'multiplier': isOutgoing ? 1.0 : match.$2,
       };
 
@@ -726,7 +739,9 @@ class AutomixService {
   // changes. Old cache entries must never be interpreted as current analysis.
   // v4: segmented head/middle/tail analysis (tempo/key votes, structure
   //     markers, exit beat grid) — v3 entries only described the first 300 s.
-  static const int _analysisSchemaVersion = 4;
+  // v5: add 16-beat phrase phase to intro/outro grids for phrase locking.
+  // v6: retain structural cues and analyzed duration for cue-aware transitions.
+  static const int _analysisSchemaVersion = 6;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1216,6 +1231,9 @@ class AutomixService {
     final bpm = (res['bpm'] as num?)?.toDouble();
     final bpc = automixClamp01((res['bpmConfidence'] as num?)?.toDouble() ?? 0);
     final beatOffsetMs = (res['beatOffsetMs'] as num?)?.toDouble();
+    final downbeatOffsetMs = (res['downbeatOffsetMs'] as num?)?.toDouble();
+    final dropCueMs = (res['dropCueMs'] as num?)?.toDouble();
+    final breakdownCueMs = (res['breakdownCueMs'] as num?)?.toDouble();
     final kConf = automixClamp01(
       (res['keyConfidence'] as num?)?.toDouble() ?? 0,
     );
@@ -1230,6 +1248,10 @@ class AutomixService {
         bpm: bpc >= 0.15 ? bpm : null,
         bpmConfidence: bpc >= 0.15 ? bpc : 0,
         beatOffsetMs: bpm != null && bpc >= 0.20 ? beatOffsetMs : null,
+        downbeatOffsetMs:
+            bpm != null && bpc >= 0.20 ? downbeatOffsetMs : null,
+        dropCueMs: dropCueMs,
+        breakdownCueMs: breakdownCueMs,
         camelotNumber: kConf >= 0.25 ? camN : null,
         camelotMinor: kConf >= 0.25 ? camM : null,
         keyConfidence: kConf >= 0.25 ? kConf : 0,

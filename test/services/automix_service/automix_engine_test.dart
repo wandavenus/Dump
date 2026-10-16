@@ -15,6 +15,11 @@ AutomixTrackFeatures _f(
   double bpmConf = 0.9,
   double keyConf = 0.9,
   double? beatOffsetMs,
+  double? downbeatOffsetMs,
+  double? tailDownbeatOffsetMs,
+  double? dropCueMs,
+  double? tailBreakdownCueMs,
+  double durationSeconds = 0,
 }) {
   return AutomixTrackFeatures(
     songId: id,
@@ -22,6 +27,11 @@ AutomixTrackFeatures _f(
     bpm: bpm,
     alternateBpm: alt,
     beatOffsetMs: beatOffsetMs,
+    downbeatOffsetMs: downbeatOffsetMs,
+    tailDownbeatOffsetMs: tailDownbeatOffsetMs,
+    dropCueMs: dropCueMs,
+    tailBreakdownCueMs: tailBreakdownCueMs,
+    durationSeconds: durationSeconds,
     camelotNumber: camelot,
     camelotMinor: minor,
     bpmConfidence: bpmConf,
@@ -35,13 +45,30 @@ AutomixTrackFeatures _f(
 
 void main() {
   group('AutomixTrackFeatures serialization', () {
-    test('round trips beat phase and accepts older cache entries', () {
-      final feature = _f(17, bpm: 120, beatOffsetMs: 123.5);
+    test('round trips phase/cue metadata and accepts older cache entries', () {
+      final feature = _f(
+        17,
+        bpm: 120,
+        beatOffsetMs: 123.5,
+        downbeatOffsetMs: 350.0,
+        tailDownbeatOffsetMs: 8350.0,
+        dropCueMs: 32000.0,
+        tailBreakdownCueMs: 178000.0,
+        durationSeconds: 180.0,
+      );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
       expect(restored.beatOffsetMs, 123.5);
+      expect(restored.downbeatOffsetMs, 350.0);
+      expect(restored.tailDownbeatOffsetMs, 8350.0);
+      expect(restored.dropCueMs, 32000.0);
+      expect(restored.tailBreakdownCueMs, 178000.0);
+      expect(restored.durationSeconds, 180.0);
 
       final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
       expect(legacy.beatOffsetMs, isNull);
+      expect(legacy.dropCueMs, isNull);
+      expect(legacy.tailBreakdownCueMs, isNull);
+      expect(legacy.durationSeconds, 0.0);
     });
   });
 
@@ -430,12 +457,18 @@ void main() {
       double conf = 0.8,
       double? rms,
       double? beatOffsetMs,
+      double? downbeatOffsetMs,
+      double? dropCueMs,
+      double? breakdownCueMs,
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
       bpm: bpm,
       bpmConfidence: conf,
       beatOffsetMs: beatOffsetMs,
+      downbeatOffsetMs: downbeatOffsetMs,
+      dropCueMs: dropCueMs,
+      breakdownCueMs: breakdownCueMs,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -468,6 +501,19 @@ void main() {
       expect(merged.outroEnergy, closeTo(0.3636, 0.01));
       expect(merged.analyzedFraction, closeTo(1.0, 0.001));
     });
+
+    test('retains head drop cue and absolute tail breakdown cue', () {
+      final merged = automixMergeSegments(
+        songId: 3,
+        segments: [
+          seg(0, dropCueMs: 28000),
+          seg(240, breakdownCueMs: 114000),
+        ],
+      );
+      expect(merged.dropCueMs, 28000);
+      expect(merged.tailBreakdownCueMs, 354000);
+      expect(merged.durationSeconds, 360);
+    });
   });
 
   group('per-transition cue', () {
@@ -477,6 +523,8 @@ void main() {
       double? tailBpm,
       double? outro,
       double? intro,
+      double durationSeconds = 0,
+      double? tailBreakdownCueMs,
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: tailBpm,
@@ -485,6 +533,8 @@ void main() {
       loudnessLufs: lufs,
       outroEnergy: outro,
       introEnergy: intro,
+      durationSeconds: durationSeconds,
+      tailBreakdownCueMs: tailBreakdownCueMs,
     );
 
     test('dense outro hands over sooner and the louder deck is trimmed', () {
@@ -513,6 +563,21 @@ void main() {
       // 10 dB apart, clamped to the 6 dB ceiling — always attenuation.
       expect(cue.incomingTrim, closeTo(0.5012, 0.001));
       expect(cue.incomingTrim, lessThanOrEqualTo(1.0));
+    });
+
+    test('starts the fade at a detected late-outro breakdown', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          durationSeconds: 180,
+          tailBreakdownCueMs: 174000,
+        ),
+        incoming: track(2, tailBpm: 120),
+        settings: const AutomixSettings(),
+      );
+      // The cue is 6 s before end, so the crossfade starts at the breakdown.
+      expect(cue.fadeSeconds, 6.0);
     });
 
     test('unknown structure and levels keep the plain equal-power fade', () {

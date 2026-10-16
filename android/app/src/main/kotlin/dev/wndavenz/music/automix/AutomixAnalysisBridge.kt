@@ -136,9 +136,9 @@ object AutomixAnalysis {
 
         // Native result contract is kept in sync with
         // NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in automix_native.h.
-        if (analysis.size < 11) return null
+        if (analysis.size < 14) return null
         fun optional(index: Int): Double? =
-            analysis[index].takeIf { it.isFinite() }
+            analysis.getOrNull(index)?.takeIf { it.isFinite() }
         val bpm = optional(0)
         val bpmConfidence = analysis[1]
         val alternateBpm = optional(2)
@@ -165,6 +165,11 @@ object AutomixAnalysis {
             "centroidHz" to optional(8),
             "onsetRate" to analysis[9],
             "analyzedSeconds" to analysis[10],
+            // Structural phase hints are window-relative; Dart adds the window
+            // start when building the file-level intro/outro grid.
+            "downbeatOffsetMs" to optional(11),
+            "dropCueMs" to optional(12),
+            "breakdownCueMs" to optional(13),
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.
             "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),

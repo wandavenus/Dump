@@ -34,12 +34,26 @@ static int compare_float(const void* lhs, const void* rhs) {
   return (a > b) - (a < b);
 }
 
-static float median_float(float* values, int32_t count) {
-  if (count <= 0) return NAN;
-  qsort(values, (size_t)count, sizeof(float), compare_float);
+static float median_float(const float* values, int32_t count) {
+  if (values == NULL || count <= 0) return NAN;
+  float* sorted = (float*)malloc((size_t)count * sizeof(float));
+  if (sorted == NULL) return NAN;
+  memcpy(sorted, values, (size_t)count * sizeof(float));
+  qsort(sorted, (size_t)count, sizeof(float), compare_float);
   const int32_t middle = count / 2;
-  if ((count & 1) != 0) return values[middle];
-  return (values[middle - 1] + values[middle]) * 0.5f;
+  const float median = (count & 1) != 0
+      ? sorted[middle]
+      : (sorted[middle - 1] + sorted[middle]) * 0.5f;
+  free(sorted);
+  return median;
+}
+
+static double mean_float_range(
+    const float* values, int32_t begin, int32_t end) {
+  if (values == NULL || begin < 0 || end <= begin) return NAN;
+  double sum = 0.0;
+  for (int32_t i = begin; i < end; ++i) sum += values[i];
+  return sum / (double)(end - begin);
 }
 
 static void radix2_fft(float* real, float* imaginary,
@@ -365,17 +379,20 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   float* imaginary = (float*)calloc(FFT_SIZE, sizeof(float));
   float* previous_log_magnitude = (float*)calloc(FFT_BINS, sizeof(float));
   float* odf = (float*)calloc((size_t)frame_count, sizeof(float));
+  // rms_values packs only non-silent frames for a robust median. The
+  // frame-aligned timeline preserves silent windows and is used for cue timing.
   float* rms_values = (float*)malloc((size_t)frame_count * sizeof(float));
+  float* rms_frame_values = (float*)malloc((size_t)frame_count * sizeof(float));
   float* centroid_values = (float*)malloc((size_t)frame_count * sizeof(float));
   float* twiddle_real = (float*)malloc(FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc(FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
       previous_log_magnitude == NULL || odf == NULL || rms_values == NULL ||
-      centroid_values == NULL || twiddle_real == NULL ||
+      rms_frame_values == NULL || centroid_values == NULL || twiddle_real == NULL ||
       twiddle_imaginary == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-    free(odf); free(rms_values); free(centroid_values); free(twiddle_real);
+    free(odf); free(rms_values); free(rms_frame_values); free(centroid_values); free(twiddle_real);
     free(twiddle_imaginary); free(bit_reverse);
     return 0;
   }
@@ -408,8 +425,12 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
 #endif
     memset(imaginary, 0, FFT_SIZE * sizeof(float));
     const double rms = sqrt(square_sum / FFT_SIZE);
+    // Store every frame on the same time axis. -120 dBFS is the explicit
+    // silence floor; the packed array below excludes these frames for median.
+    const float rms_db = (float)(20.0 * log(fmax(rms, 1e-6)) / LN10);
+    rms_frame_values[frame] = rms_db;
     if (rms > 1e-6) {
-      rms_values[rms_count++] = (float)(20.0 * log(rms) / LN10);
+      rms_values[rms_count++] = rms_db;
     }
 
     radix2_fft(real, imaginary, twiddle_real, twiddle_imaginary, bit_reverse);
@@ -471,8 +492,147 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[9] = estimate_onset_rate(odf, frame_count, fps);
   output[10] = (double)sample_count / working_rate;
 
+  // 1. Phrase-start phase (16-beat / four-bar loop) in milliseconds.
+  // A bar downbeat alone cannot identify a phrase boundary. Evaluate all 16
+  // beat positions as possible phrase starts and publish a phase only when
+  // one position has a clear repeated onset accent; otherwise leave it unknown
+  // so playback falls back to beat-level locking.
+  output[11] = NAN;
+  if (tempo.valid && tempo.confidence >= 0.45 && isfinite(output[3])) {
+    const int32_t beat_period_frames =
+        (int32_t)round(fps * 60.0 / tempo.bpm);
+    const int32_t phrase_period_frames = beat_period_frames * 16;
+    const int32_t beat_phase_frame =
+        (int32_t)round(output[3] * fps / 1000.0);
+    if (beat_period_frames >= 2 && phrase_period_frames > 0 &&
+        frame_count >= phrase_period_frames * 2) {
+      double phase_scores[16] = {0.0};
+      int32_t phase_counts[16] = {0};
+      const int32_t base_phase =
+          ((beat_phase_frame % beat_period_frames) + beat_period_frames) %
+          beat_period_frames;
+
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        const int32_t phase =
+            (base_phase + beat * beat_period_frames) % phrase_period_frames;
+        for (int32_t frame = phase; frame < frame_count;
+             frame += phrase_period_frames) {
+          // A small timing tolerance absorbs STFT hop quantization without
+          // allowing a single neighboring transient to dominate the score.
+          float pulse = odf[frame];
+          if (frame > 0 && odf[frame - 1] > pulse) pulse = odf[frame - 1];
+          if (frame + 1 < frame_count && odf[frame + 1] > pulse) {
+            pulse = odf[frame + 1];
+          }
+          phase_scores[beat] += pulse;
+          phase_counts[beat]++;
+        }
+      }
+
+      int32_t best_phase_beat = -1;
+      double best_score = -1.0;
+      double second_score = -1.0;
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        if (phase_counts[beat] <= 0) continue;
+        const double score = phase_scores[beat] / phase_counts[beat];
+        if (score > best_score) {
+          second_score = best_score;
+          best_score = score;
+          best_phase_beat = beat;
+        } else if (score > second_score) {
+          second_score = score;
+        }
+      }
+
+      // If repeated bars have no distinct phrase accent, phrase phase is
+      // genuinely ambiguous. Do not manufacture phrase alignment from BPM.
+      if (best_phase_beat >= 0 && best_score > 1e-8 &&
+          (second_score <= 1e-8 || best_score >= second_score * 1.12)) {
+        const int32_t phase_frame =
+            (base_phase + best_phase_beat * beat_period_frames) %
+            phrase_period_frames;
+        output[11] =
+            phase_frame * (double)HOP_SIZE * 1000.0 / working_rate;
+      }
+    }
+  }
+
+  // 2. Conservative structural cues. A global maximum onset or minimum RMS
+  // is not a structural cue: both occur in ordinary music and silence. Only
+  // publish a candidate when a sustained energy change is corroborated by the
+  // onset envelope (drop) or by a high-to-low energy transition (breakdown).
+  output[12] = NAN; // Drop cue
+  output[13] = NAN; // Breakdown cue
+  if (frame_count > 16 && isfinite(rms_median) && rms_median > -80.0f) {
+    float max_flux = 0.0f;
+    for (int32_t i = 4; i < frame_count - 4; ++i) {
+      if (isfinite(odf[i]) && odf[i] > max_flux) max_flux = odf[i];
+    }
+
+    const int32_t before_frames =
+        (int32_t)fmax(4.0, round(fps * 0.75));
+    const int32_t after_frames =
+        (int32_t)fmax(4.0, round(fps * 0.50));
+    double best_drop_score = 0.0;
+    int32_t best_drop_idx = -1;
+    double best_breakdown_score = 0.0;
+    int32_t best_breakdown_idx = -1;
+
+    if (max_flux > 1e-8f &&
+        frame_count > before_frames + after_frames + 8) {
+      for (int32_t i = before_frames;
+           i < frame_count - after_frames - 4; ++i) {
+        const double before = mean_float_range(
+            rms_frame_values, i - before_frames, i);
+        const double after = mean_float_range(
+            rms_frame_values, i, i + after_frames);
+        if (!isfinite(before) || !isfinite(after)) continue;
+
+        float nearby_flux = 0.0f;
+        for (int32_t j = i; j < i + after_frames; ++j) {
+          if (odf[j] > nearby_flux) nearby_flux = odf[j];
+        }
+
+        // RMS values are dBFS: differences are additive (not ratios). A drop
+        // needs a quieter lead-in, a sustained rise, and a nearby onset.
+        if (before <= (double)rms_median - 3.0 &&
+            after >= (double)rms_median - 3.0 &&
+            after - before >= 4.0 &&
+            nearby_flux >= max_flux * 0.20) {
+          const double score = (after - before) +
+              0.25 * (double)nearby_flux / max_flux;
+          if (score > best_drop_score) {
+            best_drop_score = score;
+            best_drop_idx = i;
+          }
+        }
+
+        // Breakdown: sustained energy falls from above the track's typical
+        // level to clearly below it; short transient-only dips do not qualify.
+        if (before >= (double)rms_median + 2.0 &&
+            after <= (double)rms_median - 3.0 &&
+            before - after >= 4.0) {
+          const double score = before - after;
+          if (score > best_breakdown_score) {
+            best_breakdown_score = score;
+            best_breakdown_idx = i;
+          }
+        }
+      }
+    }
+
+    if (best_drop_idx >= 0) {
+      output[12] =
+          best_drop_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+    }
+    if (best_breakdown_idx >= 0) {
+      output[13] =
+          best_breakdown_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+    }
+  }
+
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-  free(odf); free(rms_values); free(centroid_values); free(twiddle_real);
+  free(odf); free(rms_values); free(rms_frame_values); free(centroid_values); free(twiddle_real);
   free(twiddle_imaginary); free(bit_reverse);
   return 1;
 }

@@ -111,6 +111,14 @@ Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetBassGain(
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetMidGain(
+    JNIEnv* env, jclass clazz, jint stream_slot, jfloat gain) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_set_mid_gain((int32_t)stream_slot, gain);
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetHighGain(
     JNIEnv* env, jclass clazz, jint stream_slot, jfloat gain) {
   (void)env;

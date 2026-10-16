@@ -21,6 +21,41 @@ static void test_analyzer_rms(void) {
   assert(isfinite(output[7]));
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
+  // A steady sine has no sustained section change, so structural cues should
+  // remain unavailable instead of reporting arbitrary extrema.
+  assert(isnan(output[11]));
+  assert(isnan(output[12]));
+  assert(isnan(output[13]));
+  free(pcm);
+}
+
+static void test_analyzer_structural_cues(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t seconds = 10;
+  const int32_t count = sample_rate * seconds;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double amplitude;
+    if (t < 3.0) amplitude = 0.5;
+    else if (t < 5.0) amplitude = 0.05;
+    else if (t < 8.0) amplitude = 0.8;
+    else amplitude = 0.05;
+    pcm[i] = (float)(amplitude *
+        sin(2.0 * 3.14159265358979323846 * 220.0 * t));
+  }
+
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  // The low-energy lead-in rises into a strong onset near 5 s; the final
+  // sustained high-to-low change begins near 8 s.
+  assert(isfinite(output[12]));
+  assert(output[12] > 4.4 && output[12] < 5.7);
+  assert(isfinite(output[13]));
+  assert(output[13] > 7.3 && output[13] < 8.8);
   free(pcm);
 }
 
@@ -177,8 +212,10 @@ static void test_tone_filters_independent_streams(void) {
   assert(filtered != NULL && dry != NULL);
 
   assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, 0.0f) == 1);
   assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
   assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
@@ -201,6 +238,7 @@ static void test_tone_filters_independent_streams(void) {
 
   // Bass swap must attenuate the low band without changing the other stream.
   assert(nar_automix_tone_set_bass_gain(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_configure(0, sample_rate, 1) == 1);
   for (int32_t i = 0; i < frames; ++i) {
@@ -212,7 +250,34 @@ static void test_tone_filters_independent_streams(void) {
   const double bass_rms = rms_range(filtered, sample_rate / 4, frames * 3 / 4);
   assert(bass_rms < 0.5 / sqrt(2.0) * 0.55);
 
+  // The middle band is independently controllable, while the reference stream
+  // remains transparent. A 1 kHz tone should lose measurable energy only on
+  // the deck whose mid gain is zero.
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 1) == 1);
+  assert(nar_automix_tone_configure(1, sample_rate, 1) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    const float sample = 0.5f * sinf(
+        2.0f * 3.14159265358979323846f * 1000.0f * i / sample_rate);
+    filtered[i] = sample;
+    dry[i] = sample;
+  }
+  assert(nar_automix_tone_process(filtered, frames, 1, 0) == 1);
+  assert(nar_automix_tone_process(dry, frames, 1, 1) == 1);
+  const double mid_rms = rms_range(filtered, sample_rate / 4, frames * 3 / 4);
+  const double reference_rms = rms_range(dry, sample_rate / 4, frames * 3 / 4);
+  assert(mid_rms < reference_rms * 0.85);
+  assert(fabs(reference_rms - 0.5 / sqrt(2.0)) < 0.01);
+
   assert(nar_automix_tone_set_bass_gain(0, NAN) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, INFINITY) == 1);
   assert(nar_automix_tone_set_bass_gain(-1, 0.0f) == 0);
   assert(nar_automix_tone_configure(2, sample_rate, 2) == 0);
@@ -220,13 +285,87 @@ static void test_tone_filters_independent_streams(void) {
   free(dry);
 }
 
+static void test_stereo_mid_gain(void) {
+  // This uses the stereo path on ARM64 (NEON) and the scalar fallback
+  // elsewhere, so the new mid control is covered in both implementations.
+  const int32_t sample_rate = 48000;
+  const int32_t frames = sample_rate;
+  const size_t sample_count = (size_t)frames * 2;
+  float* filtered = (float*)malloc(sample_count * sizeof(float));
+  float* dry = (float*)malloc(sample_count * sizeof(float));
+  assert(filtered != NULL && dry != NULL);
+
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
+  assert(nar_automix_tone_configure(1, sample_rate, 2) == 1);
+
+  for (int32_t frame = 0; frame < frames; ++frame) {
+    const float sample = 0.5f * sinf(
+        2.0f * 3.14159265358979323846f * 1000.0f * frame / sample_rate);
+    filtered[frame * 2] = filtered[frame * 2 + 1] = sample;
+    dry[frame * 2] = dry[frame * 2 + 1] = sample;
+  }
+
+  assert(nar_automix_tone_process(filtered, frames, 2, 0) == 1);
+  assert(nar_automix_tone_process(dry, frames, 2, 1) == 1);
+  const int32_t start = sample_rate / 4 * 2;
+  const int32_t count = frames * 3 / 4 * 2;
+  const double mid_rms = rms_range(filtered, start, count);
+  const double reference_rms = rms_range(dry, start, count);
+  assert(mid_rms < reference_rms * 0.85);
+  assert(fabs(reference_rms - 0.5 / sqrt(2.0)) < 0.01);
+
+  free(filtered);
+  free(dry);
+}
+
+static void test_phrase_lock(void) {
+  // A quarter phrase ahead at 120 BPM must slow down by the configured cap.
+  float factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 1000.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(fabsf(factor - 0.994f) < 1e-6f);
+
+  // Small phase error is proportional when the remaining time is long enough.
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 100.0, 0.0, 120.0, 40000.0, 0.006, 16);
+  assert(fabsf(factor - 0.9975f) < 1e-6f);
+
+  // Circular wrap treats the incoming deck as slightly behind.
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 7900.0, 0.0, 120.0, 40000.0, 0.006, 16);
+  assert(fabsf(factor - 1.0025f) < 1e-6f);
+
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 5.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(factor == 1.0f);
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 500.0, 0.0, 120.0, 250.0, 0.006, 16);
+  assert(factor == 1.0f);
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, NAN, 0.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(isnan(factor));
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 0.0, 0.0, 120.0, 4000.0, 0.006, 65);
+  assert(isnan(factor));
+}
+
 int main(void) {
   test_analyzer_rms();
+  test_analyzer_structural_cues();
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
+  test_phrase_lock();
   test_native_crossfade_curve();
   test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
+  test_stereo_mid_gain();
   return 0;
 }

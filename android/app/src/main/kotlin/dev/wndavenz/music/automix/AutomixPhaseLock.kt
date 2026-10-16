@@ -16,6 +16,9 @@ object AutomixPhaseLock {
     @Volatile
     private var nativeMethodUnavailable = false
 
+    @Volatile
+    private var phraseNativeMethodUnavailable = false
+
     private external fun nativePhaseLockFactor(
         outgoingPositionMs: Double,
         outgoingPhaseOffsetMs: Double,
@@ -26,6 +29,67 @@ object AutomixPhaseLock {
         remainingMs: Double,
         maxNudge: Double,
     ): Float
+
+    private external fun nativePhrasePhaseLockFactor(
+        outgoingPositionMs: Double,
+        outgoingDownbeatOffsetMs: Double,
+        outgoingBpm: Double,
+        incomingPositionMs: Double,
+        incomingDownbeatOffsetMs: Double,
+        incomingBpm: Double,
+        remainingMs: Double,
+        maxNudge: Double,
+        beatsPerPhrase: Int,
+    ): Float
+
+    /**
+     * Phrase-aware correction. Downbeat offsets are absolute timestamps relative
+     * to each file's start; they must come from a confident native analysis.
+     * Returns null if the phrase grid or this native entry point is unavailable,
+     * allowing callers to fall back to ordinary beat-phase correction.
+     */
+    fun phraseFactorFor(
+        outgoingPositionMs: Double,
+        outgoingDownbeatOffsetMs: Double,
+        outgoingBpm: Double,
+        incomingPositionMs: Double,
+        incomingDownbeatOffsetMs: Double,
+        incomingBpm: Double,
+        remainingMs: Double,
+        maxNudge: Float = MAX_NUDGE,
+        beatsPerPhrase: Int = 16,
+    ): Float? {
+        if (!outgoingPositionMs.isFinite() || !outgoingDownbeatOffsetMs.isFinite() ||
+            outgoingDownbeatOffsetMs < 0.0 || !outgoingBpm.isFinite() ||
+            outgoingBpm !in MIN_BPM..MAX_BPM ||
+            !incomingPositionMs.isFinite() || !incomingDownbeatOffsetMs.isFinite() ||
+            incomingDownbeatOffsetMs < 0.0 || !incomingBpm.isFinite() ||
+            incomingBpm !in MIN_BPM..MAX_BPM ||
+            !remainingMs.isFinite() || !maxNudge.isFinite() ||
+            beatsPerPhrase !in 1..64
+        ) {
+            return null
+        }
+        if (phraseNativeMethodUnavailable || !ReplayGainNative.ensureLoaded()) return null
+
+        return try {
+            nativePhrasePhaseLockFactor(
+                outgoingPositionMs,
+                outgoingDownbeatOffsetMs,
+                outgoingBpm,
+                incomingPositionMs,
+                incomingDownbeatOffsetMs,
+                incomingBpm,
+                remainingMs,
+                maxNudge.toDouble(),
+                beatsPerPhrase,
+            ).takeIf { it.isFinite() && it > 0f }
+        } catch (_: LinkageError) {
+            // Old native libraries may not yet expose the phrase-aware symbol.
+            phraseNativeMethodUnavailable = true
+            null
+        }
+    }
 
     /**
      * Returns the incoming deck's absolute tempo multiplier (1 = unchanged),
