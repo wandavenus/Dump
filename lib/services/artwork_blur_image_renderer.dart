@@ -3,10 +3,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
-/// Rasterizes a decoded artwork into a blurred image at source resolution.
-///
-/// The caller chooses sigma in source pixels so scaling the result to the
-/// viewport preserves the requested on-screen blur radius.
+/// Rasterizes a decoded artwork into a blurred image with an edge-extended
+/// gutter. The gutter keeps the blur kernel away from the raster bounds so
+/// the viewport edges do not fade toward transparent/black pixels.
 class ArtworkBlurImageRenderer {
   static Future<ui.Image?> create({
     required ImageProvider provider,
@@ -50,7 +49,19 @@ class ArtworkBlurImageRenderer {
     final height = source.height;
     if (width <= 0 || height <= 0) return null;
 
-    final bounds = ui.Rect.fromLTWH(
+    // A Gaussian blur needs pixels outside the visible source bounds. Without
+    // a gutter, the blur output is clipped at all four edges and can look like
+    // a dark vignette around the screen. Extend edge pixels by ~3 sigma first.
+    final padding = (sigma * 3).ceil().clamp(1, 96).toInt();
+    final outputWidth = width + padding * 2;
+    final outputHeight = height + padding * 2;
+    final outputBounds = ui.Rect.fromLTWH(
+      0,
+      0,
+      outputWidth.toDouble(),
+      outputHeight.toDouble(),
+    );
+    final sourceBounds = ui.Rect.fromLTWH(
       0,
       0,
       width.toDouble(),
@@ -61,7 +72,7 @@ class ArtworkBlurImageRenderer {
     try {
       final canvas = ui.Canvas(recorder);
       canvas.saveLayer(
-        bounds,
+        outputBounds,
         ui.Paint()
           ..imageFilter = ui.ImageFilter.blur(
             sigmaX: sigma,
@@ -69,17 +80,109 @@ class ArtworkBlurImageRenderer {
             tileMode: ui.TileMode.clamp,
           ),
       );
+
+      final paint = ui.Paint()..filterQuality = FilterQuality.low;
+      final center = ui.Rect.fromLTWH(
+        padding.toDouble(),
+        padding.toDouble(),
+        width.toDouble(),
+        height.toDouble(),
+      );
+      canvas.drawImageRect(source, sourceBounds, center, paint);
+
+      // Extend the outermost rows and columns instead of leaving transparent
+      // pixels in the blur kernel's sampling area.
       canvas.drawImageRect(
         source,
-        bounds,
-        bounds,
-        ui.Paint()..filterQuality = FilterQuality.low,
+        ui.Rect.fromLTWH(0, 0, width.toDouble(), 1),
+        ui.Rect.fromLTWH(
+          padding.toDouble(),
+          0,
+          width.toDouble(),
+          padding.toDouble(),
+        ),
+        paint,
       );
+      canvas.drawImageRect(
+        source,
+        ui.Rect.fromLTWH(0, height - 1, width.toDouble(), 1),
+        ui.Rect.fromLTWH(
+          padding.toDouble(),
+          (padding + height).toDouble(),
+          width.toDouble(),
+          padding.toDouble(),
+        ),
+        paint,
+      );
+      canvas.drawImageRect(
+        source,
+        ui.Rect.fromLTWH(0, 0, 1, height.toDouble()),
+        ui.Rect.fromLTWH(
+          0,
+          padding.toDouble(),
+          padding.toDouble(),
+          height.toDouble(),
+        ),
+        paint,
+      );
+      canvas.drawImageRect(
+        source,
+        ui.Rect.fromLTWH(width - 1, 0, 1, height.toDouble()),
+        ui.Rect.fromLTWH(
+          (padding + width).toDouble(),
+          padding.toDouble(),
+          padding.toDouble(),
+          height.toDouble(),
+        ),
+        paint,
+      );
+
+      // Fill the four corners with their corresponding edge pixels.
+      canvas.drawImageRect(
+        source,
+        const ui.Rect.fromLTWH(0, 0, 1, 1),
+        ui.Rect.fromLTWH(0, 0, padding.toDouble(), padding.toDouble()),
+        paint,
+      );
+      canvas.drawImageRect(
+        source,
+        ui.Rect.fromLTWH(width - 1, 0, 1, 1),
+        ui.Rect.fromLTWH(
+          (padding + width).toDouble(),
+          0,
+          padding.toDouble(),
+          padding.toDouble(),
+        ),
+        paint,
+      );
+      canvas.drawImageRect(
+        source,
+        ui.Rect.fromLTWH(0, height - 1, 1, 1),
+        ui.Rect.fromLTWH(
+          0,
+          (padding + height).toDouble(),
+          padding.toDouble(),
+          padding.toDouble(),
+        ),
+        paint,
+      );
+      canvas.drawImageRect(
+        source,
+        ui.Rect.fromLTWH(width - 1, height - 1, 1, 1),
+        ui.Rect.fromLTWH(
+          (padding + width).toDouble(),
+          (padding + height).toDouble(),
+          padding.toDouble(),
+          padding.toDouble(),
+        ),
+        paint,
+      );
+
       canvas.restore();
 
       final picture = recorder.endRecording();
       try {
-        return await picture.toImage(width, height);
+        return await picture.toImage(outputWidth, outputHeight);
       } finally {
         picture.dispose();
       }
