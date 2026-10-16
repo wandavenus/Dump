@@ -89,6 +89,7 @@ class CrossfadeController(
     private val isAutomixTransitionEnabled: () -> Boolean = { false },
     private val getAutoMixBpmForPlayer: (ExoPlayer) -> Float? = { null },
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
+    private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Per-transition shaping from the offline planner, keyed by the INCOMING
     // track: its own fade length, the equal-power transfer curve, and the level
@@ -712,15 +713,39 @@ class CrossfadeController(
                             newBpm != null && newOffset != null &&
                             oldBpm > 0f && newBpm > 0f
                         ) {
-                            val tempoFactor = AutomixPhaseLock.factorFor(
+                            val remainingMs =
+                                ((steps - step).coerceAtLeast(0).toLong() * stepMs).toDouble()
+                            val oldDownbeat =
+                                getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)
+                            val newDownbeat =
+                                getAutoMixDownbeatOffsetMsForPlayer(newPlayer)
+
+                            // Prefer bar/phrase alignment when both tracks have
+                            // confident downbeat grids. Fall back to the existing
+                            // beat-level correction whenever either grid is absent.
+                            val phraseFactor =
+                                if (oldDownbeat != null && newDownbeat != null) {
+                                    AutomixPhaseLock.phraseFactorFor(
+                                        outgoingPositionMs = oldPlayer.currentPosition.toDouble(),
+                                        outgoingDownbeatOffsetMs = oldDownbeat.toDouble(),
+                                        outgoingBpm = oldBpm.toDouble(),
+                                        incomingPositionMs = newPlayer.currentPosition.toDouble(),
+                                        incomingDownbeatOffsetMs = newDownbeat.toDouble(),
+                                        incomingBpm = newBpm.toDouble(),
+                                        remainingMs = remainingMs,
+                                        beatsPerPhrase = 16,
+                                    )
+                                } else {
+                                    null
+                                }
+                            val tempoFactor = phraseFactor ?: AutomixPhaseLock.factorFor(
                                 outgoingPositionMs = oldPlayer.currentPosition.toDouble(),
                                 outgoingPhaseOffsetMs = oldOffset.toDouble(),
                                 outgoingBpm = oldBpm.toDouble(),
                                 incomingPositionMs = newPlayer.currentPosition.toDouble(),
                                 incomingPhaseOffsetMs = newOffset.toDouble(),
                                 incomingBpm = newBpm.toDouble(),
-                                remainingMs = ((steps - step).coerceAtLeast(0).toLong() *
-                                    stepMs).toDouble(),
+                                remainingMs = remainingMs,
                             )
                             if (tempoFactor != null) {
                                 setAutoMixTempoNudge(newPlayer, tempoFactor)
