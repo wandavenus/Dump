@@ -443,7 +443,7 @@ class AppLocalizationsId extends AppLocalizations {
       'Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.';
 
   @override
-  String get bitPerfectConfirmTitle => 'Aktifkan Mode Audio Bersih?';
+  String get bitPerfectConfirmTitle => 'Aktifkan Pure Playback?';
 
   @override
   String get bitPerfectConfirmBody =>
@@ -1245,7 +1245,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get lockedInactive =>
-      'Kontrol dikunci — Mode Bit-Perfect sedang aktif';
+      'Kontrol dikunci — Pure Playback sedang aktif';
 
   @override
   String get bandEq => 'BAND EQ';
