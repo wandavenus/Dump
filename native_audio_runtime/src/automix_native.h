@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define NAR_AUTOMIX_FEATURE_COUNT 15
+#define NAR_AUTOMIX_FEATURE_COUNT 16
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
 #define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 20
 
@@ -50,6 +50,7 @@ enum NarAutomixFeatureIndex {
   NAR_AUTOMIX_OUTRO_ENERGY = 12,
   NAR_AUTOMIX_ANALYZED_FRACTION = 13,
   NAR_AUTOMIX_VOCAL_LIKELIHOOD = 14,
+  NAR_AUTOMIX_VOCAL_CONFIDENCE = 15,
 };
 
 // Key fields per track: [Camelot number (0 means unknown), mode

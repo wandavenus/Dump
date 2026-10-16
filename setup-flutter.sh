@@ -42,9 +42,7 @@ if [ -x "$FLUTTER_WS_BIN" ] &&
      git -C "$FLUTTER_WS" describe --tags --exact-match HEAD >/dev/null 2>&1; then
     FLUTTER_VERSION="$(git -C "$FLUTTER_WS" describe --tags --exact-match HEAD)"
   else
-    # The workspace SDK is provisioned from the stable archive and this
-    # project pins the stable toolchain used by its generated artifacts.
-    FLUTTER_VERSION="3.47.8"
+    FLUTTER_VERSION="$(flutter_version "$FLUTTER_WS_BIN")"
   fi
   echo "✓ Flutter workspace SDK ditemukan: $FLUTTER_VERSION"
 fi

@@ -75,8 +75,11 @@ static void test_planner_vocal_conflict(void) {
     keys[i * 2 + 1] = 1;
   }
   features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_LIKELIHOOD] = 0.9;
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_CONFIDENCE] = 0.8;
   features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_LIKELIHOOD] = 0.9;
-  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_LIKELIHOOD] = 0.1;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_CONFIDENCE] = 0.8;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_LIKELIHOOD] = 0.9;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_VOCAL_CONFIDENCE] = 0.1;
 
   int32_t order[3];
   double metrics[2];
@@ -354,6 +357,39 @@ static void test_stereo_mid_gain(void) {
   free(dry);
 }
 
+static void test_ffi_contract_and_bounds(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 2;
+  float pcm[44100] = {0};
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+
+  // Undersized buffer must return 0
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 19) == 0);
+  // Null inputs must return 0
+  assert(nar_automix_analyze(NULL, count, sample_rate, output, 20) == 0);
+  assert(nar_automix_analyze(pcm, count, 0, output, 20) == 0);
+  assert(nar_automix_analyze(pcm, 100, sample_rate, output, 20) == 0);
+
+  // Exact-sized buffer returns 1
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 1);
+
+  // Planner bounds checks
+  int64_t ids[2] = {1, 2};
+  int32_t artists[2] = {1, 2};
+  double features[2 * NAR_AUTOMIX_FEATURE_COUNT] = {0};
+  int32_t keys[2 * NAR_AUTOMIX_KEY_FIELD_COUNT] = {0};
+  int32_t order[2];
+  double metrics[2];
+
+  assert(nar_automix_plan_set(ids, artists, features, keys, 0, 0, 0.06, 16, 0, 0, 0, order, metrics, 2) == 1);
+  assert(metrics[0] == 0.0 && metrics[1] == 0.0);
+
+  assert(nar_automix_plan_set(NULL, artists, features, keys, 2, 0, 0.06, 16, 0, 0, 0, order, metrics, 2) == 0);
+  assert(nar_automix_plan_set(ids, artists, features, keys, 2, -1, 0.06, 16, 0, 0, 0, order, metrics, 2) == 0);
+  assert(nar_automix_plan_set(ids, artists, features, keys, 2, 0, -1.0, 16, 0, 0, 0, order, metrics, 2) == 0);
+  assert(nar_automix_plan_set(ids, artists, features, keys, 2, 0, 0.06, 0, 0, 0, 0, order, metrics, 2) == 0);
+}
+
 static void test_edge_cases_silence_and_noise(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 3;
@@ -436,6 +472,7 @@ static void test_phrase_lock(void) {
 }
 
 int main(void) {
+  test_ffi_contract_and_bounds();
   test_analyzer_rms();
   test_analyzer_structural_cues();
   test_planner_vocal_conflict();

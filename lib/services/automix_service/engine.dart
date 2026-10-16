@@ -869,9 +869,20 @@ double _transitionCost({
 
   final vA = a.vocalLikelihood;
   final vB = b.vocalLikelihood;
+  final cA = a.vocalConfidence;
+  final cB = b.vocalConfidence;
   var vocalPenalty = 0.0;
-  if (vA.isFinite && vB.isFinite && vA > 0.5 && vB > 0.5) {
-    vocalPenalty = (vA - 0.5) * (vB - 0.5) * 0.4;
+  if (vA.isFinite &&
+      vB.isFinite &&
+      cA.isFinite &&
+      cB.isFinite &&
+      cA >= 0.35 &&
+      cB >= 0.35 &&
+      vA > 0.5 &&
+      vB > 0.5) {
+    final effectiveA = (vA - 0.5) * cA;
+    final effectiveB = (vB - 0.5) * cB;
+    vocalPenalty = effectiveA * effectiveB * 0.4;
   }
 
   final (wT, wK, wE, wV) = _profileWeights[settings.profile]!;
@@ -1338,6 +1349,7 @@ class AutomixEngine {
           outroEnergy: track.outroEnergy,
           analyzedFraction: track.analyzedFraction,
           vocalLikelihood: track.vocalLikelihood,
+          vocalConfidence: track.vocalConfidence,
         ),
       );
     }
