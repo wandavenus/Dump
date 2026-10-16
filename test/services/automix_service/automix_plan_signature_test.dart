@@ -104,11 +104,11 @@ void main() {
 
     test('ignores target entries beyond the active deck pair', () {
       final withFarTarget = <Map<String, Object?>>[
-        ...baseTargets.map(Map<String, Object?>.of),
+        ...baseTargets.map((target) => Map<String, Object?>.of(target)),
         <String, Object?>{'id': 303, 'bpm': 100.0},
       ];
       final changedFarTarget = <Map<String, Object?>>[
-        ...baseTargets.map(Map<String, Object?>.of),
+        ...baseTargets.map((target) => Map<String, Object?>.of(target)),
         <String, Object?>{'id': 303, 'bpm': 140.0, 'fadeCurve': 2.0},
       ];
 
