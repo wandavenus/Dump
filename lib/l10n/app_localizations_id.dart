@@ -404,7 +404,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get equalizerCustom => 'Custom';
 
   @override
-  String get equalizerBitPerfect => 'Audio Bersih';
+  String get equalizerBitPerfect => 'Pure Playback';
 
   @override
   String get playbackSpeed => 'Kecepatan Putar';
