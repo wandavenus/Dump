@@ -260,10 +260,12 @@ AutomixTrackFeatures automixMergeSegments({
       .toList();
   double? bpm;
   var bpmConfidence = 0.0;
+  AutomixSegmentFeatures? tempoAnchor;
   if (withBpm.isNotEmpty) {
     final anchor = withBpm.reduce(
       (a, b) => a.bpmConfidence >= b.bpmConfidence ? a : b,
     );
+    tempoAnchor = anchor;
     var weighted = 0.0;
     var weight = 0.0;
     var agreeing = 0.0;
@@ -390,12 +392,21 @@ AutomixTrackFeatures automixMergeSegments({
       ? lastSegment!.startSeconds * 1000.0 + localBreakdownCue
       : null;
 
+  final anchorAlternateBpm = tempoAnchor?.alternateBpm;
+  final alternateBpm = bpm != null &&
+          anchorAlternateBpm != null &&
+          anchorAlternateBpm.isFinite &&
+          anchorAlternateBpm > 0
+      ? anchorAlternateBpm
+      : null;
+
   return AutomixTrackFeatures(
     songId: songId,
     title: title,
     artist: artist,
     bpm: bpm,
     bpmConfidence: bpmConfidence,
+    alternateBpm: alternateBpm,
     beatOffsetMs: segments.isEmpty ? null : segments.first.beatOffsetMs,
     downbeatOffsetMs: segments.isEmpty ||
             segments.first.downbeatOffsetMs == null
