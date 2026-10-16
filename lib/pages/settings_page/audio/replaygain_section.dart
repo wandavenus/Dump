@@ -2,11 +2,8 @@ part of '../../settings_page.dart';
 
 // ── ReplayGain Section ─────────────────────────────────────────────────────
 
-class _ReplayGainSection extends StatefulWidget {
+class _ReplayGainSection extends StatelessWidget {
   const _ReplayGainSection();
-
-  @override
-  State<_ReplayGainSection> createState() => _ReplayGainSectionState();
 }
 
 String _replayGainLabel(BuildContext context, ReplayGainMode mode) {
@@ -29,32 +26,8 @@ String _replayGainDescription(BuildContext context, ReplayGainMode mode) {
   };
 }
 
-class _ReplayGainSectionState extends State<_ReplayGainSection>
-    with SingleTickerProviderStateMixin {
-  bool _expanded = false;
-  late final AnimationController _ctrl;
-  late final Animation<double> _fade;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-    );
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _toggle() {
-    setState(() => _expanded = !_expanded);
-    unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
-  }
+class _ReplayGainSection extends StatelessWidget {
+  const _ReplayGainSection();
 
   void _showModePicker(BuildContext context, ReplayGainMode current) {
     unawaited(
@@ -75,9 +48,8 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header — always visible, tappable
             InkWell(
-              onTap: _toggle,
+              onTap: () => _showModePicker(context, mode),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -85,116 +57,65 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                 ),
                 child: Row(
                   children: [
-                    Text(
-                      context.l10n.replayGainTitle,
-                      style: TextStyle(color: c.primaryLabel, fontSize: 16),
-                    ),
-                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        _replayGainLabel(context, mode),
-                        style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                        context.l10n.replayGainTitle,
+                        style: TextStyle(color: c.primaryLabel, fontSize: 16),
                       ),
                     ),
-                    AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 150),
+                    Text(
+                      _replayGainLabel(context, mode),
+                      style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: c.primaryLabel.withValues(alpha: 0.38),
+                      size: 20,
                     ),
                   ],
                 ),
               ),
             ),
-            // Collapsible content
-            SizeTransition(
-              sizeFactor: _ctrl,
-              alignment: Alignment.topCenter,
-              child: FadeTransition(
-                opacity: _fade,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Mode picker row
-                    InkWell(
-                      onTap: () => _showModePicker(context, mode),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.l10n.replayGainModeLabel,
-                                    style: TextStyle(
-                                      color: c.primaryLabel,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _replayGainLabel(context, mode),
-                                    style: TextStyle(
-                                      color: c.secondaryLabel,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Active mode description
-                    if (mode != ReplayGainMode.off)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16, bottom: 6),
-                        child: Text(
-                          _replayGainDescription(context, mode),
-                          style: TextStyle(
-                            color: c.primaryLabel.withValues(alpha: 0.38),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    // Preamp slider + clipping protection — only when active
-                    if (mode != ReplayGainMode.off) ...[
-                      const SizedBox(height: 4),
-                      ValueListenableBuilder<double>(
-                        valueListenable: AudioEffectsService.replayGainPreamp,
-                        builder: (_, preamp, _) => SettingsSliderRow(
-                          title: context.l10n.replayGainPreampLabel,
-                          subtitle: preamp == 0
-                              ? '0 dB'
-                              : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
-                          value: preamp,
-                          min: -15,
-                          max: 15,
-                          onChanged: AudioEffectsService.setReplayGainPreamp,
-                          divisions: 30,
-                          showReset: preamp != 0,
-                          onReset: () =>
-                              AudioEffectsService.setReplayGainPreamp(0),
-                        ),
-                      ),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: AudioEffectsService.clippingProtection,
-                        builder: (_, clip, _) => SettingsToggleRow(
-                          title: context.l10n.clippingProtection,
-                          subtitle: context.l10n.clippingProtectionSubtitle,
-                          value: clip,
-                          onChanged: AudioEffectsService.setClippingProtection,
-                        ),
-                      ),
-                    ],
-                  ],
+            if (mode != ReplayGainMode.off)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 6),
+                child: Text(
+                  _replayGainDescription(context, mode),
+                  style: TextStyle(
+                    color: c.primaryLabel.withValues(alpha: 0.38),
+                    fontSize: 12,
+                  ),
                 ),
               ),
-            ),
+            if (mode != ReplayGainMode.off) ...[
+              const SizedBox(height: 4),
+              ValueListenableBuilder<double>(
+                valueListenable: AudioEffectsService.replayGainPreamp,
+                builder: (_, preamp, _) => SettingsSliderRow(
+                  title: context.l10n.replayGainPreampLabel,
+                  subtitle: preamp == 0
+                      ? '0 dB'
+                      : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
+                  value: preamp,
+                  min: -15,
+                  max: 15,
+                  onChanged: AudioEffectsService.setReplayGainPreamp,
+                  divisions: 30,
+                  showReset: preamp != 0,
+                  onReset: () => AudioEffectsService.setReplayGainPreamp(0),
+                ),
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: AudioEffectsService.clippingProtection,
+                builder: (_, clip, _) => SettingsToggleRow(
+                  title: context.l10n.clippingProtection,
+                  subtitle: context.l10n.clippingProtectionSubtitle,
+                  value: clip,
+                  onChanged: AudioEffectsService.setClippingProtection,
+                ),
+              ),
+            ],
           ],
         );
       },
