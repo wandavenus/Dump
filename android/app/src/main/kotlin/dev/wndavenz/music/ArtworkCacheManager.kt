@@ -11,6 +11,7 @@ import android.provider.MediaStore
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -477,10 +478,10 @@ class ArtworkCacheManager(private val context: Context) {
     }
 
     private fun uniqueTempFile(target: File): File {
-        val threadId = Thread.currentThread().id
+        val uniqueToken = UUID.randomUUID().toString()
         return File(
             target.parent,
-            "${target.name}.${android.os.Process.myPid()}.$threadId.tmp",
+            "${target.name}.${android.os.Process.myPid()}.$uniqueToken.tmp",
         )
     }
 
@@ -508,7 +509,7 @@ class ArtworkCacheManager(private val context: Context) {
             if (!f.isFile) return
             val tmp = File(
                 target.parent,
-                "${target.name}.meta.tmp.${android.os.Process.myPid()}.${Thread.currentThread().id}",
+                "${target.name}.meta.tmp.${android.os.Process.myPid()}.${UUID.randomUUID()}",
             )
             tmp.writeText("${f.length()}\n${f.lastModified()}\n$filePath")
             if (!tmp.renameTo(metaFileFor(target))) {
