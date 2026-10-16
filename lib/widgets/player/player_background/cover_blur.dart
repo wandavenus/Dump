@@ -190,37 +190,60 @@ class _ArtworkBlurPlayerBackgroundState
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final viewport = MediaQuery.sizeOf(context);
         _ensureBlurredArtwork(
           provider: provider,
-          width: constraints.maxWidth,
-          height: constraints.maxHeight,
+          width: viewport.width,
+          height: viewport.height,
         );
 
+        // Keep the image at its final full-screen scale while the player panel
+        // grows. The parent still clips it to the animated panel bounds, so the
+        // cached blur radius and artwork framing do not change on every drag tick.
+        final viewportScale = math.max(
+          viewport.width / _targetSizePx,
+          viewport.height / _targetSizePx,
+        );
+        final panelScale = math.max(
+          constraints.maxWidth / _targetSizePx,
+          constraints.maxHeight / _targetSizePx,
+        );
+        final paintScale = panelScale > 0
+            ? (viewportScale / panelScale).clamp(1.0, 8.0).toDouble()
+            : 1.0;
+        final fallbackSigma = (_blurSigma / paintScale)
+            .clamp(0.5, _blurSigma)
+            .toDouble();
         final cachedImage = _blurLease?.image;
-        final Widget artwork = cachedImage != null
-            ? RawImage(
-                image: cachedImage,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.low,
-              )
-            : ImageFiltered(
-                // Immediate visual fallback while the pre-blurred frame is
-                // produced. Subsequent frames use the cached image directly.
-                imageFilter: ui.ImageFilter.blur(
-                  sigmaX: _blurSigma,
-                  sigmaY: _blurSigma,
-                ),
-                child: SizedBox.expand(
-                  child: Image(
-                    image: provider,
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.low,
-                    gaplessPlayback: true,
-                    errorBuilder: (_, _, _) =>
-                        const PlayerFallbackBackground(),
+
+        final Widget artwork = Transform.scale(
+          scale: paintScale,
+          alignment: Alignment.center,
+          child: cachedImage != null
+              ? RawImage(
+                  image: cachedImage,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.low,
+                )
+              : ImageFiltered(
+                  // Immediate fallback while the pre-blurred frame is being
+                  // built. The outer scale keeps its apparent sigma consistent.
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: fallbackSigma,
+                    sigmaY: fallbackSigma,
+                  ),
+                  child: SizedBox.expand(
+                    child: Image(
+                      image: provider,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.low,
+                      gaplessPlayback: true,
+                      errorBuilder: (_, _, _) =>
+                          const PlayerFallbackBackground(),
+                    ),
                   ),
                 ),
-              );
+        );
 
         return RepaintBoundary(
           child: ClipRect(
