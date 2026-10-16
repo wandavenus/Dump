@@ -587,37 +587,6 @@ AutomixTransitionCue automixTransitionCue({
     fadeSeconds *= 1.15;
   }
 
-  // Keep the transition fully automatic: when reliable analysis says the two
-  // pulse grids cannot match, hand over sooner instead of holding a long,
-  // rhythmically conflicting overlap. Confidently distant keys also get a
-  // shorter blend. Uncertain estimates stay neutral and keep the regular fade.
-  final exitTempo = automixExitBpm(outgoing);
-  if (outgoing.bpmConfidence >= 0.45 &&
-      incoming.bpmConfidence >= 0.45 &&
-      exitTempo != null &&
-      incoming.bpm != null &&
-      !automixTempoMatch(
-        referenceBpm: exitTempo,
-        trackBpm: incoming.bpm,
-        tolerance: settings.bpmTolerancePercent / 100.0,
-      ).$1) {
-    fadeSeconds *= 0.72;
-    gamma = math.max(gamma, 1.20);
-  }
-
-  final keyCost = automixCamelotCost(
-    outgoing.camelotNumber,
-    outgoing.camelotMinor,
-    incoming.camelotNumber,
-    incoming.camelotMinor,
-  );
-  if (outgoing.keyConfidence >= 0.55 &&
-      incoming.keyConfidence >= 0.55 &&
-      keyCost >= 0.60) {
-    fadeSeconds *= 0.82;
-    gamma = math.max(gamma, 1.15);
-  }
-
   // Structure metadata only controls transition timing when confidence is
   // strong. The cue is file-absolute and valid only if it lies near the tail.
   final durationMs = outgoing.durationSeconds * 1000.0;
