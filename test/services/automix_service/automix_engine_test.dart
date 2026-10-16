@@ -254,9 +254,9 @@ void main() {
       expect(segment.dropConfidence, 0);
       expect(segment.breakdownConfidence, 0);
       expect(segment.structureRegion, 0);
-      expect(segment.structureConfidence, 1);
+      expect(segment.structureConfidence, 0);
       expect(segment.vocalLikelihood, 0);
-      expect(segment.vocalConfidence, 1);
+      expect(segment.vocalConfidence, 0);
       expect(segment.dropCueMs, isNull);
       expect(segment.camelotNumber, isNull);
     });

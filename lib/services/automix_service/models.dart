@@ -115,7 +115,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
 
   final bpm = finiteValue('bpm');
   final bpmConfidence = unitValue('bpmConfidence');
-  final keyConfidence = unitValue('keyConfidence');
+  final rawKeyConfidence = unitValue('keyConfidence');
   final rawAlternateBpm = finiteValue('alternateBpm');
   final rawCamelotNumber = map['camelotNumber'];
   final camelotValue = rawCamelotNumber is num
@@ -129,7 +129,11 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
       ? camelotValue.toInt()
       : null;
   final rawCamelotMinor = map['camelotMinor'];
-  final camelotMinor = rawCamelotMinor is bool ? rawCamelotMinor : null;
+  final parsedCamelotMinor = rawCamelotMinor is bool ? rawCamelotMinor : null;
+  // A key is usable only when its wheel position and confidence are both valid.
+  // Keep the minor/major flag and confidence from surviving a rejected number.
+  final hasConfidentKey =
+      camelotNumber != null && rawKeyConfidence >= 0.25;
   final start = finiteValue('segmentStartSeconds');
   final seconds = finiteValue('segmentSeconds');
   final beatOffset = nonNegativeValue('beatOffsetMs');
@@ -163,14 +167,9 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     structureConfidence: unitValue('structureConfidence'),
     vocalLikelihood: unitValue('vocalLikelihood'),
     vocalConfidence: unitValue('vocalConfidence'),
-    camelotNumber: keyConfidence >= 0.25 &&
-            camelotNumber != null &&
-            camelotNumber >= 1 &&
-            camelotNumber <= 12
-        ? camelotNumber
-        : null,
-    camelotMinor: keyConfidence >= 0.25 ? camelotMinor : null,
-    keyConfidence: keyConfidence >= 0.25 ? keyConfidence : 0,
+    camelotNumber: hasConfidentKey ? camelotNumber : null,
+    camelotMinor: hasConfidentKey ? parsedCamelotMinor : null,
+    keyConfidence: hasConfidentKey ? rawKeyConfidence : 0,
     rmsDb: finiteValue('rmsDb'),
     centroidHz: finiteValue('centroidHz'),
     onsetRate: finiteValue('onsetRate'),
