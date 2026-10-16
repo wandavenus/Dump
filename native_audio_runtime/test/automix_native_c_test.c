@@ -21,6 +21,10 @@ static void test_analyzer_rms(void) {
   assert(isfinite(output[7]));
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
+  for (int i = 14; i <= 19; ++i) {
+    assert(isfinite(output[i]));
+    assert(output[i] >= 0.0 && output[i] <= 1.0);
+  }
   // A steady sine has no sustained section change, so structural cues should
   // remain unavailable instead of reporting arbitrary extrema.
   assert(isnan(output[11]));
@@ -436,6 +440,11 @@ static void test_edge_cases_silence_and_noise(void) {
   int32_t status = nar_automix_analyze(silence, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
   assert(status == 1);
   assert(isnan(output[0]) || output[1] < 0.1);
+  for (int i = 14; i <= 19; ++i) {
+    assert(isfinite(output[i]));
+    assert(output[i] >= 0.0 && output[i] <= 1.0);
+  }
+  assert(output[16] == NAR_AUTOMIX_STRUCTURE_UNKNOWN);
   free(silence);
 
   float* noise = (float*)malloc((size_t)count * sizeof(float));
@@ -446,6 +455,10 @@ static void test_edge_cases_silence_and_noise(void) {
   status = nar_automix_analyze(noise, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
   assert(status == 1);
   assert(output[6] < 0.25);
+  for (int i = 14; i <= 19; ++i) {
+    assert(isfinite(output[i]));
+    assert(output[i] >= 0.0 && output[i] <= 1.0);
+  }
   free(noise);
 }
 
