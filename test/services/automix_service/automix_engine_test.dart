@@ -996,8 +996,10 @@ void main() {
           ),
           settings: const AutomixSettings(),
         );
-        expect(clash.fadeSeconds, closeTo(8.0 * 0.82, 0.01));
-        expect(clash.curveGamma, greaterThanOrEqualTo(1.15));
+        // A confident key mismatch selects a short handover, bounded at 4 s.
+        expect(clash.strategy, AutomixTransitionStrategy.shortHandover);
+        expect(clash.fadeSeconds, 4.0);
+        expect(clash.curveGamma, greaterThanOrEqualTo(1.20));
 
         final uncertain = automixTransitionCue(
           outgoing: const AutomixTrackFeatures(
