@@ -61,6 +61,7 @@ float nar_automix_phrase_lock_factor(
     double incoming_downbeat_offset_ms, double incoming_bpm,
     double remaining_ms, double max_nudge, int32_t beats_per_phrase) {
   if (beats_per_phrase <= 0) beats_per_phrase = 4;
+  if (beats_per_phrase > 64) return NAN;
   if (!isfinite(outgoing_position_ms) || !isfinite(outgoing_downbeat_offset_ms) ||
       !isfinite(outgoing_bpm) || !isfinite(incoming_position_ms) ||
       !isfinite(incoming_downbeat_offset_ms) || !isfinite(incoming_bpm) ||
