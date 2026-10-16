@@ -2358,26 +2358,17 @@ class Media3PlaybackService : MediaSessionService() {
                     automixDropCueMsBySongId[id] = dropCueMs.toLong()
                 }
                 val strategy = ((target["transitionStrategy"] as? Number)?.toInt() ?: 0)
-                    .coerceIn(0, 4)
+                    .coerceIn(
+                        AutomixTransitionPolicy.CROSSFADE,
+                        AutomixTransitionPolicy.QUICK_HANDOVER,
+                    )
                 val requestedFade = (target["fadeSeconds"] as? Number)?.toFloat()
-                if (requestedFade != null && requestedFade.isFinite()) {
-                    val strategyFade = when (strategy) {
-                        2 -> minOf(requestedFade, 4f) // short handover
-                        3 -> maxOf(requestedFade, 6f) // long blend
-                        4 -> minOf(requestedFade, 3f) // quick handover
-                        else -> requestedFade // plain or structure-aligned
-                    }
-                    automixFadeSecondsBySongId[id] = strategyFade.coerceIn(1.5f, 12f)
+                AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade)?.let {
+                    automixFadeSecondsBySongId[id] = it
                 }
                 val requestedCurve = (target["fadeCurve"] as? Number)?.toFloat()
-                if (requestedCurve != null && requestedCurve.isFinite()) {
-                    val strategyCurve = when (strategy) {
-                        2 -> maxOf(requestedCurve, 1.20f)
-                        3 -> minOf(requestedCurve, 0.95f)
-                        4 -> maxOf(requestedCurve, 1.35f)
-                        else -> requestedCurve
-                    }
-                    automixCurveBySongId[id] = strategyCurve.coerceIn(0.6f, 1.6f)
+                AutomixTransitionPolicy.curveGamma(strategy, requestedCurve)?.let {
+                    automixCurveBySongId[id] = it
                 }
 
                 fun overlapGain(key: String, fallback: Float): Float =
