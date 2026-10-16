@@ -885,8 +885,9 @@ class AutomixService {
       // LoudnessData carries the *recommended replay gain* (target − LUFS),
       // not an LUFS value itself. Invert it against the standard −18 LUFS
       // ReplayGain target so the engine's LUFS→energy mapping stays uniform.
-      if (loudness.hasData)
+      if (loudness.hasData) {
         lufs = (-18.0 - loudness.gainDb).clamp(-24, -6).toDouble();
+      }
     } on Object catch (e) {
       LogService.verbose('Automix', 'loudness fallback failed: $e');
     }
