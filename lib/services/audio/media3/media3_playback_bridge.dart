@@ -29,6 +29,9 @@ class Media3PlaybackBridge {
   static const EventChannel _playbackStateEvents = EventChannel(
     'musicplayer/media3_playbackState',
   );
+  static const EventChannel _crossfadeStateEvents = EventChannel(
+    'musicplayer/media3_crossfadeState',
+  );
   static const EventChannel _positionEvents = EventChannel(
     'musicplayer/media3_position',
   );
@@ -92,6 +95,14 @@ class Media3PlaybackBridge {
           .where((e) => e is Map)
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
+
+  /// True only while the native dual-player crossfade is actually running.
+  static final Stream<bool> crossfadeStateStream = _crossfadeStateEvents
+      .receiveBroadcastStream()
+      .where((e) => e is bool)
+      .cast<bool>()
+      .distinct()
+      .asBroadcastStream();
 
   /// Stream of offload state snapshots emitted by [AudioOffloadManager].
   ///
