@@ -33,7 +33,7 @@ static _Atomic float g_target_fade[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f}
 #if defined(__aarch64__)
 extern void nar_automix_tone_process_stereo_neon(
     float* interleaved, int32_t frame_count, NarAutomixToneState* state,
-    float target_bass, float target_high, float target_fade);
+    float target_bass, float target_mid, float target_high, float target_fade);
 #endif
 
 static int valid_stream_slot(int32_t stream_slot) {
@@ -192,7 +192,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
 #if defined(__aarch64__)
   if (channel_count == 2) {
     nar_automix_tone_process_stereo_neon(
-        interleaved, frame_count, state, target_bass, target_high, target_fade);
+        interleaved, frame_count, state, target_bass, target_mid, target_high,
+        target_fade);
     return 1;
   }
 #endif
