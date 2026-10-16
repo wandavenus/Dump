@@ -25,6 +25,8 @@ static void test_analyzer_rms(void) {
     assert(isfinite(output[i]));
     assert(output[i] >= 0.0 && output[i] <= 1.0);
   }
+  // A pure tone is not sufficient evidence of vocals.
+  assert(output[19] < 0.35);
   // A steady sine has no sustained section change, so structural cues should
   // remain unavailable instead of reporting arbitrary extrema.
   assert(isnan(output[11]));
@@ -459,6 +461,7 @@ static void test_edge_cases_silence_and_noise(void) {
     assert(isfinite(output[i]));
     assert(output[i] >= 0.0 && output[i] <= 1.0);
   }
+  assert(output[19] < 0.35);
   free(noise);
 }
 
