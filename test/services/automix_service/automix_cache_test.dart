@@ -57,8 +57,14 @@ void main() {
             'id': 42,
             'bpm': 128.0,
             'bc': 0.9,
+            'bo': 123.5,
+            'dbo': 400.5,
             'tbpm': 126.0,
             'tbo': 245123.0,
+            'tdbo': 236400.5,
+            'dc': 30000.0,
+            'tbkc': 232000.0,
+            'dur': 240.0,
             'ie': 0.4,
             'oe': 0.2,
             'af': 1.0,
@@ -69,8 +75,14 @@ void main() {
       final features = await AutomixService.featuresFor(song);
 
       expect(features.bpm, 128.0);
+      expect(features.beatOffsetMs, 123.5);
+      expect(features.downbeatOffsetMs, 400.5);
       expect(features.tailBpm, 126.0);
       expect(features.tailBeatOffsetMs, 245123.0);
+      expect(features.tailDownbeatOffsetMs, 236400.5);
+      expect(features.dropCueMs, 30000.0);
+      expect(features.tailBreakdownCueMs, 232000.0);
+      expect(features.durationSeconds, 240.0);
       expect(features.introEnergy, 0.4);
       expect(features.outroEnergy, 0.2);
       expect(features.analyzedFraction, 1.0);
