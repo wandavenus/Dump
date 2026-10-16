@@ -22,6 +22,7 @@ class AutomixSegmentFeatures {
     required this.seconds,
     this.bpm,
     this.bpmConfidence = 0,
+    this.alternateBpm,
     this.beatOffsetMs,
     this.downbeatOffsetMs,
     this.dropCueMs,
@@ -40,6 +41,9 @@ class AutomixSegmentFeatures {
 
   final double? bpm;
   final double bpmConfidence;
+
+  /// Half/double-time alternative for octave-ambiguous tempo estimates.
+  final double? alternateBpm;
 
   /// Dominant-beat phase relative to this analysis window (ms).
   final double? beatOffsetMs;
