@@ -184,6 +184,7 @@ class AutomixToneAudioProcessor(
         inputBuffer.position(inputBuffer.position() + alignedBytes)
     }
 
+    @Deprecated("Deprecated by Media3; retained for BaseAudioProcessor lifecycle compatibility.")
     override fun onFlush() {
         resetNativeState()
     }
