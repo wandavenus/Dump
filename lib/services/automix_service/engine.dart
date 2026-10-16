@@ -354,11 +354,16 @@ AutomixTrackFeatures automixMergeSegments({
   // ── Exit beat grid: the fade lives in the tail window ────────────────────
   double? tailBpm;
   double? tailBeatOffsetMs;
+  double? tailDownbeatOffsetMs;
   for (final s in segments.reversed) {
     if (s.bpm == null || s.bpmConfidence < 0.20) continue;
     tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
     if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
       tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
+    }
+    if (s.downbeatOffsetMs != null && s.bpmConfidence >= 0.25) {
+      tailDownbeatOffsetMs =
+          s.startSeconds * 1000.0 + s.downbeatOffsetMs!;
     }
     break;
   }
@@ -378,6 +383,12 @@ AutomixTrackFeatures automixMergeSegments({
     bpm: bpm,
     bpmConfidence: bpmConfidence,
     beatOffsetMs: segments.isEmpty ? null : segments.first.beatOffsetMs,
+    downbeatOffsetMs: segments.isEmpty ||
+            segments.first.downbeatOffsetMs == null
+        ? null
+        : segments.first.startSeconds * 1000.0 +
+            segments.first.downbeatOffsetMs!,
+    tailDownbeatOffsetMs: tailDownbeatOffsetMs,
     camelotNumber: camelotNumber,
     camelotMinor: camelotMinor,
     keyConfidence: keyConfidence,
