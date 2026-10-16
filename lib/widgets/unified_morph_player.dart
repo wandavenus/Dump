@@ -659,7 +659,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             child:
                                 backgroundStyle ==
                                     PlayerBackgroundStyle.artworkBlur
-                                ? ArtworkBlurPlayerBackground(songId: song.id)
+                                ? ArtworkBlurPlayerBackground(
+                                    songId: song.id,
+                                    topOffset: bottom + height - screenH,
+                                  )
                                 : AnimatedBlurredPlayerBackground(
                                     songId: song.id,
                                   ),
