@@ -693,19 +693,17 @@ class AutomixService {
     });
   }
 
-  /// Signature of the deck plan actually pushed to native. Only the incoming
-  /// track's tempo/phase and the fade length change what the next transition
-  /// does, so re-pushing an identical plan would rebuild the standby decoder
-  /// for nothing.
+  /// Signature of the active deck pair sent to native.
+  ///
+  /// Include every field in both active targets: grid phases, structural cues,
+  /// the pair-specific fade curve and level trims all affect native playback.
+  /// Only these two decks affect the transition currently being prepared; the
+  /// next playback-state update refreshes the signature for the following pair.
   static String _nativePlanSignature(
     int currentSongId,
     double fadeSeconds,
     List<Map<String, Object?>> targets,
-  ) {
-    final next = targets.length > 1 ? targets[1] : const <String, Object?>{};
-    return '$currentSongId|${fadeSeconds.toStringAsFixed(2)}'
-        '|${next['id']}|${next['bpm']}|${next['beatOffsetMs']}|${next['multiplier']}';
-  }
+  ) => automixNativePlanSignature(currentSongId, fadeSeconds, targets);
 
   static Future<void> setAutomixEnabled(bool enabled) async {
     automixEnabled.value = enabled;

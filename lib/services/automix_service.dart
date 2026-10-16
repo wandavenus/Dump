@@ -19,4 +19,5 @@ import 'audio/audio_effects_service.dart';
 
 part 'automix_service/models.dart';
 part 'automix_service/engine.dart';
+part 'automix_service/plan_signature.dart';
 part 'automix_service/service.dart';
