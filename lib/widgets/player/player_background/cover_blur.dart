@@ -75,6 +75,7 @@ class _ArtworkBlurPlayerBackgroundState
   static const double _blurSigma = ArtworkBlurPlayerBackground._blurSigma;
 
   ImageProvider? _provider;
+  int _providerSongId = -1;
   ArtworkBlurImageLease? _blurLease;
   String? _requestedBlurKey;
   int _artworkRequestId = 0;
@@ -83,10 +84,14 @@ class _ArtworkBlurPlayerBackgroundState
   @override
   void initState() {
     super.initState();
-    _provider = ArtworkRepository.instance.getProviderSync(
+    final provider = ArtworkRepository.instance.getProviderSync(
       widget.songId,
       targetSizePx: _targetSizePx,
     );
+    if (provider != null) {
+      _provider = provider;
+      _providerSongId = widget.songId;
+    }
     unawaited(_loadArtwork(widget.songId));
   }
 
@@ -95,24 +100,36 @@ class _ArtworkBlurPlayerBackgroundState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.songId == widget.songId) return;
 
-    // Ignore any in-flight blur for the previous track and release its cache
-    // lease. The old cover must never flash over the new song.
+    // Invalidate work for the previous track, but keep its rendered frame
+    // visible until the new artwork and blur are ready. Clearing both here
+    // made the background briefly fall back to black on every track change.
     _blurRequestId++;
     _requestedBlurKey = null;
-    _blurLease?.release();
-    _blurLease = null;
 
-    _provider = ArtworkRepository.instance.getProviderSync(
+    final provider = ArtworkRepository.instance.getProviderSync(
       widget.songId,
       targetSizePx: _targetSizePx,
     );
+    if (provider != null) {
+      _provider = provider;
+      _providerSongId = widget.songId;
+    }
     unawaited(_loadArtwork(widget.songId));
   }
 
   Future<void> _loadArtwork(int songId) async {
     final requestId = ++_artworkRequestId;
     if (songId <= 0) {
-      if (mounted) setState(() => _provider = null);
+      if (mounted && widget.songId == songId) {
+        final previous = _blurLease;
+        setState(() {
+          _provider = null;
+          _providerSongId = songId;
+          _blurLease = null;
+          _requestedBlurKey = null;
+        });
+        previous?.release();
+      }
       return;
     }
 
@@ -120,11 +137,15 @@ class _ArtworkBlurPlayerBackgroundState
       songId,
       targetSizePx: _targetSizePx,
     );
-    if (!mounted || requestId != _artworkRequestId) return;
-    setState(() => _provider = provider);
+    if (!mounted || requestId != _artworkRequestId || provider == null) return;
+    setState(() {
+      _provider = provider;
+      _providerSongId = songId;
+    });
   }
 
   void _ensureBlurredArtwork({
+    required int songId,
     required ImageProvider provider,
     required double width,
     required double height,
@@ -132,6 +153,10 @@ class _ArtworkBlurPlayerBackgroundState
     if (width <= 0 || height <= 0 || !width.isFinite || !height.isFinite) {
       return;
     }
+
+    // Do not accidentally cache the previous track's provider under the new
+    // track's key while the new artwork is still loading.
+    if (songId != widget.songId) return;
 
     // ImageFilter sigma is expressed in the destination coordinate space.
     // Scale the pre-blur radius to preserve the existing 32px on-screen look
@@ -143,7 +168,7 @@ class _ArtworkBlurPlayerBackgroundState
     final sourceSigma = (_blurSigma / imageScale)
         .clamp(0.5, _blurSigma)
         .toDouble();
-    final key = '${widget.songId}:${sourceSigma.toStringAsFixed(1)}';
+    final key = '$songId:${sourceSigma.toStringAsFixed(1)}';
 
     if (_requestedBlurKey == key) return;
     _requestedBlurKey = key;
@@ -194,16 +219,21 @@ class _ArtworkBlurPlayerBackgroundState
   @override
   Widget build(BuildContext context) {
     final provider = _provider;
-    if (provider == null) return const PlayerFallbackBackground();
+    final cachedImage = _blurLease?.image;
+    if (provider == null && cachedImage == null) {
+      return const PlayerFallbackBackground();
+    }
 
     final viewport = MediaQuery.sizeOf(context);
-    _ensureBlurredArtwork(
-      provider: provider,
-      width: viewport.width,
-      height: viewport.height,
-    );
+    if (provider != null) {
+      _ensureBlurredArtwork(
+        songId: _providerSongId,
+        provider: provider,
+        width: viewport.width,
+        height: viewport.height,
+      );
+    }
 
-    final cachedImage = _blurLease?.image;
     final Widget artwork = cachedImage != null
         ? RawImage(
             image: cachedImage,
@@ -221,12 +251,11 @@ class _ArtworkBlurPlayerBackgroundState
               width: viewport.width,
               height: viewport.height,
               child: Image(
-                image: provider,
+                image: provider!,
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
-                errorBuilder: (_, _, _) =>
-                    const PlayerFallbackBackground(),
+                errorBuilder: (_, _, _) => const PlayerFallbackBackground(),
               ),
             ),
           );
@@ -255,4 +284,3 @@ class _ArtworkBlurPlayerBackgroundState
     );
   }
 }
-
