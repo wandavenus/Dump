@@ -731,6 +731,8 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     // centroid stability. These spectral cues cannot isolate a singer from
     // instruments, so confidence is intentionally capped and low-quality or
     // ambiguous windows remain below the planner's confidence gate.
+    double vocal_like = 0.0;
+    double vocal_conf = 0.0;
     const float vocal_band_ratio =
         median_float(vocal_band_ratio_values, vocal_band_ratio_count);
     double centroid_mad = 0.0;
