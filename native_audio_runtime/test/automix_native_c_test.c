@@ -23,6 +23,7 @@ static void test_analyzer_rms(void) {
   assert(fabs(output[10] - 2.0) < 1e-9);
   // A steady sine has no sustained section change, so structural cues should
   // remain unavailable instead of reporting arbitrary extrema.
+  assert(isnan(output[11]));
   assert(isnan(output[12]));
   assert(isnan(output[13]));
   free(pcm);
@@ -349,6 +350,9 @@ static void test_phrase_lock(void) {
   assert(factor == 1.0f);
   factor = nar_automix_phrase_lock_factor(
       0.0, 0.0, NAN, 0.0, 0.0, 120.0, 4000.0, 0.006, 16);
+  assert(isnan(factor));
+  factor = nar_automix_phrase_lock_factor(
+      0.0, 0.0, 120.0, 0.0, 0.0, 120.0, 4000.0, 0.006, 65);
   assert(isnan(factor));
 }
 
