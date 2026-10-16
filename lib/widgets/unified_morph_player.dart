@@ -569,49 +569,50 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       // does not re-composite when the rest of the player animates.
                       ValueListenableBuilder<bool>(
                         valueListenable: ThemeController.glassTheme,
-                        builder: (_, masterGlass, _) => ValueListenableBuilder<bool>(
-                          valueListenable: ThemeController.glassMiniPlayer,
-                          builder: (_, compGlass, _) {
-                            // Use glass only when fully at rest in mini state.
-                            // Threshold 0.05 collapses the glass before drag starts
-                            // so BackdropFilter never runs during the morph animation.
-                            final useGlass =
-                                masterGlass && compGlass && progress < 0.02;
-                            if (useGlass) {
-                              // Glass = blur backdrop + tint netral penstabil
-                              // (sama dengan navbar pill): background pill
-                              // tidak meniru warna konten halaman.
-                              final c = AppColors.of(context);
-                              return RepaintBoundary(
-                                child: BackdropGroup(
-                                  child: ClipRect(
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        BackdropFilter.grouped(
-                                          filterConfig:
-                                              const ImageFilterConfig.blur(
-                                                sigmaX: 6,
-                                                sigmaY: 6,
-                                                bounded: true,
+                        builder: (_, masterGlass, _) =>
+                            ValueListenableBuilder<bool>(
+                              valueListenable: ThemeController.glassMiniPlayer,
+                              builder: (_, compGlass, _) {
+                                // Use glass only when fully at rest in mini state.
+                                // Threshold 0.05 collapses the glass before drag starts
+                                // so BackdropFilter never runs during the morph animation.
+                                final useGlass =
+                                    masterGlass && compGlass && progress < 0.02;
+                                if (useGlass) {
+                                  // Glass = blur backdrop + tint netral penstabil
+                                  // (sama dengan navbar pill): background pill
+                                  // tidak meniru warna konten halaman.
+                                  final c = AppColors.of(context);
+                                  return RepaintBoundary(
+                                    child: BackdropGroup(
+                                      child: ClipRect(
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            BackdropFilter.grouped(
+                                              filterConfig:
+                                                  const ImageFilterConfig.blur(
+                                                    sigmaX: 6,
+                                                    sigmaY: 6,
+                                                    bounded: true,
+                                                  ),
+                                              blendMode: BlendMode.srcOver,
+                                              child: const ColoredBox(
+                                                color: Colors.transparent,
                                               ),
-                                          blendMode: BlendMode.srcOver,
-                                          child: const ColoredBox(
-                                            color: Colors.transparent,
-                                          ),
+                                            ),
+                                            ColoredBox(color: c.glassFillTint),
+                                          ],
                                         ),
-                                        ColoredBox(color: c.glassFillTint),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return ColoredBox(
-                              color: AppColors.of(context).surface,
-                            );
-                          },
-                        ),
+                                  );
+                                }
+                                return ColoredBox(
+                                  color: AppColors.of(context).surface,
+                                );
+                              },
+                            ),
                       ),
 
                       // ── Pre-blurred artwork background (fades in with progress) ────
@@ -921,9 +922,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   color: AppColors.of(context).glassBorderTint
                                       .withValues(
                                         alpha:
-                                            AppColors.of(
-                                              context,
-                                            ).glassBorderTint.a *
+                                            AppColors.of(context)
+                                                .glassBorderTint
+                                                .a *
                                             miniAlpha,
                                       ),
                                   width: 1,
