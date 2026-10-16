@@ -403,7 +403,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get equalizerCustom => 'Custom';
 
   @override
-  String get equalizerBitPerfect => 'Pure Audio';
+  String get equalizerBitPerfect => 'Pure Playback';
 
   @override
   String get playbackSpeed => 'Playback Speed';
