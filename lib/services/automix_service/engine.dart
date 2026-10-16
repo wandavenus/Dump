@@ -254,6 +254,7 @@ AutomixTrackFeatures automixMergeSegments({
   required List<AutomixSegmentFeatures> segments,
   double? loudnessLufs,
   double? sourceDurationSeconds,
+  bool tailSegmentAnalyzed = true,
 }) {
   // ── Tempo vote ────────────────────────────────────────────────────────────
   final withBpm = segments
@@ -348,7 +349,7 @@ AutomixTrackFeatures automixMergeSegments({
       introEnergy = segmentEnergy.first == null
           ? null
           : automixClamp01(segmentEnergy.first! / peak);
-      outroEnergy = segmentEnergy.last == null
+      outroEnergy = !tailSegmentAnalyzed || segmentEnergy.last == null
           ? null
           : automixClamp01(segmentEnergy.last! / peak);
     }
@@ -358,7 +359,7 @@ AutomixTrackFeatures automixMergeSegments({
   double? tailBpm;
   double? tailBeatOffsetMs;
   double? tailDownbeatOffsetMs;
-  for (final s in segments.reversed) {
+  for (final s in tailSegmentAnalyzed ? segments.reversed : const <AutomixSegmentFeatures>[]) {
     if (s.bpm == null || s.bpmConfidence < 0.20) continue;
     tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
     if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
@@ -391,7 +392,7 @@ AutomixTrackFeatures automixMergeSegments({
   final firstSegment = segments.isEmpty ? null : segments.first;
   final lastSegment = segments.isEmpty ? null : segments.last;
   final localDropCue = firstSegment?.dropCueMs;
-  final localBreakdownCue = lastSegment?.breakdownCueMs;
+  final localBreakdownCue = tailSegmentAnalyzed ? lastSegment?.breakdownCueMs : null;
   final dropCueMs = localDropCue != null &&
           localDropCue.isFinite &&
           localDropCue >= 0
@@ -442,6 +443,7 @@ AutomixTrackFeatures automixMergeSegments({
     analyzedFraction: fileSeconds <= 0
         ? 0
         : automixClamp01(analyzedSeconds / fileSeconds),
+    tailAnalyzed: tailSegmentAnalyzed,
   );
 }
 
@@ -567,8 +569,11 @@ AutomixTransitionCue automixTransitionCue({
   var incomingTrim = 1.0;
   final outLufs = outgoing.loudnessLufs;
   final inLufs = incoming.loudnessLufs;
-  if (outLufs != null && inLufs != null) {
-    final deltaDb = (outLufs - inLufs).clamp(-6.0, 6.0);
+  final useIntegratedLufs = outLufs != null && inLufs != null;
+  final outLevelDb = useIntegratedLufs ? outLufs : outgoing.rmsDb;
+  final inLevelDb = useIntegratedLufs ? inLufs : incoming.rmsDb;
+  if (outLevelDb != null && inLevelDb != null) {
+    final deltaDb = (outLevelDb - inLevelDb).clamp(-6.0, 6.0);
     if (deltaDb > 0.5) {
       outgoingTrim = math.pow(10, -deltaDb / 20).toDouble();
     } else if (deltaDb < -0.5) {

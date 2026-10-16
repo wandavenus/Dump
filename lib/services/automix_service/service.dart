@@ -141,6 +141,7 @@ class AutomixService {
   static bool _replanRequested = false;
 
   static int _replanRetryCount = 0;
+  static int _automixGeneration = 0;
   static const int _maxReplanRetries = 5;
   static Timer? _replanTimer;
   static Timer? _analyzeTimer;
@@ -372,6 +373,7 @@ class AutomixService {
     List<LocalSong> queue,
     int currentIndex,
   ) async {
+    final generation = _automixGeneration;
     if (_autoMixPreparing ||
         !automixEnabled.value ||
         AudioEffectsService.bitPerfectMode.value) {
@@ -396,7 +398,7 @@ class AutomixService {
         currentSong,
         ...upcoming.take(nearCount),
       ]);
-      if (!automixEnabled.value) {
+      if (!_isAutoMixGenerationCurrent(generation)) {
         return;
       }
 
@@ -429,7 +431,7 @@ class AutomixService {
           horizon,
         );
         final allFeatures = await _featuresForPlan(window);
-        if (!automixEnabled.value) {
+        if (!_isAutoMixGenerationCurrent(generation)) {
           return;
         }
         currentFeatures = allFeatures.first;
@@ -448,6 +450,7 @@ class AutomixService {
         // order. Keep the user's shuffle choice and still send per-track
         // metadata (targets are keyed by stable song ID); only reorder when
         // shuffle is off.
+        if (!_isAutoMixGenerationCurrent(generation)) return;
         final latestState = AudioService.playbackState.value;
         if (latestState.currentSong?.id != currentSong.id ||
             latestState.currentIndex != currentIndex ||
@@ -493,6 +496,7 @@ class AutomixService {
               currentId: currentSong.id,
               orderedIds: orderedTailIds,
             );
+            if (!_isAutoMixGenerationCurrent(generation)) return;
             _plannedTail = orderedTailIds;
           } on Object catch (e) {
             // A rejected reorder must never strand the session on a stale plan.
@@ -506,7 +510,7 @@ class AutomixService {
         }
       }
 
-      if (automixEnabled.value) {
+      if (_isAutoMixGenerationCurrent(generation)) {
         final bpm = _usableBpm(currentFeatures);
         // Crossfade duration is expressed in media-timeline seconds. Manual
         // playback speed changes wall-clock duration, not the number of source
@@ -529,10 +533,12 @@ class AutomixService {
           return;
         }
         await _engageCrossfade(fadeSeconds);
+        if (!_isAutoMixGenerationCurrent(generation)) return;
         await AudioService.setAutomixTransition(
           enabled: true,
           targets: targets,
         );
+        if (!_isAutoMixGenerationCurrent(generation)) return;
         _lastNativeSignature = signature;
         _replanRetryCount = 0;
         LogService.log(
@@ -569,6 +575,7 @@ class AutomixService {
     String identity,
   ) async {
     if (kIsWeb || _autoAnalyzeRunning || _analysisFuture != null) return false;
+    final generation = _automixGeneration;
     if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) {
       return false;
     }
@@ -609,12 +616,15 @@ class AutomixService {
           currentTitle: song.title,
         );
         final features = await analyzeOne(song);
-        if (features == null) {
+        if (!_isAutoMixGenerationCurrent(generation)) return false;
+        if (features == null || !features.tailAnalyzed) {
+          // Avoid repeated expensive retries in one process; partial features
+          // remain usable and the next launch can retry the missing tail.
           _dspUnavailable.add(song.id);
         } else {
           _dspReady.add(song.id);
-          analyzedAny = true;
         }
+        if (features != null) analyzedAny = true;
         done++;
       }
       return analyzedAny;
@@ -705,7 +715,13 @@ class AutomixService {
     List<Map<String, Object?>> targets,
   ) => automixNativePlanSignature(currentSongId, fadeSeconds, targets);
 
+  static bool _isAutoMixGenerationCurrent(int generation) =>
+      generation == _automixGeneration &&
+      automixEnabled.value &&
+      !AudioEffectsService.bitPerfectMode.value;
+
   static Future<void> setAutomixEnabled(bool enabled) async {
+    final generation = ++_automixGeneration;
     automixEnabled.value = enabled;
     if (enabled) {
       _lastAutoQueueIdentity = null;
@@ -716,17 +732,19 @@ class AutomixService {
       _replanRetryCount = 0;
       _dspUnavailable.clear();
       _onPlaybackStateForAutoMix();
-      // AutoMix was just switched on: start filling in the back catalogue while
-      // the phone is idle, charging, and not busy mixing.
       _scheduleLibrarySweep(const Duration(seconds: 30));
+    } else {
+      await _disableAutomix(generation);
     }
+
+    if (generation != _automixGeneration) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (generation != _automixGeneration) return;
       await prefs.setBool('automixEnabled', enabled);
     } on Object catch (e) {
       LogService.warn('Automix', 'save enabled state failed: $e');
     }
-    if (!enabled) await disableAutomix();
   }
 
   static double? _savedCrossfade;
@@ -740,7 +758,7 @@ class AutomixService {
   // v5: add 16-beat phrase phase to intro/outro grids for phrase locking.
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
   // v7: preserve native half/double-time alternate BPM and true source duration.
-  static const int _analysisSchemaVersion = 7;
+  static const int _analysisSchemaVersion = 8;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -821,6 +839,7 @@ class AutomixService {
     introEnergy: features.introEnergy,
     outroEnergy: features.outroEnergy,
     analyzedFraction: features.analyzedFraction,
+    tailAnalyzed: features.tailAnalyzed,
   );
 
   /// Loaded (or freshly derived when nothing cached) features for [song].
@@ -863,9 +882,8 @@ class AutomixService {
               AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
               song,
             );
-            // Real DSP data for this exact file is available: the automatic
-            // pipeline can skip it.
-            _dspReady.add(song.id);
+            // Only complete tail analysis suppresses automatic re-analysis.
+            if (cached.tailAnalyzed) _dspReady.add(song.id);
           }
         }
       }
@@ -1009,8 +1027,9 @@ class AutomixService {
     List<LocalSong> playlist,
     int startIndex,
   ) async {
+    final generation = _automixGeneration;
     await loadSettings();
-    if (!automixEnabled.value) return -1;
+    if (!_isAutoMixGenerationCurrent(generation)) return -1;
     if (playlist.isEmpty) return -1;
     if (AudioEffectsService.bitPerfectMode.value) {
       LogService.verbose(
@@ -1029,6 +1048,7 @@ class AutomixService {
     }
 
     final features = await featuresForAll(playlist);
+    if (!_isAutoMixGenerationCurrent(generation)) return -1;
     final planMetrics = AutomixEngine.planSet(
       tracks: features,
       settings: settings.value,
@@ -1065,6 +1085,7 @@ class AutomixService {
         .skip(1)
         .toList(growable: false);
     await _engageCrossfade(fadeSeconds);
+    if (!_isAutoMixGenerationCurrent(generation)) return -1;
     await AudioService.setAutomixTransition(
       enabled: true,
       targets: _buildNativeTargets(
@@ -1072,6 +1093,7 @@ class AutomixService {
         sequencedFeatures.skip(1).take(_targetHorizon).toList(growable: false),
       ),
     );
+    if (!_isAutoMixGenerationCurrent(generation)) return -1;
     await AudioService.playSongAt(
       playlist: sequenced,
       index: 0,
@@ -1082,6 +1104,12 @@ class AutomixService {
 
   /// Restores the user's crossfade and drops the "engaged" flag.
   static Future<void> disableAutomix() async {
+    final generation = ++_automixGeneration;
+    automixEnabled.value = false;
+    await _disableAutomix(generation);
+  }
+
+  static Future<void> _disableAutomix(int generation) async {
     automixActive.value = false;
     _lastAutoQueueIdentity = null;
     _lastNativeSignature = null;
@@ -1101,10 +1129,12 @@ class AutomixService {
     } on Object catch (e) {
       LogService.warn('Automix', 'native transition reset failed: $e');
     }
+    if (generation != _automixGeneration) return;
     await _restoreCrossfade();
   }
 
   static Future<void> _engageCrossfade(double seconds) async {
+    final generation = _automixGeneration;
     try {
       final current = AudioEffectsService.crossfadeDuration.value;
       final bitPerfect = AudioEffectsService.bitPerfectMode.value;
@@ -1114,8 +1144,11 @@ class AutomixService {
         // disableAutomix always returns to the user's real preference.
         _savedCrossfade ??= current.toDouble();
         final prefs = await SharedPreferences.getInstance();
+        if (!_isAutoMixGenerationCurrent(generation)) return;
         await prefs.setDouble('automixSavedCrossfade', _savedCrossfade!);
+        if (!_isAutoMixGenerationCurrent(generation)) return;
         await AudioEffectsService.setCrossfade(seconds);
+        if (!_isAutoMixGenerationCurrent(generation)) return;
       }
       automixActive.value = true;
     } on Object catch (e) {
@@ -1281,11 +1314,11 @@ class AutomixService {
   /// the tail window is always analyzed for anything longer than one window,
   /// and the file length reported by native decides whether a middle window is
   /// worth the extra decode.
-  static Future<(List<AutomixSegmentFeatures>, double)> _analyzeSegments(
+  static Future<(List<AutomixSegmentFeatures>, double, bool)> _analyzeSegments(
     LocalSong song,
   ) async {
     final head = await _analyzeWindow(song.path, 0, _segmentSeconds);
-    if (head == null) return (const <AutomixSegmentFeatures>[], 0.0);
+    if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
     final segments = <AutomixSegmentFeatures>[head.$1];
     final reportedDuration = head.$2;
     final mediaDuration = song.duration.inMilliseconds / 1000.0;
@@ -1297,14 +1330,24 @@ class AutomixService {
     }
 
     // Anything shorter than one window is already covered completely.
-    if (fileSeconds <= 0 || fileSeconds <= _segmentSeconds) {
-      return (segments, fileSeconds);
+    if (fileSeconds <= 0) {
+      // Without a known duration we cannot prove that the head window covers
+      // the file. Keep its useful features, but do not publish it as an exit
+      // grid; a later launch can retry with fresh decoder metadata.
+      return (segments, fileSeconds, false);
+    }
+    if (fileSeconds <= _segmentSeconds) {
+      return (segments, fileSeconds, true);
     }
 
+    var tailAnalyzed = false;
     final tailStart = fileSeconds - _segmentSeconds;
     if (tailStart > 0) {
       final tail = await _analyzeWindow(song.path, tailStart, _segmentSeconds);
-      if (tail != null) segments.add(tail.$1);
+      if (tail != null) {
+        segments.add(tail.$1);
+        tailAnalyzed = true;
+      }
     }
     if (fileSeconds > _veryLongFileSeconds) {
       final midStart = fileSeconds / 2 - _segmentSeconds / 2;
@@ -1314,7 +1357,7 @@ class AutomixService {
       }
     }
     segments.sort((a, b) => a.startSeconds.compareTo(b.startSeconds));
-    return (segments, fileSeconds);
+    return (segments, fileSeconds, tailAnalyzed);
   }
 
   /// Runs the DSP analysis for ONE track, returning cached features when the
@@ -1381,10 +1424,14 @@ class AutomixService {
               AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
               song,
             );
-            _featuresCache[song.id] = f;
-            _featuresIdentity[song.id] = identity;
-            _dspReady.add(song.id);
-            return f;
+            if (f.tailAnalyzed) {
+              _featuresCache[song.id] = f;
+              _featuresIdentity[song.id] = identity;
+              _dspReady.add(song.id);
+              return f;
+            }
+            // Partial cache entries remain useful through featuresFor(), but
+            // analyzeOne() must retry them rather than treating them as done.
           }
         }
       }
@@ -1413,6 +1460,7 @@ class AutomixService {
       segments: segments,
       loudnessLufs: loudnessLufs,
       sourceDurationSeconds: analysis.$2,
+      tailSegmentAnalyzed: analysis.$3,
     );
 
     if (identity.isNotEmpty) {
@@ -1431,8 +1479,17 @@ class AutomixService {
       }
       _featuresCache[song.id] = features;
       _featuresIdentity[song.id] = identity;
-      _dspReady.add(song.id);
-      _bumpAnalyzedCount(1);
+      if (features.tailAnalyzed) {
+        _dspReady.add(song.id);
+        _dspUnavailable.remove(song.id);
+        _bumpAnalyzedCount(1);
+      } else {
+        _dspReady.remove(song.id);
+        LogService.verbose(
+          'Automix',
+          'partial analysis cached for ${song.id}; exit window will be retried next launch',
+        );
+      }
     }
     return features;
   }
@@ -1465,7 +1522,7 @@ class AutomixService {
           currentTitle: song.title,
         );
         final f = await analyzeOne(song);
-        if (f == null) failed++;
+        if (f == null || !f.tailAnalyzed) failed++;
         done++;
         analysisProgress.value = analysisProgress.value.copyWith(
           done: done,
@@ -1621,7 +1678,7 @@ class AutomixService {
           currentTitle: song.title,
         );
         final features = await analyzeOne(song);
-        if (features == null) {
+        if (features == null || !features.tailAnalyzed) {
           _dspUnavailable.add(song.id);
         } else {
           _dspReady.add(song.id);
