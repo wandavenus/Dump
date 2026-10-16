@@ -426,7 +426,7 @@ class MainActivity : FlutterActivity() {
 
         listOf(
             "playbackState", "position", "duration", "currentTrack",
-            "queue", "bufferingState", "audioSessionId"
+            "queue", "bufferingState", "audioSessionId", "crossfadeState"
         ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
