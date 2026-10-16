@@ -92,6 +92,7 @@ class AutomixTrackFeatures {
     this.introEnergy,
     this.outroEnergy,
     this.analyzedFraction = 0,
+    this.tailAnalyzed = false,
   });
 
   final int songId;
@@ -165,6 +166,11 @@ class AutomixTrackFeatures {
   /// Share of the file that was actually analyzed (1.0 = whole file).
   final double analyzedFraction;
 
+  /// True only when the file's exit window was analyzed (or the head window
+  /// covers the entire short file). Partial analysis must not masquerade as an
+  /// outro beat grid.
+  final bool tailAnalyzed;
+
   // ── Serialization (SharedPreferences JSON) ─────────────────────────────────
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -192,6 +198,7 @@ class AutomixTrackFeatures {
     if (introEnergy != null) 'ie': introEnergy,
     if (outroEnergy != null) 'oe': outroEnergy,
     if (analyzedFraction > 0) 'af': analyzedFraction,
+    'ta': tailAnalyzed,
   };
 
   factory AutomixTrackFeatures.fromMap(Map<dynamic, dynamic> map) {
@@ -220,6 +227,7 @@ class AutomixTrackFeatures {
       introEnergy: (map['ie'] as num?)?.toDouble(),
       outroEnergy: (map['oe'] as num?)?.toDouble(),
       analyzedFraction: (map['af'] as num?)?.toDouble() ?? 0,
+      tailAnalyzed: map['ta'] as bool? ?? false,
     );
   }
 }

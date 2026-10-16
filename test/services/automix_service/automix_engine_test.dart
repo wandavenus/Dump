@@ -516,11 +516,17 @@ void main() {
           songId: 5,
           segments: [seg(0, bpm: 120, rms: -12)],
           sourceDurationSeconds: 360,
-        );
+        tailSegmentAnalyzed: false,
+      );
 
         // Only the 120-second head window succeeded, but the source is 6 minutes.
         expect(merged.durationSeconds, 360);
         expect(merged.analyzedFraction, closeTo(1 / 3, 0.001));
+        expect(merged.tailAnalyzed, isFalse);
+        expect(merged.tailBpm, isNull);
+        expect(merged.tailBeatOffsetMs, isNull);
+        expect(merged.tailBreakdownCueMs, isNull);
+        expect(merged.outroEnergy, isNull);
       },
     );
 
@@ -557,12 +563,14 @@ void main() {
       double? intro,
       double durationSeconds = 0,
       double? tailBreakdownCueMs,
+      double? rmsDb,
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: tailBpm,
       bpmConfidence: 0.9,
       tailBpm: tailBpm,
       loudnessLufs: lufs,
+      rmsDb: rmsDb,
       outroEnergy: outro,
       introEnergy: intro,
       durationSeconds: durationSeconds,
@@ -579,6 +587,16 @@ void main() {
       expect(cue.fadeSeconds, closeTo(6.0, 0.01));
       expect(cue.curveGamma, greaterThan(1.0));
       expect(cue.outgoingTrim, closeTo(0.6309, 0.001)); // 4 dB
+      expect(cue.incomingTrim, 1.0);
+    });
+
+    test('uses paired RMS dBFS for level matching when LUFS is missing', () {
+      final cue = automixTransitionCue(
+        outgoing: track(1, tailBpm: 120, rmsDb: -12),
+        incoming: track(2, tailBpm: 120, rmsDb: -16),
+        settings: const AutomixSettings(),
+      );
+      expect(cue.outgoingTrim, closeTo(0.6309, 0.001));
       expect(cue.incomingTrim, 1.0);
     });
 

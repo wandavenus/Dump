@@ -182,6 +182,12 @@ class Media3PlaybackService : MediaSessionService() {
     // AutoMix target metadata keyed by stable MediaStore song ID. These are
     // hints only; unknown/low-confidence features fall back to ordinary fade.
     private var automixTransitionEnabled = false
+
+    private data class PendingAutomixTransition(
+        val enabled: Boolean,
+        val targets: List<Map<String, Any?>>,
+    )
+    private var pendingAutomixTransition: PendingAutomixTransition? = null
     private val automixTempoMultiplierBySongId = mutableMapOf<Int, Float>()
     private val automixBpmBySongId = mutableMapOf<Int, Float>()
     private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
@@ -556,6 +562,7 @@ class Media3PlaybackService : MediaSessionService() {
                 // artworkData after a crossfade.
                 scheduleSessionArtworkRefresh()
 
+                applyPendingAutomixTransition(preloadStandby = false)
                 CrossfadeTimelineLogger.stamp(
                     "onCrossfadeComplete CB: EXIT (offload listener swapped)", activePlayer)
             },
@@ -655,6 +662,9 @@ class Media3PlaybackService : MediaSessionService() {
                 if (slot >= 0 && ::automixToneManager.isInitialized) {
                     automixToneManager.setFadeGain(slot, gain)
                 }
+            },
+            onCrossfadeCancelled = {
+                applyPendingAutomixTransition(preloadStandby = true)
             },
         )
 
@@ -2248,6 +2258,32 @@ class Media3PlaybackService : MediaSessionService() {
         enabled: Boolean,
         targets: List<Map<String, Any?>>,
     ) {
+        if (crossfadeController.crossfadeInProgress) {
+            pendingAutomixTransition = PendingAutomixTransition(
+                enabled = enabled,
+                targets = targets.map { it.toMap() },
+            )
+            NativeLogger.emit(
+                "verbose", "Automix",
+                "Deferred target update until active crossfade completes",
+            )
+            return
+        }
+        applyAutomixTransitionNow(enabled, targets, preloadStandby = true)
+    }
+
+    private fun applyPendingAutomixTransition(preloadStandby: Boolean) {
+        if (crossfadeController.crossfadeInProgress) return
+        val pending = pendingAutomixTransition ?: return
+        pendingAutomixTransition = null
+        applyAutomixTransitionNow(pending.enabled, pending.targets, preloadStandby)
+    }
+
+    private fun applyAutomixTransitionNow(
+        enabled: Boolean,
+        targets: List<Map<String, Any?>>,
+        preloadStandby: Boolean,
+    ) {
         automixTransitionEnabled = enabled
         automixTempoMultiplierBySongId.clear()
         automixBpmBySongId.clear()
@@ -2318,7 +2354,7 @@ class Media3PlaybackService : MediaSessionService() {
         }
         automixToneManager.reset()
 
-        if (enabled && crossfadeController.crossfadeDurationSec > 0f) {
+        if (preloadStandby && enabled && crossfadeController.crossfadeDurationSec > 0f) {
             // Recreate the standby from its queue item so multiplier/beat seek
             // are applied before prepare(), never half-way through decoded PCM.
             preloadManager.preloadNextTrack(force = true)

@@ -111,6 +111,7 @@ class CrossfadeController(
         (ExoPlayer, ExoPlayer, Float, Float, Float, Float) -> Boolean =
         { _, _, _, _, _, _ -> false },
     private val setAutoMixFadeGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    private val onCrossfadeCancelled: () -> Unit = {},
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -337,6 +338,7 @@ class CrossfadeController(
         // paths that restore explicitly (TransportCommands pause/stop/skip,
         // setQueue, shutdown) are unaffected no-ops.
         if (wasMidFade) rebuildPromotedQueue()
+        if (wasMidFade) onCrossfadeCancelled()
     }
 
     /**
