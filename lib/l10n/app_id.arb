@@ -47,7 +47,7 @@
   "crossfeedStrength": "Kekuatan",
   "crossfadeTitle": "Pudar Silang",
   "crossfadeSeconds": "{secs} detik",
-  "stereoWidening": "Pelebaran Stereo",
+  "stereoWidening": "Spatial Audio",
   "loudnessNormalization": "Normalisasi Kenyaringan",
   "loudnessNormActiveSubtitle": "Menyamakan kenyaringan secara real-time (EBU R128)",
   "loudnessNormInactiveSubtitle": "Normalisasi kenyaringan saat diputar",
