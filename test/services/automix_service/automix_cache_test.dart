@@ -33,7 +33,7 @@ void main() {
     });
 
     String identityOf(File f) =>
-        '${f.lengthSync()}_${f.statSync().modified.millisecondsSinceEpoch}';
+        '${f.absolute.path}_${f.lengthSync()}_${f.statSync().modified.millisecondsSinceEpoch}';
 
     test(
       'keeps the exit grid and structure markers of a cached entry',
@@ -53,7 +53,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 9,
+            'version': 10,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -151,6 +151,42 @@ void main() {
         expect(features.vocalConfidence, 0);
         expect(features.structureRegion, 0);
         expect(features.structureConfidence, 0);
+      },
+    );
+
+    test(
+      'invalidates in-memory features when the same song file changes',
+      () async {
+        final song = LocalSong(
+          id: 45,
+          title: 'Edited source',
+          artist: 'Artist',
+          album: 'Album',
+          albumId: 7,
+          path: file.path,
+          duration: const Duration(minutes: 4),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'automix_45',
+          jsonEncode(<String, dynamic>{
+            'version': 10,
+            'ident': identityOf(file),
+            'data': <String, dynamic>{
+              'id': 45,
+              'bpm': 128.0,
+              'bc': 0.9,
+              'ta': true,
+            },
+          }),
+        );
+
+        final beforeEdit = await AutomixService.featuresFor(song);
+        expect(beforeEdit.bpm, 128.0);
+
+        await file.writeAsBytes(List<int>.filled(64, 1), flush: true);
+        final afterEdit = await AutomixService.featuresFor(song);
+        expect(afterEdit.bpm, isNull);
       },
     );
 
