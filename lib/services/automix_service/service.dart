@@ -674,6 +674,7 @@ class AutomixService {
           total: batch.length,
           currentTitle: song.title,
         );
+        final sourceIdentity = _identityForSong(song);
         AutomixTrackFeatures? features;
         try {
           features = await analyzeOne(song);
@@ -684,9 +685,9 @@ class AutomixService {
         }
         if (!_isAutoMixGenerationCurrent(generation)) return false;
         if (features == null || !features.tailAnalyzed) {
-          _markDspUnavailable(song, _identityForSong(song));
+          _markDspUnavailable(song, sourceIdentity);
         } else {
-          _markDspReady(song, _identityForSong(song));
+          _markDspReady(song, sourceIdentity);
         }
         if (features != null) analyzedAny = true;
         done++;
@@ -989,6 +990,12 @@ class AutomixService {
     final identity = _refreshDspStatusFor(song);
     final inMemory = _featuresCache[song.id];
     if (inMemory != null && _featuresIdentity[song.id] == identity) {
+      if (inMemory.tailAnalyzed) {
+        _markDspReady(song, identity);
+      } else {
+        _dspReady.remove(song.id);
+        _dspReadyIdentity.remove(song.id);
+      }
       return _withSongMetadata(inMemory, song);
     }
 
@@ -1793,11 +1800,19 @@ class AutomixService {
           total: batch.length,
           currentTitle: song.title,
         );
-        final features = await analyzeOne(song);
+        final sourceIdentity = _identityForSong(song);
+        AutomixTrackFeatures? features;
+        try {
+          features = await analyzeOne(song);
+        } on _AutomixAnalysisBusy {
+          LogService.verbose('Automix', 'library sweep yielded to a busy analysis queue');
+          await Future<void>.delayed(_sweepPause);
+          continue;
+        }
         if (features == null || !features.tailAnalyzed) {
-          _markDspUnavailable(song, _identityForSong(song));
+          _markDspUnavailable(song, sourceIdentity);
         } else {
-          _markDspReady(song, _identityForSong(song));
+          _markDspReady(song, sourceIdentity);
           analyzed++;
         }
         await Future<void>.delayed(_sweepPause);
