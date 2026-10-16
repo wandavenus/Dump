@@ -21,6 +21,7 @@ class NativeAutomixTrack {
     this.introEnergy,
     this.outroEnergy,
     this.analyzedFraction = 0,
+    this.vocalLikelihood = 0,
   });
 
   final int songId;
@@ -41,6 +42,7 @@ class NativeAutomixTrack {
   final double? introEnergy;
   final double? outroEnergy;
   final double analyzedFraction;
+  final double vocalLikelihood;
 }
 
 class NativeAutomixPlan {
@@ -69,6 +71,15 @@ class NativeAutomixAnalysis {
     required this.centroidHz,
     required this.onsetRate,
     required this.analyzedSeconds,
+    this.downbeatOffsetMs,
+    this.dropCueMs,
+    this.breakdownCueMs,
+    this.dropConfidence = 0,
+    this.breakdownConfidence = 0,
+    this.structureRegion = 0,
+    this.structureConfidence = 0,
+    this.vocalLikelihood = 0,
+    this.vocalConfidence = 0,
   });
 
   final double? bpm;
@@ -82,6 +93,15 @@ class NativeAutomixAnalysis {
   final double? centroidHz;
   final double onsetRate;
   final double analyzedSeconds;
+  final double? downbeatOffsetMs;
+  final double? dropCueMs;
+  final double? breakdownCueMs;
+  final double dropConfidence;
+  final double breakdownConfidence;
+  final int structureRegion;
+  final double structureConfidence;
+  final double vocalLikelihood;
+  final double vocalConfidence;
 }
 
 typedef NativeAutomixPcm = Float32List;
