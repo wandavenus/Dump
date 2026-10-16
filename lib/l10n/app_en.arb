@@ -57,7 +57,7 @@
       }
     }
   },
-  "stereoWidening": "Stereo Widening",
+  "stereoWidening": "Spatial Audio",
   "loudnessNormalization": "Loudness Normalization",
   "loudnessNormActiveSubtitle": "Equalizes loudness in real-time (EBU R128)",
   "loudnessNormInactiveSubtitle": "Normalize loudness during playback",
