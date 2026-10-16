@@ -6,6 +6,21 @@
 #include <math.h>
 #include <stdlib.h>
 
+static void assert_analysis_confidence_contract(
+    const double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT]) {
+  // Confidence fields must be finite [0,1]. Index 16 is a region enum, not
+  // a confidence value, and therefore has its own range contract.
+  const int confidence_indices[] = {14, 15, 17, 18, 19};
+  for (size_t i = 0;
+       i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
+    const int index = confidence_indices[i];
+    assert(isfinite(output[index]));
+    assert(output[index] >= 0.0 && output[index] <= 1.0);
+  }
+  assert(output[16] >= NAR_AUTOMIX_STRUCTURE_UNKNOWN &&
+         output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
+}
+
 static void test_analyzer_rms(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
@@ -21,16 +36,7 @@ static void test_analyzer_rms(void) {
   assert(isfinite(output[7]));
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
-  // Confidence fields must be finite [0,1]. Index 16 is a region enum,
-  // not a confidence value, and therefore has its own range contract.
-  const int confidence_indices[] = {14, 15, 17, 18, 19};
-  for (size_t i = 0; i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
-    const int index = confidence_indices[i];
-    assert(isfinite(output[index]));
-    assert(output[index] >= 0.0 && output[index] <= 1.0);
-  }
-  assert(output[16] >= NAR_AUTOMIX_STRUCTURE_UNKNOWN &&
-         output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
+  assert_analysis_confidence_contract(output);
   // A pure tone is not sufficient evidence of vocals.
   assert(output[19] < 0.35);
   // A steady sine has no sustained section change, so structural cues should
@@ -448,16 +454,7 @@ static void test_edge_cases_silence_and_noise(void) {
   int32_t status = nar_automix_analyze(silence, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
   assert(status == 1);
   assert(isnan(output[0]) || output[1] < 0.1);
-  // Confidence fields must be finite [0,1]. Index 16 is a region enum,
-  // not a confidence value, and therefore has its own range contract.
-  const int confidence_indices[] = {14, 15, 17, 18, 19};
-  for (size_t i = 0; i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
-    const int index = confidence_indices[i];
-    assert(isfinite(output[index]));
-    assert(output[index] >= 0.0 && output[index] <= 1.0);
-  }
-  assert(output[16] >= NAR_AUTOMIX_STRUCTURE_UNKNOWN &&
-         output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
+  assert_analysis_confidence_contract(output);
   assert(output[16] == NAR_AUTOMIX_STRUCTURE_UNKNOWN);
   free(silence);
 
@@ -469,16 +466,7 @@ static void test_edge_cases_silence_and_noise(void) {
   status = nar_automix_analyze(noise, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);
   assert(status == 1);
   assert(output[6] < 0.25);
-  // Confidence fields must be finite [0,1]. Index 16 is a region enum,
-  // not a confidence value, and therefore has its own range contract.
-  const int confidence_indices[] = {14, 15, 17, 18, 19};
-  for (size_t i = 0; i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
-    const int index = confidence_indices[i];
-    assert(isfinite(output[index]));
-    assert(output[index] >= 0.0 && output[index] <= 1.0);
-  }
-  assert(output[16] >= NAR_AUTOMIX_STRUCTURE_UNKNOWN &&
-         output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
+  assert_analysis_confidence_contract(output);
   assert(output[19] < 0.35);
   free(noise);
 }
