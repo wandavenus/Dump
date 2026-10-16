@@ -52,6 +52,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
       lease?.release();
     } on Exception catch (_) {
       // The player keeps the runtime-blur fallback if prewarming fails.
+      return;
     }
   }
 
