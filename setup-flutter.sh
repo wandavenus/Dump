@@ -44,7 +44,7 @@ if [ -x "$FLUTTER_WS_BIN" ] &&
   else
     # The workspace SDK is provisioned from the stable archive and this
     # project pins the stable toolchain used by its generated artifacts.
-    FLUTTER_VERSION="3.44.8"
+    FLUTTER_VERSION="3.47.8"
   fi
   echo "✓ Flutter workspace SDK ditemukan: $FLUTTER_VERSION"
 fi
