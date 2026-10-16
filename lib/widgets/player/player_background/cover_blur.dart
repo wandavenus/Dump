@@ -2,7 +2,7 @@ part of '../player_background.dart';
 
 /// Full-screen, artwork-derived background for the alternate player style.
 ///
-/// The source artwork is decoded at a bounded 768px size because the strong
+/// The source artwork is decoded at a bounded 384px size because the strong
 /// blur intentionally removes fine detail. The filtered subtree is isolated
 /// from the controls so playback UI rebuilds do not repaint the blur.
 class ArtworkBlurPlayerBackground extends StatefulWidget {
@@ -17,7 +17,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
 
 class _ArtworkBlurPlayerBackgroundState
     extends State<ArtworkBlurPlayerBackground> {
-  static const int _targetSizePx = 768;
+  static const int _targetSizePx = 384;
   static const double _blurSigma = 28;
 
   ImageProvider? _provider;
@@ -76,7 +76,7 @@ class _ArtworkBlurPlayerBackgroundState
             child: Image(
               image: provider,
               fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
+              filterQuality: FilterQuality.low,
               gaplessPlayback: true,
               errorBuilder: (_, _, _) => const PlayerFallbackBackground(),
             ),
