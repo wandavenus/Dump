@@ -41,6 +41,7 @@ jobs:
           {
             echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
             echo "ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
+            echo "suite=$TEST_SUITE" >> "$GITHUB_OUTPUT"
             echo "## Noisegraph test dispatch"
             echo
             echo "- Suite: $TEST_SUITE"
@@ -52,7 +53,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dispatch Flutter analyze and full tests
-        if: ${{ inputs.suite == 'all' || inputs.suite == 'flutter' }}
+        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'flutter' }}
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
@@ -61,7 +62,7 @@ jobs:
           client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"flutter"}'
 
       - name: Dispatch AutoMix Dart regression tests
-        if: ${{ inputs.suite == 'all' || inputs.suite == 'automix-dart' }}
+        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'automix-dart' }}
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
@@ -70,7 +71,7 @@ jobs:
           client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"automix-dart"}'
 
       - name: Dispatch native C/DSP tests
-        if: ${{ inputs.suite == 'all' || inputs.suite == 'native-c' }}
+        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'native-c' }}
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
@@ -79,7 +80,7 @@ jobs:
           client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"native-c"}'
 
       - name: Dispatch Kotlin unit tests
-        if: ${{ inputs.suite == 'all' || inputs.suite == 'kotlin' }}
+        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'kotlin' }}
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
@@ -88,7 +89,7 @@ jobs:
           client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"kotlin"}'
 
       - name: Dispatch Android ARM64 build smoke test
-        if: ${{ inputs.suite == 'all' || inputs.suite == 'android-arm64' }}
+        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'android-arm64' }}
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
