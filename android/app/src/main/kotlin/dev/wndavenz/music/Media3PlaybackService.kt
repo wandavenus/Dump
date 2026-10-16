@@ -9,6 +9,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -798,7 +799,9 @@ class Media3PlaybackService : MediaSessionService() {
         // chain on MIUI 12 without changing the numeric AudioSession ID.
         // All callback work runs on the main Handler so it is safe to access ExoPlayer
         // state and call effectsManager.resetAndReattach() directly.
-        audioCapReceiver = AudioCapabilitiesReceiver(this) { _ ->
+        audioCapReceiver = AudioCapabilitiesReceiver(
+            this,
+            { _ ->
             NativeLogger.emit(
                 "info", "AudioCap",
                 "Audio capabilities changed (output device may have changed) — " +
@@ -824,7 +827,10 @@ class Media3PlaybackService : MediaSessionService() {
             // Notify Flutter so the UI can refresh device-specific info if needed.
             EventEmitter.emit("audioCapabilitiesChanged",
                 mapOf("timestamp" to System.currentTimeMillis()))
-        }.also { it.register() }
+            },
+            AudioAttributes.DEFAULT,
+            null,
+        ).also { it.register() }
 
         shutdownCoordinator = ServiceShutdownCoordinator(
             cancelCrossfade        = { rv -> crossfadeController.cancel(resetVolume = rv) },
