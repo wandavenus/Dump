@@ -40,3 +40,16 @@ Java_dev_wndavenz_music_automix_AutomixPhaseLock_nativePhaseLockFactor(
       incoming_position_ms, incoming_phase_offset_ms, incoming_bpm,
       remaining_ms, max_nudge));
 }
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_dev_wndavenz_music_automix_AutomixPhaseLock_nativePhrasePhaseLockFactor(
+    JNIEnv* /* env */, jobject /* thiz */, jdouble outgoing_position_ms,
+    jdouble outgoing_downbeat_offset_ms, jdouble outgoing_bpm,
+    jdouble incoming_position_ms, jdouble incoming_downbeat_offset_ms,
+    jdouble incoming_bpm, jdouble remaining_ms, jdouble max_nudge,
+    jint beats_per_phrase) {
+  return static_cast<jfloat>(nar_automix_phrase_lock_factor(
+      outgoing_position_ms, outgoing_downbeat_offset_ms, outgoing_bpm,
+      incoming_position_ms, incoming_downbeat_offset_ms, incoming_bpm,
+      remaining_ms, max_nudge, beats_per_phrase));
+}

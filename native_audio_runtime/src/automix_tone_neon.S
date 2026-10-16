@@ -9,8 +9,9 @@
 
 // void nar_automix_tone_process_stereo_neon(
 //     float* pcm, int32_t frames, NarAutomixToneState* state,
-//     float target_bass, float target_high, float target_fade)
-//     x0       w1             x2                 s0            s1            s2
+//     float target_bass, float target_mid, float target_high, float target_fade)
+//     x0       w1             x2                 s0            s1           s2
+//     s3
 //
 // NarAutomixToneState offsets are compile-time checked in the C translation
 // unit. v8-v15 are callee-saved by AAPCS64, so preserve their low 64 bits.
@@ -22,7 +23,8 @@ nar_automix_tone_process_stereo_neon:
 
     fmov    s12, s0
     fmov    s13, s1
-    fmov    s17, s2
+    fmov    s22, s2
+    fmov    s17, s3
     ldr     d0, [x2]
     ldr     d1, [x2, #32]
     ldr     s10, [x2, #64]
@@ -33,19 +35,22 @@ nar_automix_tone_process_stereo_neon:
     ldr     s14, [x2, #76]
     ldr     s15, [x2, #80]
     ldr     s18, [x2, #92]
+    ldr     s21, [x2, #100]
     scvtf   s19, w1
     fsub    s20, s17, s18
     fdiv    s20, s20, s19
-    fmov    s8, #1.0
     ldr     q31, .Lautomix_tone_max_finite
     cbz     w1, .Lautomix_tone_store
 
 .Lautomix_tone_loop:
-    // Smooth both gain targets at a 20 ms time constant.
+    // Smooth all three isolator gains at a 20 ms time constant.
     fsub    s9, s12, s14
     fmul    s9, s9, s16
     fadd    s14, s14, s9
-    fsub    s9, s13, s15
+    fsub    s9, s13, s21
+    fmul    s9, s9, s16
+    fadd    s21, s21, s9
+    fsub    s9, s22, s15
     fmul    s9, s9, s16
     fadd    s15, s15, s9
     fadd    s18, s18, s20
@@ -57,24 +62,26 @@ nar_automix_tone_process_stereo_neon:
     movi    v3.2s, #0
     bsl     v6.8b, v2.8b, v3.8b
 
-    // Bass split: low-pass at 150 Hz, then independently scale each channel.
+    // Split into complementary low (<150 Hz), mid (150 Hz–1.2 kHz),
+    // and high (>1.2 kHz) bands. The bands sum back to the input signal.
     fsub    v3.2s, v6.2s, v0.2s
     fmla    v0.2s, v3.2s, v4.2s
-    fsub    s9, s14, s8
-    dup     v7.2s, v9.s[0]
-    fmul    v3.2s, v0.2s, v7.2s
-    fadd    v3.2s, v6.2s, v3.2s
 
-    // High-band split: low-pass at 1.2 kHz, retaining the requested high gain.
-    fsub    v7.2s, v3.2s, v1.2s
+    fsub    v7.2s, v6.2s, v1.2s
     fmla    v1.2s, v7.2s, v5.2s
-    fsub    v7.2s, v3.2s, v1.2s
-    dup     v6.2s, v15.s[0]
-    fmul    v7.2s, v7.2s, v6.2s
-    fadd    v7.2s, v1.2s, v7.2s
-    dup     v6.2s, v18.s[0]
-    fmul    v7.2s, v7.2s, v6.2s
-    st1     {v7.2s}, [x0]
+
+    // output = low*bassGain + mid*midGain + high*highGain
+    fsub    v7.2s, v6.2s, v1.2s
+    fsub    v3.2s, v1.2s, v0.2s
+    dup     v9.2s, v21.s[0]
+    fmul    v3.2s, v3.2s, v9.2s
+    dup     v9.2s, v14.s[0]
+    fmla    v3.2s, v0.2s, v9.2s
+    dup     v9.2s, v15.s[0]
+    fmla    v3.2s, v7.2s, v9.2s
+    dup     v9.2s, v18.s[0]
+    fmul    v3.2s, v3.2s, v9.2s
+    st1     {v3.2s}, [x0]
     add     x0, x0, #8
     subs    w1, w1, #1
     b.ne    .Lautomix_tone_loop
@@ -85,6 +92,7 @@ nar_automix_tone_process_stereo_neon:
     str     s14, [x2, #76]
     str     s15, [x2, #80]
     str     s18, [x2, #92]
+    str     s21, [x2, #100]
 
     ldp     d14, d15, [sp, #48]
     ldp     d12, d13, [sp, #32]

@@ -23,6 +23,9 @@ class AutomixSegmentFeatures {
     this.bpm,
     this.bpmConfidence = 0,
     this.beatOffsetMs,
+    this.downbeatOffsetMs,
+    this.dropCueMs,
+    this.breakdownCueMs,
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -38,8 +41,16 @@ class AutomixSegmentFeatures {
   final double? bpm;
   final double bpmConfidence;
 
-  /// Dominant-beat phase **relative to the window start** (ms).
+  /// Dominant-beat phase relative to this analysis window (ms).
   final double? beatOffsetMs;
+
+  /// Estimated 16-beat phrase-start phase relative to this window (ms).
+  /// It stays null unless repeated onset accents distinguish one phrase phase.
+  final double? downbeatOffsetMs;
+
+  /// Candidate structural cues relative to this window (ms), if detected.
+  final double? dropCueMs;
+  final double? breakdownCueMs;
 
   final int? camelotNumber;
   final bool? camelotMinor;
@@ -69,6 +80,11 @@ class AutomixTrackFeatures {
     this.onsetRate,
     this.tailBpm,
     this.tailBeatOffsetMs,
+    this.downbeatOffsetMs,
+    this.tailDownbeatOffsetMs,
+    this.dropCueMs,
+    this.tailBreakdownCueMs,
+    this.durationSeconds = 0,
     this.introEnergy,
     this.outroEnergy,
     this.analyzedFraction = 0,
@@ -94,6 +110,23 @@ class AutomixTrackFeatures {
   /// Estimated dominant-beat phase in milliseconds from the start of the file.
   /// This is a heuristic onset-grid phase, not a guaranteed musical downbeat.
   final double? beatOffsetMs;
+
+  /// Estimated intro 16-beat phrase phase in milliseconds from the file start.
+  final double? downbeatOffsetMs;
+
+  /// Estimated outro 16-beat phrase phase in milliseconds from the file start.
+  final double? tailDownbeatOffsetMs;
+
+  /// Intro drop cue (absolute milliseconds from file start), if confidently
+  /// detected in the head analysis window.
+  final double? dropCueMs;
+
+  /// Outgoing breakdown cue (absolute milliseconds from file start), if
+  /// confidently detected in the tail analysis window.
+  final double? tailBreakdownCueMs;
+
+  /// Source duration inferred from the native analysis windows, in seconds.
+  final double durationSeconds;
 
   /// Camelot wheel position 1..12, or null when key detection was too
   /// uncertain. Letter: `camelotMinor == true` → "A" (minor), else "B" (major).
@@ -138,6 +171,11 @@ class AutomixTrackFeatures {
     'bc': bpmConfidence,
     if (alternateBpm != null) 'alt': alternateBpm,
     if (beatOffsetMs != null) 'bo': beatOffsetMs,
+    if (downbeatOffsetMs != null) 'dbo': downbeatOffsetMs,
+    if (tailDownbeatOffsetMs != null) 'tdbo': tailDownbeatOffsetMs,
+    if (dropCueMs != null) 'dc': dropCueMs,
+    if (tailBreakdownCueMs != null) 'tbkc': tailBreakdownCueMs,
+    if (durationSeconds > 0) 'dur': durationSeconds,
     if (camelotNumber != null) 'kn': camelotNumber,
     if (camelotMinor != null) 'km': camelotMinor,
     'kc': keyConfidence,
@@ -161,6 +199,11 @@ class AutomixTrackFeatures {
       bpmConfidence: (map['bc'] as num?)?.toDouble() ?? 0,
       alternateBpm: (map['alt'] as num?)?.toDouble(),
       beatOffsetMs: (map['bo'] as num?)?.toDouble(),
+      downbeatOffsetMs: (map['dbo'] as num?)?.toDouble(),
+      tailDownbeatOffsetMs: (map['tdbo'] as num?)?.toDouble(),
+      dropCueMs: (map['dc'] as num?)?.toDouble(),
+      tailBreakdownCueMs: (map['tbkc'] as num?)?.toDouble(),
+      durationSeconds: (map['dur'] as num?)?.toDouble() ?? 0,
       camelotNumber: (map['kn'] as num?)?.toInt(),
       camelotMinor: map['km'] as bool?,
       keyConfidence: (map['kc'] as num?)?.toDouble() ?? 0,

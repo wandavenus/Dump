@@ -184,6 +184,8 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixTempoMultiplierBySongId = mutableMapOf<Int, Float>()
     private val automixBpmBySongId = mutableMapOf<Int, Float>()
     private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
+    private val automixDownbeatOffsetMsBySongId = mutableMapOf<Int, Long>()
+    private val automixDropCueMsBySongId = mutableMapOf<Int, Long>()
     // Per-transition shaping, keyed by the INCOMING song id: its fade length,
     // the transfer curve, and the level match with the outgoing deck.
     private val automixFadeSecondsBySongId = mutableMapOf<Int, Float>()
@@ -585,6 +587,16 @@ class Media3PlaybackService : MediaSessionService() {
             },
             getAutoMixBeatOffsetMsForPlayer = { p ->
                 p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBeatOffsetMsBySongId[it] }
+            },
+            getAutoMixDownbeatOffsetMsForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let {
+                    automixDownbeatOffsetMsBySongId[it]
+                }
+            },
+            getAutoMixTempoMultiplierForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()?.let {
+                    automixTempoMultiplierBySongId[it]
+                }
             },
             setAutoMixBassGain = { p, gain ->
                 val slot = when (p) {
@@ -2158,7 +2170,35 @@ class Media3PlaybackService : MediaSessionService() {
         val activeHasBeatGrid =
             automixBpmBySongId[activeId] != null &&
                 automixBeatOffsetMsBySongId[activeId] != null
-        return if (activeHasBeatGrid) offsetMs.coerceAtLeast(0L) else null
+        if (!activeHasBeatGrid) return null
+
+        // For a confidently detected early drop, start the silent incoming deck
+        // so that the drop lands at the end of the overlap. Snap the seek to the
+        // incoming beat grid; if cue metadata is absent or unusable, preserve the
+        // original intro beat phase.
+        val dropCueMs = automixDropCueMsBySongId[incomingId]
+        val fadeSeconds = automixFadeSecondsBySongId[incomingId]
+        val bpm = automixBpmBySongId[incomingId]
+        val multiplier = automixTempoMultiplierBySongId[incomingId] ?: 1f
+        if (dropCueMs != null && dropCueMs in 8_000L..90_000L &&
+            fadeSeconds != null && bpm != null && multiplier.isFinite()
+        ) {
+            val fadeMediaMs = fadeSeconds * 1000.0 * multiplier
+            val desiredStartMs = dropCueMs - fadeMediaMs
+            val beatMs = 60_000.0 / bpm
+            if (desiredStartMs >= offsetMs && beatMs.isFinite() && beatMs > 0.0) {
+                // Snap to the nearest incoming beat, rather than always
+                // flooring (which could put the drop almost one full beat late).
+                val beatIndex = kotlin.math.round(
+                    (desiredStartMs - offsetMs) / beatMs,
+                )
+                val cueAlignedMs = (offsetMs + beatIndex * beatMs).toLong()
+                if (cueAlignedMs >= offsetMs && cueAlignedMs < dropCueMs) {
+                    return cueAlignedMs
+                }
+            }
+        }
+        return offsetMs.coerceAtLeast(0L)
     }
 
     /** Deck slot (0 = primary, 1 = standby) of [player], or -1 when unknown. */
@@ -2206,6 +2246,8 @@ class Media3PlaybackService : MediaSessionService() {
         automixTempoMultiplierBySongId.clear()
         automixBpmBySongId.clear()
         automixBeatOffsetMsBySongId.clear()
+        automixDownbeatOffsetMsBySongId.clear()
+        automixDropCueMsBySongId.clear()
         automixFadeSecondsBySongId.clear()
         automixCurveBySongId.clear()
         automixIncomingTrimBySongId.clear()
@@ -2225,6 +2267,17 @@ class Media3PlaybackService : MediaSessionService() {
                 val offsetMs = (target["beatOffsetMs"] as? Number)?.toDouble()
                 if (offsetMs != null && offsetMs.isFinite() && offsetMs >= 0.0) {
                     automixBeatOffsetMsBySongId[id] = offsetMs.toLong()
+                }
+                val downbeatOffsetMs =
+                    (target["downbeatOffsetMs"] as? Number)?.toDouble()
+                if (downbeatOffsetMs != null &&
+                    downbeatOffsetMs.isFinite() && downbeatOffsetMs >= 0.0
+                ) {
+                    automixDownbeatOffsetMsBySongId[id] = downbeatOffsetMs.toLong()
+                }
+                val dropCueMs = (target["dropCueMs"] as? Number)?.toDouble()
+                if (dropCueMs != null && dropCueMs.isFinite() && dropCueMs >= 0.0) {
+                    automixDropCueMsBySongId[id] = dropCueMs.toLong()
                 }
                 val fadeSeconds = (target["fadeSeconds"] as? Number)?.toFloat()
                 if (fadeSeconds != null && fadeSeconds.isFinite()) {
