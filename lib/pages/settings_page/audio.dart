@@ -20,9 +20,6 @@ class _AudioSection extends StatelessWidget {
               const _ReplayGainSection(),
               const SettingsDivider(),
 
-              const _LoudnessNormSection(),
-              const SettingsDivider(),
-
               const _CrossfeedSection(),
               const SettingsDivider(),
 
