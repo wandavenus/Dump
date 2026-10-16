@@ -5,19 +5,13 @@ import 'package:flutter/painting.dart';
 
 /// Rasterizes a decoded artwork into a blurred image at source resolution.
 ///
-/// The UI layer chooses the sigma in source pixels so scaling the result to the
-/// full-screen viewport preserves the requested on-screen blur radius.
+/// The caller chooses sigma in source pixels so scaling the result to the
+/// viewport preserves the requested on-screen blur radius.
 class ArtworkBlurImageRenderer {
   static Future<ui.Image?> create({
     required ImageProvider provider,
     required double sigma,
   }) async {
-    final source = await _resolveSource(provider);
-    if (source == null) return null;
-    return _renderBlur(source, sigma);
-  }
-
-  static Future<ui.Image?> _resolveSource(ImageProvider provider) async {
     final completer = Completer<ui.Image?>();
     ImageStream? stream;
     ImageStreamListener? listener;
@@ -33,10 +27,15 @@ class ArtworkBlurImageRenderer {
         },
       );
       stream.addListener(listener);
-      return await completer.future.timeout(
+
+      // Keep the stream listener alive until rasterization finishes so the
+      // source image remains live if Flutter's global ImageCache is pressured.
+      final source = await completer.future.timeout(
         const Duration(seconds: 6),
         onTimeout: () => null,
       );
+      if (source == null) return null;
+      return await _renderBlur(source, sigma);
     } catch (_) {
       return null;
     } finally {
