@@ -399,6 +399,8 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       (float*)malloc((size_t)frame_count * sizeof(float));
   float* vocal_band_concentration_values =
       (float*)malloc((size_t)frame_count * sizeof(float));
+  float* vocal_band_flatness_values =
+      (float*)malloc((size_t)frame_count * sizeof(float));
   float* twiddle_real = (float*)malloc(FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc(FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
@@ -406,12 +408,13 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       previous_log_magnitude == NULL || odf == NULL || rms_values == NULL ||
       rms_frame_values == NULL || centroid_values == NULL ||
       vocal_band_ratio_values == NULL ||
-      vocal_band_concentration_values == NULL || twiddle_real == NULL ||
+      vocal_band_concentration_values == NULL ||
+      vocal_band_flatness_values == NULL || twiddle_real == NULL ||
       twiddle_imaginary == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
     free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
     free(vocal_band_ratio_values); free(vocal_band_concentration_values);
-    free(twiddle_real);
+    free(vocal_band_flatness_values); free(twiddle_real);
     free(twiddle_imaginary); free(bit_reverse);
     return 0;
   }
@@ -430,6 +433,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   int32_t centroid_count = 0;
   int32_t vocal_band_ratio_count = 0;
   int32_t vocal_band_concentration_count = 0;
+  int32_t vocal_band_flatness_count = 0;
   float chroma[12] = {0};
   const double working_rate = sample_rate;
   for (int32_t frame = 0; frame < frame_count; ++frame) {
@@ -461,6 +465,9 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     double total_spectral_magnitude = 0.0;
     double vocal_band_magnitude = 0.0;
     double vocal_band_peak_magnitude = 0.0;
+    double vocal_band_power_sum = 0.0;
+    double vocal_band_log_power_sum = 0.0;
+    int32_t vocal_band_bin_count = 0;
     for (int32_t bin = 0; bin < FFT_BINS; ++bin) {
       const float magnitude = sqrtf(real[bin] * real[bin] +
                                     imaginary[bin] * imaginary[bin]);
@@ -472,6 +479,10 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
         if (magnitude > vocal_band_peak_magnitude) {
           vocal_band_peak_magnitude = magnitude;
         }
+        const double power = (double)magnitude * magnitude;
+        vocal_band_power_sum += power;
+        vocal_band_log_power_sum += log(fmax(power, 1e-20));
+        vocal_band_bin_count++;
       }
       const float difference = log_magnitude - previous_log_magnitude[bin];
       if (difference > 0.0f) flux += difference;
@@ -499,6 +510,15 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
             (float)(vocal_band_magnitude / total_spectral_magnitude);
         vocal_band_concentration_values[vocal_band_concentration_count++] =
             (float)(vocal_band_peak_magnitude / vocal_band_magnitude);
+        if (vocal_band_bin_count > 0 && vocal_band_power_sum > 1e-18) {
+          const double arithmetic_power =
+              vocal_band_power_sum / vocal_band_bin_count;
+          const double geometric_power =
+              exp(vocal_band_log_power_sum / vocal_band_bin_count);
+          vocal_band_flatness_values[vocal_band_flatness_count++] =
+              (float)fmin(1.0, fmax(0.0,
+                  geometric_power / arithmetic_power));
+        }
       }
     }
   }
@@ -749,8 +769,11 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
         median_float(vocal_band_ratio_values, vocal_band_ratio_count);
     const float vocal_band_concentration = median_float(
         vocal_band_concentration_values, vocal_band_concentration_count);
-    // A concentrated single tone is not evidence for speech, even when it
-    // happens to sit near a typical vocal centroid.
+    const float vocal_band_flatness = median_float(
+        vocal_band_flatness_values, vocal_band_flatness_count);
+    // A concentrated single tone and diffuse broadband noise are both poor
+    // evidence for a vocal source; prefer structured, non-flat speech-band
+    // spectra while acknowledging that instruments can still mimic speech.
     const double vocal_richness = isfinite(vocal_band_concentration)
         ? fmin(1.0, fmax(0.0, (0.55 - vocal_band_concentration) / 0.40))
         : 0.0;
@@ -764,6 +787,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     if (isfinite(vocal_band_ratio) && isfinite(centroid_median) &&
         vocal_band_concentration_count >= 16 &&
         vocal_band_ratio >= 0.20f && vocal_richness >= 0.25 &&
+        isfinite(vocal_band_flatness) && vocal_band_flatness <= 0.45f &&
         centroid_median >= 800.0f && centroid_median <= 3200.0f &&
         rms_median > -40.0f &&
         // Gate this cue to rhythmic music-like material; broadband noise and
@@ -789,6 +813,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
   free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
   free(vocal_band_ratio_values); free(vocal_band_concentration_values);
+  free(vocal_band_flatness_values);
   free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
   return 1;
 }
