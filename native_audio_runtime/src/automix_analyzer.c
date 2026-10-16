@@ -34,12 +34,26 @@ static int compare_float(const void* lhs, const void* rhs) {
   return (a > b) - (a < b);
 }
 
-static float median_float(float* values, int32_t count) {
-  if (count <= 0) return NAN;
-  qsort(values, (size_t)count, sizeof(float), compare_float);
+static float median_float(const float* values, int32_t count) {
+  if (values == NULL || count <= 0) return NAN;
+  float* sorted = (float*)malloc((size_t)count * sizeof(float));
+  if (sorted == NULL) return NAN;
+  memcpy(sorted, values, (size_t)count * sizeof(float));
+  qsort(sorted, (size_t)count, sizeof(float), compare_float);
   const int32_t middle = count / 2;
-  if ((count & 1) != 0) return values[middle];
-  return (values[middle - 1] + values[middle]) * 0.5f;
+  const float median = (count & 1) != 0
+      ? sorted[middle]
+      : (sorted[middle - 1] + sorted[middle]) * 0.5f;
+  free(sorted);
+  return median;
+}
+
+static double mean_float_range(
+    const float* values, int32_t begin, int32_t end) {
+  if (values == NULL || begin < 0 || end <= begin) return NAN;
+  double sum = 0.0;
+  for (int32_t i = begin; i < end; ++i) sum += values[i];
+  return sum / (double)(end - begin);
 }
 
 static void radix2_fft(float* real, float* imaginary,
@@ -499,34 +513,78 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     output[11] = NAN;
   }
 
-  // 2. Structural Cues: Drop Cue ms & Breakdown Cue ms.
-  // Breakdown cue: local minimum in RMS/onset energy before a sudden jump.
-  // Drop cue: sharp peak/onset jump after low energy.
+  // 2. Conservative structural cues. A global maximum onset or minimum RMS
+  // is not a structural cue: both occur in ordinary music and silence. Only
+  // publish a candidate when a sustained energy change is corroborated by the
+  // onset envelope (drop) or by a high-to-low energy transition (breakdown).
   output[12] = NAN; // Drop cue
   output[13] = NAN; // Breakdown cue
-  if (frame_count > 16) {
+  if (frame_count > 16 && isfinite(rms_median) && rms_median > 1e-4f) {
     float max_flux = 0.0f;
-    int max_flux_idx = -1;
-    for (int i = 4; i < frame_count - 4; ++i) {
-      if (odf[i] > max_flux) {
-        max_flux = odf[i];
-        max_flux_idx = i;
+    for (int32_t i = 4; i < frame_count - 4; ++i) {
+      if (isfinite(odf[i]) && odf[i] > max_flux) max_flux = odf[i];
+    }
+
+    const int32_t before_frames =
+        (int32_t)fmax(4.0, round(fps * 0.75));
+    const int32_t after_frames =
+        (int32_t)fmax(4.0, round(fps * 0.50));
+    double best_drop_score = 0.0;
+    int32_t best_drop_idx = -1;
+    double best_breakdown_score = 0.0;
+    int32_t best_breakdown_idx = -1;
+
+    if (max_flux > 1e-8f &&
+        frame_count > before_frames + after_frames + 8) {
+      for (int32_t i = before_frames;
+           i < frame_count - after_frames - 4; ++i) {
+        const double before = mean_float_range(
+            rms_values, i - before_frames, i);
+        const double after = mean_float_range(
+            rms_values, i, i + after_frames);
+        if (!isfinite(before) || !isfinite(after)) continue;
+
+        float nearby_flux = 0.0f;
+        for (int32_t j = i; j < i + after_frames; ++j) {
+          if (odf[j] > nearby_flux) nearby_flux = odf[j];
+        }
+
+        // Drop: a low-energy lead-in, a sustained energy rise, and a strong
+        // onset near the rise. Relative thresholds deliberately prefer no cue
+        // over a random transient on tracks with no obvious drop.
+        if (before <= (double)rms_median * 0.85 &&
+            after >= (double)rms_median * 0.80 &&
+            after >= before * 1.35 &&
+            nearby_flux >= max_flux * 0.20) {
+          const double score = (after - before) / rms_median +
+              0.25 * (double)nearby_flux / max_flux;
+          if (score > best_drop_score) {
+            best_drop_score = score;
+            best_drop_idx = i;
+          }
+        }
+
+        // Breakdown: sustained energy falls from above the track's typical
+        // level to clearly below it; transient-only dips don't qualify.
+        if (before >= (double)rms_median * 1.15 &&
+            after <= (double)rms_median * 0.85 &&
+            before >= after * 1.30) {
+          const double score = (before - after) / rms_median;
+          if (score > best_breakdown_score) {
+            best_breakdown_score = score;
+            best_breakdown_idx = i;
+          }
+        }
       }
     }
-    if (max_flux_idx > 0) {
-      output[12] = max_flux_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+
+    if (best_drop_idx >= 0) {
+      output[12] =
+          best_drop_idx * (double)HOP_SIZE * 1000.0 / working_rate;
     }
-    // Breakdown: find frame with minimum local energy
-    float min_local = FLT_MAX;
-    int min_idx = -1;
-    for (int i = 4; i < frame_count - 4; ++i) {
-      if (rms_values[i] < min_local) {
-        min_local = rms_values[i];
-        min_idx = i;
-      }
-    }
-    if (min_idx > 0) {
-      output[13] = min_idx * (double)HOP_SIZE * 1000.0 / working_rate;
+    if (best_breakdown_idx >= 0) {
+      output[13] =
+          best_breakdown_idx * (double)HOP_SIZE * 1000.0 / working_rate;
     }
   }
 
