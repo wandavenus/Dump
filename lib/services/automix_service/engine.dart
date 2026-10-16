@@ -105,7 +105,8 @@ const List<double> automixKsMinorProfile = [
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-double automixClamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+double automixClamp01(double v) =>
+    !v.isFinite ? 0 : (v < 0 ? 0 : (v > 1 ? 1 : v));
 
 /// Moves an uncertain feature cost toward its neutral fallback instead of
 /// treating a low-confidence estimate as ground truth.
@@ -456,6 +457,13 @@ AutomixTrackFeatures automixMergeSegments({
         ? (lastSegment?.breakdownConfidence ?? 0)
         : 0,
     structureRegion: firstSegment?.structureRegion ?? 0,
+    structureConfidence: firstSegment?.structureConfidence ?? 0,
+    tailStructureRegion: tailSegmentAnalyzed
+        ? (lastSegment?.structureRegion ?? 0)
+        : 0,
+    tailStructureConfidence: tailSegmentAnalyzed
+        ? (lastSegment?.structureConfidence ?? 0)
+        : 0,
     vocalLikelihood: vocalLikelihood,
     vocalConfidence: vocalConfidence,
     durationSeconds: fileSeconds,
@@ -479,6 +487,19 @@ AutomixTrackFeatures automixMergeSegments({
 
 // ── Per-transition cue ───────────────────────────────────────────────────────
 
+/// Strategy selected by the analyzer/transition planner. Codes are mirrored in
+/// Media3PlaybackService's target parser; changing a code requires changing both.
+enum AutomixTransitionStrategy {
+  crossfade(0),
+  structureAligned(1),
+  shortHandover(2),
+  longBlend(3),
+  quickHandover(4);
+
+  const AutomixTransitionStrategy(this.code);
+  final int code;
+}
+
 /// Everything the native fade needs for ONE transition.
 @immutable
 class AutomixTransitionCue {
@@ -487,7 +508,11 @@ class AutomixTransitionCue {
     required this.curveGamma,
     required this.outgoingTrim,
     required this.incomingTrim,
+    required this.strategy,
   });
+
+  /// Strategy that controls the production fade behavior on Android.
+  final AutomixTransitionStrategy strategy;
 
   /// Fade length in media-timeline seconds (opposite deck's tempo governs).
   final double fadeSeconds;
@@ -578,19 +603,77 @@ AutomixTransitionCue automixTransitionCue({
     gamma = math.max(gamma, 1.15);
   }
 
-  // If a confidently detected breakdown lies in the outgoing track's final
-  // 1.5–12 seconds, align the fade start to that transition. Earlier cues are
-  // not used to avoid pulling the fade forward over unrelated song sections.
+  // Structure metadata only controls transition timing when confidence is
+  // strong. The cue is file-absolute and valid only if it lies near the tail.
   final durationMs = outgoing.durationSeconds * 1000.0;
   final breakdownMs = outgoing.tailBreakdownCueMs;
-  if (durationMs > 0 &&
+  double? cueLeadSeconds;
+  if (outgoing.tailBreakdownConfidence >= 0.45 &&
+      durationMs.isFinite &&
+      durationMs > 0 &&
       breakdownMs != null &&
       breakdownMs.isFinite &&
       breakdownMs >= 0) {
-    final cueLeadSeconds = (durationMs - breakdownMs) / 1000.0;
-    if (cueLeadSeconds >= 1.5 && cueLeadSeconds <= 12.0) {
-      fadeSeconds = cueLeadSeconds;
-    }
+    final lead = (durationMs - breakdownMs) / 1000.0;
+    if (lead >= 1.5 && lead <= 12.0) cueLeadSeconds = lead;
+  }
+
+  final exitTempo = automixExitBpm(outgoing);
+  final tempoMismatch = outgoing.bpmConfidence >= 0.45 &&
+      incoming.bpmConfidence >= 0.45 &&
+      exitTempo != null &&
+      incoming.bpm != null &&
+      !automixTempoMatch(
+        referenceBpm: exitTempo,
+        trackBpm: incoming.bpm,
+        tolerance: settings.bpmTolerancePercent / 100.0,
+      ).$1;
+  final keyCost = automixCamelotCost(
+    outgoing.camelotNumber,
+    outgoing.camelotMinor,
+    incoming.camelotNumber,
+    incoming.camelotMinor,
+  );
+  final keyMismatch = outgoing.keyConfidence >= 0.55 &&
+      incoming.keyConfidence >= 0.55 &&
+      keyCost >= 0.60;
+  final denseTail = (outro != null && outro >= 0.70) ||
+      (outgoing.tailStructureRegion == 3 &&
+          outgoing.tailStructureConfidence >= 0.65);
+  final sparseTail = (outro != null && outro <= 0.35) ||
+      (outgoing.tailStructureRegion == 1 &&
+          outgoing.tailStructureConfidence >= 0.75);
+  final sparseIntro = intro != null && intro <= 0.35;
+
+  final AutomixTransitionStrategy strategy;
+  if (cueLeadSeconds != null) {
+    strategy = AutomixTransitionStrategy.structureAligned;
+  } else if (tempoMismatch || keyMismatch) {
+    strategy = AutomixTransitionStrategy.shortHandover;
+  } else if (denseTail) {
+    strategy = AutomixTransitionStrategy.quickHandover;
+  } else if (sparseTail || sparseIntro) {
+    strategy = AutomixTransitionStrategy.longBlend;
+  } else {
+    strategy = AutomixTransitionStrategy.crossfade;
+  }
+
+  // Apply the selected strategy to the parameters sent to Media3. The values are
+  // subsequently consumed by the real CrossfadeController, not just logged.
+  switch (strategy) {
+    case AutomixTransitionStrategy.crossfade:
+      break;
+    case AutomixTransitionStrategy.structureAligned:
+      fadeSeconds = cueLeadSeconds!;
+    case AutomixTransitionStrategy.shortHandover:
+      fadeSeconds = math.min(fadeSeconds, 4.0);
+      gamma = math.max(gamma, 1.20);
+    case AutomixTransitionStrategy.longBlend:
+      fadeSeconds = math.max(fadeSeconds, 6.0);
+      gamma = math.min(gamma, 0.95);
+    case AutomixTransitionStrategy.quickHandover:
+      fadeSeconds = math.min(fadeSeconds, 3.0);
+      gamma = math.max(gamma, 1.35);
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
 
@@ -616,6 +699,7 @@ AutomixTransitionCue automixTransitionCue({
     curveGamma: gamma,
     outgoingTrim: outgoingTrim,
     incomingTrim: incomingTrim,
+    strategy: strategy,
   );
 }
 
