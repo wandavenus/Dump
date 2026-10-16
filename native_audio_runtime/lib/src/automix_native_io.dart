@@ -5,7 +5,8 @@ import 'package:ffi/ffi.dart' as pkg_ffi;
 import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
-const int _analysisOutputCount = 14;
+const int _analysisOutputCount = 20;
+const int _featureCount = 15;
 
 /// Synchronous FFI facade over the AutoMix native C core.
 class NativeAutomix {
@@ -22,7 +23,7 @@ class NativeAutomix {
   }) {
     final count = tracks.length;
     final trackAllocationCount = count < 1 ? 1 : count;
-    final featureAllocationCount = count * 14 < 1 ? 1 : count * 14;
+    final featureAllocationCount = count * _featureCount < 1 ? 1 : count * _featureCount;
     final keyAllocationCount = count * 2 < 1 ? 1 : count * 2;
     final ids = pkg_ffi.calloc<ffi.Int64>(trackAllocationCount);
     final artists = pkg_ffi.calloc<ffi.Int32>(trackAllocationCount);
@@ -50,9 +51,10 @@ class NativeAutomix {
           track.introEnergy,
           track.outroEnergy,
           track.analyzedFraction,
+          track.vocalLikelihood,
         ];
         for (var field = 0; field < values.length; field++) {
-          features[i * 14 + field] = values[field] ?? double.nan;
+          features[i * _featureCount + field] = values[field] ?? double.nan;
         }
         keys[i * 2] = track.camelotNumber ?? 0;
         keys[i * 2 + 1] = track.camelotMinor == null
@@ -128,6 +130,15 @@ class NativeAutomix {
         centroidHz: nullable(8),
         onsetRate: output[9],
         analyzedSeconds: output[10],
+        downbeatOffsetMs: nullable(11),
+        dropCueMs: nullable(12),
+        breakdownCueMs: nullable(13),
+        dropConfidence: output[14],
+        breakdownConfidence: output[15],
+        structureRegion: output[16].toInt(),
+        structureConfidence: output[17],
+        vocalLikelihood: output[18],
+        vocalConfidence: output[19],
       );
     } finally {
       pkg_ffi.calloc.free(samples);
