@@ -2187,7 +2187,9 @@ class Media3PlaybackService : MediaSessionService() {
             val desiredStartMs = dropCueMs - fadeMediaMs
             val beatMs = 60_000.0 / bpm
             if (desiredStartMs >= offsetMs && beatMs.isFinite() && beatMs > 0.0) {
-                val beatIndex = kotlin.math.floor(
+                // Snap to the nearest incoming beat, rather than always
+                // flooring (which could put the drop almost one full beat late).
+                val beatIndex = kotlin.math.round(
                     (desiredStartMs - offsetMs) / beatMs,
                 )
                 val cueAlignedMs = (offsetMs + beatIndex * beatMs).toLong()
