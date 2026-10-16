@@ -442,7 +442,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.';
 
   @override
-  String get bitPerfectConfirmTitle => 'Activate Pure Audio Mode?';
+  String get bitPerfectConfirmTitle => 'Activate Pure Playback?';
 
   @override
   String get bitPerfectConfirmBody =>
@@ -1243,7 +1243,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noSongSelected => 'No song selected';
 
   @override
-  String get lockedInactive => 'Controls locked — Bit-Perfect Mode is active';
+  String get lockedInactive => 'Controls locked — Pure Playback is active';
 
   @override
   String get bandEq => 'BAND EQ';
