@@ -21,6 +21,10 @@ part of '../automix_service.dart';
 // paths as the manual crossfade picker.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+class _AutomixAnalysisBusy implements Exception {
+  const _AutomixAnalysisBusy();
+}
+
 class AutomixService {
   AutomixService._();
 
@@ -670,14 +674,19 @@ class AutomixService {
           total: batch.length,
           currentTitle: song.title,
         );
-        final features = await analyzeOne(song);
+        AutomixTrackFeatures? features;
+        try {
+          features = await analyzeOne(song);
+        } on _AutomixAnalysisBusy {
+          // Queue saturation is temporary; the scheduled resume pass will retry.
+          done++;
+          continue;
+        }
         if (!_isAutoMixGenerationCurrent(generation)) return false;
         if (features == null || !features.tailAnalyzed) {
-          // Avoid repeated expensive retries in one process; partial features
-          // remain usable and the next launch can retry the missing tail.
-          _dspUnavailable.add(song.id);
+          _markDspUnavailable(song, _identityForSong(song));
         } else {
-          _dspReady.add(song.id);
+          _markDspReady(song, _identityForSong(song));
         }
         if (features != null) analyzedAny = true;
         done++;
@@ -1382,6 +1391,7 @@ class AutomixService {
     } on PlatformException catch (e) {
       if (e.code == 'scan_busy') {
         LogService.verbose('Automix', 'analysis channel busy: $path');
+        throw const _AutomixAnalysisBusy();
       }
       return null;
     } on Exception catch (e) {
@@ -1491,6 +1501,8 @@ class AutomixService {
   ) async {
     try {
       completer.complete(await _analyzeOneUncached(song, identity));
+    } on _AutomixAnalysisBusy catch (e, st) {
+      completer.completeError(e, st);
     } on Object catch (e, st) {
       LogService.warn('Automix', 'analyzeOne failed: $e\n$st');
       completer.complete(null);
@@ -1617,7 +1629,18 @@ class AutomixService {
         analysisProgress.value = analysisProgress.value.copyWith(
           currentTitle: song.title,
         );
-        final f = await analyzeOne(song);
+        AutomixTrackFeatures? f;
+        var busyRetries = 0;
+        while (true) {
+          try {
+            f = await analyzeOne(song);
+            break;
+          } on _AutomixAnalysisBusy {
+            if (_analysisCancelled || busyRetries >= 2) break;
+            busyRetries++;
+            await Future<void>.delayed(const Duration(milliseconds: 750));
+          }
+        }
         if (f == null || !f.tailAnalyzed) failed++;
         done++;
         analysisProgress.value = analysisProgress.value.copyWith(
