@@ -96,7 +96,9 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
 
   double unitValue(String key) {
     final value = finiteValue(key);
-    return value == null ? 0 : automixClamp01(value);
+    // Confidence/likelihood fields are probabilities, not values to saturate.
+    // Out-of-contract data must not become falsely high-confidence metadata.
+    return value != null && value >= 0 && value <= 1 ? value : 0;
   }
 
   double? nonNegativeValue(String key) {
@@ -116,8 +118,15 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final keyConfidence = unitValue('keyConfidence');
   final rawAlternateBpm = finiteValue('alternateBpm');
   final rawCamelotNumber = map['camelotNumber'];
-  final camelotNumber = rawCamelotNumber is num
-      ? rawCamelotNumber.toInt()
+  final camelotValue = rawCamelotNumber is num
+      ? rawCamelotNumber.toDouble()
+      : null;
+  final camelotNumber = camelotValue != null &&
+          camelotValue.isFinite &&
+          camelotValue == camelotValue.roundToDouble() &&
+          camelotValue >= 1 &&
+          camelotValue <= 12
+      ? camelotValue.toInt()
       : null;
   final rawCamelotMinor = map['camelotMinor'];
   final camelotMinor = rawCamelotMinor is bool ? rawCamelotMinor : null;
