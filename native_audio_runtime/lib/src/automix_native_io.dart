@@ -5,6 +5,8 @@ import 'package:ffi/ffi.dart' as pkg_ffi;
 import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
+const int _analysisOutputCount = 14;
+
 /// Synchronous FFI facade over the AutoMix native C core.
 class NativeAutomix {
   NativeAutomix._();
@@ -98,7 +100,7 @@ class NativeAutomix {
   static NativeAutomixAnalysis? analyze(NativeAutomixPcm pcm, int sampleRate) {
     if (pcm.isEmpty) return null;
     final samples = pkg_ffi.calloc<ffi.Float>(pcm.length);
-    final output = pkg_ffi.calloc<ffi.Double>(11);
+    final output = pkg_ffi.calloc<ffi.Double>(_analysisOutputCount);
     try {
       for (var i = 0; i < pcm.length; i++) {
         samples[i] = pcm[i];
@@ -108,7 +110,7 @@ class NativeAutomix {
         pcm.length,
         sampleRate,
         output,
-        11,
+        _analysisOutputCount,
       );
       if (status != 1) return null;
       double? nullable(int index) =>
