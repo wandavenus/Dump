@@ -375,6 +375,20 @@ AutomixTrackFeatures automixMergeSegments({
   final fileSeconds = segments.isEmpty
       ? 0.0
       : segments.last.startSeconds + segments.last.seconds;
+  final firstSegment = segments.isEmpty ? null : segments.first;
+  final lastSegment = segments.isEmpty ? null : segments.last;
+  final localDropCue = firstSegment?.dropCueMs;
+  final localBreakdownCue = lastSegment?.breakdownCueMs;
+  final dropCueMs = localDropCue != null &&
+          localDropCue.isFinite &&
+          localDropCue >= 0
+      ? firstSegment!.startSeconds * 1000.0 + localDropCue
+      : null;
+  final tailBreakdownCueMs = localBreakdownCue != null &&
+          localBreakdownCue.isFinite &&
+          localBreakdownCue >= 0
+      ? lastSegment!.startSeconds * 1000.0 + localBreakdownCue
+      : null;
 
   return AutomixTrackFeatures(
     songId: songId,
@@ -389,6 +403,9 @@ AutomixTrackFeatures automixMergeSegments({
         : segments.first.startSeconds * 1000.0 +
             segments.first.downbeatOffsetMs!,
     tailDownbeatOffsetMs: tailDownbeatOffsetMs,
+    dropCueMs: dropCueMs,
+    tailBreakdownCueMs: tailBreakdownCueMs,
+    durationSeconds: fileSeconds,
     camelotNumber: camelotNumber,
     camelotMinor: camelotMinor,
     keyConfidence: keyConfidence,
@@ -505,6 +522,21 @@ AutomixTransitionCue automixTransitionCue({
       keyCost >= 0.60) {
     fadeSeconds *= 0.82;
     gamma = math.max(gamma, 1.15);
+  }
+
+  // If a confidently detected breakdown lies in the outgoing track's final
+  // 1.5–12 seconds, align the fade start to that transition. Earlier cues are
+  // not used to avoid pulling the fade forward over unrelated song sections.
+  final durationMs = outgoing.durationSeconds * 1000.0;
+  final breakdownMs = outgoing.tailBreakdownCueMs;
+  if (durationMs > 0 &&
+      breakdownMs != null &&
+      breakdownMs.isFinite &&
+      breakdownMs >= 0) {
+    final cueLeadSeconds = (durationMs - breakdownMs) / 1000.0;
+    if (cueLeadSeconds >= 1.5 && cueLeadSeconds <= 12.0) {
+      fadeSeconds = cueLeadSeconds;
+    }
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
 
