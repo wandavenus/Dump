@@ -57,6 +57,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   LocalSong? _currentSong;
   bool _isPlaying = false;
 
+  // Avoid scheduling duplicate artwork-blur prewarms during morph rebuilds.
+  String? _scheduledArtworkBlurPrewarmKey;
+
   // True while the reverse entry animation (session end / notification STOP)
   // is playing. The last song stays rendered until the animation completes
   // (_entryAnim reaches dismissed), then _currentSong is nulled so the widget
@@ -284,6 +287,29 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     }
   }
 
+  void _scheduleArtworkBlurPrewarm(int songId, Size viewport) {
+    final key =
+        '$songId:${viewport.width.toStringAsFixed(1)}x${viewport.height.toStringAsFixed(1)}';
+    if (_scheduledArtworkBlurPrewarmKey == key) return;
+    _scheduledArtworkBlurPrewarmKey = key;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _currentSong?.id != songId ||
+          ThemeController.playerBackgroundStyle.value !=
+              PlayerBackgroundStyle.artworkBlur) {
+        return;
+      }
+      unawaited(
+        ArtworkBlurPlayerBackground.prewarm(
+          songId: songId,
+          width: viewport.width,
+          height: viewport.height,
+        ),
+      );
+    });
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
   String _formatTime(Duration d) {
     final m = d.inMinutes;
@@ -489,6 +515,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     final isArtworkBlurStyle =
         backgroundStyle == PlayerBackgroundStyle.artworkBlur;
+    if (isArtworkBlurStyle) {
+      _scheduleArtworkBlurPrewarm(song.id, Size(screenW, screenH));
+    } else {
+      _scheduledArtworkBlurPrewarmKey = null;
+    }
 
     // Keep the main cover close to the top and nearly edge-to-edge in artwork-blur
     // mode. On shorter portrait screens, cap its size so its fade still ends well
