@@ -41,6 +41,19 @@ class AutomixToneAudioProcessor(
         private external fun nativeSetHighGain(streamSlot: Int, gain: Float): Int
 
         @JvmStatic
+        private external fun nativeSetFadeGain(streamSlot: Int, gain: Float): Int
+
+        @JvmStatic
+        private external fun nativeSetCrossfadeGains(
+            outgoingSlot: Int,
+            incomingSlot: Int,
+            progress: Float,
+            gamma: Float,
+            outgoingTrim: Float,
+            incomingTrim: Float,
+        ): Int
+
+        @JvmStatic
         private external fun nativeProcessTone(
             buffer: ByteBuffer,
             frameCount: Int,
@@ -50,9 +63,48 @@ class AutomixToneAudioProcessor(
 
         @JvmStatic
         private external fun nativeResetTone(streamSlot: Int): Int
+
+        internal fun setNativeFadeGain(streamSlot: Int, gain: Float): Boolean {
+            if (!NativeDspAudioProcessor.isLibraryAvailable) return false
+            return try {
+                nativeSetFadeGain(streamSlot, normalizeGain(gain)) == 1
+            } catch (_: LinkageError) {
+                false
+            }
+        }
+
+        internal fun setNativeCrossfadeGains(
+            outgoingSlot: Int,
+            incomingSlot: Int,
+            progress: Float,
+            gamma: Float,
+            outgoingTrim: Float,
+            incomingTrim: Float,
+        ): Boolean {
+            if (!NativeDspAudioProcessor.isLibraryAvailable) return false
+            return try {
+                nativeSetCrossfadeGains(
+                    outgoingSlot,
+                    incomingSlot,
+                    progress,
+                    gamma,
+                    outgoingTrim,
+                    incomingTrim,
+                ) == 1
+            } catch (_: LinkageError) {
+                false
+            }
+        }
+
+        private fun normalizeGain(gain: Float): Float =
+            if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
     }
 
+    @Volatile
     private var channelCount: Int = 0
+
+    val isConfigured: Boolean
+        get() = channelCount > 0
 
     fun setBassGain(gain: Float) {
         if (NativeDspAudioProcessor.isLibraryAvailable) {
@@ -67,6 +119,7 @@ class AutomixToneAudioProcessor(
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+        channelCount = 0
         if (!NativeDspAudioProcessor.isLibraryAvailable ||
             inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT ||
             inputAudioFormat.channelCount !in 1..8 ||
@@ -75,16 +128,17 @@ class AutomixToneAudioProcessor(
             return AudioProcessor.AudioFormat.NOT_SET
         }
 
-        channelCount = inputAudioFormat.channelCount
+        val configuredChannelCount = inputAudioFormat.channelCount
         if (nativeConfigureTone(
                 streamSlot,
                 inputAudioFormat.sampleRate,
-                channelCount,
+                configuredChannelCount,
             ) != 1
         ) {
             channelCount = 0
             return AudioProcessor.AudioFormat.NOT_SET
         }
+        channelCount = configuredChannelCount
         return inputAudioFormat
     }
 
@@ -163,10 +217,15 @@ class AutomixToneManager {
     }
 
     fun removeProcessor(processor: AutomixToneAudioProcessor) {
+        var removedSlot: Int? = null
         synchronized(lock) {
             val slot = processors.entries.firstOrNull { it.value === processor }?.key
-            if (slot != null) processors.remove(slot)
+            if (slot != null) {
+                processors.remove(slot)
+                removedSlot = slot
+            }
         }
+        removedSlot?.let { AutomixToneAudioProcessor.setNativeFadeGain(it, 1f) }
     }
 
     fun setBassGain(streamSlot: Int, gain: Float) {
@@ -190,6 +249,35 @@ class AutomixToneManager {
         processor?.setHighGain(normalized)
     }
 
+    /** Sets both decks' equal-power transfer targets in the native tone stage. */
+    fun setCrossfadeGains(
+        outgoingSlot: Int,
+        incomingSlot: Int,
+        progress: Float,
+        gamma: Float,
+        outgoingTrim: Float,
+        incomingTrim: Float,
+    ): Boolean {
+        if (outgoingSlot == incomingSlot) return false
+        val bothConfigured = synchronized(lock) {
+            processors[outgoingSlot]?.isConfigured == true &&
+                processors[incomingSlot]?.isConfigured == true
+        }
+        if (!bothConfigured) return false
+        return AutomixToneAudioProcessor.setNativeCrossfadeGains(
+            outgoingSlot,
+            incomingSlot,
+            progress,
+            gamma,
+            outgoingTrim,
+            incomingTrim,
+        )
+    }
+
+    fun setFadeGain(streamSlot: Int, gain: Float) {
+        AutomixToneAudioProcessor.setNativeFadeGain(streamSlot, gain)
+    }
+
     fun reset() {
         val snapshot: List<Pair<Int, AutomixToneAudioProcessor>>
         synchronized(lock) {
@@ -201,9 +289,10 @@ class AutomixToneManager {
                 targetHighGains[slot] = 1f
             }
         }
-        snapshot.forEach { (_, processor) ->
+        snapshot.forEach { (slot, processor) ->
             processor.setBassGain(1f)
             processor.setHighGain(1f)
+            setFadeGain(slot, 1f)
         }
     }
 }

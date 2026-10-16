@@ -103,6 +103,12 @@ class CrossfadeController(
     private val setAutoMixTempoNudge: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Gentle high-band filter-out on the outgoing deck's tail: 1.0 = transparent.
     private val setAutoMixTailFilter: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    // Native per-sample equal-power envelope; player.volume remains the master
+    // volume control. False keeps the existing Kotlin volume-ramp fallback.
+    private val setAutoMixCrossfadeGains:
+        (ExoPlayer, ExoPlayer, Float, Float, Float, Float) -> Boolean =
+        { _, _, _, _, _, _ -> false },
+    private val setAutoMixFadeGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -288,10 +294,12 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
             setAutoMixTailFilter(it, 1f)
+            setAutoMixFadeGain(it, 1f)
         }
         promotionOwner?.let {
             setAutoMixBassGain(it, 1f)
             setAutoMixTailFilter(it, 1f)
+            setAutoMixFadeGain(it, 1f)
         }
 
         // K1 fix: capture the mid-fade state BEFORE clearing the flags below. A
@@ -399,6 +407,14 @@ class CrossfadeController(
         // from a transparent filter state on both decks.
         setAutoMixTailFilter(current, 1f)
         setAutoMixTailFilter(standby, 1f)
+        val nativeFadeAvailable = setAutoMixCrossfadeGains(
+            current,
+            standby,
+            0f,
+            fadeGamma,
+            outgoingTrim,
+            incomingTrim,
+        )
 
         // Beat-phase resync needs a phase grid on BOTH decks: with only one grid
         // there is nothing to lock onto, so the plain fade runs unchanged.
@@ -523,6 +539,7 @@ class CrossfadeController(
             applyBassSwap,
             phaseLockActive,
             isAutomixTransitionEnabled(),
+            nativeFadeAvailable,
         )
         }
 
@@ -551,12 +568,14 @@ class CrossfadeController(
     applyBassSwap: Boolean,
     phaseLock: Boolean,
     tailFilter: Boolean,
+    nativeFadeEnabled: Boolean,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
         val stepMs     = (durationMs / steps).coerceAtLeast(1L)
         var step       = 0
         var lastPhaseLockAt = 0L
+        var nativeFadeActive = nativeFadeEnabled
 
         val runnable = object : Runnable {
             override fun run() {
@@ -575,6 +594,8 @@ class CrossfadeController(
                     setAutoMixTempoNudge(newPlayer, 1f)
                     setAutoMixTailFilter(newPlayer, 1f)
                     setAutoMixTailFilter(oldPlayer, 1f)
+                    setAutoMixFadeGain(newPlayer, 1f)
+                    setAutoMixFadeGain(oldPlayer, 1f)
                     log("Fade aborted — active player changed mid-fade")
                     // Reset epoch so a subsequent crossfade starts with a clean timeline.
                     CrossfadeTimelineLogger.end("runEqualPowerFade abort — player changed mid-fade")
@@ -597,6 +618,7 @@ class CrossfadeController(
 
                     val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
                     setActiveQueueIndex(nextIndex) 
+                    setAutoMixFadeGain(newPlayer, 1f)
                     newPlayer.volume = targetVol
 
                     // Stop and release the old player's audio resources
@@ -606,6 +628,7 @@ class CrossfadeController(
                     try { oldPlayer.stop()            } catch (_: Exception) {}
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: oldPlayer.clearMediaItems() START", oldPlayer)
                     try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
+                    setAutoMixFadeGain(oldPlayer, 1f)
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: old player stopped+cleared", oldPlayer)
 
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: setActivePlayer(newPlayer)", newPlayer)
@@ -710,18 +733,40 @@ class CrossfadeController(
                 // silenced at the end anyway) while the incoming trim is
                 // released over the last quarter so the promoted deck ends at
                 // its own level — no step when the fade completes.
-                val shaped = if (fadeGamma == 1f) {
-                    t
-                } else {
-                    t.toDouble().pow(fadeGamma.toDouble()).toFloat()
+                val nativeApplied = nativeFadeActive && setAutoMixCrossfadeGains(
+                    oldPlayer,
+                    newPlayer,
+                    t,
+                    fadeGamma,
+                    outgoingTrim,
+                    incomingTrim,
+                )
+                if (nativeFadeActive && !nativeApplied) {
+                    setAutoMixFadeGain(oldPlayer, 1f)
+                    setAutoMixFadeGain(newPlayer, 1f)
+                    nativeFadeActive = false
                 }
-                val release = if (t <= 0.75f) 1f else 1f - (t - 0.75f) / 0.25f
-                val incomingTrimNow = incomingTrim + (1f - incomingTrim) * release
-                val theta  = (shaped * PI / 2.0).toFloat()
-                oldPlayer.volume =
-                    (targetVol * outgoingTrim * cos(theta)).coerceIn(0f, targetVol)
-                newPlayer.volume =
-                    (targetVol * incomingTrimNow * sin(theta)).coerceIn(0f, targetVol)
+                if (nativeFadeActive) {
+                    // Keep ExoPlayer's volume as the master/user/audio-focus
+                    // control. Native C/NEON applies the per-deck fade envelope.
+                    oldPlayer.volume = targetVol
+                    // Keep the incoming deck muted for the first audio block so
+                    // the native target can settle from any previous track state.
+                    newPlayer.volume = if (step == 0) 0f else targetVol
+                } else {
+                    val shaped = if (fadeGamma == 1f) {
+                        t
+                    } else {
+                        t.toDouble().pow(fadeGamma.toDouble()).toFloat()
+                    }
+                    val release = if (t <= 0.75f) 0f else (t - 0.75f) / 0.25f
+                    val incomingTrimNow = incomingTrim + (1f - incomingTrim) * release
+                    val theta = (shaped * PI / 2.0).toFloat()
+                    oldPlayer.volume =
+                        (targetVol * outgoingTrim * cos(theta)).coerceIn(0f, targetVol)
+                    newPlayer.volume =
+                        (targetVol * incomingTrimNow * sin(theta)).coerceIn(0f, targetVol)
+                }
 
                 // ── Tail filter-out ────────────────────────────────────────────
                 // The outgoing deck eases its high band away over the second

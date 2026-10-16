@@ -119,6 +119,25 @@ Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetHighGain(
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetFadeGain(
+    JNIEnv* env, jclass clazz, jint stream_slot, jfloat gain) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_set_fade_gain((int32_t)stream_slot, gain);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeSetCrossfadeGains(
+    JNIEnv* env, jclass clazz, jint outgoing_slot, jint incoming_slot,
+    jfloat progress, jfloat gamma, jfloat outgoing_trim, jfloat incoming_trim) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_tone_set_crossfade_gains(
+      (int32_t)outgoing_slot, (int32_t)incoming_slot, progress, gamma,
+      outgoing_trim, incoming_trim);
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeProcessTone(
     JNIEnv* env, jclass clazz, jobject buffer, jint frame_count,
     jint channel_count, jint stream_slot) {

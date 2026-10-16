@@ -620,6 +620,29 @@ class Media3PlaybackService : MediaSessionService() {
             setAutoMixTempoNudge = { p, factor -> applyAutomixTempoNudge(p, factor) },
             // Outgoing-tail high-band gain (1 = transparent, 0 = high band gone).
             setAutoMixTailFilter = { p, gain -> applyAutomixTailFilter(p, gain) },
+            // Set the equal-power curve on both physical DSP slots. The native
+            // tone processor applies the envelope per sample; player.volume stays
+            // responsible for master volume and audio-focus ducking.
+            setAutoMixCrossfadeGains = { outgoing, incoming, progress, gamma, outTrim, inTrim ->
+                val outgoingSlot = playerSlotOf(outgoing)
+                val incomingSlot = playerSlotOf(incoming)
+                outgoingSlot >= 0 && incomingSlot >= 0 &&
+                    ::automixToneManager.isInitialized &&
+                    automixToneManager.setCrossfadeGains(
+                        outgoingSlot,
+                        incomingSlot,
+                        progress,
+                        gamma,
+                        outTrim,
+                        inTrim,
+                    )
+            },
+            setAutoMixFadeGain = { player, gain ->
+                val slot = playerSlotOf(player)
+                if (slot >= 0 && ::automixToneManager.isInitialized) {
+                    automixToneManager.setFadeGain(slot, gain)
+                }
+            },
         )
 
         effectsManager = AudioEffectsManager(handler)

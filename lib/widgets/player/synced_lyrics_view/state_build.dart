@@ -103,9 +103,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                               dimColor: dim,
                               fontSize: fs,
                               textAlign: lineAlign,
-                              textScaleFactor: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(1.0),
+                              textScaleFactor: MediaQuery.textScalerOf(context)
+                                  .scale(1.0),
                               textDirection: lineDirection,
                             )
                           : Text(

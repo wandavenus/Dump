@@ -111,7 +111,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
   const float theta = shape * (NAR_AUTOMIX_TONE_PI * 0.5f);
   const float trim_out = fminf(fmaxf(outgoing_trim, 0.0f), 1.0f);
   const float trim_in = fminf(fmaxf(incoming_trim, 0.0f), 1.0f);
-  const float release = t <= 0.75f ? 1.0f : 1.0f - (t - 0.75f) / 0.25f;
+  const float release =
+      t <= 0.75f ? 0.0f : (t - 0.75f) / 0.25f;
   const float incoming_trim_now = trim_in + (1.0f - trim_in) * release;
 
   *outgoing_gain = clamp_gain(trim_out * cosf(theta));

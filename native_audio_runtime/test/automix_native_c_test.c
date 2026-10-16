@@ -88,6 +88,65 @@ static void test_phase_lock_factor(void) {
   assert(isnan(factor));
 }
 
+static void test_native_crossfade_curve(void) {
+  float outgoing = -1.0f;
+  float incoming = -1.0f;
+
+  assert(nar_automix_tone_compute_fade_gains(
+             0.0f, 1.0f, 1.0f, 1.0f, &outgoing, &incoming) == 1);
+  assert(fabsf(outgoing - 1.0f) < 1e-6f);
+  assert(fabsf(incoming) < 1e-6f);
+
+  assert(nar_automix_tone_compute_fade_gains(
+             0.5f, 1.0f, 0.8f, 0.5f, &outgoing, &incoming) == 1);
+  assert(fabsf(outgoing - 0.8f * sqrtf(0.5f)) < 1e-6f);
+  assert(fabsf(incoming - 0.5f * sqrtf(0.5f)) < 1e-6f);
+
+  // The incoming level trim is fully released by the end of the fade.
+  assert(nar_automix_tone_compute_fade_gains(
+             1.0f, 1.0f, 0.8f, 0.5f, &outgoing, &incoming) == 1);
+  assert(fabsf(outgoing) < 1e-6f);
+  assert(fabsf(incoming - 1.0f) < 1e-6f);
+
+  assert(nar_automix_tone_compute_fade_gains(
+             NAN, 1.0f, 1.0f, 1.0f, &outgoing, &incoming) == 0);
+}
+
+static void test_native_crossfade_targets_are_per_stream(void) {
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_crossfade_gains(
+             0, 1, 0.0f, 1.0f, 1.0f, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 2) == 1);
+  assert(nar_automix_tone_configure(1, 48000, 2) == 1);
+
+  float outgoing[] = {0.25f, -0.5f, 0.75f, -0.125f};
+  float incoming[] = {0.25f, -0.5f, 0.75f, -0.125f};
+  const float original[] = {0.25f, -0.5f, 0.75f, -0.125f};
+  assert(nar_automix_tone_process(outgoing, 2, 2, 0) == 1);
+  assert(nar_automix_tone_process(incoming, 2, 2, 1) == 1);
+  for (int i = 0; i < 4; ++i) {
+    assert(fabsf(outgoing[i] - original[i]) < 1e-6f);
+    assert(fabsf(incoming[i]) < 1e-6f);
+  }
+
+  assert(nar_automix_tone_set_crossfade_gains(
+             0, 1, 1.0f, 1.0f, 1.0f, 1.0f) == 1);
+  outgoing[0] = incoming[0] = 0.25f;
+  outgoing[1] = incoming[1] = -0.5f;
+  outgoing[2] = incoming[2] = 0.75f;
+  outgoing[3] = incoming[3] = -0.125f;
+  assert(nar_automix_tone_process(outgoing, 2, 2, 0) == 1);
+  assert(nar_automix_tone_process(incoming, 2, 2, 1) == 1);
+  assert(fabsf(outgoing[3]) < 1e-6f);
+  assert(fabsf(incoming[3] - original[3]) < 1e-6f);
+
+  assert(nar_automix_tone_set_crossfade_gains(
+             0, 0, 0.5f, 1.0f, 1.0f, 1.0f) == 0);
+}
+
 static double rms_range(const float* samples, int32_t start, int32_t count) {
   double power = 0.0;
   for (int32_t i = start; i < start + count; ++i) {
@@ -99,6 +158,7 @@ static double rms_range(const float* samples, int32_t start, int32_t count) {
 static void test_tone_default_is_transparent(void) {
   assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_configure(0, 48000, 2) == 1);
 
   float pcm[] = {0.25f, -0.5f, 0.75f, -0.125f, -0.25f, 0.5f};
@@ -120,6 +180,8 @@ static void test_tone_filters_independent_streams(void) {
   assert(nar_automix_tone_set_high_gain(0, 0.0f) == 1);
   assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
   assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
   assert(nar_automix_tone_configure(0, sample_rate, 1) == 1);
   assert(nar_automix_tone_configure(1, sample_rate, 1) == 1);
 
@@ -162,6 +224,8 @@ int main(void) {
   test_analyzer_rms();
   test_planner_keeps_start_and_permutation();
   test_phase_lock_factor();
+  test_native_crossfade_curve();
+  test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
   return 0;
