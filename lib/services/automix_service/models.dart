@@ -80,6 +80,87 @@ class AutomixSegmentFeatures {
   final double? onsetRate;
 }
 
+/// Converts the full native-analysis MethodChannel map into a validated window
+/// model. Keep this parser pure so ABI-field forwarding is covered by Dart tests.
+AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
+  Map<String, dynamic> map, {
+  required double fallbackStartSeconds,
+  required double fallbackSeconds,
+}) {
+  double? finiteValue(String key) {
+    final value = (map[key] as num?)?.toDouble();
+    return value != null && value.isFinite ? value : null;
+  }
+
+  double unitValue(String key) {
+    final value = finiteValue(key);
+    return value == null ? 0 : automixClamp01(value);
+  }
+
+  double? nonNegativeValue(String key) {
+    final value = finiteValue(key);
+    return value != null && value >= 0 ? value : null;
+  }
+
+  int structureValue(String key) {
+    final value = finiteValue(key);
+    if (value == null) return 0;
+    final region = value.toInt();
+    return region >= 0 && region <= 5 ? region : 0;
+  }
+
+  final bpm = finiteValue('bpm');
+  final bpmConfidence = unitValue('bpmConfidence');
+  final keyConfidence = unitValue('keyConfidence');
+  final camelotNumber = (map['camelotNumber'] as num?)?.toInt();
+  final start = finiteValue('segmentStartSeconds');
+  final seconds = finiteValue('segmentSeconds');
+  final beatOffset = nonNegativeValue('beatOffsetMs');
+  final downbeatOffset = nonNegativeValue('downbeatOffsetMs');
+
+  return AutomixSegmentFeatures(
+    startSeconds: start != null && start >= 0
+        ? start
+        : fallbackStartSeconds,
+    seconds: seconds != null && seconds > 0 ? seconds : fallbackSeconds,
+    bpm: bpm != null && bpm > 0 && bpmConfidence >= 0.15 ? bpm : null,
+    bpmConfidence: bpm != null && bpm > 0 && bpmConfidence >= 0.15
+        ? bpmConfidence
+        : 0,
+    alternateBpm: bpmConfidence >= 0.15
+        ? finiteValue('alternateBpm') case final alt?
+            when alt > 0
+        : null,
+    beatOffsetMs: bpm != null && bpm > 0 && bpmConfidence >= 0.20
+        ? beatOffset
+        : null,
+    downbeatOffsetMs: bpm != null && bpm > 0 && bpmConfidence >= 0.20
+        ? downbeatOffset
+        : null,
+    dropCueMs: nonNegativeValue('dropCueMs'),
+    breakdownCueMs: nonNegativeValue('breakdownCueMs'),
+    dropConfidence: unitValue('dropConfidence'),
+    breakdownConfidence: unitValue('breakdownConfidence'),
+    structureRegion: structureValue('structureRegion'),
+    structureConfidence: unitValue('structureConfidence'),
+    vocalLikelihood: unitValue('vocalLikelihood'),
+    vocalConfidence: unitValue('vocalConfidence'),
+    camelotNumber: keyConfidence >= 0.25 &&
+            camelotNumber != null &&
+            camelotNumber >= 1 &&
+            camelotNumber <= 12
+        ? camelotNumber
+        : null,
+    camelotMinor: keyConfidence >= 0.25
+        ? map['camelotMinor'] as bool?
+        : null,
+    keyConfidence: keyConfidence >= 0.25 ? keyConfidence : 0,
+    rmsDb: finiteValue('rmsDb'),
+    centroidHz: finiteValue('centroidHz'),
+    onsetRate: finiteValue('onsetRate'),
+  );
+}
+
 @immutable
 class AutomixTrackFeatures {
   const AutomixTrackFeatures({
@@ -106,6 +187,9 @@ class AutomixTrackFeatures {
     this.dropConfidence = 0,
     this.tailBreakdownConfidence = 0,
     this.structureRegion = 0,
+    this.structureConfidence = 0,
+    this.tailStructureRegion = 0,
+    this.tailStructureConfidence = 0,
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.durationSeconds = 0,
@@ -153,6 +237,9 @@ class AutomixTrackFeatures {
   final double dropConfidence;
   final double tailBreakdownConfidence;
   final int structureRegion;
+  final double structureConfidence;
+  final int tailStructureRegion;
+  final double tailStructureConfidence;
   final double vocalLikelihood;
   final double vocalConfidence;
 
@@ -214,6 +301,9 @@ class AutomixTrackFeatures {
     if (dropConfidence > 0) 'dconf': dropConfidence,
     if (tailBreakdownConfidence > 0) 'tbconf': tailBreakdownConfidence,
     if (structureRegion > 0) 'sreg': structureRegion,
+    if (structureConfidence > 0) 'sconf': structureConfidence,
+    if (tailStructureRegion > 0) 'tsreg': tailStructureRegion,
+    if (tailStructureConfidence > 0) 'tsconf': tailStructureConfidence,
     if (vocalLikelihood > 0) 'vlike': vocalLikelihood,
     if (vocalConfidence > 0) 'vconf': vocalConfidence,
     if (durationSeconds > 0) 'dur': durationSeconds,
@@ -248,6 +338,9 @@ class AutomixTrackFeatures {
       dropConfidence: (map['dconf'] as num?)?.toDouble() ?? 0,
       tailBreakdownConfidence: (map['tbconf'] as num?)?.toDouble() ?? 0,
       structureRegion: (map['sreg'] as num?)?.toInt() ?? 0,
+      structureConfidence: (map['sconf'] as num?)?.toDouble() ?? 0,
+      tailStructureRegion: (map['tsreg'] as num?)?.toInt() ?? 0,
+      tailStructureConfidence: (map['tsconf'] as num?)?.toDouble() ?? 0,
       vocalLikelihood: (map['vlike'] as num?)?.toDouble() ?? 0,
       vocalConfidence: (map['vconf'] as num?)?.toDouble() ?? 0,
       durationSeconds: (map['dur'] as num?)?.toDouble() ?? 0,
