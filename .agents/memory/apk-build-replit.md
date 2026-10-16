@@ -19,6 +19,12 @@ Even when the app compiles against SDK 36, Gradle may install Android platform S
 
 **How to apply:** After SDK/NDK setup, allow the first Gradle build enough time to install plugin-required platforms before diagnosing a build stall.
 
+Concurrent Flutter/Gradle work can exceed the Replit container's 8 GiB memory limit: a Gradle daemon configured for a 4 GiB heap can be OOM-killed while Kotlin and Flutter build processes are also active. A completed native CMake library does not prove the later APK packaging stage survived.
+
+**Why:** The build daemon can disappear without a compiler error when the container records an OOM kill.
+
+**How to apply:** Serialize APK builds with other Flutter builds; when Gradle disappears, inspect `memory.events` before changing native source.
+
 **How to apply:**
 - Run `bash setup-flutter.sh && bash build-apk.sh` from the project root.
 - Keep setup serialized and copy Flutter atomically.
