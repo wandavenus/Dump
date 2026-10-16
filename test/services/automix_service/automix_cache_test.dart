@@ -53,7 +53,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 8,
+            'version': 9,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -71,6 +71,14 @@ void main() {
               'oe': 0.2,
               'af': 1.0,
               'ta': true,
+              'dconf': 0.7,
+              'tbconf': 0.9,
+              'sreg': 3,
+              'sconf': 0.8,
+              'tsreg': 4,
+              'tsconf': 0.75,
+              'vlike': 0.85,
+              'vconf': 0.9,
             },
           }),
         );
@@ -89,9 +97,60 @@ void main() {
         expect(features.introEnergy, 0.4);
         expect(features.outroEnergy, 0.2);
         expect(features.analyzedFraction, 1.0);
+        expect(features.dropConfidence, 0.7);
+        expect(features.tailBreakdownConfidence, 0.9);
+        expect(features.structureRegion, 3);
+        expect(features.structureConfidence, 0.8);
+        expect(features.tailStructureRegion, 4);
+        expect(features.tailStructureConfidence, 0.75);
+        expect(features.vocalLikelihood, 0.85);
+        expect(features.vocalConfidence, 0.9);
         // Metadata still comes from the live MediaStore row.
         expect(features.title, 'Cached');
         expect(features.artist, 'Artist');
+      },
+    );
+
+    test(
+      'invalidates version 8 entries after the vocal/structure schema bump',
+      () async {
+        final song = LocalSong(
+          id: 44,
+          title: 'Old schema',
+          artist: 'Artist',
+          album: 'Album',
+          albumId: 7,
+          path: file.path,
+          duration: const Duration(minutes: 4),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'automix_44',
+          jsonEncode(<String, dynamic>{
+            'version': 8,
+            'ident': identityOf(file),
+            'data': <String, dynamic>{
+              'id': 44,
+              'bpm': 128.0,
+              'bc': 0.9,
+              'vlike': 0.99,
+              'vconf': 0.99,
+              'sreg': 3,
+              'sconf': 0.99,
+              'ta': true,
+            },
+          }),
+        );
+
+        final features = await AutomixService.featuresFor(song);
+
+        // MethodChannel analysis is unavailable in this unit test; rejection
+        // must leave neutral features rather than reusing schema-v8 metadata.
+        expect(features.bpm, isNull);
+        expect(features.vocalLikelihood, 0);
+        expect(features.vocalConfidence, 0);
+        expect(features.structureRegion, 0);
+        expect(features.structureConfidence, 0);
       },
     );
 
