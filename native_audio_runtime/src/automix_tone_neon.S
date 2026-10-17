@@ -79,11 +79,16 @@ nar_automix_tone_process_stereo_neon:
     fmla    v3.2s, v0.2s, v9.2s
     dup     v9.2s, v15.s[0]
     fmla    v3.2s, v7.2s, v9.2s
-    dup     v9.2s, v18.s[0]
-    fmul    v3.2s, v3.2s, v9.2s
-    // Enforce the same sample-peak ceiling as the scalar C path.
+    // Clamp the post-EQ signal BEFORE the crossfade envelope. Otherwise
+    // an over-range sample can saturate after fading and defeat the combined
+    // L1 gain budget when Android mixes the two AudioTracks.
     ldr     q29, .Lautomix_tone_one
     ldr     q30, .Lautomix_tone_negative_one
+    fmax    v3.2s, v3.2s, v30.2s
+    fmin    v3.2s, v3.2s, v29.2s
+    dup     v9.2s, v18.s[0]
+    fmul    v3.2s, v3.2s, v9.2s
+    // Defensive final sample-peak ceiling; this is not true-peak limiting.
     fmax    v3.2s, v3.2s, v30.2s
     fmin    v3.2s, v3.2s, v29.2s
     st1     {v3.2s}, [x0]
