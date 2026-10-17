@@ -142,6 +142,47 @@ static void test_planner_keeps_start_and_permutation(void) {
   assert(metrics[1] >= 0.0 && metrics[1] <= 1.0);
 }
 
+
+static void test_chord_progression_analysis(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 4;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+
+  // A steady C-major triad over four seconds should produce time-local,
+  // confidence-gated chord rows with C major as the leading estimate.
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    pcm[i] = (float)(
+        0.24 * sin(2.0 * 3.14159265358979323846 * 261.6256 * t) +
+        0.20 * sin(2.0 * 3.14159265358979323846 * 329.6276 * t) +
+        0.18 * sin(2.0 * 3.14159265358979323846 * 391.9954 * t));
+  }
+
+  double chords[16] = {0};
+  const int32_t rows = nar_automix_analyze_chords(
+      pcm, count, sample_rate, chords, 16);
+  assert(rows >= 2 && rows <= 4);
+  assert(chords[0] >= 0.0);
+  assert(chords[1] == 0.0);  // C pitch class
+  assert(chords[2] == 0.0);  // major triad
+  assert(isfinite(chords[3]) && chords[3] >= 0.08 && chords[3] <= 1.0);
+
+  // Invalid inputs must fail safely; short windows do not invent a chord.
+  assert(nar_automix_analyze_chords(NULL, count, sample_rate, chords, 16) == -1);
+  assert(nar_automix_analyze_chords(pcm, sample_rate, sample_rate,
+                                    chords, 16) == 0);
+  assert(nar_automix_analyze_chords(pcm, count, 0, chords, 16) == -1);
+  free(pcm);
+
+  float silence[sample_rate * 2];
+  for (int32_t i = 0; i < sample_rate * 2; ++i) silence[i] = 0.0f;
+  const int32_t silent_rows = nar_automix_analyze_chords(
+      silence, sample_rate * 2, sample_rate, chords, 4);
+  assert(silent_rows == 1);
+  assert(chords[1] == -1.0 && chords[2] == -1.0 && chords[3] == 0.0);
+}
+
 static void test_phase_lock_factor(void) {
   // Incoming is a quarter beat ahead at 120 BPM; it must slow down by the cap.
   float factor = nar_automix_phase_lock_factor(
@@ -512,6 +553,7 @@ int main(void) {
   test_analyzer_structural_cues();
   test_planner_vocal_conflict();
   test_planner_keeps_start_and_permutation();
+  test_chord_progression_analysis();
   test_phase_lock_factor();
   test_phrase_lock();
   test_edge_cases_silence_and_noise();
