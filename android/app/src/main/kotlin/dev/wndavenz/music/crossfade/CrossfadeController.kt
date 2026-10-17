@@ -13,7 +13,6 @@ import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.pow
 
 /**
  * TRUE CROSSFADE ENGINE
