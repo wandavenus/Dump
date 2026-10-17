@@ -81,6 +81,14 @@ nar_automix_tone_process_stereo_neon:
     fmla    v3.2s, v7.2s, v9.2s
     dup     v9.2s, v18.s[0]
     fmul    v3.2s, v3.2s, v9.2s
+    // Match the scalar C path: any non-finite processed sample becomes 0.
+    // FMAX/FMIN alone are not a portable isfinite check for NaN/Inf.
+    fabs    v7.2s, v3.2s
+    fcmle   v7.2s, v7.2s, v31.2s
+    movi    v2.2s, #0
+    bsl     v7.8b, v3.8b, v2.8b
+    mov     v3.8b, v7.8b
+
     // Enforce the same sample-peak ceiling as the scalar C path.
     ldr     q29, .Lautomix_tone_one
     ldr     q30, .Lautomix_tone_negative_one
