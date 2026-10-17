@@ -30,11 +30,21 @@ class AutomixTransitionPolicyTest {
     }
 
     @Test
-    fun `fade progress follows source media position and clamps safely`() {
-        assertEquals(0f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 9_000L, 8_000L), 0f)
-        assertEquals(0.5f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 14_000L, 8_000L), 0.0001f)
-        assertEquals(1f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 19_000L, 8_000L), 0f)
-        assertEquals(1f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 10_000L, 0L), 0f)
+    fun `fade progress follows elapsed source-media time at the applied speed`() {
+        val elapsedAtTwoTimes = AutomixTransitionPolicy.advanceMediaTimeline(0.0, 2_000L, 2f)
+        assertEquals(4_000.0, elapsedAtTwoTimes, 0.0)
+        assertEquals(0.5f, AutomixTransitionPolicy.mediaTimelineProgress(elapsedAtTwoTimes, 8_000L), 0.0001f)
+
+        val elapsedAtHalfSpeed =
+            AutomixTransitionPolicy.advanceMediaTimeline(elapsedAtTwoTimes, 2_000L, 0.5f)
+        assertEquals(5_000.0, elapsedAtHalfSpeed, 0.0)
+        assertEquals(0f, AutomixTransitionPolicy.mediaTimelineProgress(-1.0, 8_000L), 0f)
+        assertEquals(1f, AutomixTransitionPolicy.mediaTimelineProgress(5.0, 0L), 0f)
+        assertEquals(
+            4_000.0,
+            AutomixTransitionPolicy.advanceMediaTimeline(4_000.0, -100L, 2f),
+            0.0,
+        )
     }
 
     @Test
