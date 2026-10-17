@@ -338,6 +338,22 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeOutputLat
     }
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeekLengthFrames(
+        JNIEnv *env, jclass, jlong handlePtr) {
+    auto *h = fromPtr(handlePtr);
+    if (h == nullptr) return 0;
+    try {
+        // Signalsmith Stretch 1.2.0 exposes blockSamples()/intervalSamples();
+        // its documented seek pre-roll is one block plus one interval.
+        const int frames = h->stretch.blockSamples() + h->stretch.intervalSamples();
+        return std::max(frames, 0);
+    } catch (...) {
+        slog(env, "error", "nativeSeekLengthFrames threw pointer=" + ptrToHex(handlePtr));
+        return 0;
+    }
+}
+
 // Processes exactly `inputFrames` interleaved input frames into exactly
 // `outputFrames` interleaved output frames (the input/output ratio is how
 // Signalsmith Stretch realises time-stretching — see README "Time-stretching").
@@ -500,92 +516,55 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
     return 0;
 }
 
-// Feeds `inputFrames` interleaved input frames into the STFT engine with
-// ZERO output requested — "priming" the engine's spectral-analysis history
-// without producing any audible output.
-//
-// Primes the STFT engine's spectral-analysis+synthesis history without
-// producing any audible output.
-//
-// Called once immediately before the first real nativeProcess() call after a
-// bypass→STFT transition.  Feeding the last outputLatency() frames of bypass
-// audio into the engine ensures its spectral history is populated with real
-// signal so the first stretched output frame is a seamless continuation of
-// the bypass audio — true zero-flicker transition.
-//
-// ── Why outputSamples = inputFrames, not 0 ───────────────────────────────
-//
-// Signalsmith Stretch's process() drives analysis from the OUTPUT loop:
-//
-//   for (int outputIndex = 0; outputIndex < outputSamples; ++outputIndex) {
-//       if (newBlock) { /* FFT analyse + phase-vocoder synthesise */ }
-//       write output sample;
-//   }
-//
-// When outputSamples == 0 the loop body NEVER executes — for non-silent
-// audio, no STFT analysis runs and the spectral history is NOT populated.
-// (Silent audio takes a separate early-return path that does buffer input,
-// which is why priming appeared to work sometimes but not always.)
-//
-// By requesting outputSamples == inputFrames the analysis+synthesis loop
-// runs fully.  The output lands in h->outFlat (reused scratch) and is
-// intentionally NOT copied back to the caller — it corresponds to the
-// already-played bypass audio shifted by STFT latency, so discarding it
-// is correct.  The engine's synthesis window is now fully warm.
+// Seed the STFT history with the immediately preceding bypass audio.
+// Signalsmith's documented seek() API copies this pre-roll into its input
+// history without consuming it as normal playback output. The required history
+// is one block plus one interval (reported by nativeSeekLengthFrames); seek()
+// also pads short history safely at the start of playback.
 JNIEXPORT jint JNICALL
-Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativePrime(
+Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeek(
         JNIEnv *env, jclass, jlong handlePtr,
-        jobject inputBuffer, jint inputFrames) {
+        jobject inputBuffer, jint inputFrames, jfloat playbackRate) {
     auto *h = fromPtr(handlePtr);
-    if (h == nullptr || inputFrames <= 0) {
-        slog(env, "warn", "nativePrime invalid args pointer=" + ptrToHex(handlePtr) +
-             " inputFrames=" + std::to_string(inputFrames));
+    if (h == nullptr || inputFrames <= 0 || !std::isfinite(playbackRate) || playbackRate <= 0.0f) {
+        slog(env, "warn", "nativeSeek invalid args pointer=" + ptrToHex(handlePtr) +
+             " inputFrames=" + std::to_string(inputFrames) +
+             " playbackRate=" + std::to_string(playbackRate));
         return -1;
     }
 
     auto *inSamples = static_cast<float *>(env->GetDirectBufferAddress(inputBuffer));
     if (inSamples == nullptr) {
-        slog(env, "error", "nativePrime GetDirectBufferAddress null pointer=" + ptrToHex(handlePtr));
+        slog(env, "error", "nativeSeek GetDirectBufferAddress null pointer=" + ptrToHex(handlePtr));
         return -1;
     }
 
-    // FIX Temuan #N4 (defensive): same capacity guard as nativeProcess.
-    {
-        const jlong inCapBytes = env->GetDirectBufferCapacity(inputBuffer);
-        const jlong inNeededBytes =
-            static_cast<jlong>(inputFrames) * h->channels * static_cast<jlong>(sizeof(float));
-        if (inCapBytes < 0 || inCapBytes < inNeededBytes) {
-            slog(env, "error", "nativePrime direct-buffer capacity too small pointer=" + ptrToHex(handlePtr) +
-                                   " inCap=" + std::to_string(inCapBytes) +
-                                   " inNeed=" + std::to_string(inNeededBytes));
-            return -1;
-        }
+    const jlong inCapBytes = env->GetDirectBufferCapacity(inputBuffer);
+    const jlong inNeededBytes =
+        static_cast<jlong>(inputFrames) * h->channels * static_cast<jlong>(sizeof(float));
+    if (inCapBytes < 0 || inCapBytes < inNeededBytes) {
+        slog(env, "error", "nativeSeek direct-buffer capacity too small pointer=" + ptrToHex(handlePtr) +
+             " inCap=" + std::to_string(inCapBytes) +
+             " inNeed=" + std::to_string(inNeededBytes));
+        return -1;
     }
-
-    slog(env, "info", "nativePrime pointer=" + ptrToHex(handlePtr) +
-         " primeFrames=" + std::to_string(inputFrames));
 
     try {
-        // Size both input AND output scratch for inputFrames — the output loop
-        // must be able to write inputFrames samples per channel into h->outFlat.
         h->ensureCapacity(inputFrames, inputFrames);
-
-        // Deinterleave input into planar scratch (same layout as nativeProcess).
-        for (int i = 0; i < inputFrames; ++i)
-            for (int c = 0; c < h->channels; ++c)
+        for (int i = 0; i < inputFrames; ++i) {
+            for (int c = 0; c < h->channels; ++c) {
                 h->inPtrs[c][i] = inSamples[i * h->channels + c];
-
-        // Run the full analysis+synthesis loop.  Output lands in h->outFlat and
-        // is discarded — we only want the side-effect of warming the engine's
-        // spectral-synthesis history with real bypass signal.
-        h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), inputFrames);
+            }
+        }
+        h->stretch.seek(h->inPtrs.data(), inputFrames, static_cast<double>(playbackRate));
     } catch (...) {
-        slog(env, "error", "nativePrime exception pointer=" + ptrToHex(handlePtr));
+        slog(env, "error", "nativeSeek exception during seek() pointer=" + ptrToHex(handlePtr));
         return -1;
     }
 
-    slog(env, "info", "nativePrime completed pointer=" + ptrToHex(handlePtr) +
-         " primeFrames=" + std::to_string(inputFrames) + " result=0");
+    slog(env, "info", "nativeSeek completed pointer=" + ptrToHex(handlePtr) +
+         " preRollFrames=" + std::to_string(inputFrames) +
+         " playbackRate=" + std::to_string(playbackRate));
     return 0;
 }
 
