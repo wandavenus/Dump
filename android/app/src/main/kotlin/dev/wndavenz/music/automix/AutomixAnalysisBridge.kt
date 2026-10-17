@@ -1,7 +1,6 @@
 package dev.wndavenz.music.automix
 
 import dev.wndavenz.music.replaygain.PcmDecoder
-import kotlin.math.roundToInt
 
 /**
  * Thin glue between MainActivity's Automix channel and the DSP analysis.
@@ -66,10 +65,8 @@ object AutomixAnalysis {
         var sampleRate = 0
         var channels = 0
         var analysisRate = 0
-        var decimationFactor = 1
+        var downsampler: AutomixPcmDownsampler? = null
         var samples: FloatSampleBuffer? = null
-        var decimationSum = 0f
-        var decimationCount = 0
 
         val decoded = PcmDecoder.decode(
             path = path,
@@ -78,40 +75,30 @@ object AutomixAnalysis {
                 sampleRate = fmt.sampleRate
                 channels = fmt.channels
                 if (fmt.durationUs > 0) fileSeconds = fmt.durationUs / 1_000_000.0
-                if (sampleRate > 0) {
-                    // Downsample during decoding to bound memory and keep the
-                    // native STFT input near its working rate.
-                    decimationFactor = maxOf(
-                        1,
-                        (sampleRate / TARGET_RATE_HZ.toDouble()).roundToInt(),
+                if (sampleRate > 0 && channels > 0) {
+                    // Filter at the source rate before decimation. This avoids
+                    // folding ultrasonic/high-frequency content into the native
+                    // STFT band and protects anti-phase stereo from cancelling
+                    // into a false-silence analysis.
+                    downsampler = AutomixPcmDownsampler(
+                        sourceRateHz = sampleRate,
+                        channels = channels,
+                        targetRateHz = TARGET_RATE_HZ,
                     )
-                    analysisRate = sampleRate / decimationFactor
+                    analysisRate = downsampler!!.outputRateHz
                     samples = FloatSampleBuffer(analysisRate * windowSeconds)
                 }
             },
             feed = { buf, frameCount ->
-                val ch = channels
                 val output = samples ?: return@decode false
-                if (ch <= 0 || analysisRate <= 0) return@decode false
+                val resampler = downsampler ?: return@decode false
+                if (analysisRate <= 0) return@decode false
                 val cap = analysisRate * windowSeconds
 
                 for (f in 0 until frameCount) {
                     if (output.size >= cap) return@decode false
-                    val mono = if (ch == 1) {
-                        buf[f] / 32768f
-                    } else {
-                        val left = buf[f * ch] / 32768f
-                        val right = buf[f * ch + 1] / 32768f
-                        (left + right) * 0.5f
-                    }
-
-                    decimationSum += mono
-                    decimationCount++
-                    if (decimationCount == decimationFactor) {
-                        output.append(decimationSum / decimationFactor)
-                        decimationSum = 0f
-                        decimationCount = 0
-                    }
+                    val mono = resampler.processFrame(buf, f) ?: continue
+                    output.append(mono)
                     if (output.size >= cap) return@decode false
                 }
                 true
