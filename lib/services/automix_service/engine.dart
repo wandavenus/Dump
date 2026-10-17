@@ -397,7 +397,13 @@ AutomixTrackFeatures automixMergeSegments({
           : const <AutomixSegmentFeatures>[]) {
     if (s.bpm == null || s.bpmConfidence < 0.20) continue;
     tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
-    tailBpmConfidence = s.tailBpmConfidence > 0 ? s.tailBpmConfidence : s.bpmConfidence;
+    // Tail confidence is independent metadata; never promote head/window BPM confidence.
+    final tailConfidence = s.tailBpmConfidence;
+    tailBpmConfidence = tailConfidence.isFinite &&
+            tailConfidence >= 0 &&
+            tailConfidence <= 1
+        ? tailConfidence
+        : 0.0;
     if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
       tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
     }
