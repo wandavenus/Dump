@@ -1330,20 +1330,31 @@ class AutomixService {
       );
     }
 
-    final features = await featuresForAll(playlist);
+    // Rotate from the selected song, then run the same bounded window used by
+    // automatic replanning. Tracks beyond the window retain their cyclic source
+    // order and are never decoded or scored during this initial start.
+    final rotatedPlaylist = automixRotateQueueFrom(playlist, startIndex);
+    final planningWindow = automixPlanWindow<LocalSong>(
+      rotatedPlaylist,
+      0,
+      _planHorizonCap,
+    );
+    final features = await featuresForAll(planningWindow);
     if (!_isAutoMixGenerationCurrent(generation)) return -1;
     final planMetrics = AutomixEngine.planSet(
       tracks: features,
       settings: settings.value,
-      startIndex: startIndex,
+      startIndex: 0,
     );
     final plan = planMetrics.order;
-    if (plan.isEmpty) return -1;
-
-    final sequenced = <LocalSong>[];
-    for (final idx in plan) {
-      sequenced.add(playlist[idx]);
+    if (plan.isEmpty || plan.length != planningWindow.length || plan.first != 0) {
+      return -1;
     }
+
+    final sequenced = <LocalSong>[
+      for (final idx in plan) planningWindow[idx],
+      ...rotatedPlaylist.skip(planningWindow.length),
+    ];
 
     LogService.log(
       'Automix',
