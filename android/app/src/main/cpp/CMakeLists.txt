@@ -118,8 +118,8 @@ target_compile_options(replaygain_native PRIVATE -Wall -Wextra -fvisibility=hidd
 # Signalsmith Stretch itself depends on header-only "Signalsmith Linear"
 # (also MIT) for its FFT/STFT plumbing. Both are pinned to the exact tags
 # their own upstream CMakeLists.txt were pinned to at integration time —
-# do not casually bump without re-checking the API surface below still
-# matches (process()/flush()/setTransposeSemitones() signatures).
+# re-check the API surface (process()/flush()/setTransposeSemitones()) before
+# changing either pin again.
 #
 # NOTE: same caveat as replaygain_native above — this sandbox has no
 # Android SDK/NDK, so this section has never actually been built here.
@@ -138,7 +138,7 @@ target_compile_options(replaygain_native PRIVATE -Wall -Wextra -fvisibility=hidd
 FetchContent_Declare(
     signalsmith_linear
     GIT_REPOSITORY https://github.com/Signalsmith-Audio/linear.git
-    GIT_TAG        0.3.1
+    GIT_TAG        0.1.2
 )
 FetchContent_GetProperties(signalsmith_linear)
 if(NOT signalsmith_linear_POPULATED)
@@ -148,7 +148,7 @@ endif()
 FetchContent_Declare(
     signalsmith_stretch
     GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
-    GIT_TAG        1.1.0
+    GIT_TAG        1.2.0
 )
 FetchContent_GetProperties(signalsmith_stretch)
 if(NOT signalsmith_stretch_POPULATED)
