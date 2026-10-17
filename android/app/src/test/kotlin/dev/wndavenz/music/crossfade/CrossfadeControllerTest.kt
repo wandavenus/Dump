@@ -2,6 +2,7 @@ package dev.wndavenz.music.crossfade
 
 import android.os.Handler
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -137,6 +138,10 @@ class CrossfadeControllerTest {
         whenever(mockStandbyPlayer.playbackState).thenReturn(Player.STATE_READY)
         whenever(mockActivePlayer.isPlaying).thenReturn(true)
         whenever(mockStandbyPlayer.isPlaying).thenReturn(true)
+        // Real fade ticks read the applied playback speed from each player.
+        // Mockito returns null for this object property unless it is explicitly stubbed.
+        whenever(mockActivePlayer.playbackParameters).thenReturn(PlaybackParameters.DEFAULT)
+        whenever(mockStandbyPlayer.playbackParameters).thenReturn(PlaybackParameters.DEFAULT)
 
         // PreloadManager: preloaded at index 1
         whenever(mockPreloadManager.preloadedQueueIndex).thenReturn(1)
@@ -256,7 +261,9 @@ class CrossfadeControllerTest {
         ctrl.cancel(resetVolume = true)
 
         assertEquals(1, rebuilds)
-        verify(mockActivePlayer).volume = 0.9f
+        // The standby deck was promoted before cancellation; it is now the active
+        // player and therefore the one whose volume must be restored.
+        verify(mockStandbyPlayer).volume = 0.9f
     }
 
     @Test fun `C09 cancel mid-fade clears crossfade in progress and resets owner`() {
