@@ -21,6 +21,16 @@ part of '../automix_service.dart';
 // paths as the manual crossfade picker.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Exponential backoff for tracks whose DSP analysis failed or remained
+/// incomplete. Retries continue at a capped interval instead of permanently
+/// suppressing a file after one transient decoder/channel failure.
+Duration automixAnalysisRetryDelay(int failedAttempts) {
+  if (failedAttempts <= 0) return Duration.zero;
+  final exponent = failedAttempts >= 6 ? 5 : failedAttempts - 1;
+  final seconds = 30 * (1 << exponent);
+  return Duration(seconds: seconds > 900 ? 900 : seconds);
+}
+
 class _AutomixAnalysisBusy implements Exception {
   const _AutomixAnalysisBusy();
 }
@@ -157,6 +167,8 @@ class AutomixService {
   static final Set<int> _dspUnavailable = <int>{};
   static final Map<int, String> _dspReadyIdentity = <int, String>{};
   static final Map<int, String> _dspUnavailableIdentity = <int, String>{};
+  static final Map<int, int> _dspFailureAttempts = <int, int>{};
+  static final Map<int, DateTime> _dspRetryAt = <int, DateTime>{};
 
   /// Automatically prepares upcoming tracks on a newly loaded queue and arms the
   /// idle library sweep.
@@ -760,7 +772,6 @@ class AutomixService {
     if (state.currentIndex < 0 || state.currentIndex >= queue.length) return;
     // Same priority order as the pass itself: upcoming tracks first, the
     // playing file last (mirrors _autoAnalyzeUpcomingTracks).
-    bool missing(LocalSong song) => _needsDspAnalysis(song);
     final pendingWindow = <LocalSong>[
       ...automixUpcomingTracks<LocalSong>(
         queue,
@@ -772,18 +783,40 @@ class AutomixService {
       queue[state.currentIndex],
     ];
     var pending = false;
+    Duration? nextDelay;
+    final now = DateTime.now();
     final seenPendingIds = <int>{};
     for (final song in pendingWindow) {
-      if (seenPendingIds.add(song.id) && missing(song)) {
+      if (!seenPendingIds.add(song.id)) continue;
+      if (_needsDspAnalysis(song)) {
         pending = true;
-        break;
+        // Keep filling the cache promptly when there is work not in backoff.
+        if (nextDelay == null ||
+            _analysisResumeDelay.compareTo(nextDelay) < 0) {
+          nextDelay = _analysisResumeDelay;
+        }
+        continue;
+      }
+      // Failed files are retried at their deadline. This prevents both a
+      // permanent blacklist and a tight loop on files that cannot be decoded.
+      final retryAt = _dspRetryAt[song.id];
+      if (retryAt != null && retryAt.isAfter(now)) {
+        pending = true;
+        final remaining = retryAt.difference(now);
+        if (nextDelay == null || remaining.compareTo(nextDelay) < 0) {
+          nextDelay = remaining;
+        }
       }
     }
     if (!pending) return;
-    _analyzeTimer = Timer(_analysisResumeDelay, () {
-      _analyzeTimer = null;
-      if (automixEnabled.value) _onPlaybackStateForAutoMix();
-    });
+    final delay = nextDelay ?? _analysisResumeDelay;
+    _analyzeTimer = Timer(
+      delay <= Duration.zero ? const Duration(milliseconds: 1) : delay,
+      () {
+        _analyzeTimer = null;
+        if (automixEnabled.value) _onPlaybackStateForAutoMix();
+      },
+    );
   }
 
   static void _stopAutoAnalyzePipeline() {
@@ -842,6 +875,8 @@ class AutomixService {
       _replanRetryCount = 0;
       _dspUnavailable.clear();
       _dspUnavailableIdentity.clear();
+      _dspFailureAttempts.clear();
+      _dspRetryAt.clear();
       _onPlaybackStateForAutoMix();
       _scheduleLibrarySweep(const Duration(seconds: 30));
     } else {
@@ -905,6 +940,8 @@ class AutomixService {
     if (_dspUnavailable.contains(id) && _dspUnavailableIdentity[id] != identity) {
       _dspUnavailable.remove(id);
       _dspUnavailableIdentity.remove(id);
+      _dspFailureAttempts.remove(id);
+      _dspRetryAt.remove(id);
     }
     if (_featuresIdentity.containsKey(id) && _featuresIdentity[id] != identity) {
       _featuresCache.remove(id);
@@ -925,7 +962,14 @@ class AutomixService {
         _dspReadyIdentity[song.id] == identity;
     final unavailable = _dspUnavailable.contains(song.id) &&
         _dspUnavailableIdentity[song.id] == identity;
-    return !ready && !unavailable;
+    if (ready) return false;
+    if (unavailable) {
+      // A failed file is temporarily deferred, not blacklisted for the rest
+      // of the process. The resume timer wakes when this deadline is reached.
+      final retryAt = _dspRetryAt[song.id];
+      return retryAt == null || !DateTime.now().isBefore(retryAt);
+    }
+    return true;
   }
 
   static void _markDspReady(LocalSong song, String identity) {
@@ -937,13 +981,22 @@ class AutomixService {
     _dspReadyIdentity[song.id] = identity;
     _dspUnavailable.remove(song.id);
     _dspUnavailableIdentity.remove(song.id);
+    _dspFailureAttempts.remove(song.id);
+    _dspRetryAt.remove(song.id);
   }
 
   static void _markDspUnavailable(LocalSong song, String identity) {
     _dspReady.remove(song.id);
     _dspReadyIdentity.remove(song.id);
+    final sameSource = _dspUnavailable.contains(song.id) &&
+        _dspUnavailableIdentity[song.id] == identity;
+    final attempts = sameSource ? (_dspFailureAttempts[song.id] ?? 0) + 1 : 1;
     _dspUnavailable.add(song.id);
     _dspUnavailableIdentity[song.id] = identity;
+    _dspFailureAttempts[song.id] = attempts;
+    _dspRetryAt[song.id] = DateTime.now().add(
+      automixAnalysisRetryDelay(attempts),
+    );
   }
 
   /// Invalidates the previous DSP cache generation once per process and resets
@@ -1896,6 +1949,8 @@ class AutomixService {
     _dspUnavailable.clear();
     _dspReadyIdentity.clear();
     _dspUnavailableIdentity.clear();
+    _dspFailureAttempts.clear();
+    _dspRetryAt.clear();
     _analyzedCount = null;
     _savedCrossfade = null;
     automixActive.value = false;
