@@ -830,7 +830,8 @@ AutomixTransitionCue automixTransitionCue({
       durationMs.isFinite &&
       durationMs > 0 &&
       hasConfidentIncomingDrop &&
-      hasConfidentBeatPair) {
+      hasConfidentBeatPair &&
+      cueLeadSeconds == null) {
     final breakdown = outgoing.tailBreakdownCueMs;
     final breakdownLeadSeconds =
         outgoing.tailBreakdownConfidence >= 0.45 &&
