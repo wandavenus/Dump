@@ -899,6 +899,33 @@ void main() {
     });
   });
 
+    test('merges adjacent chord windows and resolves overlapping estimates', () {
+      final merged = automixMergeChordProgressions([
+        AutomixSegmentFeatures(
+          startSeconds: 0,
+          seconds: 120,
+          chordProgression: const <AutomixChordEvent>[
+            AutomixChordEvent(startMs: 0, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.70),
+            AutomixChordEvent(startMs: 1000, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.80),
+            AutomixChordEvent(startMs: 2000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.88),
+          ],
+        ),
+        AutomixSegmentFeatures(
+          startSeconds: 120,
+          seconds: 120,
+          chordProgression: const <AutomixChordEvent>[
+            AutomixChordEvent(startMs: 1000, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.95),
+            AutomixChordEvent(startMs: 2000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.72),
+            AutomixChordEvent(startMs: 3000, rootPitchClass: 9, root: 'A', quality: 'min', confidence: 0.91),
+          ],
+        ),
+      ]);
+
+      expect(merged.map((chord) => chord.label), ['Cmaj', 'Gmaj', 'Amin']);
+      expect(merged.first.startMs, 0);
+      expect(merged.first.confidence, 0.95);
+    });
+
   group('chord progression compatibility', () {
     test('recognizes compatible fifths and penalizes confident semitone clashes', () {
       AutomixTrackFeatures track(
@@ -954,6 +981,7 @@ void main() {
       double tailStructureConfidence = 0,
       double vocalLikelihood = 0,
       double vocalConfidence = 0,
+      List<AutomixChordEvent> chords = const <AutomixChordEvent>[],
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: tailBpm,
@@ -976,7 +1004,32 @@ void main() {
       tailStructureConfidence: tailStructureConfidence,
       vocalLikelihood: vocalLikelihood,
       vocalConfidence: vocalConfidence,
+      chordProgression: chords,
     );
+
+    test('shortens the fade for confident outgoing-to-incoming chord clashes', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          durationSeconds: 180,
+          chords: const <AutomixChordEvent>[
+            AutomixChordEvent(startMs: 170000, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.95),
+          ],
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          chords: const <AutomixChordEvent>[
+            AutomixChordEvent(startMs: 0, rootPitchClass: 1, root: 'C#', quality: 'maj', confidence: 0.95),
+          ],
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.strategy, AutomixTransitionStrategy.shortHandover);
+      expect(cue.fadeSeconds, lessThanOrEqualTo(4.0));
+    });
 
     test('dense outro hands over sooner and the louder deck is trimmed', () {
       final cue = automixTransitionCue(
