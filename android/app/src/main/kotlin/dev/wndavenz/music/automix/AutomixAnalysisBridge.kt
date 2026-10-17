@@ -120,6 +120,9 @@ object AutomixAnalysis {
             collected.toFloatArray(),
             analysisRate,
         ) ?: return null
+        // Preserve the original analyzer ABI contract before doing extra work,
+        // including when an older or mismatched native library is loaded.
+        if (analysis.size < 21) return null
 
         // The chord pass runs on the same bounded background analysis worker;
         // it is deliberately separate from the realtime playback callback.
@@ -133,10 +136,14 @@ object AutomixAnalysis {
         val chordProgression = if (chordValues != null && chordValues.size % 4 == 0) {
             (0 until chordValues.size step 4).mapNotNull { index ->
                 val startMs = chordValues[index]
-                val root = chordValues[index + 1].toInt()
-                val quality = chordValues[index + 2].toInt()
+                val rootValue = chordValues[index + 1]
+                val qualityValue = chordValues[index + 2]
                 val confidence = chordValues[index + 3]
-                if (!startMs.isFinite() || startMs < 0.0 || root !in 0..11 ||
+                val root = rootValue.toInt()
+                val quality = qualityValue.toInt()
+                if (!startMs.isFinite() || startMs < 0.0 ||
+                    !rootValue.isFinite() || rootValue != root.toDouble() || root !in 0..11 ||
+                    !qualityValue.isFinite() || qualityValue != quality.toDouble() ||
                     quality !in chordQualities.indices || !confidence.isFinite() ||
                     confidence !in 0.0..1.0 || confidence < 0.08
                 ) null else mapOf(
@@ -154,7 +161,6 @@ object AutomixAnalysis {
 
         // Native result contract is kept in sync with
         // NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in automix_native.h.
-        if (analysis.size < 21) return null
         fun optional(index: Int): Double? =
             analysis.getOrNull(index)?.takeIf { it.isFinite() }
         val bpm = optional(0)
