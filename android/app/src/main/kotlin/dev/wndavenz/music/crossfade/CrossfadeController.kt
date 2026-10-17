@@ -13,7 +13,6 @@ import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.pow
 
 /**
  * TRUE CROSSFADE ENGINE
@@ -833,24 +832,15 @@ class CrossfadeController(
                     // the native target can settle from any previous track state.
                     newPlayer.volume = if (step == 0) 0f else targetVol
                 } else {
-                    val shaped = if (fadeGamma == 1f) {
-                        t
-                    } else {
-                        t.toDouble().pow(fadeGamma.toDouble()).toFloat()
-                    }
-                    val release = if (t <= 0.75f) 0f else (t - 0.75f) / 0.25f
-                    val incomingTrimNow = incomingTrim + (1f - incomingTrim) * release
-                    val theta = (shaped * PI / 2.0).toFloat()
-                    val outgoingGain = outgoingTrim * cos(theta)
-                    val incomingGain = incomingTrimNow * sin(theta)
-                    // Correlated decks can exceed unity under an equal-power
-                    // curve. Bound the combined gain for the Kotlin fallback too.
-                    val gainSum = outgoingGain + incomingGain
-                    val headroomScale = if (gainSum > 1f) 1f / gainSum else 1f
-                    oldPlayer.volume =
-                        (targetVol * outgoingGain * headroomScale).coerceIn(0f, targetVol)
-                    newPlayer.volume =
-                        (targetVol * incomingGain * headroomScale).coerceIn(0f, targetVol)
+                    val gains = AutomixGainEnvelope.gains(
+                        progress = t,
+                        targetVolume = targetVol,
+                        curveGamma = fadeGamma,
+                        outgoingTrim = outgoingTrim,
+                        incomingTrim = incomingTrim,
+                    )
+                    oldPlayer.volume = gains.outgoing
+                    newPlayer.volume = gains.incoming
                 }
 
                 // ── Tail filter-out ────────────────────────────────────────────

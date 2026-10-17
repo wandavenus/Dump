@@ -4,13 +4,13 @@ This document records the production path verified during the follow-up audit fo
 
 ## 1. Analysis path and ABI
 
-1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows and calls `AutomixNative.nativeAnalyze`.
-2. JNI (`automix_jni.cpp`) forwards the 20-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`.
+1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows through `AutomixPcmDownsampler`: a 2-pole Butterworth biquad low-pass runs at the source rate with cutoff $f_c = 0.45 \\times f_{output}$ before decimation. Stereo normally uses an L/R average, but falls back to the stronger channel when the mid signal is below 25% of the stronger channel to avoid near-total phase cancellation. It then calls `AutomixNative.nativeAnalyze`.
+2. JNI (`automix_jni.cpp`) forwards the 21-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`, including explicit `tailBpmConfidence` (index 20).
 3. Kotlin maps the output slots to MethodChannel fields. The Dart parser `automixSegmentFeaturesFromAnalysisMap` validates types, finiteness, confidence ranges, key codes and cue offsets rather than silently dropping new fields.
-4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure and breakdown metadata are kept distinct from head metadata.
-5. `AutomixService` persists these features using cache schema v9. A schema-v8 entry is deliberately a cache miss so metadata from the old contract cannot silently replace newly required fields.
+4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure, breakdown, and `tailBpmConfidence` metadata are kept distinct from head metadata.
+5. `AutomixService` persists these features using cache schema v11. Older entries are deliberately cache misses so legacy metadata cannot silently replace newly required fields.
 
-The ABI tests enforce the exact 20-value analyzer output, invalid/undersized input behavior, valid confidence ranges, the structure-region enum range, and strict silence/noise expectations. Vocal likelihood is a **spectral proxy**, not voice isolation: it is confidence-gated and tonal/broadband-noise edge cases are tested.
+The ABI tests enforce the exact 21-value analyzer output, invalid/undersized input behavior, valid confidence ranges, the structure-region enum range, and strict silence/noise expectations. Vocal likelihood is a **spectral proxy**, not voice isolation: it is confidence-gated and tonal/broadband-noise edge cases are tested.
 
 ## 2. Queue planning
 
@@ -40,17 +40,23 @@ After planning, `AutomixService` computes a cue per incoming track in `automixTr
 - `longBlend`: extend a sparse-tail/intro blend;
 - `quickHandover`: shorten a dense-tail transition.
 
-`_buildNativeTargets` sends those values through the `musicplayer/automix` MethodChannel. `Media3PlaybackService.applyAutomixTransitionNow` stores them by incoming song ID; `CrossfadeController` retrieves the target for the standby deck and applies the selected fade duration/curve during the actual two-player transition. The strategy is therefore consumed by production playback, not just declared in a native header.
+`_buildNativeTargets` sends those values through the `musicplayer/automix` MethodChannel. `Media3PlaybackService.applyAutomixTransitionNow` stores them by incoming song ID; `CrossfadeController` retrieves the target for the standby deck and applies the selected fade duration/curve during the actual two-player transition using an injectable `MonotonicClock` and real elapsed time calculation. Transition completion logic is protected by an `AtomicBoolean` single-execution guard to prevent race conditions during cancellations or delays.
 
-Phrase alignment uses the offline beat/downbeat grids with current Media3 player positions. The unused standalone native live beat-tracker helper was removed because it was not integrated into the playback path.
+Phrase alignment uses the offline beat/downbeat grids with current Media3 player positions.
 
 ## 4. Feature-driven EQ and overlap headroom
 
 `automixTransitionCue` derives conservative attenuation-only targets from measured RMS-relative energy, onset rate, spectral centroid, structure metadata, and confidence-gated vocal overlap. `CrossfadeController` applies those targets during the overlap; `AutomixToneManager` keeps state per physical player slot; `AutomixToneAudioProcessor` passes controls to the native per-stream tone processor. The native processor smooths atomic target gains and splits bass/mid/high bands without making the audio callback acquire Kotlin locks.
 
-Crossfade gain calculation enforces an outgoing-plus-incoming gain budget no greater than unity; for source samples already normalized to [-1, 1] with neutral EQ this bounds the correlated-stream mix at the gain stage. The scalar C path and ARM64 NEON path also clamp each stream's processed PCM sample to [-1, 1]. Native tests cover the overlap-gain budget and per-stream over-range sample clamp, and native C tests run with AddressSanitizer/UndefinedBehaviorSanitizer.
+Crossfade gain calculation in `CrossfadeController` delegates to the production `AutomixGainEnvelope` helper. It applies a smooth ramp for `outgoingTrim` (starting at 1.0 at $t=0$ to prevent sudden volume drops), releases `incomingTrim` smoothly to 1.0 at $t=1$, and bounds the **sum of the two deck coefficients** to the current effective target volume on every callback tick. This is an L1 coefficient budget, not an end-to-end post-mix true-peak guarantee. JVM tests call this same production helper across progress, trim, curve and target-volume combinations; they are not a substitute for device-level PCM capture or listening tests. The scalar C path and ARM64 NEON path also clamp each stream's processed PCM sample to $[-1, 1]$. Native tests cover per-stream over-range sample clamping.
 
-**Safety limit:** the current app does not have a common post-mix limiter after the two independent Media3 streams are mixed by Android. Therefore this is **not a guarantee that the final system mix stays below 0 dBFS** when EQ changes band phase, upstream DSP produces over-range samples, or inter-sample peaks occur. No true-peak/oversampling-limiter claim is made; the proven guarantees are the fader coefficient budget and each native stream's sample clamp.
+**Safety limit and dual-stream architecture:**
+Two independent ExoPlayer instances process and output audio streams through separate AudioTracks, which Android AudioFlinger mixes downstream.
+- **Headroom scaling:** Per-stream equal-power gain scaling ($G_{out}^2 + G_{in}^2 \le 1.0$) prevents overload for uncorrelated sources at the fader stage.
+- **Per-stream sample clamp:** The native DSP pipeline clamps each stream's PCM samples to $[-1.0, 1.0]$.
+- **Post-mix limitations:** Per-stream limiting does not guarantee that the downstream mixed sum of two correlated signals or signals with constructive phase alignment remains below $0\text{ dBFS}$, nor does sample clamping prevent inter-sample peaks (ISPs) during digital-to-analog conversion.
+- **Shared software mix bus assessment:** Genuinely guaranteeing post-mix true-peak limits would require a single shared software mix bus with an oversampled true-peak limiter receiving PCM from both decoders prior to output.
+No post-mix true-peak protection claim is made for the current dual-AudioTrack implementation; the verified guarantees are per-stream sample clamping and fader coefficient headroom bounds.
 
 ## 5. Reproducible SDK setup and validation
 

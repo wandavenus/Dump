@@ -10,7 +10,7 @@ set -e
 
 # Keep the setup lock on the workspace volume. The temporary volume can hit
 # Replit's per-process quota even when the workspace still has free space.
-SETUP_LOCK="/home/runner/workspace/.flutter-setup.lock"
+SETUP_LOCK="$HOME/workspace/.flutter-setup.lock"
 mkdir -p "$(dirname "$SETUP_LOCK")"
 exec 9>"$SETUP_LOCK"
 flock 9
@@ -18,9 +18,9 @@ flock 9
 # ──────────────────────────────────────────────────
 # 1. Flutter — install ke /home/runner/flutter/ (source)
 # ──────────────────────────────────────────────────
-FLUTTER_SRC="/home/runner/flutter"
+FLUTTER_SRC="$HOME/flutter"
 FLUTTER_SRC_BIN="$FLUTTER_SRC/bin/flutter"
-FLUTTER_WS="/home/runner/workspace/flutter-ws/flutter"
+FLUTTER_WS="$HOME/workspace/flutter-ws/flutter"
 FLUTTER_WS_BIN="$FLUTTER_WS/bin/flutter"
 FLUTTER_RELEASES_URL="https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json"
 
@@ -96,9 +96,9 @@ elif [ "$FLUTTER_WS_READY" = true ]; then
   FLUTTER_SOURCE_READY=false
 else
   echo "▶ Mengunduh Flutter stable $FLUTTER_VERSION..."
-  cd /home/runner
-  FLUTTER_ARCHIVE_FILE="/home/runner/flutter_setup.tar.xz"
-  FLUTTER_TMP="/home/runner/flutter.extract.$"
+  cd "$HOME"
+  FLUTTER_ARCHIVE_FILE="$HOME/flutter_setup.tar.xz"
+  FLUTTER_TMP="$HOME/flutter.extract.$"
   rm -rf "$FLUTTER_TMP" "$FLUTTER_ARCHIVE_FILE"
   mkdir -p "$FLUTTER_TMP"
   curl -# -fL "$FLUTTER_URL" -o "$FLUTTER_ARCHIVE_FILE"
@@ -133,8 +133,8 @@ if [ "$FLUTTER_WS_READY" = true ]; then
 elif [ "$FLUTTER_SOURCE_READY" = true ]; then
   echo "▶ Membuat salinan Flutter atomik di workspace (setup 1x, ~1.5GB)..."
   rm -rf "$FLUTTER_WS"
-  mkdir -p "/home/runner/workspace/flutter-ws"
-  FLUTTER_WS_TMP="/home/runner/workspace/flutter-ws/flutter.tmp.$$"
+  mkdir -p "$HOME/workspace/flutter-ws"
+  FLUTTER_WS_TMP="$HOME/workspace/flutter-ws/flutter.tmp.$$"
   rm -rf "$FLUTTER_WS_TMP"
   cp -a "$FLUTTER_SRC" "$FLUTTER_WS_TMP"
   test -x "$FLUTTER_WS_TMP/bin/flutter"

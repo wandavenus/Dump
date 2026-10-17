@@ -33,6 +33,7 @@ class AutomixSegmentFeatures {
     this.structureConfidence = 0,
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
+    this.tailBpmConfidence = 0,
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -70,6 +71,8 @@ class AutomixSegmentFeatures {
 
   final double vocalLikelihood;
   final double vocalConfidence;
+
+  final double tailBpmConfidence;
 
   final int? camelotNumber;
   final bool? camelotMinor;
@@ -167,6 +170,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     structureConfidence: unitValue('structureConfidence'),
     vocalLikelihood: unitValue('vocalLikelihood'),
     vocalConfidence: unitValue('vocalConfidence'),
+    tailBpmConfidence: unitValue('tailBpmConfidence'),
     camelotNumber: hasConfidentKey ? camelotNumber : null,
     camelotMinor: hasConfidentKey ? parsedCamelotMinor : null,
     keyConfidence: hasConfidentKey ? rawKeyConfidence : 0,
@@ -194,6 +198,7 @@ class AutomixTrackFeatures {
     this.centroidHz,
     this.onsetRate,
     this.tailBpm,
+    this.tailBpmConfidence = 0,
     this.tailBeatOffsetMs,
     this.downbeatOffsetMs,
     this.tailDownbeatOffsetMs,
@@ -208,6 +213,8 @@ class AutomixTrackFeatures {
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.durationSeconds = 0,
+    this.introRmsDb,
+    this.outroRmsDb,
     this.introEnergy,
     this.outroEnergy,
     this.analyzedFraction = 0,
@@ -283,11 +290,14 @@ class AutomixTrackFeatures {
   /// fade happens there, so this — not the intro grid — is what the transition
   /// is aligned against.
   final double? tailBpm;
+  final double tailBpmConfidence;
   final double? tailBeatOffsetMs;
 
   /// 0..1 energy of the first/last analyzed window relative to the loudest
   /// window of the same track — the coarse "structure" signal used to pick the
   /// fade length and curve.
+  final double? introRmsDb;
+  final double? outroRmsDb;
   final double? introEnergy;
   final double? outroEnergy;
 
@@ -330,7 +340,10 @@ class AutomixTrackFeatures {
     if (centroidHz != null) 'cen': centroidHz,
     if (onsetRate != null) 'on': onsetRate,
     if (tailBpm != null) 'tbpm': tailBpm,
+    if (tailBpmConfidence > 0) 'tbc': tailBpmConfidence,
     if (tailBeatOffsetMs != null) 'tbo': tailBeatOffsetMs,
+    if (introRmsDb != null) 'irms': introRmsDb,
+    if (outroRmsDb != null) 'orms': outroRmsDb,
     if (introEnergy != null) 'ie': introEnergy,
     if (outroEnergy != null) 'oe': outroEnergy,
     if (analyzedFraction > 0) 'af': analyzedFraction,
@@ -367,7 +380,10 @@ class AutomixTrackFeatures {
       centroidHz: (map['cen'] as num?)?.toDouble(),
       onsetRate: (map['on'] as num?)?.toDouble(),
       tailBpm: (map['tbpm'] as num?)?.toDouble(),
+      tailBpmConfidence: (map['tbc'] as num?)?.toDouble() ?? 0,
       tailBeatOffsetMs: (map['tbo'] as num?)?.toDouble(),
+      introRmsDb: (map['irms'] as num?)?.toDouble(),
+      outroRmsDb: (map['orms'] as num?)?.toDouble(),
       introEnergy: (map['ie'] as num?)?.toDouble(),
       outroEnergy: (map['oe'] as num?)?.toDouble(),
       analyzedFraction: (map['af'] as num?)?.toDouble() ?? 0,
