@@ -26,8 +26,11 @@ import kotlin.math.sin
  *     Its AudioTrack and Android AudioFlinger mixing slot are fully active so there is
  *     zero startup latency when the actual fade begins.
  *
- *   Phase 2 — EQUAL-POWER FADE  (crossfadeDurationSec before the end of the track)
- *     Both players output audio simultaneously.  Volumes follow:
+ *   Phase 2 — EQUAL-POWER FADE  (at the planned transition point)
+ *     Standard fades target the outgoing track end; AutoMix may start 30–65 s
+ *     early when an incoming drop and both beat grids are confidently detected.
+ *     The overlap itself remains the short, separately planned fade duration.
+ *     Both players output audio simultaneously. Volumes follow:
  *       old → cos(t × π/2) × targetVol        (perceptually constant power)
  *       new → sin(t × π/2) × targetVol
  *     At t=0:   old=target, new=0
@@ -249,9 +252,10 @@ class CrossfadeController(
         } else {
             idealStart
         }
-        // Let the actual fade reach the outgoing track boundary. When a beat
-        // boundary lands just before idealStart, this may extend the fade by
-        // less than one beat rather than truncating it or running past EOS.
+        // For the normal near-end path, let the fade reach the outgoing
+        // boundary; beat alignment may extend it by less than one beat. Early
+        // handovers must keep crossMs as the overlap, not fade for all remaining
+        // media time after the early start.
         val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
 
         // ── Phase 1: pre-warm ─────────────────────────────────────────────────
@@ -325,8 +329,11 @@ class CrossfadeController(
                 crossMs
             }
             val actualFadeMs = minOf(requestedFadeMs, remaining).coerceAtLeast(MIN_FADE_MS)
-            log("Crossfade trigger: remaining=${remaining}ms fade=${actualFadeMs}ms " +
-                "beatAligned=${beatMs != null && beatOffset != null}")
+            log(
+                "Crossfade trigger: remaining=${remaining}ms fade=${actualFadeMs}ms " +
+                    "start=${beatAlignedStart}ms early=${isEarlyTransition} " +
+                    "beatAligned=${beatMs != null && beatOffset != null}"
+            )
             beginCrossfade(actualFadeMs)
         }
     }
