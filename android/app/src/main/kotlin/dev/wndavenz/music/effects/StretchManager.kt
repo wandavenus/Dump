@@ -89,6 +89,15 @@ class StretchManager {
         NativeLogger.emit("info", "Stretch", "[Stretch] AutoMix deck slot=$streamSlot multiplier=$normalized")
     }
 
+    /**
+     * Returns the speed currently applied by this deck's processing chain.
+     * This is intentionally the processor's smoothed value, not only the target.
+     */
+    fun effectivePlaybackSpeed(streamSlot: Int): Float {
+        val processor = synchronized(lock) { processors[streamSlot] }
+        return processor?.effectivePlaybackSpeed() ?: 1f
+    }
+
     fun setSpeed(newSpeed: Float) {
         speedTarget = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
         ensureSmoothingLoop()
