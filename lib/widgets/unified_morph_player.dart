@@ -792,12 +792,17 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           final shadowBlur = 20.0 * shadowBase;
                           final shadowOff = 10.0 * shadowBase;
 
-                          // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
-                          // only lifts once the overlay animation itself has fully reversed, not
-                          // during a sheet-close where _overlayAnim stays at 1.
-                          // Uses _isPlaying field — rebuilt by setState only on play/pause, not position ticks.
-                          // Keep the main artwork static when playback toggles.
-                          const targetScale = 1.0;
+                          // In Fluid mode, the full-player artwork rests at 97% while paused
+                          // (or before playback starts) and returns to its natural size on play.
+                          // Scale only the expanded artwork; keep the mini-player and overlay
+                          // thumbnail unchanged. Artwork Blur mode is intentionally unaffected.
+                          final targetScale = isArtworkBlurStyle
+                              ? 1.0
+                              : lerpDouble(
+                                  1.0,
+                                  _isPlaying ? 1.0 : 0.97,
+                                  t * (1.0 - effectiveOverlayT),
+                                )!;
                           final artworkFadeStrength = isArtworkBlurStyle
                               ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
                                         (1.0 - effectiveOverlayT))
