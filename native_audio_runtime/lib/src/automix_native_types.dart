@@ -23,6 +23,7 @@ class NativeAutomixTrack {
     this.analyzedFraction = 0,
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
+    this.tailBpmConfidence = 0,
   });
 
   final int songId;
@@ -45,6 +46,7 @@ class NativeAutomixTrack {
   final double analyzedFraction;
   final double vocalLikelihood;
   final double vocalConfidence;
+  final double tailBpmConfidence;
 }
 
 class NativeAutomixPlan {
@@ -82,6 +84,7 @@ class NativeAutomixAnalysis {
     this.structureConfidence = 0,
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
+    this.tailBpmConfidence = 0,
   });
 
   final double? bpm;
@@ -104,6 +107,7 @@ class NativeAutomixAnalysis {
   final double structureConfidence;
   final double vocalLikelihood;
   final double vocalConfidence;
+  final double tailBpmConfidence;
 }
 
 typedef NativeAutomixPcm = Float32List;
