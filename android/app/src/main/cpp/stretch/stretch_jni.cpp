@@ -253,10 +253,19 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeCreate(
     handle->channels    = channels;
     handle->sampleRate  = static_cast<float>(sampleRate);
     try {
-        // presetDefault(): ~120ms block / ~30ms interval — the library's
-        // general-purpose preset, a good default for full-range music.
-        slog(env, "info", "presetDefault() channels=" + std::to_string(channels) + " sampleRate=" + std::to_string(sampleRate));
-        handle->stretch.presetDefault(channels, static_cast<float>(sampleRate));
+        // Keep the general-purpose ~120ms block / ~30ms interval preset, but
+        // enable splitComputation so STFT work is spread across output intervals
+        // instead of clustering into occasional heavy audio-thread callbacks.
+        // Signalsmith documents one additional output interval of latency for
+        // this mode; this is preferable to risking callback-time compute spikes
+        // while two players are stretching during an AutoMix crossfade.
+        constexpr bool kSplitComputation = true;
+        slog(env, "info",
+             "presetDefault() channels=" + std::to_string(channels) +
+                 " sampleRate=" + std::to_string(sampleRate) +
+                 " splitComputation=" + (kSplitComputation ? "true" : "false"));
+        handle->stretch.presetDefault(
+            channels, static_cast<float>(sampleRate), kSplitComputation);
     } catch (...) {
         slog(env, "error", "nativeCreate presetDefault() threw");
         delete handle;
