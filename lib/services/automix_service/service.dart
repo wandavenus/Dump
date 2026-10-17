@@ -371,7 +371,9 @@ class AutomixService {
           'downbeatOffsetMs': downbeatOffsetMs,
         if (features.dropCueMs != null &&
             features.dropCueMs!.isFinite &&
-            features.dropCueMs! >= 0)
+            features.dropCueMs! >= 8000 &&
+            features.dropCueMs! <= 90000 &&
+            features.dropConfidence >= 0.55)
           'dropCueMs': features.dropCueMs,
         'multiplier': isOutgoing ? 1.0 : match.$2,
       };
