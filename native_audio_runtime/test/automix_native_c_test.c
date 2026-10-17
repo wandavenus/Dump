@@ -412,6 +412,59 @@ static void test_crossfade_sample_peak_budget(void) {
   assert(nar_automix_tone_reset(0) == 1);
 }
 
+static void test_crossfade_mixed_output_peak_budget(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t frames = 8;
+  const size_t sample_count = (size_t)frames * 2;
+  float outgoing[sample_count];
+  float incoming[sample_count];
+
+  // Exercise the real per-stream processor output, not only the gain helper.
+  // EQ can receive over-range float PCM, so the fade stage must clamp before
+  // applying its coefficient to preserve the L1 budget for correlated decks.
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+
+  for (int pattern = 0; pattern < 2; ++pattern) {
+    for (int step = 0; step <= 100; ++step) {
+      const float progress = (float)step / 100.0f;
+      assert(nar_automix_tone_set_crossfade_gains(
+                 0, 1, progress, 1.0f, 1.0f, 1.0f) == 1);
+      // configure() initializes each stream's smoothed fade gain from the
+      // just-computed target, making this a deterministic sample-level test.
+      assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
+      assert(nar_automix_tone_configure(1, sample_rate, 2) == 1);
+
+      for (size_t i = 0; i < sample_count; ++i) {
+        const float sign = (i & 1U) == 0U ? 1.0f : -1.0f;
+        outgoing[i] = sign * 2.0f;
+        // Pattern 0: fully correlated decks. Pattern 1: different peak signs
+        // and timing, a deterministic uncorrelated/stress case.
+        incoming[i] = pattern == 0
+            ? outgoing[i]
+            : (((i / 2U) & 1U) == 0U ? 2.0f : -2.0f);
+      }
+
+      assert(nar_automix_tone_process(outgoing, frames, 2, 0) == 1);
+      assert(nar_automix_tone_process(incoming, frames, 2, 1) == 1);
+      for (size_t i = 0; i < sample_count; ++i) {
+        assert(isfinite(outgoing[i]) && isfinite(incoming[i]));
+        assert(outgoing[i] >= -1.0f && outgoing[i] <= 1.0f);
+        assert(incoming[i] >= -1.0f && incoming[i] <= 1.0f);
+        const float mixed = outgoing[i] + incoming[i];
+        assert(isfinite(mixed));
+        assert(mixed >= -1.0001f && mixed <= 1.0001f);
+      }
+    }
+  }
+  assert(nar_automix_tone_reset(0) == 1);
+  assert(nar_automix_tone_reset(1) == 1);
+}
+
 static void test_ffi_contract_and_bounds(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
@@ -506,6 +559,7 @@ static void test_phrase_lock(void) {
 
 int main(void) {
   test_crossfade_sample_peak_budget();
+  test_crossfade_mixed_output_peak_budget();
   test_ffi_contract_and_bounds();
   test_analyzer_rms();
   test_analyzer_structural_cues();
