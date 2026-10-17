@@ -116,8 +116,11 @@ object AutomixAnalysis {
         if (collected.size < analysisRate) return null // under 1 s of audio
 
         if (!AutomixNative.ensureLoaded()) return null
+        // Reuse one bounded PCM copy for both native passes. Long tracks can
+        // produce several million samples, so avoid a second ~26 MB allocation.
+        val monoPcm = collected.toFloatArray()
         val analysis = AutomixNative.nativeAnalyze(
-            collected.toFloatArray(),
+            monoPcm,
             analysisRate,
         ) ?: return null
         // Preserve the original analyzer ABI contract before doing extra work,
@@ -127,7 +130,7 @@ object AutomixAnalysis {
         // The chord pass runs on the same bounded background analysis worker;
         // it is deliberately separate from the realtime playback callback.
         val chordValues = try {
-            AutomixNative.nativeAnalyzeChords(collected.toFloatArray(), analysisRate)
+            AutomixNative.nativeAnalyzeChords(monoPcm, analysisRate)
         } catch (_: LinkageError) {
             null // Fail open if this process loaded an older native library.
         }
