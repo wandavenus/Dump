@@ -29,7 +29,7 @@ internal object AutomixGainEnvelope {
         val inTrim = incomingTrim.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
 
         val shaped = if (gamma == 1f) t else t.toDouble().pow(gamma.toDouble()).toFloat()
-        val release = if (shaped <= 0.75f) 0f else (shaped - 0.75f) / 0.25f
+        val release = if (t <= 0.75f) 0f else (t - 0.75f) / 0.25f
         val incomingTrimNow = inTrim + (1f - inTrim) * release
         val theta = (shaped * PI / 2.0).toFloat()
         val outgoingGain = outTrim * cos(theta)
