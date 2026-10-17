@@ -1,6 +1,8 @@
 name: Run Noisegraph Tests
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       suite:
@@ -64,7 +66,7 @@ jobs:
           client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"${{ steps.source.outputs.suite }}"}'
 
   android-build-validation:
-    if: ${{ github.event_name == 'pull_request' || inputs.suite == 'all' || inputs.suite == 'android-arm64' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' || inputs.suite == 'all' || inputs.suite == 'android-arm64' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact source SHA
