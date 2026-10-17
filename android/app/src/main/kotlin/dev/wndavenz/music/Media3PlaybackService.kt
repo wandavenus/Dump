@@ -620,11 +620,6 @@ class Media3PlaybackService : MediaSessionService() {
                     automixDownbeatOffsetMsBySongId[it]
                 }
             },
-            getAutoMixTempoMultiplierForPlayer = { p ->
-                p.currentMediaItem?.mediaId?.toIntOrNull()?.let {
-                    automixTempoMultiplierBySongId[it]
-                }
-            },
             getMediaPlaybackSpeedForPlayer = { p ->
                 val slot = playerSlotOf(p)
                 if (slot >= 0) stretchManager.effectivePlaybackSpeed(slot)
