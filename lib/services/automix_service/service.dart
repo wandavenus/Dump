@@ -384,6 +384,13 @@ class AutomixService {
           settings: settings.value,
         );
         target['fadeSeconds'] = cue.fadeSeconds;
+        if (cue.transitionStartMs != null &&
+            cue.transitionStartMs!.isFinite &&
+            cue.transitionStartMs! >= 0) {
+          // The native scheduler interprets this on the outgoing deck's media
+          // timeline, while fadeSeconds remains only the overlap duration.
+          target['transitionStartMs'] = cue.transitionStartMs;
+        }
         target['fadeCurve'] = cue.curveGamma;
         target['levelTrimOutgoing'] = cue.outgoingTrim;
         target['levelTrimIncoming'] = cue.incomingTrim;
