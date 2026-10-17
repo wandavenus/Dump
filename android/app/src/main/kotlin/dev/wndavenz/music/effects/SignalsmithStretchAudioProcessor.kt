@@ -64,7 +64,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     @Volatile private var pitchSemitones: Float = 0f
 
     private var handle: Long = 0L
-    private var appliedSpeed: Float = 1f
+    @Volatile private var appliedSpeed: Float = 1f
     private var appliedPitchSemitones: Float = 0f
     private var nativePitchSemitones: Float = 0f
     private var carryFrames: Double = 0.0
@@ -80,6 +80,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var bypassRingWritePos: Int = 0
     private var bypassRingFilled: Int = 0
     private var bypassPrimeBuf: ByteBuffer = ByteBuffer.allocateDirect(0)
+
+    /** Speed currently applied by the audio thread after smoothing. */
+    fun effectivePlaybackSpeed(): Float =
+        appliedSpeed.takeIf { it.isFinite() && it > 0f } ?: 1f
 
     /** User-selected speed, multiplied by the independent AutoMix deck tempo. */
     fun setSpeed(newSpeed: Float) {
