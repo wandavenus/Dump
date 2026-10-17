@@ -418,7 +418,8 @@ static void test_ffi_contract_and_bounds(void) {
   float pcm[44100] = {0};
   double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
 
-  // Undersized buffer must return 0
+  // Both the old 20-value ABI and any smaller buffer must be rejected.
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 0);
   assert(nar_automix_analyze(pcm, count, sample_rate, output, 19) == 0);
   // Null inputs must return 0
   assert(nar_automix_analyze(NULL, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
