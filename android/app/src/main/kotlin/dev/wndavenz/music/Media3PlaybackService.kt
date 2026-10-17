@@ -2345,51 +2345,18 @@ class Media3PlaybackService : MediaSessionService() {
 
         if (enabled) {
             for (target in targets) {
-                val id = (target["id"] as? Number)?.toInt() ?: continue
-                val multiplier = (target["multiplier"] as? Number)?.toFloat() ?: 1f
-                if (multiplier.isFinite()) {
-                    automixTempoMultiplierBySongId[id] = multiplier.coerceIn(0.92f, 1.08f)
-                }
-                val bpm = (target["bpm"] as? Number)?.toFloat()
-                if (bpm != null && bpm.isFinite() && bpm in 50f..220f) {
-                    automixBpmBySongId[id] = bpm
-                }
-                val offsetMs = (target["beatOffsetMs"] as? Number)?.toDouble()
-                if (offsetMs != null && offsetMs.isFinite() && offsetMs >= 0.0) {
-                    automixBeatOffsetMsBySongId[id] = offsetMs.toLong()
-                }
-                val downbeatOffsetMs =
-                    (target["downbeatOffsetMs"] as? Number)?.toDouble()
-                if (downbeatOffsetMs != null &&
-                    downbeatOffsetMs.isFinite() && downbeatOffsetMs >= 0.0
-                ) {
-                    automixDownbeatOffsetMsBySongId[id] = downbeatOffsetMs.toLong()
-                }
-                val dropCueMs = (target["dropCueMs"] as? Number)?.toDouble()
-                if (dropCueMs != null && dropCueMs.isFinite() && dropCueMs >= 0.0) {
-                    automixDropCueMsBySongId[id] = dropCueMs.toLong()
-                }
-                val strategy = ((target["transitionStrategy"] as? Number)?.toInt() ?: 0)
-                    .coerceIn(
-                        AutomixTransitionPolicy.CROSSFADE,
-                        AutomixTransitionPolicy.QUICK_HANDOVER,
-                    )
-                val requestedFade = (target["fadeSeconds"] as? Number)?.toFloat()
-                AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade)?.let {
-                    automixFadeSecondsBySongId[id] = it
-                }
-                val transitionStartMs = (target["transitionStartMs"] as? Number)?.toDouble()
-                if (transitionStartMs != null &&
-                    transitionStartMs.isFinite() &&
-                    transitionStartMs >= 0.0 &&
-                    transitionStartMs <= 86_400_000.0
-                ) {
-                    automixTransitionStartMsBySongId[id] = transitionStartMs.toLong()
-                }
-                val requestedCurve = (target["fadeCurve"] as? Number)?.toFloat()
-                AutomixTransitionPolicy.curveGamma(strategy, requestedCurve)?.let {
-                    automixCurveBySongId[id] = it
-                }
+                val parsed = ParsedAutomixTransitionTarget.fromMap(target) ?: continue
+                val id = parsed.id
+                automixTempoMultiplierBySongId[id] = parsed.multiplier
+                parsed.bpm?.let { automixBpmBySongId[id] = it }
+                parsed.beatOffsetMs?.let { automixBeatOffsetMsBySongId[id] = it }
+                parsed.downbeatOffsetMs?.let { automixDownbeatOffsetMsBySongId[id] = it }
+                parsed.dropCueMs?.let { automixDropCueMsBySongId[id] = it }
+                parsed.fadeSeconds?.let { automixFadeSecondsBySongId[id] = it }
+                parsed.transitionStartMs?.let { automixTransitionStartMsBySongId[id] = it }
+                parsed.curveGamma?.let { automixCurveBySongId[id] = it }
+                parsed.incomingTrim?.let { automixIncomingTrimBySongId[id] = it }
+                parsed.outgoingTrim?.let { automixOutgoingTrimBySongId[id] = it }
 
                 fun overlapGain(key: String, fallback: Float): Float =
                     ((target[key] as? Number)?.toFloat())
@@ -2408,14 +2375,6 @@ class Media3PlaybackService : MediaSessionService() {
                         highOutgoing = overlapGain("highOverlapGainOutgoing", 0.25f),
                         highIncoming = overlapGain("highOverlapGainIncoming", 1f),
                     )
-                }
-                val incomingTrim = (target["levelTrimIncoming"] as? Number)?.toFloat()
-                if (incomingTrim != null && incomingTrim.isFinite()) {
-                    automixIncomingTrimBySongId[id] = incomingTrim.coerceIn(0f, 1f)
-                }
-                val outgoingTrim = (target["levelTrimOutgoing"] as? Number)?.toFloat()
-                if (outgoingTrim != null && outgoingTrim.isFinite()) {
-                    automixOutgoingTrimBySongId[id] = outgoingTrim.coerceIn(0f, 1f)
                 }
             }
         }
