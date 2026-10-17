@@ -665,7 +665,7 @@ class CrossfadeController(
                 // Guard: abort if the active player changed underneath us
                 if (getActivePlayer() !== newPlayer) {
                     CrossfadeTimelineLogger.stamp(
-                        "runEqualPowerFade: ABORT — active player changed mid-fade (step=$step/$steps)",
+                        "runEqualPowerFade: ABORT — active player changed mid-fade (ticks=$step)",
                         getActivePlayer())
                     crossfadeInProgress   = false
                     promotionTriggered    = false
