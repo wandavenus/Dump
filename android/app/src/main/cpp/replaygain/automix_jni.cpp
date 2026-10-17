@@ -53,3 +53,42 @@ Java_dev_wndavenz_music_automix_AutomixPhaseLock_nativePhrasePhaseLockFactor(
       incoming_position_ms, incoming_downbeat_offset_ms, incoming_bpm,
       remaining_ms, max_nudge, beats_per_phrase));
 }
+
+
+extern "C" JNIEXPORT jdoubleArray JNICALL
+Java_dev_wndavenz_music_automix_AutomixNative_nativeAnalyzeChords(
+    JNIEnv* env, jobject /* thiz */, jfloatArray pcm, jint sample_rate) {
+  if (pcm == nullptr || sample_rate < 4000 || sample_rate > 192000) return nullptr;
+  const jsize count = env->GetArrayLength(pcm);
+  const int64_t window_samples = (int64_t)sample_rate * 2;
+  if (count < window_samples) return env->NewDoubleArray(0);
+  const int64_t max_segments64 = 1 + (count - window_samples) / sample_rate;
+  if (max_segments64 <= 0 || max_segments64 > 4096) return nullptr;
+  const jsize max_segments = static_cast<jsize>(max_segments64);
+  const jsize output_capacity = max_segments * 4;
+  double* output = static_cast<double*>(
+      calloc(static_cast<size_t>(output_capacity), sizeof(double)));
+  if (output == nullptr) return nullptr;
+
+  jfloat* samples = env->GetFloatArrayElements(pcm, nullptr);
+  if (samples == nullptr) {
+    free(output);
+    return nullptr;
+  }
+  const int32_t count_written = nar_automix_analyze_chords(
+      reinterpret_cast<const float*>(samples), count, sample_rate,
+      output, output_capacity);
+  env->ReleaseFloatArrayElements(pcm, samples, JNI_ABORT);
+  if (count_written < 0 || count_written > max_segments) {
+    free(output);
+    return nullptr;
+  }
+
+  const jsize result_count = static_cast<jsize>(count_written * 4);
+  jdoubleArray result = env->NewDoubleArray(result_count);
+  if (result != nullptr && result_count > 0) {
+    env->SetDoubleArrayRegion(result, 0, result_count, output);
+  }
+  free(output);
+  return result;
+}

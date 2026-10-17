@@ -121,6 +121,37 @@ object AutomixAnalysis {
             analysisRate,
         ) ?: return null
 
+        // The chord pass runs on the same bounded background analysis worker;
+        // it is deliberately separate from the realtime playback callback.
+        val chordValues = try {
+            AutomixNative.nativeAnalyzeChords(collected.toFloatArray(), analysisRate)
+        } catch (_: LinkageError) {
+            null // Fail open if this process loaded an older native library.
+        }
+        val pitchNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        val chordQualities = arrayOf("maj", "min", "dim", "aug", "7", "maj7", "min7", "sus4")
+        val chordProgression = if (chordValues != null && chordValues.size % 4 == 0) {
+            (0 until chordValues.size step 4).mapNotNull { index ->
+                val startMs = chordValues[index]
+                val root = chordValues[index + 1].toInt()
+                val quality = chordValues[index + 2].toInt()
+                val confidence = chordValues[index + 3]
+                if (!startMs.isFinite() || startMs < 0.0 || root !in 0..11 ||
+                    quality !in chordQualities.indices || !confidence.isFinite() ||
+                    confidence !in 0.0..1.0 || confidence < 0.08
+                ) null else mapOf(
+                    "startMs" to (startSeconds.coerceAtLeast(0.0) * 1000.0 + startMs),
+                    "rootPitchClass" to root,
+                    "root" to pitchNames[root],
+                    "quality" to chordQualities[quality],
+                    "label" to (pitchNames[root] + chordQualities[quality]),
+                    "confidence" to confidence,
+                )
+            }
+        } else {
+            emptyList()
+        }
+
         // Native result contract is kept in sync with
         // NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in automix_native.h.
         if (analysis.size < 21) return null
@@ -165,6 +196,7 @@ object AutomixAnalysis {
             "vocalLikelihood" to analysis[18],
             "vocalConfidence" to analysis[19],
             "tailBpmConfidence" to tailBpmConfidence,
+            "chordProgression" to chordProgression,
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.
             "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),

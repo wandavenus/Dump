@@ -819,3 +819,142 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
   return 1;
 }
+
+
+// ── Time-local chord progression ────────────────────────────────────────────
+// Each row is [window_start_ms, root_pitch_class, quality_id, confidence].
+// quality_id: 0 major, 1 minor, 2 diminished, 3 augmented, 4 dominant 7,
+//             5 major 7, 6 minor 7, 7 suspended 4. Unknown chords use -1/-1/0.
+// Two-second windows with a one-second hop. Call only from background analysis.
+FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
+    const float* mono, int32_t sample_count, int32_t sample_rate,
+    double* output, int32_t output_capacity) {
+  if (mono == NULL || output == NULL || sample_rate < 4000 ||
+      sample_rate > 192000 || sample_count < 0 || output_capacity < 0) {
+    return -1;
+  }
+  const int32_t window_samples = sample_rate * 2;
+  if (sample_count < window_samples || output_capacity < 4) return 0;
+  const int32_t expected_segments =
+      1 + (sample_count - window_samples) / sample_rate;
+  const int32_t capacity_segments = output_capacity / 4;
+  const int32_t segment_count =
+      expected_segments < capacity_segments ? expected_segments : capacity_segments;
+  if (segment_count <= 0) return 0;
+
+  float* hann = (float*)malloc((size_t)FFT_SIZE * sizeof(float));
+  float* real = (float*)malloc((size_t)FFT_SIZE * sizeof(float));
+  float* imaginary = (float*)malloc((size_t)FFT_SIZE * sizeof(float));
+  float* twiddle_real = (float*)malloc((size_t)FFT_BINS * sizeof(float));
+  float* twiddle_imaginary = (float*)malloc((size_t)FFT_BINS * sizeof(float));
+  int32_t* bit_reverse = (int32_t*)malloc((size_t)FFT_SIZE * sizeof(int32_t));
+  if (hann == NULL || real == NULL || imaginary == NULL ||
+      twiddle_real == NULL || twiddle_imaginary == NULL || bit_reverse == NULL) {
+    free(hann); free(real); free(imaginary);
+    free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
+    return -1;
+  }
+
+  for (int32_t i = 0; i < FFT_SIZE; ++i) {
+    hann[i] = (float)(0.5 - 0.5 * cos(2.0 * PI * i / FFT_SIZE));
+    bit_reverse[i] = reverse_bits(i, 11);
+  }
+  for (int32_t i = 0; i < FFT_BINS; ++i) {
+    const double angle = -2.0 * PI * i / FFT_SIZE;
+    twiddle_real[i] = (float)cos(angle);
+    twiddle_imaginary[i] = (float)sin(angle);
+  }
+
+  static const int8_t kChordIntervals[8][4] = {
+      {0, 4, 7, -1}, {0, 3, 7, -1}, {0, 3, 6, -1}, {0, 4, 8, -1},
+      {0, 4, 7, 10}, {0, 4, 7, 11}, {0, 3, 7, 10}, {0, 5, 7, -1}};
+  static const int8_t kChordToneCount[8] = {3, 3, 3, 3, 4, 4, 4, 3};
+
+  int32_t rows_written = 0;
+  for (int32_t segment = 0; segment < segment_count; ++segment) {
+    const int32_t start = segment * sample_rate;
+    double chroma[12] = {0.0};
+    double total_magnitude = 0.0;
+    int32_t frame_count = 0;
+
+    // 50% overlap gives enough spectral stability without an excessively dense STFT.
+    for (int32_t offset = 0; offset <= window_samples - FFT_SIZE;
+         offset += 1024) {
+      for (int32_t i = 0; i < FFT_SIZE; ++i) {
+        const float sample = mono[start + offset + i];
+        real[i] = (isfinite(sample) ? sample : 0.0f) * hann[i];
+        imaginary[i] = 0.0f;
+      }
+      radix2_fft(real, imaginary, twiddle_real, twiddle_imaginary,
+                 bit_reverse);
+      for (int32_t bin = 1; bin < FFT_BINS; ++bin) {
+        const double frequency = (double)bin * sample_rate / FFT_SIZE;
+        if (frequency < CHROMA_MIN_FREQ || frequency > CHROMA_MAX_FREQ) continue;
+        const double magnitude = hypot((double)real[bin], (double)imaginary[bin]);
+        if (!isfinite(magnitude) || magnitude <= 1e-8) continue;
+        const double pitch = 12.0 * log2_double(frequency / 440.0) + 69.0;
+        const int lower = (int)floor(pitch);
+        const int pc = ((lower % 12) + 12) % 12;
+        const double fraction = fmin(1.0, fmax(0.0, pitch - lower));
+        chroma[pc] += magnitude * (1.0 - fraction);
+        chroma[(pc + 1) % 12] += magnitude * fraction;
+        total_magnitude += magnitude;
+      }
+      frame_count++;
+    }
+
+    int best_root = -1;
+    int best_quality = -1;
+    double best_score = -DBL_MAX;
+    double second_score = -DBL_MAX;
+    double normalized[12] = {0.0};
+    double chroma_total = 0.0;
+    for (int note = 0; note < 12; ++note) chroma_total += chroma[note];
+    if (chroma_total > 1e-9 && frame_count > 0 && total_magnitude > 1e-7) {
+      for (int note = 0; note < 12; ++note) normalized[note] = chroma[note] / chroma_total;
+      for (int root = 0; root < 12; ++root) {
+        for (int quality = 0; quality < 8; ++quality) {
+          double in_chord = 0.0;
+          for (int tone = 0; tone < kChordToneCount[quality]; ++tone) {
+            const int pc = (root + kChordIntervals[quality][tone]) % 12;
+            in_chord += normalized[pc];
+          }
+          const double score = 0.82 * in_chord + 0.18 * normalized[root];
+          if (score > best_score) {
+            second_score = best_score;
+            best_score = score;
+            best_root = root;
+            best_quality = quality;
+          } else if (score > second_score) {
+            second_score = score;
+          }
+        }
+      }
+    }
+
+    double confidence = 0.0;
+    if (best_root >= 0 && isfinite(best_score) && isfinite(second_score)) {
+      const double margin = fmax(0.0, best_score - second_score);
+      const double tonal_evidence = fmin(1.0, fmax(0.0,
+          (best_score - 0.28) / 0.42));
+      const double unique_evidence = fmin(1.0, fmax(0.0, margin / 0.065));
+      confidence = tonal_evidence * unique_evidence;
+      if (best_score < 0.32 || margin < 0.006 || confidence < 0.08) {
+        best_root = -1;
+        best_quality = -1;
+        confidence = 0.0;
+      }
+    }
+
+    output[rows_written * 4] =
+        (double)start * 1000.0 / (double)sample_rate;
+    output[rows_written * 4 + 1] = (double)best_root;
+    output[rows_written * 4 + 2] = (double)best_quality;
+    output[rows_written * 4 + 3] = fmin(1.0, fmax(0.0, confidence));
+    rows_written++;
+  }
+
+  free(hann); free(real); free(imaginary);
+  free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
+  return rows_written;
+}
