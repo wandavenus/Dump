@@ -605,6 +605,10 @@ class Media3PlaybackService : MediaSessionService() {
             getAutoMixBpmForPlayer = { p ->
                 p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBpmBySongId[it] }
             },
+            getAutoMixLiveBeatStateForPlayer = { p ->
+                val slot = playerSlotOf(p)
+                if (slot >= 0) NativeDspAudioProcessor.liveBeatState(slot) else null
+            },
             getAutoMixBeatOffsetMsForPlayer = { p ->
                 p.currentMediaItem?.mediaId?.toIntOrNull()?.let { automixBeatOffsetMsBySongId[it] }
             },

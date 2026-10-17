@@ -59,6 +59,7 @@ void main(List<String> args) async {
         'src/acoustic_engine_processor.c', // Speaker-oriented perceptual enhancement
         'src/aaudio_probe.c', // AAudio exclusive/MMAP diagnostic probe
         'src/automix_analyzer.c', // AutoMix PCM feature extraction
+        'src/automix_live_tracker.c', // Per-stream live beat tracking
         'src/automix_planner.c', // AutoMix deterministic queue planner
         'src/automix_tone_processor.c', // Per-stream AutoMix tone DSP
         // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
