@@ -1341,9 +1341,11 @@ class AutomixService {
     if (!_isAutoMixGenerationCurrent(generation)) return -1;
     await AudioService.setAutomixTransition(
       enabled: true,
-      targets: _buildNativeTargets(
-        sequencedFeatures.first,
-        sequencedFeatures.skip(1).take(_targetHorizon).toList(growable: false),
+      targets: automixImmediateTransitionTargets(
+        _buildNativeTargets(
+          sequencedFeatures.first,
+          sequencedFeatures.skip(1).take(_targetHorizon).toList(growable: false),
+        ),
       ),
     );
     if (!_isAutoMixGenerationCurrent(generation)) return -1;
