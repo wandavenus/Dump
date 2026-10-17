@@ -10,7 +10,7 @@ static void assert_analysis_confidence_contract(
     const double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT]) {
   // Confidence fields must be finite [0,1]. Index 16 is a region enum, not
   // a confidence value, and therefore has its own range contract.
-  const int confidence_indices[] = {14, 15, 17, 18, 19};
+  const int confidence_indices[] = {14, 15, 17, 18, 19, 20};
   for (size_t i = 0;
        i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
     const int index = confidence_indices[i];
@@ -416,15 +416,15 @@ static void test_ffi_contract_and_bounds(void) {
   float pcm[44100] = {0};
   double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
 
-  // Undersized buffer must return 0
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, 19) == 0);
+  // Undersized buffer must return 0; 20 is one value short of the ABI.
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 0);
   // Null inputs must return 0
-  assert(nar_automix_analyze(NULL, count, sample_rate, output, 20) == 0);
-  assert(nar_automix_analyze(pcm, count, 0, output, 20) == 0);
-  assert(nar_automix_analyze(pcm, 100, sample_rate, output, 20) == 0);
+  assert(nar_automix_analyze(NULL, count, sample_rate, output, 21) == 0);
+  assert(nar_automix_analyze(pcm, count, 0, output, 21) == 0);
+  assert(nar_automix_analyze(pcm, 100, sample_rate, output, 21) == 0);
 
   // Exact-sized buffer returns 1
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 1);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 21) == 1);
 
   // Planner bounds checks
   int64_t ids[2] = {1, 2};
