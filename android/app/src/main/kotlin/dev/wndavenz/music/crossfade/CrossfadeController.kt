@@ -299,13 +299,7 @@ class CrossfadeController(
                     val nowPosition = p.currentPosition.coerceAtLeast(0L)
                     if (nowPosition < beatAlignedStart) {
                         // Position can lag the wall-clock delay (buffering/speed
-                        // changes). Re-arm rather than starting the fade early.
-                        val nowSpeed = p.playbackParameters.speed
-                            .takeIf { it.isFinite() && it > 0f } ?: 1f
-                        val retryDelay = ((beatAlignedStart - nowPosition) / nowSpeed)
-                            .toLong().coerceAtLeast(1L)
-                        beatAlignedStartRunnable = this
-                        handler.postDelayed(this, retryDelay)
+                        // changes). The next 200 ms position tick will re-arm it.
                         return@Runnable
                     }
                     val nowRemaining = (p.duration - nowPosition).coerceAtLeast(0L)
