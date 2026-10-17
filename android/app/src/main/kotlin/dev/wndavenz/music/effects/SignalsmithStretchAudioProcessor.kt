@@ -229,7 +229,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val result = nativeSeek(h, bypassPrimeBuf, primeFrames, playbackRate)
         NativeLogger.emit(
             "info", "Stretch",
-            "[Stretch] bypass→STFT seek: preRollFrames=$primeFrames playbackRate=$playbackRate result=$result "
+            "[Stretch] bypass→STFT seek: preRollFrames=$primeFrames playbackRate=$playbackRate result=$result " +
                 "ringFilled=${filled}B handle=0x${h.toString(16)}",
         )
         return result == 0
