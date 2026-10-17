@@ -346,6 +346,10 @@ class AutomixService {
       final match = automixTempoMatch(
         referenceBpm: isOutgoing ? null : reference,
         trackBpm: confidentBpm,
+        // Use the same user-configured tolerance as transition scoring and the
+        // native planner; a hard-coded default here could publish a grid for a
+        // pair the planner deliberately rejected.
+        tolerance: settings.value.bpmTolerancePercent / 100.0,
       );
       final gridBpm = isOutgoing || match.$1 ? confidentBpm : null;
 
