@@ -23,7 +23,9 @@ internal object AutomixTransitionPolicy {
         fadeDurationMs: Long,
     ): Boolean {
         val startMs = transitionStartMs ?: return false
-        if (outgoingDurationMs <= 0L || startMs < 0L || startMs >= outgoingDurationMs) {
+        if (outgoingDurationMs <= 0L || startMs < 0L || startMs >= outgoingDurationMs ||
+            fadeDurationMs < 0L || fadeDurationMs >= EARLY_TRANSITION_MAX_LEAD_MS
+        ) {
             return false
         }
         val leadMs = outgoingDurationMs - startMs
