@@ -840,16 +840,18 @@ AutomixTransitionCue automixTransitionCue({
                 breakdown < durationMs
             ? (durationMs - breakdown) / 1000.0
             : null;
-    final leadSeconds =
-        breakdownLeadSeconds != null &&
-            breakdownLeadSeconds >= 30 &&
-            breakdownLeadSeconds <= 65
-        ? breakdownLeadSeconds
-        : denseTail
-        ? 60.0
-        : (sparseTail || sparseIntro)
-        ? 35.0
-        : 45.0;
+    final double leadSeconds;
+    if (breakdownLeadSeconds != null &&
+        breakdownLeadSeconds >= 30 &&
+        breakdownLeadSeconds <= 65) {
+      leadSeconds = breakdownLeadSeconds;
+    } else if (denseTail) {
+      leadSeconds = 60.0;
+    } else if (sparseTail || sparseIntro) {
+      leadSeconds = 35.0;
+    } else {
+      leadSeconds = 45.0;
+    }
     final candidateStartMs = durationMs - leadSeconds * 1000.0;
     // Keep at least five seconds of outgoing audio beyond the fade duration,
     // and leave very short tracks on the conventional transition path.
