@@ -739,13 +739,31 @@ AutomixTransitionCue automixTransitionCue({
           .clamp(0.82, 1.0)
           .toDouble();
 
-  // Standard DJ level matching prioritizing overlapping sections:
-  // Outgoing track A's outro section level vs incoming track B's intro section level.
+  // Level-match only comparable measurements. Section RMS is dBFS while
+  // ReplayGain loudness is integrated LUFS; comparing one to the other can
+  // mistake a quiet outro for a loud full track (or vice versa).
+  // Prefer the actual overlap sections, then fall back to a pair of integrated
+  // loudness values, then a pair of whole-track RMS values. Missing or mixed
+  // metrics deliberately disable trimming rather than inventing a delta.
   var outgoingTrim = 1.0;
   var incomingTrim = 1.0;
-  final outLevelDb = outgoing.outroRmsDb ?? outgoing.loudnessLufs ?? outgoing.rmsDb;
-  final inLevelDb = incoming.introRmsDb ?? incoming.loudnessLufs ?? incoming.rmsDb;
-  if (outLevelDb != null && inLevelDb != null) {
+  double? outLevelDb;
+  double? inLevelDb;
+  if (outgoing.outroRmsDb != null && incoming.introRmsDb != null) {
+    outLevelDb = outgoing.outroRmsDb;
+    inLevelDb = incoming.introRmsDb;
+  } else if (outgoing.loudnessLufs != null &&
+      incoming.loudnessLufs != null) {
+    outLevelDb = outgoing.loudnessLufs;
+    inLevelDb = incoming.loudnessLufs;
+  } else if (outgoing.rmsDb != null && incoming.rmsDb != null) {
+    outLevelDb = outgoing.rmsDb;
+    inLevelDb = incoming.rmsDb;
+  }
+  if (outLevelDb != null &&
+      inLevelDb != null &&
+      outLevelDb.isFinite &&
+      inLevelDb.isFinite) {
     final deltaDb = (outLevelDb - inLevelDb).clamp(-6.0, 6.0);
     if (deltaDb > 0.5) {
       outgoingTrim = math.pow(10, -deltaDb / 20).toDouble();
