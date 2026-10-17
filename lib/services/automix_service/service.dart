@@ -228,6 +228,7 @@ class AutomixService {
       await loadSettings();
       if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) {
         _stopAutoAnalyzePipeline();
+        _stopLibrarySweep();
         return;
       }
       final state = AudioService.playbackState.value;
@@ -1841,7 +1842,7 @@ class AutomixService {
 
   /// Arms (or re-arms) the idle sweep. Safe to call repeatedly.
   static void _scheduleLibrarySweep([Duration delay = _sweepInterval]) {
-    if (kIsWeb) return;
+    if (kIsWeb || !automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
     _sweepTimer?.cancel();
     _sweepTimer = Timer(delay, () {
       _sweepTimer = null;
@@ -1867,7 +1868,7 @@ class AutomixService {
   /// running player leaves behind.
   static Future<void> _runLibrarySweepPass() async {
     _sweepTimer = null;
-    if (kIsWeb || !automixEnabled.value) return;
+    if (kIsWeb || !automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
     // The transition pipeline owns the decoder whenever it is working.
     if (_sweepRunning ||
         _autoAnalyzeRunning ||
@@ -1908,7 +1909,7 @@ class AutomixService {
     try {
       final batch = pending.take(_sweepBatchLimit).toList(growable: false);
       for (final song in batch) {
-        if (!automixEnabled.value) return;
+        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
         // Re-check between decodes: a phone that starts discharging, or heats
         // up, must stop the sweep immediately — not at the end of the batch.
         final now = await DeviceStateService.powerState();

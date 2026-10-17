@@ -44,14 +44,31 @@ internal class AutomixPcmDownsampler(
             "frameIndex is outside the PCM buffer"
         }
 
-        val mono = if (channels == 1) {
-            interleavedPcm16[base] / 32768.0
-        } else {
-            val left = interleavedPcm16[base] / 32768.0
-            val right = interleavedPcm16[base + 1] / 32768.0
-            val mid = (left + right) * 0.5
-            val strongest = if (abs(left) >= abs(right)) left else right
-            if (abs(mid) < 0.25 * max(abs(left), abs(right))) strongest else mid
+        val mono = when (channels) {
+            1 -> interleavedPcm16[base] / 32768.0
+            2 -> {
+                val left = interleavedPcm16[base] / 32768.0
+                val right = interleavedPcm16[base + 1] / 32768.0
+                val mid = (left + right) * 0.5
+                val strongest = if (abs(left) >= abs(right)) left else right
+                if (abs(mid) < 0.25 * max(abs(left), abs(right))) strongest else mid
+            }
+            else -> {
+                var sumChannels = 0.0
+                var maxAbs = 0.0
+                var maxVal = 0.0
+                for (ch in 0 until channels) {
+                    val sample = interleavedPcm16[base + ch] / 32768.0
+                    sumChannels += sample
+                    val a = abs(sample)
+                    if (a > maxAbs) {
+                        maxAbs = a
+                        maxVal = sample
+                    }
+                }
+                val avg = sumChannels / channels
+                if (abs(avg) < 0.25 * maxAbs) maxVal else avg
+            }
         }
 
         sum += lowPass.process(mono)

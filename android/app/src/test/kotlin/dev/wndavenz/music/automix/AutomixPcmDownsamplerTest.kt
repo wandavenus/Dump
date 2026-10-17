@@ -55,4 +55,34 @@ class AutomixPcmDownsamplerTest {
         val rms = analyzeSineRms(1_000.0, stereoAntiPhase = true)
         assertTrue("anti-phase stereo was incorrectly cancelled: rms=$rms", rms > 0.20)
     }
+
+    @Test
+    fun multichannelAudioProcessesCenterAndSurroundChannels() {
+        val sampleRate = 48_000
+        val frames = sampleRate
+        val channels = 6 // 5.1 multichannel
+        val pcm = ShortArray(frames * channels)
+
+        // Center channel (index 2 in 5.1 format) carries 1 kHz sine while L/R are muted
+        for (i in 0 until frames) {
+            val value = (sin(2.0 * PI * 1_000.0 * i / sampleRate) * 12_000.0).toInt().toShort()
+            pcm[i * channels + 2] = value // Center channel
+        }
+
+        val downsampler = AutomixPcmDownsampler(
+            sourceRateHz = sampleRate,
+            channels = channels,
+        )
+        val output = ArrayList<Float>()
+        for (frame in 0 until frames) {
+            downsampler.processFrame(pcm, frame)?.let(output::add)
+        }
+        val stable = output.drop(1_000)
+        val centerRms = sqrt(stable.sumOf { it.toDouble() * it.toDouble() } / stable.size)
+
+        assertTrue(
+            "Center channel content in 5.1 audio was ignored/muted: rms=$centerRms",
+            centerRms > 0.20,
+        )
+    }
 }

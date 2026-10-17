@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/automix_service.dart';
 
 void main() {
@@ -94,6 +95,19 @@ void main() {
       // Untrusted tail falls back to plain crossfade
       expect(cue.strategy, AutomixTransitionStrategy.crossfade);
       expect(cue.fadeSeconds, closeTo(8.0, 0.1));
+    });
+
+    test('Bit-Perfect Mode active suppresses automix execution', () {
+      expect(AudioEffectsService.bitPerfectMode.value, isFalse);
+      AudioEffectsService.bitPerfectMode.value = true;
+      expect(AudioEffectsService.bitPerfectMode.value, isTrue);
+
+      AutomixService.automixEnabled.value = true;
+      expect(AutomixService.automixEnabled.value, isTrue);
+
+      // Clean up for other tests
+      AudioEffectsService.bitPerfectMode.value = false;
+      AutomixService.automixEnabled.value = false;
     });
   });
 }

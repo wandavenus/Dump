@@ -232,6 +232,18 @@ class CrossfadeControllerTest {
         verify(mockActivePlayer).volume = 0.9f
     }
 
+    @Test fun `C09 cancel mid-fade clears crossfade in progress and resets owner`() {
+        val ctrl = makeControllerWithImmediateTrigger()
+        ctrl.maybeCrossfadeOut()
+        assertTrue(ctrl.crossfadeInProgress)
+        assertEquals(mockActivePlayer, ctrl.promotionOwner)
+
+        ctrl.cancel(resetVolume = false)
+
+        assertFalse(ctrl.crossfadeInProgress)
+        assertNull(ctrl.promotionOwner)
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // D. resetPromotionState()
     // ═════════════════════════════════════════════════════════════════════════
