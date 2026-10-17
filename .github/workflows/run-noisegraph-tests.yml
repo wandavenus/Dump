@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "Which test workflow to dispatch in Noisegraph"
+        description: "Which test suite to run in Noisegraph"
         required: true
         type: choice
         default: all
@@ -52,53 +52,16 @@ jobs:
             echo "- Dump commit: $SOURCE_SHA"
             echo "- Triggered by: @${{ github.actor }}"
             echo
-            echo "Dispatch acceptance starts separate runs in https://github.com/wandavenus/Noisegraph/actions"
+            echo "One test-suite run will start in https://github.com/wandavenus/Noisegraph/actions"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Dispatch Flutter analyze and full tests
-        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'flutter' }}
+      - name: Dispatch selected test suite
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
           repository: wandavenus/Noisegraph
-          event-type: test-flutter
-          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"flutter"}'
-
-      - name: Dispatch AutoMix Dart regression tests
-        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'automix-dart' }}
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
-          repository: wandavenus/Noisegraph
-          event-type: test-automix-dart
-          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"automix-dart"}'
-
-      - name: Dispatch native C/DSP tests
-        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'native-c' }}
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
-          repository: wandavenus/Noisegraph
-          event-type: test-native-c
-          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"native-c"}'
-
-      - name: Dispatch Kotlin unit tests
-        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'kotlin' }}
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
-          repository: wandavenus/Noisegraph
-          event-type: test-kotlin
-          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"kotlin"}'
-
-      - name: Dispatch Android ARM64 build smoke test
-        if: ${{ steps.source.outputs.suite == 'all' || steps.source.outputs.suite == 'android-arm64' }}
-        uses: peter-evans/repository-dispatch@v4
-        with:
-          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
-          repository: wandavenus/Noisegraph
-          event-type: test-android-arm64
-          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"android-arm64"}'
+          event-type: test-suite
+          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"${{ steps.source.outputs.suite }}"}'
 
   android-build-validation:
     if: ${{ github.event_name == 'pull_request' || inputs.suite == 'all' || inputs.suite == 'android-arm64' }}
