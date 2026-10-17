@@ -9,6 +9,9 @@ extern "C" {
 #define NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT 3
 // Output order: BPM, elapsed ms since latest beat pulse, confidence [0,1].
 // Realtime tracking is per deck, bounded, allocation-free and lock-free in process().
+// Tracking is off by default and must be enabled only while AutoMix can use it.
+FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_set_enabled(int32_t enabled);
+FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_is_enabled(void);
 FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     const float* interleaved_pcm, int32_t frame_count, int32_t channel_count,
     int32_t sample_rate, int32_t stream_slot);
