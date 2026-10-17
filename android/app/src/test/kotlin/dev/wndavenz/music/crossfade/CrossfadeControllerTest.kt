@@ -314,6 +314,18 @@ class CrossfadeControllerTest {
         assertFalse(ctrl.crossfadeInProgress)
     }
 
+    @Test fun `E09 missing audio focus leaves outgoing player active and unmodified`() {
+        val ctrl = makeController(hasAudioFocus = false)
+        ctrl.setDuration(3f)
+
+        ctrl.maybeCrossfadeOut()
+
+        assertFalse(ctrl.crossfadeInProgress)
+        assertFalse(ctrl.promotionTriggered)
+        assertEquals(0, setActivePlayerCalls)
+        assertEquals(0, switchSessionCalls)
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // F. beginCrossfade state mutations (triggered via maybeCrossfadeOut)
     //
