@@ -594,6 +594,7 @@ class AutomixTransitionCue {
     required this.outgoingTrim,
     required this.incomingTrim,
     required this.strategy,
+    this.transitionStartMs,
     required this.outgoingBassOverlapGain,
     required this.incomingBassOverlapGain,
     required this.outgoingMidOverlapGain,
@@ -616,6 +617,12 @@ class AutomixTransitionCue {
 
   /// Fade length in media-timeline seconds (opposite deck's tempo governs).
   final double fadeSeconds;
+
+  /// Absolute source position (ms) in the outgoing track where an early
+  /// handover should begin. Null keeps the conventional near-end crossfade.
+  /// This is deliberately separate from [fadeSeconds]: the outgoing deck can
+  /// be handed over 35–60 s before EOF while the actual overlap stays short.
+  final double? transitionStartMs;
 
   /// Equal-power transfer shape: 1.0 = the classic cos/sin curve, > 1 hands the
   /// mix over faster (dense outros), < 1 slower (sparse outros).
@@ -801,6 +808,58 @@ AutomixTransitionCue automixTransitionCue({
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
 
+  // Only schedule an early exit when the incoming drop is confidently detected
+  // and both decks have usable beat grids. Native can then seek the silent
+  // incoming deck to the beat immediately before its drop, instead of fading
+  // in from an arbitrary intro timestamp. Missing/weak cues retain the normal
+  // near-end transition.
+  double? transitionStartMs;
+  final incomingDropMs = incoming.dropCueMs;
+  final hasConfidentIncomingDrop = incomingDropMs != null &&
+      incomingDropMs.isFinite &&
+      incomingDropMs >= 8000 &&
+      incomingDropMs <= 90000 &&
+      incoming.dropConfidence >= 0.55;
+  final hasConfidentBeatPair = outgoing.tailBpm != null &&
+      outgoing.tailBpmConfidence >= 0.35 &&
+      outgoing.tailBeatOffsetMs != null &&
+      incoming.bpm != null &&
+      incoming.bpmConfidence >= 0.35 &&
+      incoming.beatOffsetMs != null;
+  final durationMs = outgoing.durationSeconds * 1000.0;
+  if (outgoing.durationSeconds >= 120 &&
+      durationMs.isFinite &&
+      durationMs > 0 &&
+      hasConfidentIncomingDrop &&
+      hasConfidentBeatPair) {
+    final breakdown = outgoing.tailBreakdownCueMs;
+    final breakdownLeadSeconds =
+        outgoing.tailBreakdownConfidence >= 0.45 &&
+                breakdown != null &&
+                breakdown.isFinite &&
+                breakdown >= 0 &&
+                breakdown < durationMs
+            ? (durationMs - breakdown) / 1000.0
+            : null;
+    final leadSeconds =
+        breakdownLeadSeconds != null &&
+            breakdownLeadSeconds >= 30 &&
+            breakdownLeadSeconds <= 65
+        ? breakdownLeadSeconds
+        : denseTail
+        ? 60.0
+        : (sparseTail || sparseIntro)
+        ? 35.0
+        : 45.0;
+    final candidateStartMs = durationMs - leadSeconds * 1000.0;
+    // Keep at least five seconds of outgoing audio beyond the fade duration,
+    // and leave very short tracks on the conventional transition path.
+    if (candidateStartMs >= 0 &&
+        durationMs - candidateStartMs >= fadeSeconds * 1000.0 + 5000) {
+      transitionStartMs = candidateStartMs;
+    }
+  }
+
   // Derive conservative per-deck EQ targets from actual measured features.
   // Unknown metadata keeps bands neutral, except the historical outgoing-tail
   // filter fallback. These are overlap-only attenuations; neither deck is boosted.
@@ -875,6 +934,7 @@ AutomixTransitionCue automixTransitionCue({
 
   return AutomixTransitionCue(
     fadeSeconds: fadeSeconds,
+    transitionStartMs: transitionStartMs,
     curveGamma: gamma,
     outgoingTrim: outgoingTrim,
     incomingTrim: incomingTrim,
