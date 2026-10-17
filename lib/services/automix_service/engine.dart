@@ -820,17 +820,35 @@ AutomixTransitionCue automixTransitionCue({
       incomingDropMs >= 8000 &&
       incomingDropMs <= 90000 &&
       incoming.dropConfidence >= 0.55;
-  final hasConfidentBeatPair = outgoing.tailBpm != null &&
+  final outgoingGridBpm = outgoing.tailBpm;
+  final incomingGridBpm = incoming.bpm;
+  final hasConfidentBeatPair =
+      outgoingGridBpm != null &&
+      outgoingGridBpm.isFinite &&
+      outgoingGridBpm >= 50 &&
+      outgoingGridBpm <= 220 &&
       outgoing.tailBpmConfidence >= 0.35 &&
       outgoing.tailBeatOffsetMs != null &&
-      incoming.bpm != null &&
+      outgoing.tailBeatOffsetMs!.isFinite &&
+      outgoing.tailBeatOffsetMs! >= 0 &&
+      incomingGridBpm != null &&
+      incomingGridBpm.isFinite &&
+      incomingGridBpm >= 50 &&
+      incomingGridBpm <= 220 &&
       incoming.bpmConfidence >= 0.35 &&
-      incoming.beatOffsetMs != null;
+      incoming.beatOffsetMs != null &&
+      incoming.beatOffsetMs!.isFinite &&
+      incoming.beatOffsetMs! >= 0 &&
+      automixTempoMatch(
+        referenceBpm: outgoingGridBpm,
+        trackBpm: incomingGridBpm,
+      ).$1;
   if (outgoing.durationSeconds >= 120 &&
       durationMs.isFinite &&
       durationMs > 0 &&
       hasConfidentIncomingDrop &&
       hasConfidentBeatPair &&
+      !tempoMismatch &&
       cueLeadSeconds == null) {
     final breakdown = outgoing.tailBreakdownCueMs;
     final breakdownLeadSeconds =
