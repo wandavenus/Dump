@@ -417,23 +417,15 @@ class CrossfadeController(
         // from a transparent filter state on both decks.
         setAutoMixTailFilter(current, 1f)
         setAutoMixTailFilter(standby, 1f)
-        // The native per-sample envelope belongs to AutoMix only. When AutoMix
-        // is disabled, explicitly clear any per-slot envelope left by a prior
-        // transition and keep the ordinary Kotlin volume-ramp path in control.
-        val nativeFadeAvailable = if (isAutomixTransitionEnabled()) {
-            setAutoMixCrossfadeGains(
-                current,
-                standby,
-                0f,
-                fadeGamma,
-                outgoingTrim,
-                incomingTrim,
-            )
-        } else {
-            setAutoMixFadeGain(current, 1f)
-            setAutoMixFadeGain(standby, 1f)
-            false
-        }
+        // Keep the master gain envelope on the controller thread for BOTH modes.
+        // The two native processors consume PCM on independent audio threads, so
+        // their per-sample fade ramps can briefly be out of phase and exceed the
+        // combined headroom budget even when each target pair is normalized.
+        // The Kotlin ramp computes both deck gains in the same tick and applies
+        // one shared headroom scale. Reset stale native envelopes before fading.
+        setAutoMixFadeGain(current, 1f)
+        setAutoMixFadeGain(standby, 1f)
+        val nativeFadeAvailable = false
 
         // Beat-phase resync needs a phase grid on BOTH decks: with only one grid
         // there is nothing to lock onto, so the plain fade runs unchanged.
