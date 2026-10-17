@@ -64,6 +64,8 @@ class CrossfadeControllerTest {
         volumeBeforeDuck: Float = 1f,
         hasAudioFocus: Boolean = true,
         rebuildPromotedQueue: () -> Unit = {},
+        automixEnabled: Boolean = false,
+        transitionStartMs: Long? = null,
     ) = CrossfadeController(
         handler              = mockHandler,
         getActivePlayer      = { activePlayer },
@@ -79,6 +81,8 @@ class CrossfadeControllerTest {
         setActiveQueueIndex  = { },
         rebuildPromotedQueue = rebuildPromotedQueue,
         onCrossfadeComplete  = { crossfadeCompleteCalls++ },
+        isAutomixTransitionEnabled = { automixEnabled },
+        getAutoMixTransitionStartMsForPlayer = { transitionStartMs },
         emitAll              = { emitAllCalls++ },
         refreshNotification  = { refreshNotifCalls++ },
         onCrossfadeStarting  = { crossfadeStartingCalls++ },
@@ -373,6 +377,32 @@ class CrossfadeControllerTest {
         val callsAfterFirst = setActivePlayerCalls
         ctrl.maybeCrossfadeOut()  // crossfadeInProgress=true → returns immediately
         assertEquals(callsAfterFirst, setActivePlayerCalls)
+    }
+
+    @Test fun `F09 confident AutoMix cue starts handover before outgoing EOF`() {
+        whenever(mockActivePlayer.duration).thenReturn(180_000L)
+        whenever(mockActivePlayer.currentPosition).thenReturn(120_000L)
+        val ctrl = makeController(
+            automixEnabled = true,
+            transitionStartMs = 120_000L,
+        ).also { it.setDuration(6f) }
+
+        ctrl.maybeCrossfadeOut()
+
+        assertTrue("early cue should start fade with 60 s left", ctrl.crossfadeInProgress)
+    }
+
+    @Test fun `F10 invalid early cue falls back to the normal end-of-track point`() {
+        whenever(mockActivePlayer.duration).thenReturn(180_000L)
+        whenever(mockActivePlayer.currentPosition).thenReturn(120_000L)
+        val ctrl = makeController(
+            automixEnabled = true,
+            transitionStartMs = 10_000L,
+        ).also { it.setDuration(6f) }
+
+        ctrl.maybeCrossfadeOut()
+
+        assertFalse("stale cue must not cut the current track early", ctrl.crossfadeInProgress)
     }
 
     @Test fun `F08 cancel after beginCrossfade resets all flags`() {
