@@ -28,6 +28,10 @@ class AutomixTransitionPolicyTest {
         assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(120f, null))
         assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(49f, 124f))
         assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(120f, Float.NaN))
+        // Octave-folded pairs may use a regular fade, but raw-period phase
+        // correction is unsafe unless the measured grids are comparable.
+        assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(60f, 120f))
+        assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(120f, 60f))
     }
 
     @Test
