@@ -76,9 +76,12 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeProcessFloat(
   if (data == NULL) {
     return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
-  // Observe decoded PCM before DSP. Processing is per-slot, bounded and lock-free.
-  (void)nar_automix_live_tracker_process(data, (int32_t)frame_count,
-      (int32_t)channel_count, (int32_t)sample_rate, (int32_t)stream_slot);
+  // Only pay for live beat tracking while AutoMix is active. The tracker
+  // repeats this gate internally as a defensive guard for non-JNI callers.
+  if (nar_automix_live_tracker_is_enabled()) {
+    (void)nar_automix_live_tracker_process(data, (int32_t)frame_count,
+        (int32_t)channel_count, (int32_t)sample_rate, (int32_t)stream_slot);
+  }
   return (jint)nar_dsp_pipeline_process_raw_stream(
       data, (int32_t)frame_count, (int32_t)channel_count, (int32_t)sample_rate,
       (int32_t)stream_slot);
@@ -200,4 +203,13 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeResetLiveBeatTrack
   (void)env;
   (void)clazz;
   (void)nar_automix_live_tracker_reset((int32_t)stream_slot);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeSetLiveBeatTrackerEnabled(
+    JNIEnv* env, jclass clazz, jboolean enabled) {
+  (void)env;
+  (void)clazz;
+  return nar_automix_live_tracker_set_enabled(enabled == JNI_TRUE ? 1 : 0) == 1
+      ? JNI_TRUE : JNI_FALSE;
 }
