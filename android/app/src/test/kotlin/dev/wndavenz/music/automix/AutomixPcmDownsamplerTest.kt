@@ -56,33 +56,58 @@ class AutomixPcmDownsamplerTest {
         assertTrue("anti-phase stereo was incorrectly cancelled: rms=$rms", rms > 0.20)
     }
 
-    @Test
-    fun multichannelAudioProcessesCenterAndSurroundChannels() {
+    private fun analyzeMultichannelRms(
+        activeChannels: Set<Int>,
+        invertedChannels: Set<Int> = emptySet(),
+        frequencyHz: Double = 1_000.0,
+    ): Double {
         val sampleRate = 48_000
         val frames = sampleRate
-        val channels = 6 // 5.1 multichannel
+        val channels = 6 // 5.1: L, R, C, LFE, Ls, Rs
         val pcm = ShortArray(frames * channels)
-
-        // Center channel (index 2 in 5.1 format) carries 1 kHz sine while L/R are muted
-        for (i in 0 until frames) {
-            val value = (sin(2.0 * PI * 1_000.0 * i / sampleRate) * 12_000.0).toInt().toShort()
-            pcm[i * channels + 2] = value // Center channel
+        for (frame in 0 until frames) {
+            val value = (sin(2.0 * PI * frequencyHz * frame / sampleRate) * 12_000.0).toInt()
+            for (channel in activeChannels) {
+                val sign = if (channel in invertedChannels) -1 else 1
+                pcm[frame * channels + channel] = (value * sign).toShort()
+            }
         }
 
-        val downsampler = AutomixPcmDownsampler(
-            sourceRateHz = sampleRate,
-            channels = channels,
-        )
+        val downsampler = AutomixPcmDownsampler(sourceRateHz = sampleRate, channels = channels)
         val output = ArrayList<Float>()
         for (frame in 0 until frames) {
             downsampler.processFrame(pcm, frame)?.let(output::add)
         }
         val stable = output.drop(1_000)
-        val centerRms = sqrt(stable.sumOf { it.toDouble() * it.toDouble() } / stable.size)
+        return sqrt(stable.sumOf { it.toDouble() * it.toDouble() } / stable.size)
+    }
+
+    @Test
+    fun multichannelDownmixPreservesActiveChannelsWithoutDilution() {
+        val monoRms = analyzeSineRms(1_000.0)
+        val centerOnlyRms = analyzeMultichannelRms(activeChannels = setOf(2))
+        val surroundOnlyRms = analyzeMultichannelRms(activeChannels = setOf(4))
+        val stereoOnlyRms = analyzeMultichannelRms(activeChannels = setOf(0, 1))
+        val antiPhaseRms = analyzeMultichannelRms(
+            activeChannels = setOf(0, 1),
+            invertedChannels = setOf(1),
+        )
 
         assertTrue(
-            "Center channel content in 5.1 audio was ignored/muted: rms=$centerRms",
-            centerRms > 0.20,
+            "Center-only 5.1 content was attenuated: center=$centerOnlyRms mono=$monoRms",
+            centerOnlyRms > monoRms * 0.80,
+        )
+        assertTrue(
+            "Surround-only 5.1 content was ignored or attenuated: surround=$surroundOnlyRms mono=$monoRms",
+            surroundOnlyRms > monoRms * 0.80,
+        )
+        assertTrue(
+            "L/R-only 5.1 content was diluted by silent channels: stereo=$stereoOnlyRms mono=$monoRms",
+            stereoOnlyRms > monoRms * 0.80,
+        )
+        assertTrue(
+            "Anti-phase multichannel content collapsed to silence: rms=$antiPhaseRms",
+            antiPhaseRms > monoRms * 0.80,
         )
     }
 }

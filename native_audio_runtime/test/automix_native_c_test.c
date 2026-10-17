@@ -563,6 +563,32 @@ static void test_phrase_lock(void) {
   assert(isnan(factor));
 }
 
+static void test_tone_processor_unity_bands_preserve_fade_target(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t frame_counts[] = {1, 7, 16, 64, 256, 1024};
+  assert(nar_automix_tone_configure(1, sample_rate, 2) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 0.5f) == 1);
+  assert(nar_automix_tone_reset(1) == 1);
+
+  for (size_t k = 0; k < sizeof(frame_counts) / sizeof(frame_counts[0]); ++k) {
+    const int32_t frames = frame_counts[k];
+    float* pcm = (float*)malloc((size_t)frames * 2 * sizeof(float));
+    assert(pcm != NULL);
+    for (int32_t i = 0; i < frames * 2; ++i) pcm[i] = 0.5f;
+    assert(nar_automix_tone_process(pcm, frames, 2, 1) == 1);
+    for (int32_t i = 0; i < frames * 2; ++i) {
+      // Complementary bands must reconstruct each constant sample before fade gain.
+      // Runs through scalar C on host builds and the AArch64 NEON dispatch when available.
+      assert(isfinite(pcm[i]));
+      assert(fabsf(pcm[i] - 0.25f) < 1e-4f);
+    }
+    free(pcm);
+  }
+}
+
 static void test_tone_processor_various_frame_counts(void) {
   const int32_t sample_rate = 48000;
   assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
@@ -589,6 +615,7 @@ static void test_tone_processor_various_frame_counts(void) {
 }
 
 int main(void) {
+  test_tone_processor_unity_bands_preserve_fade_target();
   test_tone_processor_various_frame_counts();
   test_crossfade_sample_peak_budget();
   test_ffi_contract_and_bounds();

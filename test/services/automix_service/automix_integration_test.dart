@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/automix_service.dart';
 
@@ -97,17 +98,30 @@ void main() {
       expect(cue.fadeSeconds, closeTo(8.0, 0.1));
     });
 
-    test('Bit-Perfect Mode active suppresses automix execution', () {
-      expect(AudioEffectsService.bitPerfectMode.value, isFalse);
-      AudioEffectsService.bitPerfectMode.value = true;
-      expect(AudioEffectsService.bitPerfectMode.value, isTrue);
-
-      AutomixService.automixEnabled.value = true;
-      expect(AutomixService.automixEnabled.value, isTrue);
-
-      // Clean up for other tests
-      AudioEffectsService.bitPerfectMode.value = false;
+    test('Bit-Perfect mode stops and resumes the AutoMix idle sweep', () async {
       AutomixService.automixEnabled.value = false;
+      AudioEffectsService.bitPerfectMode.value = false;
+      AutomixService.resetInMemoryState();
+      SharedPreferences.setMockInitialValues({});
+      await AutomixService.loadSettings();
+      AutomixService.initializeAutoMix();
+
+      try {
+        await AutomixService.setAutomixEnabled(true);
+        expect(AutomixService.hasPendingLibrarySweepForTesting, isTrue);
+
+        AudioEffectsService.bitPerfectMode.value = true;
+        expect(AutomixService.hasPendingLibrarySweepForTesting, isFalse);
+        expect(AutomixService.automixEnabled.value, isTrue);
+
+        AudioEffectsService.bitPerfectMode.value = false;
+        expect(AutomixService.hasPendingLibrarySweepForTesting, isTrue);
+      } finally {
+        AudioEffectsService.bitPerfectMode.value = true;
+        AutomixService.automixEnabled.value = false;
+        AutomixService.resetInMemoryState();
+        AudioEffectsService.bitPerfectMode.value = false;
+      }
     });
   });
 }
