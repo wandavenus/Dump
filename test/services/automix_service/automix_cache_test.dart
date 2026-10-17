@@ -13,6 +13,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('AutoMix DSP retry backoff', () {
+    test('increases retry delay and caps repeated failures', () {
+      expect(automixAnalysisRetryDelay(0), Duration.zero);
+      expect(automixAnalysisRetryDelay(1), const Duration(seconds: 30));
+      expect(automixAnalysisRetryDelay(2), const Duration(minutes: 1));
+      expect(automixAnalysisRetryDelay(3), const Duration(minutes: 2));
+      expect(automixAnalysisRetryDelay(4), const Duration(minutes: 4));
+      expect(automixAnalysisRetryDelay(5), const Duration(minutes: 8));
+      expect(automixAnalysisRetryDelay(6), const Duration(minutes: 15));
+      expect(automixAnalysisRetryDelay(20), const Duration(minutes: 15));
+    });
+  });
+
   group('cached analysis hydration', () {
     late Directory dir;
     late File file;
