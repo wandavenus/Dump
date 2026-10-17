@@ -1420,7 +1420,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,AutoMixTone,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,AutoMixTone,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1430,12 +1430,13 @@ class Media3PlaybackService : MediaSessionService() {
                     // float input to all custom processors.
                     .setEnableFloatOutput(false)
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
-                    // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
-                    // Reverb → Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
-                    // the custom DSP/widening/reverb/stretch stages always see PCM_FLOAT
-                    // (transparent no-op if the decoder already emits float); ToInt16
-                    // converts back before Media3's own internal SilenceSkipping/Sonic
-                    // stage so nothing downstream has to reason about float input.
+                    // Chain order: ToFloat → NativeDsp → StereoWiden → Reverb →
+                    // Stretch (speed+pitch) → AutoMixTone (EQ + final fade/sample-peak
+                    // ceiling) → ToInt16 → SilenceSkip. AutoMixTone must stay AFTER
+                    // Stretch: time-stretch can create new sample peaks, so applying the
+                    // fade/clamp before it would not bound the PCM sent to AudioTrack.
+                    // ToFloat guarantees custom stages see PCM_FLOAT; ToInt16 converts
+                    // back before Media3's internal SilenceSkipping/Sonic stage.
                     // Stretch fully replaces Sonic here — DefaultAudioProcessorChain's own
                     // internal Sonic/TeeAudioProcessor still exists downstream but is a
                     // transparent no-op as long as PlaybackParameters.speed/pitch stay at
@@ -1450,7 +1451,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, automixToneProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, automixToneProc, toInt16Proc
                         )
                     )
                     .build()
