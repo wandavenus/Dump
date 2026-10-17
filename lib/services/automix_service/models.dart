@@ -31,12 +31,12 @@ class AutomixChordEvent {
 
   String get label => '$root$quality';
 
+  // Compact keys keep the per-track SharedPreferences cache bounded.
   Map<String, dynamic> toMap() => <String, dynamic>{
-    'startMs': startMs,
-    'rootPitchClass': rootPitchClass,
-    'root': root,
-    'quality': quality,
-    'confidence': confidence,
+    't': startMs,
+    'r': rootPitchClass,
+    'q': quality,
+    'c': confidence,
   };
 }
 
@@ -54,10 +54,10 @@ List<AutomixChordEvent> automixChordEventsFromValue(Object? raw) {
   final events = <AutomixChordEvent>[];
   for (final item in raw) {
     if (item is! Map) continue;
-    final time = item['startMs'];
-    final root = item['rootPitchClass'];
-    final quality = item['quality'];
-    final confidence = item['confidence'];
+    final time = item['startMs'] ?? item['t'];
+    final root = item['rootPitchClass'] ?? item['r'];
+    final quality = item['quality'] ?? item['q'];
+    final confidence = item['confidence'] ?? item['c'];
     if (time is! num || root is! num || quality is! String || confidence is! num) {
       continue;
     }
