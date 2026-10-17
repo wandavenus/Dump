@@ -76,6 +76,13 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     double* output,
     int32_t output_count);
 
+// Analyzes time-local chord progression into rows of four doubles:
+// [window_start_ms, root_pitch_class (or -1), quality_id (or -1), confidence].
+// Returns rows written, 0 when the window is too short, or -1 for invalid input.
+FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
+    const float* mono, int32_t sample_count, int32_t sample_rate,
+    double* output, int32_t output_capacity);
+
 // Profiles: 0 = DJ, 1 = harmonic, 2 = energy.
 // `features` is row-major [track_count][NAR_AUTOMIX_FEATURE_COUNT], `keys` is
 // row-major [track_count][NAR_AUTOMIX_KEY_FIELD_COUNT]. Song IDs break ties;

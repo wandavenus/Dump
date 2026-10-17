@@ -7,4 +7,7 @@ object AutomixNative {
     fun ensureLoaded(): Boolean = ReplayGainNative.ensureLoaded()
 
     external fun nativeAnalyze(samples: FloatArray, sampleRate: Int): DoubleArray?
+
+    /** Returns [startMs, rootPitchClass, qualityId, confidence] rows. */
+    external fun nativeAnalyzeChords(samples: FloatArray, sampleRate: Int): DoubleArray?
 }
