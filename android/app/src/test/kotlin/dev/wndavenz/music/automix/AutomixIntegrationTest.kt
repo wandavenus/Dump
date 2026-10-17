@@ -25,7 +25,9 @@ class AutomixIntegrationTest {
             outgoingTrim = 1f,
             incomingTrim = 1f,
         )
-        assertEquals(0.3f * 0.5f, ducked.outgoing + ducked.incoming, 0.001f)
+        assertEquals(0.15f, ducked.outgoing, 0.001f)
+        assertEquals(0.15f, ducked.incoming, 0.001f)
+        assertEquals(0.3f, ducked.outgoing + ducked.incoming, 0.001f)
 
         val end = AutomixGainEnvelope.gains(
             progress = 1f,
