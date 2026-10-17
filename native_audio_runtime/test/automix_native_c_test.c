@@ -425,6 +425,8 @@ static void test_ffi_contract_and_bounds(void) {
 
   // Exact-sized buffer returns 1
   assert(nar_automix_analyze(pcm, count, sample_rate, output, 21) == 1);
+  assert(isfinite(output[20]));
+  assert(output[20] >= 0.0 && output[20] <= 1.0);
 
   // Planner bounds checks
   int64_t ids[2] = {1, 2};
