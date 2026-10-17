@@ -92,6 +92,9 @@ void main() {
               'tsconf': 0.75,
               'vlike': 0.85,
               'vconf': 0.9,
+              'chords': <Map<String, dynamic>>[
+                <String, dynamic>{'t': 232000.0, 'r': 7, 'q': 'maj', 'c': 0.88},
+              ],
             },
           }),
         );
@@ -118,6 +121,10 @@ void main() {
         expect(features.tailStructureConfidence, 0.75);
         expect(features.vocalLikelihood, 0.85);
         expect(features.vocalConfidence, 0.9);
+        expect(features.chordProgression, hasLength(1));
+        expect(features.chordProgression.single.label, 'Gmaj');
+        expect(features.chordProgression.single.startMs, 232000.0);
+        expect(features.chordProgression.single.confidence, 0.88);
         // Metadata still comes from the live MediaStore row.
         expect(features.title, 'Cached');
         expect(features.artist, 'Artist');
