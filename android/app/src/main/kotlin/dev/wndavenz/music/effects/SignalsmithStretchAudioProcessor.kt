@@ -80,7 +80,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var bypassRingBytes: ByteArray = ByteArray(0)
     private var bypassRingWritePos: Int = 0
     private var bypassRingFilled: Int = 0
-    private var bypassPrimeBuf: ByteBuffer = ByteBuffer.allocateDirect(0)
+    private var bypassSeekBuf: ByteBuffer = ByteBuffer.allocateDirect(0)
 
     /** Speed currently applied by the audio thread after smoothing. */
     fun effectivePlaybackSpeed(): Float =
@@ -183,7 +183,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val ringCapBytes = ringCapFrames * inputAudioFormat.channelCount * 4
         if (bypassRingBytes.size != ringCapBytes) {
             bypassRingBytes = ByteArray(ringCapBytes)
-            bypassPrimeBuf = ByteBuffer.allocateDirect(ringCapBytes)
+            bypassSeekBuf = ByteBuffer.allocateDirect(ringCapBytes)
         }
         clearBypassRing()
         NativeLogger.emit(
@@ -216,17 +216,17 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
     private fun seekEngineFromRing(h: Long, bytesPerFrame: Int, playbackRate: Float): Boolean {
         val filled = bypassRingFilled
-        if (filled < bytesPerFrame || bypassPrimeBuf.capacity() == 0) return false
+        if (filled < bytesPerFrame || bypassSeekBuf.capacity() == 0) return false
         val cap = bypassRingBytes.size
-        bypassPrimeBuf.clear()
+        bypassSeekBuf.clear()
         val startPos = ((bypassRingWritePos - filled) % cap + cap) % cap
         val firstChunk = minOf(filled, cap - startPos)
         val secondChunk = filled - firstChunk
-        bypassPrimeBuf.put(bypassRingBytes, startPos, firstChunk)
-        if (secondChunk > 0) bypassPrimeBuf.put(bypassRingBytes, 0, secondChunk)
-        bypassPrimeBuf.flip()
+        bypassSeekBuf.put(bypassRingBytes, startPos, firstChunk)
+        if (secondChunk > 0) bypassSeekBuf.put(bypassRingBytes, 0, secondChunk)
+        bypassSeekBuf.flip()
         val primeFrames = filled / bytesPerFrame
-        val result = nativeSeek(h, bypassPrimeBuf, primeFrames, playbackRate)
+        val result = nativeSeek(h, bypassSeekBuf, primeFrames, playbackRate)
         NativeLogger.emit(
             "info", "Stretch",
             "[Stretch] bypass→STFT seek: preRollFrames=$primeFrames playbackRate=$playbackRate result=$result " +
