@@ -136,11 +136,13 @@ class CrossfadeController(
         const val FADE_STEP_MS = 16L
 
         /** Minimum actual fade duration regardless of track-end proximity. */
-        const val MIN_FADE_MS = 80L
+        const val MIN_FADE_MS = AutomixTransitionPolicy.MIN_FADE_MS
 
         /** Bounds for a planner-approved early handover, relative to outgoing EOF. */
-        const val EARLY_TRANSITION_MIN_LEAD_MS = 30_000L
-        const val EARLY_TRANSITION_MAX_LEAD_MS = 65_000L
+        const val EARLY_TRANSITION_MIN_LEAD_MS =
+            AutomixTransitionPolicy.EARLY_TRANSITION_MIN_LEAD_MS
+        const val EARLY_TRANSITION_MAX_LEAD_MS =
+            AutomixTransitionPolicy.EARLY_TRANSITION_MAX_LEAD_MS
 
         /**
          * How often an overlap re-measures the two beat grids and re-times the
@@ -511,12 +513,9 @@ class CrossfadeController(
         //
         // Root-cause of "queue[0] plays for ~1 s during B's fade-in":
         //   beginCrossfade() used to remove only the TAIL (items after A), leaving
-        //   prefix items (queue[0]…A-1) intact. When A's track finishes before the
-        //   fade completes — which happens due to VBR/MP3 duration imprecision or the
-        //   200 ms ticker jitter — REPEAT_MODE_ALL wraps the old player back to
-        //   index 0 (queue[0]). queue[0] then plays at the still-audible fade-out
-        //   volume for up to ~1 s until runEqualPowerFade reaches step >= steps and
-        //   calls oldPlayer.pause().
+        //   prefix items (queue[0]…A-1) intact. If A's track finishes before the
+        //   media-timeline-based fade completes, REPEAT_MODE_ALL could wrap the old
+        //   player back to index 0 (queue[0]) at an audible fade-out volume.
         //
         // Fix: set REPEAT_MODE_OFF on the old player and also remove the prefix so
         // the old player contains exactly [A]. When A ends the player silently
@@ -654,8 +653,17 @@ class CrossfadeController(
         // durationMs is source-media time. Measuring progress against the
         // outgoing player's own timeline keeps the overlap correct across manual
         // speed changes and pauses/buffering, rather than assuming wall time.
-        val estimatedSteps = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
         val fadeStartPositionMs = oldPlayer.currentPosition.coerceAtLeast(0L)
+        val sourceDurationMs = oldPlayer.duration
+        val effectiveDurationMs = if (sourceDurationMs > 0L && sourceDurationMs != C.TIME_UNSET) {
+            minOf(
+                durationMs,
+                (sourceDurationMs - fadeStartPositionMs).coerceAtLeast(1L),
+            )
+        } else {
+            durationMs.coerceAtLeast(1L)
+        }
+        val estimatedSteps = (effectiveDurationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
         var step = 0
         var lastPhaseLockAt: Long? = null
         var nativeFadeActive = nativeFadeEnabled
@@ -690,7 +698,7 @@ class CrossfadeController(
                 val t = AutomixTransitionPolicy.mediaTimelineProgress(
                     fadeStartPositionMs,
                     oldPlayer.currentPosition.coerceAtLeast(0L),
-                    durationMs,
+                    effectiveDurationMs,
                 )
                 if (t >= 1f) {
                     setAutoMixBassGain(newPlayer, 1f)
@@ -743,7 +751,7 @@ class CrossfadeController(
                     crossfadeFadeRunnable = null
                     preloadManager.resetPreloadedIndex()
 
-                    log("Crossfade complete: ${durationMs}ms source-media duration, $step ticks")
+                    log("Crossfade complete: ${effectiveDurationMs}ms source-media duration, $step ticks")
 
                     // Rebuild full queue on promoted player + re-attach effects.
                     // *** THIS IS THE PRIMARY SUSPECT for post-fade decoder re-init. ***
@@ -837,7 +845,7 @@ class CrossfadeController(
                             // time, then into incoming source-media time. Read both applied
                             // speeds every sample so speed changes during a blend are tracked.
                             val remainingOutgoingMediaMs =
-                                (durationMs.toDouble() -
+                                (effectiveDurationMs.toDouble() -
                                     (oldPlayer.currentPosition - fadeStartPositionMs)
                                         .coerceAtLeast(0L).toDouble()
                                 ).coerceAtLeast(0.0)
@@ -946,7 +954,7 @@ class CrossfadeController(
         }
         crossfadeFadeRunnable = runnable
         handler.post(runnable)
-        log("Equal-power fade started: ${durationMs}ms source-media duration, ~${estimatedSteps} ticks")
+        log("Equal-power fade started: ${effectiveDurationMs}ms source-media duration, ~${estimatedSteps} ticks")
     }
 
     private fun log(msg: String) = NativeLogger.emit("info", "Crossfade", msg)
