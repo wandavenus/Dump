@@ -8,7 +8,7 @@ This document records the production path verified during the follow-up audit fo
 2. JNI (`automix_jni.cpp`) forwards the 21-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`, including explicit `tailBpmConfidence` (index 20).
 3. Kotlin maps the output slots to MethodChannel fields. The Dart parser `automixSegmentFeaturesFromAnalysisMap` validates types, finiteness, confidence ranges, key codes and cue offsets rather than silently dropping new fields.
 4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure, breakdown, and `tailBpmConfidence` metadata are kept distinct from head metadata.
-5. `AutomixService` persists these features using cache schema v11. Older entries are deliberately cache misses so legacy metadata cannot silently replace newly required fields.
+5. `AutomixService` persists these features using cache schema v12. Older entries are deliberately cache misses so legacy metadata cannot silently replace newly required fields.
 
 The ABI tests enforce the exact 21-value analyzer output, invalid/undersized input behavior, valid confidence ranges, the structure-region enum range, and strict silence/noise expectations. Vocal likelihood is a **spectral proxy**, not voice isolation: it is confidence-gated and tonal/broadband-noise edge cases are tested.
 
@@ -66,8 +66,6 @@ The PR verification workflow syntax-checks `setup-flutter.sh` and dispatches the
 
 ## 6. Explicitly deferred functionality
 
-- **Live PCM beat tracking:** deferred. Current phase/phrase correction uses offline grids and live player positions; it does not run a separate continuously adapting BPM/beat detector on the live PCM stream.
-- **Chord progression:** not implemented. The existing harmonic planner uses estimated key/Camelot compatibility only.
 - **True-peak limiting:** not implemented. The validated guarantee is a per-stream sample-peak clamp and bounded overlap gain budget only.
 
-Those three features must not be presented as active capabilities until they have their own production path, failure-safe fallback and integration tests.
+Live beat tracking and confidence-gated chord progression analysis now have production paths described above. The live tracker remains heuristic; the chord classifier is a bounded spectral-template estimator. Neither claims model-level transcription accuracy.
