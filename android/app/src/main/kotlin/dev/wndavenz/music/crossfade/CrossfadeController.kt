@@ -8,6 +8,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.wndavenz.music.automix.AutomixGainEnvelope
 import dev.wndavenz.music.automix.AutomixPhaseLock
+import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.effects.AutomixLiveBeatState
@@ -96,6 +97,8 @@ class CrossfadeController(
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float? = { null },
+    private val getMediaPlaybackSpeedForPlayer: (ExoPlayer) -> Float = { it.playbackParameters.speed },
+    private val monotonicClockMs: () -> Long = { SystemClock.uptimeMillis() },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
     private val setAutoMixMidGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
     private val getAutoMixBassOverlapGainsForIncoming: (ExoPlayer) -> Pair<Float, Float>? = { null },
@@ -223,9 +226,7 @@ class CrossfadeController(
             getAutoMixTransitionStartMsForPlayer(standby)
         } else null
         val earlyStartMs = requestedStartMs?.takeIf {
-            it >= 0L && it < dur &&
-                (dur - it) in EARLY_TRANSITION_MIN_LEAD_MS..EARLY_TRANSITION_MAX_LEAD_MS &&
-                (dur - it) > crossMs + MIN_FADE_MS
+            AutomixTransitionPolicy.isValidEarlyHandover(it, dur, crossMs)
         }
         val isEarlyTransition = earlyStartMs != null
         val idealStart = (earlyStartMs ?: (dur - crossMs)).coerceAtLeast(0L)
@@ -291,7 +292,9 @@ class CrossfadeController(
             // Convert media-time distance to wall time when playback speed is not 1x.
             if (currentPosition >= prewarmWindowStart && beatAlignedStartRunnable == null) {
                 val expectedItemId = p.currentMediaItem?.mediaId
-                val speed = p.playbackParameters.speed.takeIf { it.isFinite() && it > 0f } ?: 1f
+                val speed = AutomixTransitionPolicy.normalizedPlaybackSpeed(
+                    getMediaPlaybackSpeedForPlayer(p),
+                )
                 val delay = ((beatAlignedStart - currentPosition) / speed)
                     .toLong().coerceAtLeast(1L)
                 val runnable = Runnable {
@@ -478,12 +481,18 @@ class CrossfadeController(
         setAutoMixFadeGain(standby, 1f)
         val nativeFadeAvailable = false
 
-        // Beat-phase resync needs a phase grid on BOTH decks: with only one grid
-        // there is nothing to lock onto, so the plain fade runs unchanged.
-        // The tick uses live beat states when confidence is sufficient and
-        // falls back to file-level grids. The AutoMix guard still prevents
-        // touching playback rate when both sources are unavailable.
-        val phaseLockActive = isAutomixTransitionEnabled()
+        // Live BPM estimates may be available even for tracks that the planner
+        // deliberately left unmatched. Only use phase lock when the published
+        // offline targets say this pair passed tempo matching.
+        val phaseLockActive = isAutomixTransitionEnabled() &&
+            AutomixTransitionPolicy.isBeatMatchedPair(
+                getAutoMixBpmForPlayer(current),
+                getAutoMixBpmForPlayer(standby),
+            )
+        // Empty/same-ID target sets intentionally mean ordinary crossfade; do
+        // not apply the default tail filter unless a real transition cue exists.
+        val transitionCueAvailable = isAutomixTransitionEnabled() &&
+            AutomixTransitionPolicy.hasTransitionCue(getAutoMixFadeSecondsForPlayer(standby))
 
         crossfadeInProgress = true
         promotionTriggered  = true
@@ -611,7 +620,7 @@ class CrossfadeController(
             actualFadeMs,
             applyBassSwap,
             phaseLockActive,
-            isAutomixTransitionEnabled(),
+            transitionCueAvailable,
             nativeFadeAvailable,
             bassOverlapGains,
             midOverlapGains,
@@ -642,10 +651,13 @@ class CrossfadeController(
     highOverlapGains: Pair<Float, Float>?,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
-        val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
-        val stepMs     = (durationMs / steps).coerceAtLeast(1L)
-        var step       = 0
-        var lastPhaseLockAt = 0L
+        // durationMs is source-media time. Measuring progress against the
+        // outgoing player's own timeline keeps the overlap correct across manual
+        // speed changes and pauses/buffering, rather than assuming wall time.
+        val estimatedSteps = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
+        val fadeStartPositionMs = oldPlayer.currentPosition.coerceAtLeast(0L)
+        var step = 0
+        var lastPhaseLockAt: Long? = null
         var nativeFadeActive = nativeFadeEnabled
 
         val runnable = object : Runnable {
@@ -675,7 +687,12 @@ class CrossfadeController(
                     return
                 }
 
-                if (step >= steps) {
+                val t = AutomixTransitionPolicy.mediaTimelineProgress(
+                    fadeStartPositionMs,
+                    oldPlayer.currentPosition.coerceAtLeast(0L),
+                    durationMs,
+                )
+                if (t >= 1f) {
                     setAutoMixBassGain(newPlayer, 1f)
                     setAutoMixBassGain(oldPlayer, 1f)
                     setAutoMixMidGain(newPlayer, 1f)
@@ -688,7 +705,7 @@ class CrossfadeController(
                     setAutoMixTailFilter(oldPlayer, 1f)
                     // ── Crossfade complete ─────────────────────────────────────
                     CrossfadeTimelineLogger.stampDual(
-                        "runEqualPowerFade: COMPLETE (step=$step/$steps) — about to stop old player",
+                        "runEqualPowerFade: COMPLETE (ticks=$step) — about to stop old player",
                         newPlayer, oldPlayer)
 
                     val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
@@ -726,7 +743,7 @@ class CrossfadeController(
                     crossfadeFadeRunnable = null
                     preloadManager.resetPreloadedIndex()
 
-                    log("Crossfade complete: ${durationMs}ms, $steps steps @ ${stepMs}ms/step")
+                    log("Crossfade complete: ${durationMs}ms source-media duration, $step ticks")
 
                     // Rebuild full queue on promoted player + re-attach effects.
                     // *** THIS IS THE PRIMARY SUSPECT for post-fade decoder re-init. ***
@@ -756,7 +773,6 @@ class CrossfadeController(
                 // Capturing this once before the fade would restore the stale
                 // pre-change volume at completion.
                 val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
-                val t      = step.toFloat() / steps.toFloat()
                 // Transition-specific three-band targets are attenuations only.
                 // Apply them with a bounded overlap envelope; the native DSP
                 // smooths every target over ~20 ms without audio-thread locks.
@@ -794,8 +810,15 @@ class CrossfadeController(
                 // locked until the hand-over. Each correction is re-derived from
                 // live positions, so a wrong measurement self-corrects.
                 if (phaseLock) {
-                    val now = SystemClock.uptimeMillis()
-                    if (now - lastPhaseLockAt >= PHASE_LOCK_INTERVAL_MS) {
+                    val now = monotonicClockMs()
+                    val previousSample = lastPhaseLockAt
+                    if (previousSample == null ||
+                        AutomixTransitionPolicy.shouldSamplePhaseLock(
+                            now,
+                            previousSample,
+                            PHASE_LOCK_INTERVAL_MS,
+                        )
+                    ) {
                         lastPhaseLockAt = now
                         val oldLive = getAutoMixLiveBeatStateForPlayer(oldPlayer)
                             ?.takeIf { it.confidence >= LIVE_BEAT_MIN_CONFIDENCE }
@@ -810,15 +833,22 @@ class CrossfadeController(
                             newBpm != null && newOffset != null &&
                             oldBpm > 0f && newBpm > 0f
                         ) {
-                            val remainingWallMs =
-                                ((steps - step).coerceAtLeast(0).toLong() * stepMs).toDouble()
-                            // Beat/phrase error is measured in incoming-media milliseconds,
-                            // while the fade timer is wall-clock time. Convert the remaining
-                            // horizon by the base playback multiplier before solving the
-                            // small relative rate correction.
-                            val baseMultiplier = getAutoMixTempoMultiplierForPlayer(newPlayer)
-                                ?.takeIf { it.isFinite() && it > 0f }?.toDouble() ?: 1.0
-                            val remainingMediaMs = remainingWallMs * baseMultiplier
+                            // Convert the remaining outgoing source-media horizon to wall
+                            // time, then into incoming source-media time. Read both applied
+                            // speeds every sample so speed changes during a blend are tracked.
+                            val remainingOutgoingMediaMs =
+                                (durationMs.toDouble() -
+                                    (oldPlayer.currentPosition - fadeStartPositionMs)
+                                        .coerceAtLeast(0L).toDouble()
+                                ).coerceAtLeast(0.0)
+                            val outgoingSpeed = AutomixTransitionPolicy.normalizedPlaybackSpeed(
+                                getMediaPlaybackSpeedForPlayer(oldPlayer),
+                            ).toDouble()
+                            val incomingSpeed = AutomixTransitionPolicy.normalizedPlaybackSpeed(
+                                getMediaPlaybackSpeedForPlayer(newPlayer),
+                            ).toDouble()
+                            val remainingMediaMs =
+                                (remainingOutgoingMediaMs / outgoingSpeed) * incomingSpeed
                             val oldDownbeat = if (useLivePhase) null
                                 else getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)
                             val newDownbeat = if (useLivePhase) null
@@ -911,12 +941,12 @@ class CrossfadeController(
                     setAutoMixTailFilter(newPlayer, 1f - (1f - incomingHigh) * eased)
                 }
                 step++
-                handler.postDelayed(this, stepMs)
+                handler.postDelayed(this, FADE_STEP_MS)
             }
         }
         crossfadeFadeRunnable = runnable
         handler.post(runnable)
-        log("Equal-power fade started: ${durationMs}ms, ~$steps steps, ${stepMs}ms/step")
+        log("Equal-power fade started: ${durationMs}ms source-media duration, ~${estimatedSteps} ticks")
     }
 
     private fun log(msg: String) = NativeLogger.emit("info", "Crossfade", msg)
