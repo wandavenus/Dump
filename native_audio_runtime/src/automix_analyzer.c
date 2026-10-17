@@ -381,6 +381,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[17] = 0.0;
   output[18] = 0.0;
   output[19] = 0.0;
+  output[NAR_AUTOMIX_TAIL_BPM_CONFIDENCE_INDEX] = 0.0;
 
   const int32_t frame_count = (sample_count - FFT_SIZE) / HOP_SIZE + 1;
   if (frame_count < 8) return 0;
@@ -535,6 +536,11 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
                                         tempo.bpm);
     }
   }
+  // Each native call analyzes one segment/window. Its BPM estimate is also
+  // the tail-window estimate when Dart merges the final segment, so publish
+  // the confidence explicitly at the ABI's dedicated tail-confidence slot.
+  output[NAR_AUTOMIX_TAIL_BPM_CONFIDENCE_INDEX] = output[1];
+
   int32_t tonic = -1;
   int32_t is_minor = 0;
   double key_confidence = 0.0;
