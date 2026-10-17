@@ -102,6 +102,9 @@ class CrossfadeController(
     // track: its own fade length, the equal-power transfer curve, and the level
     // match between the two decks. All default to the pre-AutoMix behaviour.
     private val getAutoMixFadeSecondsForPlayer: (ExoPlayer) -> Float? = { null },
+    // Absolute start position on the OUTGOING track's media timeline. This is
+    // distinct from fade length and is only set for confident early handovers.
+    private val getAutoMixTransitionStartMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixCurveForPlayer: (ExoPlayer) -> Float = { 1f },
     private val getAutoMixTrimForPlayer: (ExoPlayer) -> Float = { 1f },
     private val getAutoMixOutgoingTrimForPlayer: (ExoPlayer) -> Float = { 1f },
@@ -128,6 +131,10 @@ class CrossfadeController(
 
         /** Minimum actual fade duration regardless of track-end proximity. */
         const val MIN_FADE_MS = 80L
+
+        /** Bounds for a planner-approved early handover, relative to outgoing EOF. */
+        const val EARLY_TRANSITION_MIN_LEAD_MS = 30_000L
+        const val EARLY_TRANSITION_MAX_LEAD_MS = 65_000L
 
         /**
          * How often an overlap re-measures the two beat grids and re-times the
@@ -206,7 +213,19 @@ class CrossfadeController(
             .coerceAtLeast(MIN_FADE_MS)
         val currentPosition = p.currentPosition.coerceAtLeast(0L)
         val remaining = (dur - currentPosition).coerceAtLeast(0L)
-        val idealStart = (dur - crossMs).coerceAtLeast(0L)
+        // Only honour a planner cue within the explicitly supported early-exit
+        // window. A stale/malformed target safely falls back to the standard
+        // crossfade point near EOF.
+        val requestedStartMs = if (isAutomixTransitionEnabled()) {
+            getAutoMixTransitionStartMsForPlayer(standby)
+        } else null
+        val earlyStartMs = requestedStartMs?.takeIf {
+            it >= 0L && it < dur &&
+                (dur - it) in EARLY_TRANSITION_MIN_LEAD_MS..EARLY_TRANSITION_MAX_LEAD_MS &&
+                (dur - it) > crossMs + MIN_FADE_MS
+        }
+        val isEarlyTransition = earlyStartMs != null
+        val idealStart = (earlyStartMs ?: (dur - crossMs)).coerceAtLeast(0L)
 
         // BPM + phase are an offline onset-grid estimate, not a guaranteed
         // musical downbeat. If either is uncertain, retain time-based crossfade.
@@ -236,10 +255,14 @@ class CrossfadeController(
         val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
 
         // ── Phase 1: pre-warm ─────────────────────────────────────────────────
-        if (!prewarmTriggered && remaining <= (fadeLeadMs + PREWARM_LEAD_MS)) {
+        val prewarmWindowStart = (beatAlignedStart - PREWARM_LEAD_MS).coerceAtLeast(0L)
+        if (!prewarmTriggered && currentPosition >= prewarmWindowStart) {
             prewarmTriggered = true
             preloadManager.prewarmStandby()
-            log("Pre-warm triggered @ remaining=${remaining}ms (crossMs=${crossMs}ms)")
+            log(
+                "Pre-warm triggered @ position=${currentPosition}ms " +
+                    "(start=${beatAlignedStart}ms early=${isEarlyTransition})"
+            )
 
             // Patch B (RC-3 fix): pre-load notification artwork during the idle prewarm
             // window so bitmapCache already has the next track's artwork by the time
@@ -260,20 +283,38 @@ class CrossfadeController(
 
         // ── Phase 2: beat-grid-aware or ordinary crossfade ────────────────────
         if (beatMs != null && beatOffset != null && currentPosition < beatAlignedStart) {
-            // Use the service Handler rather than the 200 ms position ticker
-            // to reduce onset timing jitter after the standby has been prewarmed.
-            val prewarmWindowStart = (beatAlignedStart - PREWARM_LEAD_MS).coerceAtLeast(0L)
+            // Use a Handler to reduce timing jitter after the standby is prewarmed.
+            // Convert media-time distance to wall time when playback speed is not 1x.
             if (currentPosition >= prewarmWindowStart && beatAlignedStartRunnable == null) {
                 val expectedItemId = p.currentMediaItem?.mediaId
-                val delay = (beatAlignedStart - currentPosition).coerceAtLeast(1L)
+                val speed = p.playbackParameters.speed.takeIf { it.isFinite() && it > 0f } ?: 1f
+                val delay = ((beatAlignedStart - currentPosition) / speed)
+                    .toLong().coerceAtLeast(1L)
                 val runnable = Runnable {
                     beatAlignedStartRunnable = null
                     if (getActivePlayer() !== p || p.currentMediaItem?.mediaId != expectedItemId ||
                         crossfadeInProgress || promotionTriggered || isBitPerfectModeActive() ||
                         isEndOfSongSleepTimerActive()
                     ) return@Runnable
-                    val nowRemaining = (p.duration - p.currentPosition).coerceAtLeast(0L)
-                    val fade = minOf(fadeLeadMs, nowRemaining).coerceAtLeast(MIN_FADE_MS)
+                    val nowPosition = p.currentPosition.coerceAtLeast(0L)
+                    if (nowPosition < beatAlignedStart) {
+                        // Position can lag the wall-clock delay (buffering/speed
+                        // changes). Re-arm rather than starting the fade early.
+                        val nowSpeed = p.playbackParameters.speed
+                            .takeIf { it.isFinite() && it > 0f } ?: 1f
+                        val retryDelay = ((beatAlignedStart - nowPosition) / nowSpeed)
+                            .toLong().coerceAtLeast(1L)
+                        beatAlignedStartRunnable = this
+                        handler.postDelayed(this, retryDelay)
+                        return@Runnable
+                    }
+                    val nowRemaining = (p.duration - nowPosition).coerceAtLeast(0L)
+                    val requestedFadeMs = if (isEarlyTransition) {
+                        crossMs
+                    } else {
+                        (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
+                    }
+                    val fade = minOf(requestedFadeMs, nowRemaining).coerceAtLeast(MIN_FADE_MS)
                     beginCrossfade(fade)
                 }
                 beatAlignedStartRunnable = runnable
@@ -282,7 +323,13 @@ class CrossfadeController(
         } else if (remaining > 0L && currentPosition >= beatAlignedStart) {
             beatAlignedStartRunnable?.let { handler.removeCallbacks(it) }
             beatAlignedStartRunnable = null
-            val requestedFadeMs = if (beatMs != null && beatOffset != null) fadeLeadMs else crossMs
+            val requestedFadeMs = if (isEarlyTransition) {
+                crossMs
+            } else if (beatMs != null && beatOffset != null) {
+                fadeLeadMs
+            } else {
+                crossMs
+            }
             val actualFadeMs = minOf(requestedFadeMs, remaining).coerceAtLeast(MIN_FADE_MS)
             log("Crossfade trigger: remaining=${remaining}ms fade=${actualFadeMs}ms " +
                 "beatAligned=${beatMs != null && beatOffset != null}")
