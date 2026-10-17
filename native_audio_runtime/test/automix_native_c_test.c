@@ -415,9 +415,9 @@ static void test_crossfade_sample_peak_budget(void) {
 static void test_crossfade_mixed_output_peak_budget(void) {
   const int32_t sample_rate = 48000;
   const int32_t frames = 8;
-  const size_t sample_count = (size_t)frames * 2;
-  float outgoing[sample_count];
-  float incoming[sample_count];
+  const size_t sample_count = 16;
+  float outgoing[16];
+  float incoming[16];
 
   // Exercise the real per-stream processor output, not only the gain helper.
   // EQ can receive over-range float PCM, so the fade stage must clamp before
