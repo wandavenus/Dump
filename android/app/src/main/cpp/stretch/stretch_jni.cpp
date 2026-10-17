@@ -200,6 +200,7 @@ struct StretchHandle {
     // FIX Temuan #6 (LOW): replaces steady_clock::now() throttle with a
     // frame counter. No syscall overhead on the audio thread.
     float    sampleRate = 48000.0f;         // stored from nativeCreate
+    float    lastPlaybackRate = 1.0f;       // input/output frame ratio used by the last successful process()
     uint64_t totalFramesProcessed = 0;      // cumulative input frames since create
     uint64_t lastLoggedAtFrame    = 0;      // totalFramesProcessed at last log emission
 
@@ -445,6 +446,7 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
                      " outputFrames=" + std::to_string(outputFrames) + " channels=" + std::to_string(h->channels));
         }
 
+        h->lastPlaybackRate = static_cast<float>(inputFrames) / static_cast<float>(outputFrames);
         h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), outputFrames);
 
         bool hasNonFinite = false;
@@ -557,6 +559,7 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeek(
             }
         }
         h->stretch.seek(h->inPtrs.data(), inputFrames, static_cast<double>(playbackRate));
+        h->lastPlaybackRate = playbackRate;
     } catch (...) {
         slog(env, "error", "nativeSeek exception during seek() pointer=" + ptrToHex(handlePtr));
         return -1;
@@ -603,6 +606,24 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
     slog(env, "info", "flush() pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames));
 
     try {
+        // Signalsmith's documented fixed-stream ending sequence first advances
+        // processing time through inputLatency() frames of silence, at the last
+        // input/output ratio, then flushes the remaining synthesis tail.
+        const int inputLatencyFrames = std::max(h->stretch.inputLatency(), 0);
+        if (inputLatencyFrames > 0) {
+            const double safeRate = std::isfinite(h->lastPlaybackRate) && h->lastPlaybackRate > 0.0f
+                ? static_cast<double>(h->lastPlaybackRate) : 1.0;
+            const int silenceOutputFrames = std::max(
+                1, static_cast<int>(std::lround(inputLatencyFrames / safeRate)));
+            h->ensureCapacity(inputLatencyFrames, silenceOutputFrames);
+            for (int c = 0; c < h->channels; ++c) {
+                std::fill(h->inPtrs[c], h->inPtrs[c] + inputLatencyFrames, 0.0f);
+            }
+            h->stretch.process(
+                h->inPtrs.data(), inputLatencyFrames,
+                h->outPtrs.data(), silenceOutputFrames);
+        }
+
         h->ensureCapacity(0, outputFrames);
         h->stretch.flush(h->outPtrs.data(), outputFrames);
         for (int i = 0; i < outputFrames; ++i) {
