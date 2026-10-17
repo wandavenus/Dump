@@ -381,6 +381,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[17] = 0.0;
   output[18] = 0.0;
   output[19] = 0.0;
+  output[20] = 0.0;
 
   const int32_t frame_count = (sample_count - FFT_SIZE) / HOP_SIZE + 1;
   if (frame_count < 8) return 0;
@@ -528,6 +529,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   if (tempo.valid) {
     output[0] = tempo.bpm;
     output[1] = tempo.confidence;
+    output[20] = fmin(1.0, fmax(0.0, tempo.confidence));
     output[2] = tempo.bpm < 90.0 ? tempo.bpm * 2.0
         : tempo.bpm > 140.0 ? tempo.bpm / 2.0 : NAN;
     if (tempo.confidence >= 0.20) {
