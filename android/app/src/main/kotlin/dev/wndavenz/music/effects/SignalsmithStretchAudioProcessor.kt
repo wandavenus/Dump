@@ -31,9 +31,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         @JvmStatic private external fun nativeReset(handle: Long)
         @JvmStatic private external fun nativeSetPitchSemitones(handle: Long, semitones: Float)
         @JvmStatic private external fun nativeOutputLatencyFrames(handle: Long): Int
+        @JvmStatic private external fun nativeSeekLengthFrames(handle: Long): Int
         @JvmStatic private external fun nativeProcess(handle: Long, input: ByteBuffer, inputFrames: Int, output: ByteBuffer, outputFrames: Int): Int
         @JvmStatic private external fun nativeFlush(handle: Long, output: ByteBuffer, outputFrames: Int): Int
-        @JvmStatic private external fun nativePrime(handle: Long, input: ByteBuffer, inputFrames: Int): Int
+        @JvmStatic private external fun nativeSeek(handle: Long, input: ByteBuffer, inputFrames: Int, playbackRate: Float): Int
 
         val isLibraryAvailable: Boolean = run {
             Log.i(LOG_TAG, "Loading native library stretch_native...")
@@ -175,7 +176,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         hasBufferedStretchState = false
 
         val latencyFrames = nativeOutputLatencyFrames(h)
-        val ringCapFrames = max(latencyFrames, 1024)
+        // Signalsmith's documented seek pre-roll is one STFT block plus one interval,
+        // not merely its output latency. Keep enough recent bypass PCM to seed that history.
+        val seekFrames = nativeSeekLengthFrames(h)
+        val ringCapFrames = max(seekFrames, max(latencyFrames, 1024))
         val ringCapBytes = ringCapFrames * inputAudioFormat.channelCount * 4
         if (bypassRingBytes.size != ringCapBytes) {
             bypassRingBytes = ByteArray(ringCapBytes)
@@ -210,7 +214,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         bypassRingFilled = minOf(bypassRingFilled + byteCount, cap)
     }
 
-    private fun primeEngineFromRing(h: Long, bytesPerFrame: Int): Boolean {
+    private fun seekEngineFromRing(h: Long, bytesPerFrame: Int, playbackRate: Float): Boolean {
         val filled = bypassRingFilled
         if (filled < bytesPerFrame || bypassPrimeBuf.capacity() == 0) return false
         val cap = bypassRingBytes.size
@@ -222,10 +226,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         if (secondChunk > 0) bypassPrimeBuf.put(bypassRingBytes, 0, secondChunk)
         bypassPrimeBuf.flip()
         val primeFrames = filled / bytesPerFrame
-        val result = nativePrime(h, bypassPrimeBuf, primeFrames)
+        val result = nativeSeek(h, bypassPrimeBuf, primeFrames, playbackRate)
         NativeLogger.emit(
             "info", "Stretch",
-            "[Stretch] bypass→STFT prime: primeFrames=$primeFrames result=$result " +
+            "[Stretch] bypass→STFT seek: preRollFrames=$primeFrames playbackRate=$playbackRate result=$result "
                 "ringFilled=${filled}B handle=0x${h.toString(16)}",
         )
         return result == 0
@@ -272,10 +276,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
         if (h != 0L) {
             if (!isBypass && prevWasBypass) {
-                val primed = primeEngineFromRing(h, bytesPerFrame)
-                if (!primed) {
+                val sought = seekEngineFromRing(h, bytesPerFrame, currentSpeed)
+                if (!sought) {
                     nativeReset(h)
-                    NativeLogger.emit("info", "Stretch", "[Stretch] bypass→STFT: no ring data, fallback reset handle=0x${h.toString(16)}")
+                    NativeLogger.emit("info", "Stretch", "[Stretch] bypass→STFT: no usable ring history, fallback reset handle=0x${h.toString(16)}")
                 }
                 carryFrames = 0.0
                 hasBufferedStretchState = false
