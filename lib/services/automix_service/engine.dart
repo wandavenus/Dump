@@ -826,7 +826,6 @@ AutomixTransitionCue automixTransitionCue({
       incoming.bpm != null &&
       incoming.bpmConfidence >= 0.35 &&
       incoming.beatOffsetMs != null;
-  final durationMs = outgoing.durationSeconds * 1000.0;
   if (outgoing.durationSeconds >= 120 &&
       durationMs.isFinite &&
       durationMs > 0 &&
