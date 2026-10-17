@@ -3,6 +3,7 @@ package dev.wndavenz.music.automix
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.Properties
 
 class AutomixTransitionPolicyTest {
     @Test
@@ -42,4 +43,34 @@ class AutomixTransitionPolicyTest {
         assertNull(AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.CROSSFADE, Float.NaN))
         assertNull(AutomixTransitionPolicy.curveGamma(AutomixTransitionPolicy.CROSSFADE, Float.POSITIVE_INFINITY))
     }
+
+    @Test
+    fun `Dart transition fixture is parsed into the exact Media3 cue fields`() {
+        val properties = Properties()
+        val stream = javaClass.classLoader!!
+            .getResourceAsStream("automix_transition_target.properties")!!
+        stream.use { properties.load(it) }
+        val payload: Map<String, Any?> = properties.stringPropertyNames()
+            .associateWith { properties.getProperty(it).toDouble() }
+
+        val target = ParsedAutomixTransitionTarget.fromMap(payload)!!
+        assertEquals(202, target.id)
+        assertEquals(1.016f, target.multiplier, 0.001f)
+        assertEquals(126f, target.bpm!!, 0.001f)
+        assertEquals(500L, target.beatOffsetMs)
+        assertEquals(800L, target.downbeatOffsetMs)
+        assertEquals(60000L, target.dropCueMs)
+        assertEquals(3.8f, target.fadeSeconds!!, 0.001f)
+        assertEquals(135000L, target.transitionStartMs)
+        // Strategy SHORT_HANDOVER enforces its production minimum curve.
+        assertEquals(1.20f, target.curveGamma!!, 0.001f)
+        assertEquals(0.8f, target.outgoingTrim!!, 0.001f)
+        assertEquals(0.9f, target.incomingTrim!!, 0.001f)
+    }
+
+    @Test
+    fun `malformed target identifiers are rejected`() {
+        assertNull(ParsedAutomixTransitionTarget.fromMap(mapOf("bpm" to 120.0)))
+    }
+
 }
