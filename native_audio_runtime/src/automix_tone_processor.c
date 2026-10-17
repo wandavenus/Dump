@@ -120,7 +120,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
   }
 
   const float t = fminf(fmaxf(progress, 0.0f), 1.0f);
-  const float shape = powf(t, fminf(fmaxf(gamma, 0.6f), 1.6f));
+  const float g = fminf(fmaxf(gamma, 0.6f), 1.6f);
+  // gamma > 1 accelerates handover (quick/short handover); gamma < 1 decelerates (long blend).
+  const float shape = (g == 1.0f) ? t : powf(t, 1.0f / g);
   const float theta = shape * (NAR_AUTOMIX_TONE_PI * 0.5f);
   const float trim_out = fminf(fmaxf(outgoing_trim, 0.0f), 1.0f);
   const float trim_in = fminf(fmaxf(incoming_trim, 0.0f), 1.0f);
@@ -131,9 +133,10 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
   float outgoing = clamp_gain(trim_out * cosf(theta));
   float incoming = clamp_gain(incoming_trim_now * sinf(theta));
 
-  // Equal-power gains can sum above unity for correlated source material.
-  // Normalize their L1 budget to 1.0 so overlapping, sample-peak-bounded PCM
-  // streams cannot exceed unity when summed by the platform mixer.
+  // Headroom policy (L1 gain budget): Equal-power gains sum to ~1.414 at mid-fade (t = 0.5).
+  // Normalizing the L1 budget (outgoing + incoming <= 1.0) creates a ~3 dB RMS dip at center
+  // for uncorrelated material, but strictly prevents digital clipping (sample peak > 1.0)
+  // when correlated material sums on the platform mixer without requiring a true-peak bus limiter.
   const float gain_sum = outgoing + incoming;
   if (gain_sum > 1.0f) {
     const float scale = 1.0f / gain_sum;

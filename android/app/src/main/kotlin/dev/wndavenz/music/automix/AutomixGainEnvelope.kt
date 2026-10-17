@@ -28,7 +28,9 @@ internal object AutomixGainEnvelope {
         val outTrim = outgoingTrim.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
         val inTrim = incomingTrim.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
 
-        val shaped = if (gamma == 1f) t else t.toDouble().pow(gamma.toDouble()).toFloat()
+        // gamma > 1 accelerates handover (incoming rises faster, outgoing drops faster);
+        // gamma < 1 decelerates handover (longer overlap blend).
+        val shaped = if (gamma == 1f) t else t.toDouble().pow(1.0 / gamma.toDouble()).toFloat()
         val attack = if (t >= 0.25f) 1f else t / 0.25f
         val outgoingTrimNow = 1f - (1f - outTrim) * attack
         val release = if (t <= 0.75f) 0f else (t - 0.75f) / 0.25f
@@ -36,6 +38,10 @@ internal object AutomixGainEnvelope {
         val theta = (shaped * PI / 2.0).toFloat()
         val outgoingGain = outgoingTrimNow * cos(theta)
         val incomingGain = incomingTrimNow * sin(theta)
+        // Headroom policy (L1 gain budget): Equal-power gains sum to ~1.414 at mid-fade (t = 0.5).
+        // Normalizing the L1 budget (outgoing + incoming <= 1.0) creates a ~3 dB RMS dip at center
+        // for uncorrelated material, but strictly prevents digital clipping (sample peak > 1.0)
+        // when correlated material sums on the platform mixer without requiring a true-peak bus limiter.
         val gainSum = outgoingGain + incomingGain
         val headroomScale = if (gainSum > 1f) 1f / gainSum else 1f
 

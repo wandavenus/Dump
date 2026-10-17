@@ -71,6 +71,54 @@ class AutomixIntegrationTest {
     }
 
     @Test
+    fun `mid-fade gains strictly adhere to L1 gain budget`() {
+        val midGains = AutomixGainEnvelope.gains(
+            progress = 0.5f,
+            targetVolume = 1.0f,
+            curveGamma = 1.0f,
+            outgoingTrim = 1.0f,
+            incomingTrim = 1.0f,
+        )
+        // At mid-fade with gamma=1, unscaled cos(pi/4)=sin(pi/4)=0.7071. L1 scaling divides by 1.4142 -> 0.5 each.
+        assertEquals(0.5f, midGains.outgoing, 0.001f)
+        assertEquals(0.5f, midGains.incoming, 0.001f)
+        assertEquals(1.0f, midGains.outgoing + midGains.incoming, 0.001f)
+    }
+
+    @Test
+    fun `production gain envelope gamma curve direction accelerates or decelerates handover`() {
+        val midLinear = AutomixGainEnvelope.gains(
+            progress = 0.5f,
+            targetVolume = 1f,
+            curveGamma = 1f,
+            outgoingTrim = 1f,
+            incomingTrim = 1f,
+        )
+        val midQuick = AutomixGainEnvelope.gains(
+            progress = 0.5f,
+            targetVolume = 1f,
+            curveGamma = 1.35f,
+            outgoingTrim = 1f,
+            incomingTrim = 1f,
+        )
+        val midLong = AutomixGainEnvelope.gains(
+            progress = 0.5f,
+            targetVolume = 1f,
+            curveGamma = 0.85f,
+            outgoingTrim = 1f,
+            incomingTrim = 1f,
+        )
+
+        // gamma > 1 (quick handover): incoming rises faster, outgoing drops faster
+        assertTrue(midQuick.incoming > midLinear.incoming)
+        assertTrue(midQuick.outgoing < midLinear.outgoing)
+
+        // gamma < 1 (long blend): incoming rises slower, outgoing drops slower
+        assertTrue(midLong.incoming < midLinear.incoming)
+        assertTrue(midLong.outgoing > midLinear.outgoing)
+    }
+
+    @Test
     fun `production gain envelope safely handles invalid control values`() {
         val gains = AutomixGainEnvelope.gains(
             progress = Float.NaN,
