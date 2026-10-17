@@ -370,7 +370,7 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         jobject inputBuffer, jint inputFrames,
         jobject outputBuffer, jint outputFrames) {
     auto *h = fromPtr(handlePtr);
-    if (h == nullptr || inputFrames < 0 || outputFrames < 0) {
+    if (h == nullptr || inputFrames <= 0 || outputFrames <= 0) {
         slog(env, "warn", "nativeProcess invalid args pointer=" + ptrToHex(handlePtr) +
                                " inputFrames=" + std::to_string(inputFrames) + " outputFrames=" + std::to_string(outputFrames));
         return -1;
@@ -571,9 +571,9 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeek(
     return 0;
 }
 
-// End-of-stream drain: produces the final `outputFrames` of output still
-// buffered inside the STFT pipeline (Signalsmith Stretch's flush() already
-// internally zero-pads as needed — see README "Ending").
+// End-of-stream drain: first advance processing time through inputLatency()
+// frames of silence at the last playback ratio, then return the remaining
+// synthesis tail using flush(), following Signalsmith Stretch's README "Ending".
 JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
         JNIEnv *env, jclass, jlong handlePtr,
