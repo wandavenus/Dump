@@ -625,6 +625,11 @@ class Media3PlaybackService : MediaSessionService() {
                     automixTempoMultiplierBySongId[it]
                 }
             },
+            getMediaPlaybackSpeedForPlayer = { p ->
+                val slot = playerSlotOf(p)
+                if (slot >= 0) stretchManager.effectivePlaybackSpeed(slot)
+                else AutomixTransitionPolicy.normalizedPlaybackSpeed(p.playbackParameters.speed)
+            },
             setAutoMixBassGain = { p, gain ->
                 val slot = when (p) {
                     primaryPlayer -> 0
@@ -2235,15 +2240,26 @@ class Media3PlaybackService : MediaSessionService() {
                 automixBeatOffsetMsBySongId[activeId] != null
         if (!activeHasBeatGrid) return null
 
-        // For a confidently detected early drop, start the silent incoming deck
-        // so that the drop lands at the end of the overlap. Snap the seek to the
-        // incoming beat grid; if cue metadata is absent or unusable, preserve the
-        // original intro beat phase.
+        // A drop seek is valid only if the outgoing transition cue itself will
+        // be accepted for the actual Media3 duration. This prevents a mismatched
+        // duration/cue from skipping the incoming intro while the fade remains at EOF.
+        val outgoing = activePlayer ?: return null
         val dropCueMs = automixDropCueMsBySongId[incomingId]
         val fadeSeconds = automixFadeSecondsBySongId[incomingId]
         val bpm = automixBpmBySongId[incomingId]
         val multiplier = automixTempoMultiplierBySongId[incomingId] ?: 1f
-        if (dropCueMs != null && dropCueMs in 8_000L..90_000L &&
+        val transitionStartMs = automixTransitionStartMsBySongId[incomingId]
+        val fadeDurationMs = fadeSeconds?.let {
+            (it * 1000f).toLong().coerceAtLeast(AutomixTransitionPolicy.MIN_FADE_MS)
+        }
+        val earlyHandoverAccepted = fadeDurationMs != null &&
+            AutomixTransitionPolicy.isValidEarlyHandover(
+                transitionStartMs,
+                outgoing.duration,
+                fadeDurationMs,
+            )
+        if (earlyHandoverAccepted &&
+            dropCueMs != null && dropCueMs in 8_000L..90_000L &&
             fadeSeconds != null && bpm != null && multiplier.isFinite()
         ) {
             val fadeMediaMs = fadeSeconds * 1000.0 * multiplier
