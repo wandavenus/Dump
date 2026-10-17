@@ -11,7 +11,80 @@ part of '../automix_service.dart';
 // Any field may be null/zero when the analysis is unavailable or uncertain —
 // the engine uses neutral fallback costs instead of rejecting the track.
 
-/// A confidence-gated chord label on the source track timeline.\n/// startMs is absolute from the start of the source file.\n@immutable\nclass AutomixChordEvent {\n  const AutomixChordEvent({\n    required this.startMs,\n    required this.rootPitchClass,\n    required this.root,\n    required this.quality,\n    required this.confidence,\n  });\n\n  final double startMs;\n  final int rootPitchClass;\n  final String root;\n  final String quality;\n  final double confidence;\n\n  String get label => '$root$quality';\n\n  Map<String, dynamic> toMap() => <String, dynamic>{\n    'startMs': startMs,\n    'rootPitchClass': rootPitchClass,\n    'root': root,\n    'quality': quality,\n    'confidence': confidence,\n  };\n}\n\nconst List<String> _automixPitchNames = <String>[\n  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',\n];\nconst Set<String> _automixChordQualities = <String>{\n  'maj', 'min', 'dim', 'aug', '7', 'maj7', 'min7', 'sus4',\n};\n\n/// Parses native or cached chord rows defensively. Malformed/low-confidence\n/// rows are ignored rather than becoming false harmonic constraints.\nList<AutomixChordEvent> automixChordEventsFromValue(Object? raw) {\n  if (raw is! List) return const <AutomixChordEvent>[];\n  final events = <AutomixChordEvent>[];\n  for (final item in raw) {\n    if (item is! Map) continue;\n    final time = item['startMs'];\n    final root = item['rootPitchClass'];\n    final quality = item['quality'];\n    final confidence = item['confidence'];\n    if (time is! num || root is! num || quality is! String || confidence is! num) {\n      continue;\n    }\n    final startMs = time.toDouble();\n    final rootValue = root.toDouble();\n    final confidenceValue = confidence.toDouble();\n    if (!startMs.isFinite || startMs < 0 ||\n        !rootValue.isFinite || rootValue != rootValue.roundToDouble() ||\n        rootValue < 0 || rootValue > 11 ||\n        !_automixChordQualities.contains(quality) ||\n        !confidenceValue.isFinite || confidenceValue < 0.08 || confidenceValue > 1) {\n      continue;\n    }\n    final rootPc = rootValue.toInt();\n    events.add(AutomixChordEvent(\n      startMs: startMs,\n      rootPitchClass: rootPc,\n      root: _automixPitchNames[rootPc],\n      quality: quality,\n      confidence: confidenceValue,\n    ));\n  }\n  events.sort((a, b) => a.startMs.compareTo(b.startMs));\n  return List<AutomixChordEvent>.unmodifiable(events);\n}\n\n/// One analyzed window of a file: the native extractor runs on a bounded PCM
+/// A confidence-gated chord label on the source track timeline.
+/// startMs is absolute from the start of the source file.
+@immutable
+class AutomixChordEvent {
+  const AutomixChordEvent({
+    required this.startMs,
+    required this.rootPitchClass,
+    required this.root,
+    required this.quality,
+    required this.confidence,
+  });
+
+  final double startMs;
+  final int rootPitchClass;
+  final String root;
+  final String quality;
+  final double confidence;
+
+  String get label => '$root$quality';
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'startMs': startMs,
+    'rootPitchClass': rootPitchClass,
+    'root': root,
+    'quality': quality,
+    'confidence': confidence,
+  };
+}
+
+const List<String> _automixPitchNames = <String>[
+  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
+];
+const Set<String> _automixChordQualities = <String>{
+  'maj', 'min', 'dim', 'aug', '7', 'maj7', 'min7', 'sus4',
+};
+
+/// Parses native or cached chord rows defensively. Malformed/low-confidence
+/// rows are ignored rather than becoming false harmonic constraints.
+List<AutomixChordEvent> automixChordEventsFromValue(Object? raw) {
+  if (raw is! List) return const <AutomixChordEvent>[];
+  final events = <AutomixChordEvent>[];
+  for (final item in raw) {
+    if (item is! Map) continue;
+    final time = item['startMs'];
+    final root = item['rootPitchClass'];
+    final quality = item['quality'];
+    final confidence = item['confidence'];
+    if (time is! num || root is! num || quality is! String || confidence is! num) {
+      continue;
+    }
+    final startMs = time.toDouble();
+    final rootValue = root.toDouble();
+    final confidenceValue = confidence.toDouble();
+    if (!startMs.isFinite || startMs < 0 ||
+        !rootValue.isFinite || rootValue != rootValue.roundToDouble() ||
+        rootValue < 0 || rootValue > 11 ||
+        !_automixChordQualities.contains(quality) ||
+        !confidenceValue.isFinite || confidenceValue < 0.08 || confidenceValue > 1) {
+      continue;
+    }
+    final rootPc = rootValue.toInt();
+    events.add(AutomixChordEvent(
+      startMs: startMs,
+      rootPitchClass: rootPc,
+      root: _automixPitchNames[rootPc],
+      quality: quality,
+      confidence: confidenceValue,
+    ));
+  }
+  events.sort((a, b) => a.startMs.compareTo(b.startMs));
+  return List<AutomixChordEvent>.unmodifiable(events);
+}
+
+/// One analyzed window of a file: the native extractor runs on a bounded PCM
 /// window so a long track can be sampled head/middle/tail instead of only its
 /// first five minutes. [automixMergeSegments] folds these into per-track
 /// features.
