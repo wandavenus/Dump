@@ -1404,6 +1404,33 @@ void main() {
   });
 
   group('bounded planning window', () {
+    test('one-shot start rotates from selection and leaves overflow ordered', () {
+      final queue = List<int>.generate(320, (index) => index + 1);
+      final rotated = automixRotateQueueFrom<int>(queue, 12);
+      expect(rotated.first, 13);
+      expect(rotated, [...queue.skip(12), ...queue.take(12)]);
+
+      // A horizon of 250 means the selected track plus up to 250 successors.
+      const horizon = 250;
+      final window = automixPlanWindow<int>(rotated, 0, horizon);
+      expect(window, rotated.take(horizon + 1));
+
+      // Model a valid planner result: the first item stays pinned, while the
+      // remaining window is reordered; the overflow remains in source order.
+      final plannedWindow = <int>[
+        window.first,
+        ...window.skip(1).toList().reversed,
+      ];
+      final sequenced = <int>[
+        ...plannedWindow,
+        ...rotated.skip(window.length),
+      ];
+      expect(sequenced.length, queue.length);
+      expect(sequenced.first, 13);
+      expect(sequenced.toSet(), queue.toSet());
+      expect(sequenced.skip(window.length), rotated.skip(window.length));
+    });
+
     test('window is the start track plus the bounded upcoming tail', () {
       expect(automixPlanWindow<int>([1, 2, 3, 4, 5], 1, 2), [2, 3, 4]);
       expect(automixPlanWindow<int>([1, 2, 3], 2, 5), [3]);
