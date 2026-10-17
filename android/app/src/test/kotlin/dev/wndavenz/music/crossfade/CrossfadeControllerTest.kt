@@ -13,6 +13,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -280,8 +282,14 @@ class CrossfadeControllerTest {
         testClockMs += 1_000L
         pendingHandlerTasks.removeLast().run()
 
-        val outgoing = mockActivePlayer.volume
-        val incoming = mockStandbyPlayer.volume
+        // Mockito mocks do not retain JavaBean property values, so capture the
+        // last volume applied by each real fade tick instead of reading getters.
+        val outgoingVolumes = argumentCaptor<Float>()
+        verify(mockActivePlayer, atLeastOnce()).volume = outgoingVolumes.capture()
+        val incomingVolumes = argumentCaptor<Float>()
+        verify(mockStandbyPlayer, atLeastOnce()).volume = incomingVolumes.capture()
+        val outgoing = outgoingVolumes.lastValue
+        val incoming = incomingVolumes.lastValue
         assertTrue("outgoing deck did not fade", outgoing < 1f)
         assertTrue("incoming deck did not fade in", incoming > 0f)
         assertTrue(
