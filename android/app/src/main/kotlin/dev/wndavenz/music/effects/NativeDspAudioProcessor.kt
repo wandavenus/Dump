@@ -111,6 +111,19 @@ class NativeDspAudioProcessor(
         @JvmStatic
         private external fun nativeResetLiveBeatTracker(streamSlot: Int)
 
+        @JvmStatic
+        private external fun nativeSetLiveBeatTrackerEnabled(enabled: Boolean): Boolean
+
+        /** Enables the shared native live tracker only while AutoMix is in use. */
+        fun setLiveBeatTrackerEnabled(enabled: Boolean): Boolean {
+            if (!isLibraryAvailable) return false
+            return try {
+                nativeSetLiveBeatTrackerEnabled(enabled)
+            } catch (_: LinkageError) {
+                false
+            }
+        }
+
         /** Returns a validated live beat estimate or null when confidence is low. */
         fun liveBeatState(streamSlot: Int): AutomixLiveBeatState? {
             if (!isLibraryAvailable || streamSlot !in 0..1) return null
