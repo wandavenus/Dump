@@ -699,6 +699,7 @@ void main() {
       double structureConfidence = 0,
       double vocalLikelihood = 0,
       double vocalConfidence = 0,
+      double tailBpmConfidence = 0,
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
@@ -715,6 +716,7 @@ void main() {
       structureConfidence: structureConfidence,
       vocalLikelihood: vocalLikelihood,
       vocalConfidence: vocalConfidence,
+      tailBpmConfidence: tailBpmConfidence,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -736,6 +738,27 @@ void main() {
       expect(merged.tailBeatOffsetMs, closeTo(240_040, 0.5));
       // Both windows agreed, so the vote is not neutral.
       expect(merged.bpmConfidence, greaterThan(0.3));
+    });
+
+    test('does not substitute general BPM confidence for tail confidence', () {
+      final missingTailConfidence = automixMergeSegments(
+        songId: 6,
+        segments: [
+          seg(0, bpm: 120, conf: 0.95),
+          seg(240, bpm: 120, conf: 0.9),
+        ],
+      );
+      expect(missingTailConfidence.tailBpm, 120);
+      expect(missingTailConfidence.tailBpmConfidence, 0);
+
+      final explicitTailConfidence = automixMergeSegments(
+        songId: 7,
+        segments: [
+          seg(0, bpm: 120, conf: 0.95),
+          seg(240, bpm: 120, conf: 0.9, tailBpmConfidence: 0.65),
+        ],
+      );
+      expect(explicitTailConfidence.tailBpmConfidence, 0.65);
     });
 
     test('keeps alternate BPM from the highest-confidence tempo anchor', () {
