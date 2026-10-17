@@ -558,6 +558,30 @@ class AutomixService {
               orderedIds: orderedTailIds,
             );
             if (!_isAutoMixGenerationCurrent(generation)) return;
+
+            // The queue can change again while the native reorder Future is
+            // completing. Do not publish targets for a sequence that is no
+            // longer the live queue.
+            final postReorderState = AudioService.playbackState.value;
+            final expectedQueueAfterReorder = <int>[
+              ...queue.take(currentIndex + 1).map((song) => song.id),
+              ...orderedTailIds,
+            ];
+            if (postReorderState.currentSong?.id != currentSong.id ||
+                postReorderState.currentIndex != currentIndex ||
+                postReorderState.shuffleEnabled != playbackSnapshot.shuffleEnabled ||
+                postReorderState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
+                !automixQueueSnapshotMatches(
+                  expectedQueueAfterReorder,
+                  postReorderState.currentPlaylist.map((song) => song.id).toList(growable: false),
+                )) {
+              _scheduleReplanRetry();
+              LogService.verbose(
+                'Automix',
+                'queue changed while native reorder completed; dropping transition targets',
+              );
+              return;
+            }
             _plannedTail = orderedTailIds;
           } on Object catch (e) {
             // A rejected reorder must never strand the session on a stale plan.
