@@ -176,11 +176,36 @@ class AutomixService {
     if (_autoQueueListenerInstalled) return;
     _autoQueueListenerInstalled = true;
     AudioService.playbackState.addListener(_onPlaybackStateForAutoMix);
+    AudioEffectsService.bitPerfectMode.addListener(_onBitPerfectModeChanged);
     // With AutoMix off the app must not decode anything in the background, so
     // the sweep is only armed here when the user already turned it on.
     if (automixEnabled.value) {
       _scheduleLibrarySweep(const Duration(seconds: 20));
     }
+  }
+
+  static void _onBitPerfectModeChanged() {
+    if (AudioEffectsService.bitPerfectMode.value) {
+      // Bit-Perfect changes the playback engine synchronously. Stop queued
+      // analysis/sweep work now rather than waiting for a playback-state event.
+      _replanRequested = false;
+      _replanTimer?.cancel();
+      _replanTimer = null;
+      _stopAutoAnalyzePipeline();
+      _stopLibrarySweep();
+      return;
+    }
+    if (!automixEnabled.value) return;
+
+    // Resume planning against the current queue; deck targets and the cached
+    // whole-tail order may be stale after switching playback engines.
+    _lastAutoQueueIdentity = null;
+    _lastNativeSignature = null;
+    _plannedTail = null;
+    _planBasisStale = false;
+    _replanRequested = true;
+    _onPlaybackStateForAutoMix();
+    _scheduleLibrarySweep(const Duration(seconds: 20));
   }
 
   static void _onPlaybackStateForAutoMix() {
@@ -228,6 +253,7 @@ class AutomixService {
       await loadSettings();
       if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) {
         _stopAutoAnalyzePipeline();
+        _stopLibrarySweep();
         return;
       }
       final state = AudioService.playbackState.value;
@@ -1839,9 +1865,12 @@ class AutomixService {
   static Timer? _sweepTimer;
   static bool _sweepRunning = false;
 
+  @visibleForTesting
+  static bool get hasPendingLibrarySweepForTesting => _sweepTimer?.isActive ?? false;
+
   /// Arms (or re-arms) the idle sweep. Safe to call repeatedly.
   static void _scheduleLibrarySweep([Duration delay = _sweepInterval]) {
-    if (kIsWeb) return;
+    if (kIsWeb || !automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
     _sweepTimer?.cancel();
     _sweepTimer = Timer(delay, () {
       _sweepTimer = null;
@@ -1867,7 +1896,7 @@ class AutomixService {
   /// running player leaves behind.
   static Future<void> _runLibrarySweepPass() async {
     _sweepTimer = null;
-    if (kIsWeb || !automixEnabled.value) return;
+    if (kIsWeb || !automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
     // The transition pipeline owns the decoder whenever it is working.
     if (_sweepRunning ||
         _autoAnalyzeRunning ||
@@ -1908,10 +1937,11 @@ class AutomixService {
     try {
       final batch = pending.take(_sweepBatchLimit).toList(growable: false);
       for (final song in batch) {
-        if (!automixEnabled.value) return;
+        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
         // Re-check between decodes: a phone that starts discharging, or heats
         // up, must stop the sweep immediately — not at the end of the batch.
         final now = await DeviceStateService.powerState();
+        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
         if (!now.allowsBackgroundAnalysis(
           minLevelPercent: _sweepMinBatteryPercent,
         )) {
@@ -1961,6 +1991,11 @@ class AutomixService {
 
   /// Tests / diagnostics only: clears all in-memory state.
   static void resetInMemoryState() {
+    if (_autoQueueListenerInstalled) {
+      AudioService.playbackState.removeListener(_onPlaybackStateForAutoMix);
+      AudioEffectsService.bitPerfectMode.removeListener(_onBitPerfectModeChanged);
+      _autoQueueListenerInstalled = false;
+    }
     _featuresCache.clear();
     _featuresIdentity.clear();
     _dspReady.clear();

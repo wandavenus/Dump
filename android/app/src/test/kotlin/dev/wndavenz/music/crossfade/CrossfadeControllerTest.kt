@@ -5,12 +5,17 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import java.util.ArrayDeque
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeastOnce
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -19,10 +24,9 @@ import org.mockito.kotlin.whenever
 /**
  * JVM unit tests for [CrossfadeController].
  *
- * Handler.post / postDelayed / removeCallbacks are called against Android stubs
- * that return default values (no message queue exists in JVM tests), so Runnable
- * bodies are NOT executed. Tests therefore focus on the state changes that happen
- * synchronously before any handler post:
+ * A mocked Handler records posted runnables in a deterministic queue so tests can
+ * execute fade ticks against an injected monotonic clock, as well as verify state
+ * transitions that happen synchronously before any handler post:
  *
  *   • setDuration, cancel, resetPromotionState — fully testable
  *   • maybeCrossfadeOut guard conditions — testable via mock ExoPlayer
@@ -50,6 +54,8 @@ class CrossfadeControllerTest {
     private var emitAllCalls          = 0
     private var refreshNotifCalls     = 0
     private var crossfadeStartingCalls = 0
+    private var testClockMs = 1_000L
+    private val pendingHandlerTasks = ArrayDeque<Runnable>()
 
     private val testQueue = listOf(
         mapOf("title" to "Track A", "uri" to "file:///a.mp3"),
@@ -66,27 +72,31 @@ class CrossfadeControllerTest {
         rebuildPromotedQueue: () -> Unit = {},
         automixEnabled: Boolean = false,
         transitionStartMs: Long? = null,
-    ) = CrossfadeController(
-        handler              = mockHandler,
-        getActivePlayer      = { activePlayer },
-        getStandbyPlayer     = { standbyPlayer },
-        setActivePlayer      = { setActivePlayerCalls++ },
-        switchSessionPlayer  = { switchSessionCalls++ },
-        preloadManager       = mockPreloadManager,
-        getVolumeBeforeDuck  = { volumeBeforeDuck },
-        hasAudioFocus        = { hasAudioFocus },
-        requestAudioFocus    = { hasAudioFocus },
-        getQueue             = { queue },
-        getActiveQueueIndex  = { activeIndex },
-        setActiveQueueIndex  = { },
-        rebuildPromotedQueue = rebuildPromotedQueue,
-        onCrossfadeComplete  = { crossfadeCompleteCalls++ },
-        isAutomixTransitionEnabled = { automixEnabled },
-        getAutoMixTransitionStartMsForPlayer = { transitionStartMs },
-        emitAll              = { emitAllCalls++ },
-        refreshNotification  = { refreshNotifCalls++ },
-        onCrossfadeStarting  = { crossfadeStartingCalls++ },
-    )
+    ): CrossfadeController {
+        var activePlayerState = activePlayer
+        return CrossfadeController(
+            handler              = mockHandler,
+            getActivePlayer      = { activePlayerState },
+            getStandbyPlayer     = { standbyPlayer },
+            setActivePlayer      = { activePlayerState = it; setActivePlayerCalls++ },
+            switchSessionPlayer  = { switchSessionCalls++ },
+            preloadManager       = mockPreloadManager,
+            getVolumeBeforeDuck  = { volumeBeforeDuck },
+            hasAudioFocus        = { hasAudioFocus },
+            requestAudioFocus    = { hasAudioFocus },
+            getQueue             = { queue },
+            getActiveQueueIndex  = { activeIndex },
+            setActiveQueueIndex  = { },
+            rebuildPromotedQueue = rebuildPromotedQueue,
+            onCrossfadeComplete  = { crossfadeCompleteCalls++ },
+            isAutomixTransitionEnabled = { automixEnabled },
+            getAutoMixTransitionStartMsForPlayer = { transitionStartMs },
+            emitAll              = { emitAllCalls++ },
+            refreshNotification  = { refreshNotifCalls++ },
+            onCrossfadeStarting  = { crossfadeStartingCalls++ },
+            monotonicClockMs     = { testClockMs },
+        )
+    }
 
     @Before
     fun setUp() {
@@ -94,6 +104,21 @@ class CrossfadeControllerTest {
         mockPreloadManager = mock()
         mockActivePlayer   = mock()
         mockStandbyPlayer  = mock()
+        pendingHandlerTasks.clear()
+        testClockMs = 1_000L
+
+        whenever(mockHandler.post(any<Runnable>())).thenAnswer { invocation ->
+            pendingHandlerTasks.addLast(invocation.getArgument<Runnable>(0))
+            true
+        }
+        whenever(mockHandler.postDelayed(any<Runnable>(), any<Long>())).thenAnswer { invocation ->
+            pendingHandlerTasks.addLast(invocation.getArgument<Runnable>(0))
+            true
+        }
+        doAnswer { invocation ->
+            pendingHandlerTasks.remove(invocation.getArgument<Runnable>(0))
+            null
+        }.whenever(mockHandler).removeCallbacks(any<Runnable>())
 
         setActivePlayerCalls   = 0; switchSessionCalls     = 0
         crossfadeCompleteCalls = 0; emitAllCalls           = 0
@@ -110,6 +135,8 @@ class CrossfadeControllerTest {
         // Standby player ready
         whenever(mockStandbyPlayer.mediaItemCount).thenReturn(1)
         whenever(mockStandbyPlayer.playbackState).thenReturn(Player.STATE_READY)
+        whenever(mockActivePlayer.isPlaying).thenReturn(true)
+        whenever(mockStandbyPlayer.isPlaying).thenReturn(true)
 
         // PreloadManager: preloaded at index 1
         whenever(mockPreloadManager.preloadedQueueIndex).thenReturn(1)
@@ -230,6 +257,49 @@ class CrossfadeControllerTest {
 
         assertEquals(1, rebuilds)
         verify(mockActivePlayer).volume = 0.9f
+    }
+
+    @Test fun `C09 cancel mid-fade clears crossfade in progress and resets owner`() {
+        val ctrl = makeControllerWithImmediateTrigger()
+        ctrl.maybeCrossfadeOut()
+        assertTrue(ctrl.crossfadeInProgress)
+        assertEquals(mockActivePlayer, ctrl.promotionOwner)
+
+        ctrl.cancel(resetVolume = false)
+
+        assertFalse(ctrl.crossfadeInProgress)
+        assertNull(ctrl.promotionOwner)
+    }
+
+    @Test fun `C10 scheduled fade ticks share headroom and cancel the pending tick`() {
+        val ctrl = makeControllerWithImmediateTrigger()
+        ctrl.maybeCrossfadeOut()
+        assertTrue("crossfade runnable was not scheduled", pendingHandlerTasks.isNotEmpty())
+
+        // Run the first fade tick, then advance the injected monotonic clock.
+        pendingHandlerTasks.removeLast().run()
+        assertTrue("fade tick did not schedule its successor", pendingHandlerTasks.isNotEmpty())
+        testClockMs += 1_000L
+        pendingHandlerTasks.removeLast().run()
+
+        // Mockito mocks do not retain JavaBean property values, so capture the
+        // last volume applied by each real fade tick instead of reading getters.
+        val outgoingVolumes = argumentCaptor<Float>()
+        verify(mockActivePlayer, atLeastOnce()).volume = outgoingVolumes.capture()
+        val incomingVolumes = argumentCaptor<Float>()
+        verify(mockStandbyPlayer, atLeastOnce()).volume = incomingVolumes.capture()
+        val outgoing = outgoingVolumes.lastValue
+        val incoming = incomingVolumes.lastValue
+        assertTrue("outgoing deck did not fade", outgoing < 1f)
+        assertTrue("incoming deck did not fade in", incoming > 0f)
+        assertTrue(
+            "joint gains exceed the L1 headroom budget: out=$outgoing in=$incoming",
+            outgoing + incoming <= 1.001f,
+        )
+
+        ctrl.cancel(resetVolume = false)
+        assertFalse(ctrl.crossfadeInProgress)
+        assertTrue("cancel left scheduled fade ticks behind", pendingHandlerTasks.isEmpty())
     }
 
     // ═════════════════════════════════════════════════════════════════════════

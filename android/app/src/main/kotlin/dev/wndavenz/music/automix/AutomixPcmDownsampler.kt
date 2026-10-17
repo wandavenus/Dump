@@ -1,6 +1,7 @@
 package dev.wndavenz.music.automix
 
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -21,6 +22,11 @@ internal class AutomixPcmDownsampler(
     private val factor: Int
     val outputRateHz: Int
     private val lowPass: ButterworthLowPass
+    // Smoothed channel energy avoids switching the fallback channel on individual PCM frames.
+    private val channelPower = DoubleArray(channels)
+    private val channelSamples = DoubleArray(channels)
+    private val channelPowerSmoothing =
+        1.0 - exp(-1.0 / (sourceRateHz.coerceAtLeast(1) * 0.020))
     private var sum = 0.0
     private var count = 0
 
@@ -44,14 +50,56 @@ internal class AutomixPcmDownsampler(
             "frameIndex is outside the PCM buffer"
         }
 
-        val mono = if (channels == 1) {
-            interleavedPcm16[base] / 32768.0
-        } else {
-            val left = interleavedPcm16[base] / 32768.0
-            val right = interleavedPcm16[base + 1] / 32768.0
-            val mid = (left + right) * 0.5
-            val strongest = if (abs(left) >= abs(right)) left else right
-            if (abs(mid) < 0.25 * max(abs(left), abs(right))) strongest else mid
+        val mono = when (channels) {
+            1 -> interleavedPcm16[base] / 32768.0
+            2 -> {
+                val left = interleavedPcm16[base] / 32768.0
+                val right = interleavedPcm16[base + 1] / 32768.0
+                val mid = (left + right) * 0.5
+                val strongest = if (abs(left) >= abs(right)) left else right
+                if (abs(mid) < 0.25 * max(abs(left), abs(right))) strongest else mid
+            }
+            else -> {
+                var maxPower = 0.0
+                var maxAbs = 0.0
+                var dominantSample = 0.0
+                for (ch in 0 until channels) {
+                    val sample = interleavedPcm16[base + ch] / 32768.0
+                    channelSamples[ch] = sample
+                    val absSample = abs(sample)
+                    if (absSample > maxAbs) maxAbs = absSample
+
+                    val power = sample * sample
+                    channelPower[ch] += channelPowerSmoothing * (power - channelPower[ch])
+                    if (channelPower[ch] > maxPower) {
+                        maxPower = channelPower[ch]
+                        dominantSample = sample
+                    }
+                }
+
+                val maxRms = sqrt(maxPower)
+                if (maxRms <= 1e-9) {
+                    0.0
+                } else {
+                    // Ignore near-silent channels, then normalize by the remaining weight.
+                    // That preserves L/R-only material inside a 5.1 stream without letting
+                    // silent channels automatically attenuate it by 1/N.
+                    var weightedSum = 0.0
+                    var totalWeight = 0.0
+                    for (ch in 0 until channels) {
+                        val relativeRms = sqrt(channelPower[ch]) / maxRms
+                        val weight = ((relativeRms - 0.05) / 0.10).coerceIn(0.0, 1.0)
+                        if (weight > 0.0) {
+                            weightedSum += channelSamples[ch] * weight
+                            totalWeight += weight
+                        }
+                    }
+                    val average = if (totalWeight > 0.0) weightedSum / totalWeight else 0.0
+                    // For anti-phase material, fall back to the channel with strongest smoothed
+                    // energy rather than whichever individual sample happens to peak this frame.
+                    if (abs(average) < 0.25 * maxAbs) dominantSample else average
+                }
+            }
         }
 
         sum += lowPass.process(mono)
