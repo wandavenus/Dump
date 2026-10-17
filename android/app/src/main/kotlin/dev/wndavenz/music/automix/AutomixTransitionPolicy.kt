@@ -8,6 +8,62 @@ internal object AutomixTransitionPolicy {
     const val LONG_BLEND = 3
     const val QUICK_HANDOVER = 4
 
+    const val MIN_FADE_MS = 80L
+    const val EARLY_TRANSITION_MIN_LEAD_MS = 30_000L
+    const val EARLY_TRANSITION_MAX_LEAD_MS = 65_000L
+
+    /**
+     * An incoming drop may only be used when the matching outgoing-track cue
+     * will actually be accepted by CrossfadeController for this media duration.
+     * The same predicate is used for scheduling the fade and seeking the standby.
+     */
+    fun isValidEarlyHandover(
+        transitionStartMs: Long?,
+        outgoingDurationMs: Long,
+        fadeDurationMs: Long,
+    ): Boolean {
+        val startMs = transitionStartMs ?: return false
+        if (outgoingDurationMs <= 0L || startMs < 0L || startMs >= outgoingDurationMs) {
+            return false
+        }
+        val leadMs = outgoingDurationMs - startMs
+        return leadMs in EARLY_TRANSITION_MIN_LEAD_MS..EARLY_TRANSITION_MAX_LEAD_MS &&
+            leadMs > fadeDurationMs + MIN_FADE_MS
+    }
+
+    /** A beat grid is considered eligible only when both planner-approved BPMs exist. */
+    fun isBeatMatchedPair(outgoingBpm: Float?, incomingBpm: Float?): Boolean =
+        outgoingBpm != null && incomingBpm != null &&
+            outgoingBpm.isFinite() && incomingBpm.isFinite() &&
+            outgoingBpm in 50f..220f && incomingBpm in 50f..220f
+
+    fun hasTransitionCue(fadeSeconds: Float?): Boolean =
+        fadeSeconds != null && fadeSeconds.isFinite() && fadeSeconds in 1.5f..12f
+
+    /** Invalid speed metadata must never create a zero/negative/infinite time scale. */
+    fun normalizedPlaybackSpeed(speed: Float): Float =
+        speed.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 8f) ?: 1f
+
+    /**
+     * Fade progress on the outgoing source-media timeline. This follows actual
+     * playback advancement, so speed changes and buffering do not desynchronise
+     * the fade from the outgoing track's audible content.
+     */
+    fun mediaTimelineProgress(
+        fadeStartPositionMs: Long,
+        currentPositionMs: Long,
+        fadeDurationMs: Long,
+    ): Float {
+        if (fadeDurationMs <= 0L) return 1f
+        val elapsedMs = (currentPositionMs.toDouble() - fadeStartPositionMs.toDouble())
+            .coerceAtLeast(0.0)
+        return (elapsedMs / fadeDurationMs.toDouble()).coerceIn(0.0, 1.0).toFloat()
+    }
+
+    /** Monotonic-clock gate for periodic phase-lock measurements. */
+    fun shouldSamplePhaseLock(nowMs: Long, lastSampleMs: Long, intervalMs: Long): Boolean =
+        intervalMs > 0L && nowMs >= lastSampleMs && nowMs - lastSampleMs >= intervalMs
+
     fun fadeSeconds(strategyCode: Int, requestedSeconds: Float?): Float? {
         val requested = requestedSeconds?.takeIf { it.isFinite() } ?: return null
         val adjusted = when (strategyCode) {
