@@ -116,9 +116,9 @@ target_compile_options(replaygain_native PRIVATE -Wall -Wextra -fvisibility=hidd
 # Signalsmith Stretch stays clean across a much wider pitch/rate range.
 #
 # Signalsmith Stretch itself depends on header-only "Signalsmith Linear"
-# (also MIT) for its FFT/STFT plumbing. Both are pinned to the exact tags
-# their own upstream CMakeLists.txt were pinned to at integration time —
-# re-check the API surface (process()/flush()/setTransposeSemitones()) before
+# (also MIT) for its FFT/STFT plumbing. Stretch 1.2.0 provides the
+# splitComputation preset argument, paired with its upstream Linear 0.1.2
+# dependency. Re-check process()/flush()/setTransposeSemitones() before
 # changing either pin again.
 #
 # NOTE: same caveat as replaygain_native above — this sandbox has no
