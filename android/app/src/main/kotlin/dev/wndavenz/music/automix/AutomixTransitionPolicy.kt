@@ -45,19 +45,27 @@ internal object AutomixTransitionPolicy {
         speed.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 8f) ?: 1f
 
     /**
-     * Fade progress on the outgoing source-media timeline. This follows actual
-     * playback advancement, so speed changes and buffering do not desynchronise
-     * the fade from the outgoing track's audible content.
+     * Accumulates source-media time from a monotonic wall-clock delta and the
+     * processor's applied speed. Sampling the applied value every tick supports
+     * speed changes during a fade and avoids relying on ExoPlayer's unrelated
+     * PlaybackParameters.speed when Signalsmith performs the time-stretch.
      */
-    fun mediaTimelineProgress(
-        fadeStartPositionMs: Long,
-        currentPositionMs: Long,
-        fadeDurationMs: Long,
-    ): Float {
+    fun advanceMediaTimeline(
+        elapsedMediaMs: Double,
+        elapsedWallMs: Long,
+        playbackSpeed: Float,
+    ): Double {
+        val elapsed = elapsedMediaMs.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        val delta = elapsedWallMs.coerceAtLeast(0L).toDouble() *
+            normalizedPlaybackSpeed(playbackSpeed).toDouble()
+        val next = elapsed + delta
+        return next.takeIf { it.isFinite() } ?: Double.MAX_VALUE
+    }
+
+    fun mediaTimelineProgress(elapsedMediaMs: Double, fadeDurationMs: Long): Float {
         if (fadeDurationMs <= 0L) return 1f
-        val elapsedMs = (currentPositionMs.toDouble() - fadeStartPositionMs.toDouble())
-            .coerceAtLeast(0.0)
-        return (elapsedMs / fadeDurationMs.toDouble()).coerceIn(0.0, 1.0).toFloat()
+        val elapsed = elapsedMediaMs.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        return (elapsed / fadeDurationMs.toDouble()).coerceIn(0.0, 1.0).toFloat()
     }
 
     /** Monotonic-clock gate for periodic phase-lock measurements. */
