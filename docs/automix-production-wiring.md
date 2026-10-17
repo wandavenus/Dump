@@ -40,6 +40,15 @@ After planning, `AutomixService` computes a cue per incoming track in `automixTr
 - `longBlend`: extend a sparse-tail/intro blend;
 - `quickHandover`: shorten a dense-tail transition.
 
+Early handover scheduling is separate from fade duration. When the incoming track has a
+high-confidence drop cue and both tracks have confident beat grids, Dart supplies an
+outgoing-track `transitionStartMs`: a reliable breakdown 30–65 seconds from EOF when
+available, otherwise an adaptive 35–60 second lead based on outro/intro density. Native
+validates this against the actual media duration, beat-aligns the start, and keeps the
+actual fade at its independently planned duration. The standby seeks to the incoming
+drop minus the fade duration so the drop lands at the handover; a strong near-end
+breakdown or missing/uncertain cue preserves the conventional near-end fade.
+
 `_buildNativeTargets` sends those values through the `musicplayer/automix` MethodChannel. `Media3PlaybackService.applyAutomixTransitionNow` stores them by incoming song ID; `CrossfadeController` retrieves the target for the standby deck and applies the selected fade duration/curve during the actual two-player transition using an injectable `MonotonicClock` and real elapsed time calculation. Transition completion logic is protected by an `AtomicBoolean` single-execution guard to prevent race conditions during cancellations or delays.
 
 Phrase alignment prefers the offline phrase/downbeat grids. In parallel, the live tracker taps the decoded float PCM in the native audio callback before DSP: a fixed 100 Hz onset envelope, six-second history and periodic autocorrelation update a per-deck BPM / elapsed-beat-phase / confidence snapshot. State is isolated for each Media3 stream slot and published atomically without allocating or taking locks in the audio callback. During a crossfade, the controller uses the two live snapshots when both pass the confidence gate, otherwise it falls back to the offline beat grids. The current tracker is heuristic and confidence-gated, not a guaranteed beat/downbeat transcription system.
