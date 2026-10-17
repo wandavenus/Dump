@@ -31,6 +31,7 @@
 #include "dsp_pipeline.h"
 #include "native_audio_runtime.h"
 #include "automix_tone_processor.h"
+#include "automix_live_tracker.h"
 
 // Java class: dev.wndavenz.music.effects.NativeDspAudioProcessor
 // JNI name mangling: '.' → '_', no underscores in any component.
@@ -75,6 +76,9 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeProcessFloat(
   if (data == NULL) {
     return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
+  // Observe decoded PCM before DSP. Processing is per-slot, bounded and lock-free.
+  (void)nar_automix_live_tracker_process(data, (int32_t)frame_count,
+      (int32_t)channel_count, (int32_t)sample_rate, (int32_t)stream_slot);
   return (jint)nar_dsp_pipeline_process_raw_stream(
       data, (int32_t)frame_count, (int32_t)channel_count, (int32_t)sample_rate,
       (int32_t)stream_slot);
@@ -170,4 +174,30 @@ Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeResetTone(
   (void)env;
   (void)clazz;
   return (jint)nar_automix_tone_reset((int32_t)stream_slot);
+}
+
+
+JNIEXPORT jdoubleArray JNICALL
+Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeGetLiveBeatState(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)clazz;
+  double values[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0.0, 0.0, 0.0};
+  if (nar_automix_live_tracker_get((int32_t)stream_slot, values,
+                                    NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) != 1) {
+    return NULL;
+  }
+  jdoubleArray result = (*env)->NewDoubleArray(env, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT);
+  if (result != NULL) {
+    (*env)->SetDoubleArrayRegion(env, result, 0,
+        NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT, values);
+  }
+  return result;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeResetLiveBeatTracker(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  (void)nar_automix_live_tracker_reset((int32_t)stream_slot);
 }

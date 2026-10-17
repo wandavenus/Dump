@@ -10,6 +10,7 @@ import dev.wndavenz.music.automix.AutomixGainEnvelope
 import dev.wndavenz.music.automix.AutomixPhaseLock
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
+import dev.wndavenz.music.effects.AutomixLiveBeatState
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.cos
@@ -88,6 +89,7 @@ class CrossfadeController(
     // AutoMix hints enable conservative beat-grid scheduling and bass swap.
     private val isAutomixTransitionEnabled: () -> Boolean = { false },
     private val getAutoMixBpmForPlayer: (ExoPlayer) -> Float? = { null },
+    private val getAutoMixLiveBeatStateForPlayer: (ExoPlayer) -> AutomixLiveBeatState? = { null },
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float? = { null },
@@ -133,6 +135,7 @@ class CrossfadeController(
          * fighting the 16 ms volume ramp.
          */
         const val PHASE_LOCK_INTERVAL_MS = 64L
+        const val LIVE_BEAT_MIN_CONFIDENCE = 0.30f
 
         /** Most high band the outgoing tail filter may remove (-12 dB). */
         const val MAX_TAIL_FILTER = 0.75f
@@ -429,8 +432,10 @@ class CrossfadeController(
 
         // Beat-phase resync needs a phase grid on BOTH decks: with only one grid
         // there is nothing to lock onto, so the plain fade runs unchanged.
-        val phaseLockActive = isAutomixTransitionEnabled() &&
-            hasUsableBeatGrid(current) && hasUsableBeatGrid(standby)
+        // The tick uses live beat states when confidence is sufficient and
+        // falls back to file-level grids. The AutoMix guard still prevents
+        // touching playback rate when both sources are unavailable.
+        val phaseLockActive = isAutomixTransitionEnabled()
 
         crossfadeInProgress = true
         promotionTriggered  = true
@@ -565,14 +570,6 @@ class CrossfadeController(
             highOverlapGains,
         )
         }
-
-    /** True when this deck has a plausible tempo *and* a usable beat phase. */
-    private fun hasUsableBeatGrid(player: ExoPlayer): Boolean {
-        val bpm = getAutoMixBpmForPlayer(player) ?: return false
-        val offsetMs = getAutoMixBeatOffsetMsForPlayer(player) ?: return false
-        if (!bpm.isFinite() || bpm !in 50f..250f) return false
-        return offsetMs >= 0L
-    }
 
     /**
      * Equal-power fade animation.
@@ -752,10 +749,15 @@ class CrossfadeController(
                     val now = SystemClock.uptimeMillis()
                     if (now - lastPhaseLockAt >= PHASE_LOCK_INTERVAL_MS) {
                         lastPhaseLockAt = now
-                        val oldBpm = getAutoMixBpmForPlayer(oldPlayer)
-                        val oldOffset = getAutoMixBeatOffsetMsForPlayer(oldPlayer)
-                        val newBpm = getAutoMixBpmForPlayer(newPlayer)
-                        val newOffset = getAutoMixBeatOffsetMsForPlayer(newPlayer)
+                        val oldLive = getAutoMixLiveBeatStateForPlayer(oldPlayer)
+                            ?.takeIf { it.confidence >= LIVE_BEAT_MIN_CONFIDENCE }
+                        val newLive = getAutoMixLiveBeatStateForPlayer(newPlayer)
+                            ?.takeIf { it.confidence >= LIVE_BEAT_MIN_CONFIDENCE }
+                        val useLivePhase = oldLive != null && newLive != null
+                        val oldBpm = if (useLivePhase) oldLive!!.bpm else getAutoMixBpmForPlayer(oldPlayer)
+                        val oldOffset = if (useLivePhase) 0L else getAutoMixBeatOffsetMsForPlayer(oldPlayer)
+                        val newBpm = if (useLivePhase) newLive!!.bpm else getAutoMixBpmForPlayer(newPlayer)
+                        val newOffset = if (useLivePhase) 0L else getAutoMixBeatOffsetMsForPlayer(newPlayer)
                         if (oldBpm != null && oldOffset != null &&
                             newBpm != null && newOffset != null &&
                             oldBpm > 0f && newBpm > 0f
@@ -769,10 +771,10 @@ class CrossfadeController(
                             val baseMultiplier = getAutoMixTempoMultiplierForPlayer(newPlayer)
                                 ?.takeIf { it.isFinite() && it > 0f }?.toDouble() ?: 1.0
                             val remainingMediaMs = remainingWallMs * baseMultiplier
-                            val oldDownbeat =
-                                getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)
-                            val newDownbeat =
-                                getAutoMixDownbeatOffsetMsForPlayer(newPlayer)
+                            val oldDownbeat = if (useLivePhase) null
+                                else getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)
+                            val newDownbeat = if (useLivePhase) null
+                                else getAutoMixDownbeatOffsetMsForPlayer(newPlayer)
 
                             // Prefer bar/phrase alignment when both tracks have
                             // confident downbeat grids. Fall back to the existing
@@ -793,11 +795,13 @@ class CrossfadeController(
                                     null
                                 }
                             val tempoFactor = phraseFactor ?: AutomixPhaseLock.factorFor(
-                                outgoingPositionMs = oldPlayer.currentPosition.toDouble(),
-                                outgoingPhaseOffsetMs = oldOffset.toDouble(),
+                                outgoingPositionMs = if (useLivePhase) oldLive!!.phaseElapsedMs
+                                    else oldPlayer.currentPosition.toDouble(),
+                                outgoingPhaseOffsetMs = if (useLivePhase) 0.0 else oldOffset.toDouble(),
                                 outgoingBpm = oldBpm.toDouble(),
-                                incomingPositionMs = newPlayer.currentPosition.toDouble(),
-                                incomingPhaseOffsetMs = newOffset.toDouble(),
+                                incomingPositionMs = if (useLivePhase) newLive!!.phaseElapsedMs
+                                    else newPlayer.currentPosition.toDouble(),
+                                incomingPhaseOffsetMs = if (useLivePhase) 0.0 else newOffset.toDouble(),
                                 incomingBpm = newBpm.toDouble(),
                                 remainingMs = remainingMediaMs,
                             )

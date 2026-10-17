@@ -64,6 +64,13 @@ import java.nio.ByteBuffer
  *  ExoPlayer audio threads wrote the same unsynchronized global state during
  *  crossfade, a genuine data race.
  */
+/** Confidence-gated beat estimate from one deck's decoded PCM stream. */
+data class AutomixLiveBeatState(
+    val bpm: Float,
+    val phaseElapsedMs: Double,
+    val confidence: Float,
+)
+
 @UnstableApi
 class NativeDspAudioProcessor(
     private val streamSlot: Int = 0,
@@ -98,6 +105,40 @@ class NativeDspAudioProcessor(
         @JvmStatic
         private external fun nativeIsInitialized(): Boolean
 
+        @JvmStatic
+        private external fun nativeGetLiveBeatState(streamSlot: Int): DoubleArray?
+
+        @JvmStatic
+        private external fun nativeResetLiveBeatTracker(streamSlot: Int)
+
+        /** Returns a validated live beat estimate or null when confidence is low. */
+        fun liveBeatState(streamSlot: Int): AutomixLiveBeatState? {
+            if (!isLibraryAvailable || streamSlot !in 0..1) return null
+            return try {
+                val values = nativeGetLiveBeatState(streamSlot) ?: return null
+                if (values.size < 3) return null
+                val bpm = values[0]
+                val phaseMs = values[1]
+                val confidence = values[2]
+                if (!bpm.isFinite() || bpm !in 50.0..250.0 ||
+                    !phaseMs.isFinite() || phaseMs < 0.0 ||
+                    !confidence.isFinite() || confidence !in 0.0..1.0
+                ) return null
+                AutomixLiveBeatState(bpm.toFloat(), phaseMs, confidence.toFloat())
+            } catch (_: LinkageError) {
+                null
+            }
+        }
+
+        private fun resetLiveBeatTracker(streamSlot: Int) {
+            if (!isLibraryAvailable || streamSlot !in 0..1) return
+            try {
+                nativeResetLiveBeatTracker(streamSlot)
+            } catch (_: LinkageError) {
+                // Optional native state must never interrupt normal playback.
+            }
+        }
+
         /**
          * Whether libnative_audio_runtime.so was successfully loaded.
          * Evaluated once at class initialisation; never changes afterwards.
@@ -112,6 +153,12 @@ class NativeDspAudioProcessor(
     }
 
     // ── BaseAudioProcessor overrides ─────────────────────────────────────────
+
+    /** A flush usually marks a seek or a new source; do not carry beat history across it. */
+    override fun onFlush() {
+        super.onFlush()
+        resetLiveBeatTracker(streamSlot)
+    }
 
     /**
      * Activate for float32 input only.
