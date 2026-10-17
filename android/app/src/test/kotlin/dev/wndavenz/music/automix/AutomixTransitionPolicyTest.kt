@@ -7,6 +7,50 @@ import java.util.Properties
 
 class AutomixTransitionPolicyTest {
     @Test
+    fun `early handover validation rejects cues the scheduler cannot honor`() {
+        assertTrue(
+            AutomixTransitionPolicy.isValidEarlyHandover(120_000L, 180_000L, 6_000L),
+        )
+        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(null, 180_000L, 6_000L))
+        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(10_000L, 180_000L, 6_000L))
+        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(150_000L, 180_000L, 6_000L))
+        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(120_000L, 0L, 6_000L))
+        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(120_000L, 180_000L, 60_000L))
+    }
+
+    @Test
+    fun `beat phase lock requires two planner-approved tempo grids`() {
+        assertTrue(AutomixTransitionPolicy.isBeatMatchedPair(120f, 124f))
+        assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(null, 124f))
+        assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(120f, null))
+        assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(49f, 124f))
+        assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(120f, Float.NaN))
+    }
+
+    @Test
+    fun `fade progress follows source media position and clamps safely`() {
+        assertEquals(0f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 9_000L, 8_000L), 0f)
+        assertEquals(0.5f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 14_000L, 8_000L), 0.0001f)
+        assertEquals(1f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 19_000L, 8_000L), 0f)
+        assertEquals(1f, AutomixTransitionPolicy.mediaTimelineProgress(10_000L, 10_000L, 0L), 0f)
+    }
+
+    @Test
+    fun `phase lock sample gate uses monotonic elapsed time safely`() {
+        assertFalse(AutomixTransitionPolicy.shouldSamplePhaseLock(1_063L, 1_000L, 64L))
+        assertTrue(AutomixTransitionPolicy.shouldSamplePhaseLock(1_064L, 1_000L, 64L))
+        assertFalse(AutomixTransitionPolicy.shouldSamplePhaseLock(999L, 1_000L, 64L))
+        assertFalse(AutomixTransitionPolicy.shouldSamplePhaseLock(1_100L, 1_000L, 0L))
+    }
+
+    @Test
+    fun `invalid playback speeds use a safe default`() {
+        assertEquals(1f, AutomixTransitionPolicy.normalizedPlaybackSpeed(Float.NaN), 0f)
+        assertEquals(1f, AutomixTransitionPolicy.normalizedPlaybackSpeed(0f), 0f)
+        assertEquals(2f, AutomixTransitionPolicy.normalizedPlaybackSpeed(2f), 0f)
+    }
+
+    @Test
     fun `crossfade and structure aligned preserve cue values`() {
         assertEquals(8f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.CROSSFADE, 8f)!!, 0.001f)
         assertEquals(1f, AutomixTransitionPolicy.curveGamma(AutomixTransitionPolicy.CROSSFADE, 1f)!!, 0.001f)
