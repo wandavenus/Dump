@@ -899,6 +899,7 @@ void main() {
     });
   });
 
+  group('chord progression compatibility', () {
     test('merges adjacent chord windows and resolves overlapping estimates', () {
       final merged = automixMergeChordProgressions([
         AutomixSegmentFeatures(
@@ -926,7 +927,7 @@ void main() {
       expect(merged.first.confidence, 0.95);
     });
 
-  group('chord progression compatibility', () {
+
     test('recognizes compatible fifths and penalizes confident semitone clashes', () {
       AutomixTrackFeatures track(
         int id, int pc, String quality, double confidence, double timeMs,

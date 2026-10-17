@@ -36,7 +36,7 @@ After planning, `AutomixService` computes a cue per incoming track in `automixTr
 
 - `crossfade`: standard fade;
 - `structureAligned`: align a fade to a reliable tail breakdown cue;
-- `shortHandover`: shorten a confident tempo/key mismatch;
+- `shortHandover`: shorten a confident tempo/key/chord mismatch;
 - `longBlend`: extend a sparse-tail/intro blend;
 - `quickHandover`: shorten a dense-tail transition.
 
