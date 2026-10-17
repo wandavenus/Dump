@@ -634,7 +634,9 @@ class AutomixService {
             : (settings.value.crossfadeBeats * 60.0 / bpm)
                   .clamp(2.0, 16.0)
                   .toDouble();
-        final targets = _buildNativeTargets(currentFeatures, plannedFeatures);
+        final targets = automixImmediateTransitionTargets(
+          _buildNativeTargets(currentFeatures, plannedFeatures),
+        );
         final signature = _nativePlanSignature(
           currentSong.id,
           fadeSeconds,
@@ -1079,6 +1081,7 @@ class AutomixService {
     outroEnergy: features.outroEnergy,
     analyzedFraction: features.analyzedFraction,
     tailAnalyzed: features.tailAnalyzed,
+    chordProgression: features.chordProgression,
   );
 
   /// Loaded (or freshly derived when nothing cached) features for [song].
