@@ -830,6 +830,8 @@ void main() {
       double? tailBreakdownCueMs,
       double tailBreakdownConfidence = 0,
       double? rmsDb,
+      double? introRmsDb,
+      double? outroRmsDb,
       double? centroidHz,
       double? onsetRate,
       int structureRegion = 0,
@@ -845,6 +847,8 @@ void main() {
       tailBpm: tailBpm,
       loudnessLufs: lufs,
       rmsDb: rmsDb,
+      introRmsDb: introRmsDb,
+      outroRmsDb: outroRmsDb,
       centroidHz: centroidHz,
       onsetRate: onsetRate,
       outroEnergy: outro,
@@ -952,6 +956,39 @@ void main() {
       );
       expect(uncertain.outgoingMidOverlapGain, 1.0);
       expect(uncertain.incomingMidOverlapGain, 1.0);
+    });
+
+    test('prefers paired overlap-section RMS over integrated LUFS', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          lufs: -8,
+          outroRmsDb: -22,
+          rmsDb: -8,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          lufs: -16,
+          introRmsDb: -18,
+          rmsDb: -16,
+        ),
+        settings: const AutomixSettings(),
+      );
+      // Section levels differ by 4 dB; integrated LUFS is intentionally ignored.
+      expect(cue.outgoingTrim, 1.0);
+      expect(cue.incomingTrim, closeTo(0.6309, 0.001));
+    });
+
+    test('does not compare a section RMS value against integrated LUFS', () {
+      final cue = automixTransitionCue(
+        outgoing: track(1, tailBpm: 120, outroRmsDb: -24),
+        incoming: track(2, tailBpm: 120, lufs: -8),
+        settings: const AutomixSettings(),
+      );
+      expect(cue.outgoingTrim, 1.0);
+      expect(cue.incomingTrim, 1.0);
     });
 
     test('uses paired RMS dBFS for level matching when LUFS is missing', () {
