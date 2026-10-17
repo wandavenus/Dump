@@ -21,6 +21,10 @@ part of '../automix_service.dart';
 // paths as the manual crossfade picker.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+class _AutomixAnalysisBusy implements Exception {
+  const _AutomixAnalysisBusy();
+}
+
 class AutomixService {
   AutomixService._();
 
@@ -151,6 +155,8 @@ class AutomixService {
   /// songs it could not analyze (not retried until the next launch).
   static final Set<int> _dspReady = <int>{};
   static final Set<int> _dspUnavailable = <int>{};
+  static final Map<int, String> _dspReadyIdentity = <int, String>{};
+  static final Map<int, String> _dspUnavailableIdentity = <int, String>{};
 
   /// Automatically prepares upcoming tracks on a newly loaded queue and arms the
   /// idle library sweep.
@@ -196,9 +202,14 @@ class AutomixService {
     AudioPlaybackState state,
     List<LocalSong> queue,
     List<int> tailIds,
-  ) =>
-      '${state.currentSong?.id}:${queue.length}:${state.shuffleEnabled}'
-      ':${automixQueueFingerprint(tailIds)}';
+  ) {
+    final nextIndex = state.nextTrackIndex;
+    final nextTrackId = nextIndex != null && nextIndex >= 0 && nextIndex < queue.length
+        ? queue[nextIndex].id
+        : -1;
+    return '${state.currentSong?.id}:${queue.length}:${state.shuffleEnabled}'
+        ':$nextTrackId:${automixQueueFingerprint(tailIds)}';
+  }
 
   static Future<void> _checkPlaybackStateForAutoMix() async {
     try {
@@ -386,15 +397,31 @@ class AutomixService {
         AudioEffectsService.bitPerfectMode.value) {
       return;
     }
-    final upcoming = queue.skip(currentIndex + 1).toList(growable: false);
-    if (upcoming.isEmpty) {
+    if (currentIndex < 0 || currentIndex >= queue.length) return;
+    final playbackSnapshot = AudioService.playbackState.value;
+    if (playbackSnapshot.currentIndex != currentIndex ||
+        playbackSnapshot.currentSong?.id != queue[currentIndex].id ||
+        !automixQueueSnapshotMatches(
+          queue.map((song) => song.id).toList(growable: false),
+          playbackSnapshot.currentPlaylist.map((song) => song.id).toList(growable: false),
+        )) {
+      _scheduleReplanRetry();
       return;
     }
+    final upcoming = automixUpcomingTracks<LocalSong>(
+      queue,
+      currentIndex,
+      shuffleEnabled: playbackSnapshot.shuffleEnabled,
+      nextTrackIndex: playbackSnapshot.nextTrackIndex,
+    );
+    if (upcoming.isEmpty) return;
     _autoMixPreparing = true;
     try {
       await loadSettings();
       final currentSong = queue[currentIndex];
-      final tailIds = upcoming.map((song) => song.id).toList(growable: false);
+      // Keep canonical queue order for plan continuation and native CAS, even
+      // when Shuffle selects a non-linear next item for the next fade.
+      final tailIds = _tailIdsOf(playbackSnapshot, queue);
 
       // ── Near window: what the next transition actually reads ──────────────
       // The playing deck plus the decks about to be mixed in. Those always get
@@ -406,6 +433,21 @@ class AutomixService {
         ...upcoming.take(nearCount),
       ]);
       if (!_isAutoMixGenerationCurrent(generation)) {
+        return;
+      }
+      // Validate again after awaits: Shuffle can pick another next item, or a
+      // queue edit can land while the feature cache is loading.
+      final postLoadState = AudioService.playbackState.value;
+      if (postLoadState.currentSong?.id != currentSong.id ||
+          postLoadState.currentIndex != currentIndex ||
+          postLoadState.shuffleEnabled != playbackSnapshot.shuffleEnabled ||
+          postLoadState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
+          !automixQueueSnapshotMatches(
+            queue.map((song) => song.id).toList(growable: false),
+            postLoadState.currentPlaylist.map((song) => song.id).toList(growable: false),
+          )) {
+        LogService.verbose('Automix', 'playback queue changed during feature loading; dropping stale targets');
+        _scheduleReplanRetry();
         return;
       }
 
@@ -424,7 +466,13 @@ class AutomixService {
       var plannedFeatures = nearFeatures.skip(1).toList(growable: false);
       double? plannedCrossfadeSeconds;
 
-      if (!automixPlanContinues(_plannedTail ?? const <int>[], tailIds)) {
+      final preserveQueueOrder = playbackSnapshot.shuffleEnabled ||
+          tailIds.toSet().length != tailIds.length;
+      if (preserveQueueOrder) {
+        // Shuffle owns its permutation, and duplicate IDs cannot be safely
+        // permuted by the ID-based native queue API.
+        _plannedTail = tailIds;
+      } else if (!automixPlanContinues(_plannedTail ?? const <int>[], tailIds)) {
         // Sequence the ENTIRE remaining queue in a single pass (capped): the
         // order the listener hears is decided once, not re-decided before every
         // transition. Far tracks score from cached analysis only — resolving
@@ -461,7 +509,12 @@ class AutomixService {
         final latestState = AudioService.playbackState.value;
         if (latestState.currentSong?.id != currentSong.id ||
             latestState.currentIndex != currentIndex ||
-            latestState.currentPlaylist.length != queue.length) {
+            latestState.shuffleEnabled != playbackSnapshot.shuffleEnabled ||
+            latestState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
+            !automixQueueSnapshotMatches(
+              queue.map((song) => song.id).toList(growable: false),
+              latestState.currentPlaylist.map((song) => song.id).toList(growable: false),
+            )) {
           LogService.verbose(
             'Automix',
             'queue changed during planning; dropping stale plan',
@@ -501,9 +554,34 @@ class AutomixService {
           try {
             await AudioService.reorderUpcomingByIds(
               currentId: currentSong.id,
+              expectedTailIds: tailIds,
               orderedIds: orderedTailIds,
             );
             if (!_isAutoMixGenerationCurrent(generation)) return;
+
+            // The queue can change again while the native reorder Future is
+            // completing. Do not publish targets for a sequence that is no
+            // longer the live queue.
+            final postReorderState = AudioService.playbackState.value;
+            final expectedQueueAfterReorder = <int>[
+              ...queue.take(currentIndex + 1).map((song) => song.id),
+              ...orderedTailIds,
+            ];
+            if (postReorderState.currentSong?.id != currentSong.id ||
+                postReorderState.currentIndex != currentIndex ||
+                postReorderState.shuffleEnabled != playbackSnapshot.shuffleEnabled ||
+                postReorderState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
+                !automixQueueSnapshotMatches(
+                  expectedQueueAfterReorder,
+                  postReorderState.currentPlaylist.map((song) => song.id).toList(growable: false),
+                )) {
+              _scheduleReplanRetry();
+              LogService.verbose(
+                'Automix',
+                'queue changed while native reorder completed; dropping transition targets',
+              );
+              return;
+            }
             _plannedTail = orderedTailIds;
           } on Object catch (e) {
             // A rejected reorder must never strand the session on a stale plan.
@@ -515,6 +593,13 @@ class AutomixService {
             return;
           }
         }
+      }
+
+      // Use the actual upcoming sequence if queue ordering is controlled by
+      // native Shuffle or IDs are ambiguous. Never publish cues for another pair.
+      if (preserveQueueOrder) {
+        plannedFeatures = nearFeatures.skip(1).toList(growable: false);
+        plannedCrossfadeSeconds = null;
       }
 
       if (_isAutoMixGenerationCurrent(generation)) {
@@ -588,16 +673,22 @@ class AutomixService {
     }
     if (currentIndex < 0 || currentIndex >= queue.length) return false;
 
-    bool needsAnalysis(LocalSong song) =>
-        !_dspReady.contains(song.id) && !_dspUnavailable.contains(song.id);
+    bool needsAnalysis(LocalSong song) => _needsDspAnalysis(song);
 
+    final analysisState = AudioService.playbackState.value;
+    final candidateWindow = <LocalSong>[
+      ...automixUpcomingTracks<LocalSong>(
+        queue,
+        currentIndex,
+        shuffleEnabled: analysisState.shuffleEnabled,
+        nextTrackIndex: analysisState.nextTrackIndex,
+      ),
+      ...automixPlanWindow<LocalSong>(queue, currentIndex, _analysisLookahead).skip(1),
+    ];
     final candidates = <LocalSong>[];
-    for (final song in automixPlanWindow<LocalSong>(
-      queue,
-      currentIndex,
-      _analysisLookahead,
-    ).skip(1)) {
-      if (needsAnalysis(song)) candidates.add(song);
+    final seenCandidateIds = <int>{};
+    for (final song in candidateWindow) {
+      if (seenCandidateIds.add(song.id) && needsAnalysis(song)) candidates.add(song);
     }
     // The playing file is analyzed last: a second decoder pass over the file
     // ExoPlayer is reading right now must never delay the incoming track.
@@ -622,14 +713,20 @@ class AutomixService {
           total: batch.length,
           currentTitle: song.title,
         );
-        final features = await analyzeOne(song);
+        final sourceIdentity = _identityForSong(song);
+        AutomixTrackFeatures? features;
+        try {
+          features = await analyzeOne(song);
+        } on _AutomixAnalysisBusy {
+          // Queue saturation is temporary; the scheduled resume pass will retry.
+          done++;
+          continue;
+        }
         if (!_isAutoMixGenerationCurrent(generation)) return false;
         if (features == null || !features.tailAnalyzed) {
-          // Avoid repeated expensive retries in one process; partial features
-          // remain usable and the next launch can retry the missing tail.
-          _dspUnavailable.add(song.id);
+          _markDspUnavailable(song, sourceIdentity);
         } else {
-          _dspReady.add(song.id);
+          _markDspReady(song, sourceIdentity);
         }
         if (features != null) analyzedAny = true;
         done++;
@@ -662,20 +759,25 @@ class AutomixService {
     if (state.currentIndex < 0 || state.currentIndex >= queue.length) return;
     // Same priority order as the pass itself: upcoming tracks first, the
     // playing file last (mirrors _autoAnalyzeUpcomingTracks).
-    bool missing(LocalSong song) =>
-        !_dspReady.contains(song.id) && !_dspUnavailable.contains(song.id);
+    bool missing(LocalSong song) => _needsDspAnalysis(song);
+    final pendingWindow = <LocalSong>[
+      ...automixUpcomingTracks<LocalSong>(
+        queue,
+        state.currentIndex,
+        shuffleEnabled: state.shuffleEnabled,
+        nextTrackIndex: state.nextTrackIndex,
+      ),
+      ...automixPlanWindow<LocalSong>(queue, state.currentIndex, _analysisLookahead).skip(1),
+      queue[state.currentIndex],
+    ];
     var pending = false;
-    for (final song in automixPlanWindow<LocalSong>(
-      queue,
-      state.currentIndex,
-      _analysisLookahead,
-    ).skip(1)) {
-      if (missing(song)) {
+    final seenPendingIds = <int>{};
+    for (final song in pendingWindow) {
+      if (seenPendingIds.add(song.id) && missing(song)) {
         pending = true;
         break;
       }
     }
-    if (!pending) pending = missing(queue[state.currentIndex]);
     if (!pending) return;
     _analyzeTimer = Timer(_analysisResumeDelay, () {
       _analyzeTimer = null;
@@ -738,6 +840,7 @@ class AutomixService {
       _replanRequested = true;
       _replanRetryCount = 0;
       _dspUnavailable.clear();
+      _dspUnavailableIdentity.clear();
       _onPlaybackStateForAutoMix();
       _scheduleLibrarySweep(const Duration(seconds: 30));
     } else {
@@ -766,9 +869,9 @@ class AutomixService {
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
   // v7: preserve native half/double-time alternate BPM and true source duration.
   // v9: persist vocal confidence and intro/tail structural-region metadata.
-  //     Older entries are re-analyzed because those fields affect planner costs
-  //     and the transition strategy, not merely diagnostics.
-  static const int _analysisSchemaVersion = 9;
+  // v10: include absolute source path in file identity so same-sized files at
+  //      different paths cannot reuse a prior track's analysis.
+  static const int _analysisSchemaVersion = 10;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -782,13 +885,66 @@ class AutomixService {
       final f = File(song.path);
       if (!f.existsSync()) return '';
       final st = f.statSync();
-      return '${st.size}_${st.modified.millisecondsSinceEpoch}';
+      return '${f.absolute.path}_${st.size}_${st.modified.millisecondsSinceEpoch}';
     } on Object {
       return '';
     }
   }
 
   static String _cacheKey(int songId) => 'automix_$songId';
+
+  /// Invalidate readiness and memory cache when a MediaStore ID points at a
+  /// different on-disk file version. Persisted reads also validate this identity.
+  static String _refreshDspStatusFor(LocalSong song) {
+    final identity = _identityForSong(song);
+    final id = song.id;
+    if (_dspReady.contains(id) && _dspReadyIdentity[id] != identity) {
+      _dspReady.remove(id);
+      _dspReadyIdentity.remove(id);
+    }
+    if (_dspUnavailable.contains(id) && _dspUnavailableIdentity[id] != identity) {
+      _dspUnavailable.remove(id);
+      _dspUnavailableIdentity.remove(id);
+    }
+    if (_featuresIdentity.containsKey(id) && _featuresIdentity[id] != identity) {
+      _featuresCache.remove(id);
+      _featuresIdentity.remove(id);
+    }
+    return identity;
+  }
+
+  static bool _needsDspAnalysis(LocalSong song) {
+    // Unseen tracks have no in-memory negative/positive status to invalidate;
+    // their persisted cache is checked by analyzeOne when selected for work.
+    // Avoid a synchronous stat for every item in a large library sweep.
+    if (!_dspReady.contains(song.id) && !_dspUnavailable.contains(song.id)) {
+      return true;
+    }
+    final identity = _refreshDspStatusFor(song);
+    final ready = identity.isNotEmpty && _dspReady.contains(song.id) &&
+        _dspReadyIdentity[song.id] == identity;
+    final unavailable = _dspUnavailable.contains(song.id) &&
+        _dspUnavailableIdentity[song.id] == identity;
+    return !ready && !unavailable;
+  }
+
+  static void _markDspReady(LocalSong song, String identity) {
+    if (identity.isEmpty) {
+      _markDspUnavailable(song, identity);
+      return;
+    }
+    _dspReady.add(song.id);
+    _dspReadyIdentity[song.id] = identity;
+    _dspUnavailable.remove(song.id);
+    _dspUnavailableIdentity.remove(song.id);
+  }
+
+  static void _markDspUnavailable(LocalSong song, String identity) {
+    _dspReady.remove(song.id);
+    _dspReadyIdentity.remove(song.id);
+    _dspUnavailable.add(song.id);
+    _dspUnavailableIdentity[song.id] = identity;
+  }
 
   /// Invalidates the previous DSP cache generation once per process and resets
   /// the UI count, which otherwise would claim legacy (pre-fix) features were
@@ -876,9 +1032,15 @@ class AutomixService {
     }
 
     await _ensureAnalysisSchemaVersion();
-    final identity = _identityForSong(song);
+    final identity = _refreshDspStatusFor(song);
     final inMemory = _featuresCache[song.id];
     if (inMemory != null && _featuresIdentity[song.id] == identity) {
+      if (inMemory.tailAnalyzed) {
+        _markDspReady(song, identity);
+      } else {
+        _dspReady.remove(song.id);
+        _dspReadyIdentity.remove(song.id);
+      }
       return _withSongMetadata(inMemory, song);
     }
 
@@ -901,7 +1063,7 @@ class AutomixService {
               song,
             );
             // Only complete tail analysis suppresses automatic re-analysis.
-            if (cached.tailAnalyzed) _dspReady.add(song.id);
+            if (cached.tailAnalyzed) _markDspReady(song, identity);
           }
         }
       }
@@ -998,7 +1160,12 @@ class AutomixService {
             );
             _featuresCache[song.id] = features;
             _featuresIdentity[song.id] = identity;
-            _dspReady.add(song.id);
+            if (features.tailAnalyzed) {
+              _markDspReady(song, identity);
+            } else {
+              _dspReady.remove(song.id);
+              _dspReadyIdentity.remove(song.id);
+            }
             return features;
           }
         }
@@ -1208,7 +1375,7 @@ class AutomixService {
   static bool _analysisCancelled = false;
   static Future<void>? _analysisFuture;
   static int? _analyzedCount;
-  static final Map<int, Future<AutomixTrackFeatures?>> _inFlight = {};
+  static final Map<String, Future<AutomixTrackFeatures?>> _inFlight = {};
 
   /// Whether any song has had a full DSP analysis recorded already — used by
   /// the UI to motivate running the batch scan.
@@ -1276,6 +1443,7 @@ class AutomixService {
     } on PlatformException catch (e) {
       if (e.code == 'scan_busy') {
         LogService.verbose('Automix', 'analysis channel busy: $path');
+        throw const _AutomixAnalysisBusy();
       }
       return null;
     } on Exception catch (e) {
@@ -1358,21 +1526,21 @@ class AutomixService {
   static Future<AutomixTrackFeatures?> analyzeOne(LocalSong song) async {
     if (kIsWeb || song.path.isEmpty) return null;
 
-    final existing = _inFlight[song.id];
+    final identity = _identityForSong(song);
+    final flightKey = '${song.id}:${song.path}:$identity';
+    final existing = _inFlight[flightKey];
     if (existing != null) return existing;
 
-    final identity = _identityForSong(song);
     final completer = Completer<AutomixTrackFeatures?>();
-    _inFlight[song.id] = completer.future;
-
+    _inFlight[flightKey] = completer.future;
     unawaited(_runAnalysis(completer, song, identity));
 
     try {
       return await completer.future;
     } finally {
-      // remove() hands back the stored Future — nothing awaits it here: the
-      // awaiting caller already got it above.
-      _inFlight.remove(song.id)?.ignore();
+      // Only evict this exact source version; an edit to the same MediaStore ID
+      // may have started a separate analysis while the old decode was in flight.
+      _inFlight.remove(flightKey)?.ignore();
     }
   }
 
@@ -1385,6 +1553,8 @@ class AutomixService {
   ) async {
     try {
       completer.complete(await _analyzeOneUncached(song, identity));
+    } on _AutomixAnalysisBusy catch (e, st) {
+      completer.completeError(e, st);
     } on Object catch (e, st) {
       LogService.warn('Automix', 'analyzeOne failed: $e\n$st');
       completer.complete(null);
@@ -1417,7 +1587,7 @@ class AutomixService {
             if (f.tailAnalyzed) {
               _featuresCache[song.id] = f;
               _featuresIdentity[song.id] = identity;
-              _dspReady.add(song.id);
+              _markDspReady(song, identity);
               return f;
             }
             // Partial cache entries remain useful through featuresFor(), but
@@ -1431,6 +1601,10 @@ class AutomixService {
 
     // 2. Native DSP, in bounded windows that cover the whole file.
     final analysis = await _analyzeSegments(song);
+    if (identity.isNotEmpty && _identityForSong(song) != identity) {
+      LogService.verbose('Automix', 'source changed during DSP decode for ${song.id}; discarding stale features');
+      return null;
+    }
     final segments = analysis.$1;
     if (segments.isEmpty) return null;
 
@@ -1452,6 +1626,10 @@ class AutomixService {
       sourceDurationSeconds: analysis.$2,
       tailSegmentAnalyzed: analysis.$3,
     );
+    if (identity.isNotEmpty && _identityForSong(song) != identity) {
+      LogService.verbose('Automix', 'source changed before cache commit for ${song.id}; discarding stale features');
+      return null;
+    }
 
     if (identity.isNotEmpty) {
       try {
@@ -1470,11 +1648,11 @@ class AutomixService {
       _featuresCache[song.id] = features;
       _featuresIdentity[song.id] = identity;
       if (features.tailAnalyzed) {
-        _dspReady.add(song.id);
-        _dspUnavailable.remove(song.id);
+        _markDspReady(song, identity);
         _bumpAnalyzedCount(1);
       } else {
         _dspReady.remove(song.id);
+        _dspReadyIdentity.remove(song.id);
         LogService.verbose(
           'Automix',
           'partial analysis cached for ${song.id}; exit window will be retried next launch',
@@ -1511,7 +1689,18 @@ class AutomixService {
         analysisProgress.value = analysisProgress.value.copyWith(
           currentTitle: song.title,
         );
-        final f = await analyzeOne(song);
+        AutomixTrackFeatures? f;
+        var busyRetries = 0;
+        while (true) {
+          try {
+            f = await analyzeOne(song);
+            break;
+          } on _AutomixAnalysisBusy {
+            if (_analysisCancelled || busyRetries >= 2) break;
+            busyRetries++;
+            await Future<void>.delayed(const Duration(milliseconds: 750));
+          }
+        }
         if (f == null || !f.tailAnalyzed) failed++;
         done++;
         analysisProgress.value = analysisProgress.value.copyWith(
@@ -1633,10 +1822,7 @@ class AutomixService {
     }
     final pending = <LocalSong>[
       for (final song in songs)
-        if (song.path.isNotEmpty &&
-            !_dspReady.contains(song.id) &&
-            !_dspUnavailable.contains(song.id))
-          song,
+        if (song.path.isNotEmpty && _needsDspAnalysis(song)) song,
     ];
     if (pending.isEmpty) {
       _scheduleLibrarySweep(_sweepIdleDelay);
@@ -1667,11 +1853,19 @@ class AutomixService {
           total: batch.length,
           currentTitle: song.title,
         );
-        final features = await analyzeOne(song);
+        final sourceIdentity = _identityForSong(song);
+        AutomixTrackFeatures? features;
+        try {
+          features = await analyzeOne(song);
+        } on _AutomixAnalysisBusy {
+          LogService.verbose('Automix', 'library sweep yielded to a busy analysis queue');
+          await Future<void>.delayed(_sweepPause);
+          continue;
+        }
         if (features == null || !features.tailAnalyzed) {
-          _dspUnavailable.add(song.id);
+          _markDspUnavailable(song, sourceIdentity);
         } else {
-          _dspReady.add(song.id);
+          _markDspReady(song, sourceIdentity);
           analyzed++;
         }
         await Future<void>.delayed(_sweepPause);
@@ -1697,6 +1891,8 @@ class AutomixService {
     _featuresIdentity.clear();
     _dspReady.clear();
     _dspUnavailable.clear();
+    _dspReadyIdentity.clear();
+    _dspUnavailableIdentity.clear();
     _analyzedCount = null;
     _savedCrossfade = null;
     automixActive.value = false;

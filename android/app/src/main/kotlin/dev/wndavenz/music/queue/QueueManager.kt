@@ -185,7 +185,11 @@ class QueueManager(
      * desired IDs exactly match the existing tail, preventing accidental drops
      * or duplicate ambiguity from partially-applied plans.
      */
-    fun reorderUpcomingByIds(expectedCurrentId: Int, desiredIds: List<Int>): Boolean {
+    fun reorderUpcomingByIds(
+        expectedCurrentId: Int,
+        expectedTailIds: List<Int>,
+        desiredIds: List<Int>,
+    ): Boolean {
         val player = getPlayer() ?: return false
         if (isCrossfadeInProgress()) return false
         if (player.shuffleModeEnabled) {
@@ -205,6 +209,12 @@ class QueueManager(
 
         val tail = queue.drop(activeQueueIndex + 1)
         val tailIds = tail.map { (it["id"] as? Number)?.toInt() ?: return false }
+        // Set equality alone lets a stale plan overwrite a newer user reorder.
+        // This check runs on the native queue owner thread before any mutation.
+        if (!expectedTailMatches(expectedTailIds, tailIds)) {
+            log("reorderUpcomingByIds rejected: queue tail changed during planning")
+            return false
+        }
         if (tailIds.size != desiredIds.size ||
             tailIds.toSet().size != tailIds.size ||
             desiredIds.toSet().size != desiredIds.size ||
@@ -311,6 +321,11 @@ class QueueManager(
     private fun notifyQueueIdsChanged() {
         val ids = queue.mapNotNull { (it["id"] as? Number)?.toInt() }.toSet()
         onQueueIdsChanged(ids)
+    }
+
+    companion object {
+        internal fun expectedTailMatches(expected: List<Int>, actual: List<Int>): Boolean =
+            expected == actual
     }
 
     private fun log(message: String) {

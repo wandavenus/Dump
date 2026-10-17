@@ -253,9 +253,11 @@ class PlaybackManager {
 
   static Future<void> reorderUpcomingByIds({
     required int currentId,
+    required List<int> expectedTailIds,
     required List<int> orderedIds,
   }) => Media3PlaybackBridge.reorderUpcomingByIds(
     currentId: currentId,
+    expectedTailIds: expectedTailIds,
     orderedIds: orderedIds,
   );
 
