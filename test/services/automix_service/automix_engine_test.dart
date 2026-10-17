@@ -931,7 +931,7 @@ void main() {
     test('recognizes compatible fifths and penalizes confident semitone clashes', () {
       AutomixTrackFeatures track(
         int id, int pc, String quality, double confidence, double timeMs,
-        {double duration = 180},
+        {double duration = 180}
       ) => AutomixTrackFeatures(
         songId: id,
         durationSeconds: duration,
