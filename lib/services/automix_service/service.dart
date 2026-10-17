@@ -156,7 +156,7 @@ class AutomixService {
   static final Set<int> _dspReady = <int>{};
   static final Set<int> _dspUnavailable = <int>{};
   static final Map<int, String> _dspReadyIdentity = <int, String>{};
-  static final Map<int, String> _dspUnavailableIdentity = <int, String>{}
+  static final Map<int, String> _dspUnavailableIdentity = <int, String>{};
 
   /// Automatically prepares upcoming tracks on a newly loaded queue and arms the
   /// idle library sweep.
