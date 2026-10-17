@@ -1110,6 +1110,30 @@ void main() {
       expect(cue.transitionStartMs, isNull);
     });
 
+    test('tempo-mismatched tracks do not use early drop handover', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          durationSeconds: 240,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 165,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          dropCueMs: 32000,
+          dropConfidence: 0.9,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.transitionStartMs, isNull);
+    });
+
     test('structure cues require reliable tail confidence and select alignment', () {
       final aligned = automixTransitionCue(
         outgoing: track(
