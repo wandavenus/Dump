@@ -1016,6 +1016,7 @@ void main() {
             bpm: 120,
             tailBpm: 120,
             bpmConfidence: 0.9,
+            tailBpmConfidence: 0.9,
           ),
           incoming: const AutomixTrackFeatures(
             songId: 2,

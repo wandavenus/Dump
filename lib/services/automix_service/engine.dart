@@ -388,6 +388,7 @@ AutomixTrackFeatures automixMergeSegments({
 
   // ── Exit beat grid: the fade lives in the tail window ────────────────────
   double? tailBpm;
+  var tailBpmConfidence = 0.0;
   double? tailBeatOffsetMs;
   double? tailDownbeatOffsetMs;
   for (final s
@@ -396,6 +397,7 @@ AutomixTrackFeatures automixMergeSegments({
           : const <AutomixSegmentFeatures>[]) {
     if (s.bpm == null || s.bpmConfidence < 0.20) continue;
     tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
+    tailBpmConfidence = s.tailBpmConfidence > 0 ? s.tailBpmConfidence : s.bpmConfidence;
     if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
       tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
     }
@@ -505,7 +507,10 @@ AutomixTrackFeatures automixMergeSegments({
     centroidHz: centroidHz,
     onsetRate: onsetRate,
     tailBpm: tailBpm,
+    tailBpmConfidence: tailBpmConfidence,
     tailBeatOffsetMs: tailBeatOffsetMs,
+    introRmsDb: firstSegment?.rmsDb,
+    outroRmsDb: tailSegmentAnalyzed ? lastSegment?.rmsDb : null,
     introEnergy: introEnergy,
     outroEnergy: outroEnergy,
     analyzedFraction: fileSeconds <= 0
@@ -633,8 +638,8 @@ AutomixTransitionCue automixTransitionCue({
   }
 
   final exitTempo = automixExitBpm(outgoing);
-  final tempoMismatch = outgoing.bpmConfidence >= 0.45 &&
-      incoming.bpmConfidence >= 0.45 &&
+  final tempoMismatch = outgoing.tailBpmConfidence >= 0.35 &&
+      incoming.bpmConfidence >= 0.35 &&
       exitTempo != null &&
       incoming.bpm != null &&
       !automixTempoMatch(
@@ -734,14 +739,12 @@ AutomixTransitionCue automixTransitionCue({
           .clamp(0.82, 1.0)
           .toDouble();
 
-  // Standard DJ level matching: attenuate the louder deck only.
+  // Standard DJ level matching prioritizing overlapping sections:
+  // Outgoing track A's outro section level vs incoming track B's intro section level.
   var outgoingTrim = 1.0;
   var incomingTrim = 1.0;
-  final outLufs = outgoing.loudnessLufs;
-  final inLufs = incoming.loudnessLufs;
-  final useIntegratedLufs = outLufs != null && inLufs != null;
-  final outLevelDb = useIntegratedLufs ? outLufs : outgoing.rmsDb;
-  final inLevelDb = useIntegratedLufs ? inLufs : incoming.rmsDb;
+  final outLevelDb = outgoing.outroRmsDb ?? outgoing.loudnessLufs ?? outgoing.rmsDb;
+  final inLevelDb = incoming.introRmsDb ?? incoming.loudnessLufs ?? incoming.rmsDb;
   if (outLevelDb != null && inLevelDb != null) {
     final deltaDb = (outLevelDb - inLevelDb).clamp(-6.0, 6.0);
     if (deltaDb > 0.5) {

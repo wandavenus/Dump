@@ -309,7 +309,7 @@ class AutomixService {
   ) {
     final ordered = <AutomixTrackFeatures>[current, ...upcoming];
     final exitBpm = automixExitBpm(current);
-    final reference = _tempoInRange(exitBpm) && current.bpmConfidence >= 0.35
+    final reference = _tempoInRange(exitBpm) && current.tailBpmConfidence >= 0.35
         ? exitBpm
         : null;
 
@@ -324,7 +324,8 @@ class AutomixService {
       final downbeatOffsetMs = isOutgoing
           ? features.tailDownbeatOffsetMs
           : features.downbeatOffsetMs;
-      final confidentBpm = features.bpmConfidence >= 0.35 && _tempoInRange(bpm)
+      final confidence = isOutgoing ? features.tailBpmConfidence : features.bpmConfidence;
+      final confidentBpm = confidence >= 0.35 && _tempoInRange(bpm)
           ? bpm
           : null;
 
@@ -345,13 +346,13 @@ class AutomixService {
         // estimate is strong and the phase is finite/non-negative, otherwise
         // native deliberately keeps the ordinary time-based fade.
         if (gridBpm != null &&
-            features.bpmConfidence >= 0.45 &&
+            confidence >= 0.35 &&
             beatOffsetMs != null &&
             beatOffsetMs.isFinite &&
             beatOffsetMs >= 0)
           'beatOffsetMs': beatOffsetMs,
         if (gridBpm != null &&
-            features.bpmConfidence >= 0.45 &&
+            confidence >= 0.35 &&
             downbeatOffsetMs != null &&
             downbeatOffsetMs.isFinite &&
             downbeatOffsetMs >= 0)
@@ -869,9 +870,8 @@ class AutomixService {
   // v6: retain structural cues and analyzed duration for cue-aware transitions.
   // v7: preserve native half/double-time alternate BPM and true source duration.
   // v9: persist vocal confidence and intro/tail structural-region metadata.
-  // v10: include absolute source path in file identity so same-sized files at
-  //      different paths cannot reuse a prior track's analysis.
-  static const int _analysisSchemaVersion = 10;
+  // v11: add tailBpmConfidence to segment and track features.
+  static const int _analysisSchemaVersion = 11;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1009,7 +1009,10 @@ class AutomixService {
     // Keep all structural cues and both phrase/beat grids intact when cached
     // DSP data is paired with fresh MediaStore title/artist metadata.
     tailBpm: features.tailBpm,
+    tailBpmConfidence: features.tailBpmConfidence,
     tailBeatOffsetMs: features.tailBeatOffsetMs,
+    introRmsDb: features.introRmsDb,
+    outroRmsDb: features.outroRmsDb,
     introEnergy: features.introEnergy,
     outroEnergy: features.outroEnergy,
     analyzedFraction: features.analyzedFraction,
