@@ -121,6 +121,15 @@ double automixConfidenceBlend(
 
 // ── Planning window ──────────────────────────────────────────────────────────
 
+/// Rotates a queue so [startIndex] is first while preserving the cyclic order
+/// of every other item. Used by one-shot AutoMix to keep the selected track
+/// anchored without requiring the planner to inspect an unbounded playlist.
+List<T> automixRotateQueueFrom<T>(List<T> queue, int startIndex) {
+  if (queue.isEmpty) return <T>[];
+  final start = startIndex.clamp(0, queue.length - 1);
+  return <T>[...queue.skip(start), ...queue.take(start)];
+}
+
 /// Bounded planning window: the start track plus up to [horizon] upcoming
 /// tracks.
 ///
