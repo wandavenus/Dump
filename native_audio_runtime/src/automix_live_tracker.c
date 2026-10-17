@@ -39,6 +39,35 @@ static NarLiveTracker g_tracker[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT];
 static _Atomic int g_reset_pending[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT] = {1, 1};
 static _Atomic double g_published[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT]
                                   [NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT];
+static _Atomic int g_tracker_enabled = 0;
+
+FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_is_enabled(void) {
+  return atomic_load_explicit(&g_tracker_enabled, memory_order_acquire) != 0;
+}
+
+FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_set_enabled(int32_t enabled) {
+  if (enabled != 0 && enabled != 1) return 0;
+  const int requested = enabled != 0;
+  const int current = atomic_load_explicit(&g_tracker_enabled, memory_order_acquire);
+  if (current == requested) return 1;
+
+  // Stop callbacks before clearing a disabled tracker. Enabling is published
+  // only after both slots have a pending reset, so old phase/history can never
+  // leak into a newly enabled AutoMix session.
+  if (!requested) {
+    atomic_store_explicit(&g_tracker_enabled, 0, memory_order_release);
+  }
+  for (int32_t slot = 0; slot < NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT; ++slot) {
+    for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+      atomic_store_explicit(&g_published[slot][i], 0.0, memory_order_release);
+    }
+    atomic_store_explicit(&g_reset_pending[slot], 1, memory_order_release);
+  }
+  if (requested) {
+    atomic_store_explicit(&g_tracker_enabled, 1, memory_order_release);
+  }
+  return 1;
+}
 
 static double clamp01(double value) { return fmin(1.0, fmax(0.0, value)); }
 
@@ -187,6 +216,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
       stream_slot < 0 || stream_slot >= NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT) {
     return 0;
   }
+  // Do not extract onset envelopes or run autocorrelation when AutoMix has
+  // no active transition plan. Keep the API successful for safe pass-through.
+  if (!atomic_load_explicit(&g_tracker_enabled, memory_order_acquire)) return 1;
   if (atomic_exchange_explicit(&g_reset_pending[stream_slot], 0,
                                memory_order_acq_rel) != 0) {
     reset_internal(stream_slot);
