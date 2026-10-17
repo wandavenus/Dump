@@ -19,6 +19,8 @@ static void assert_analysis_confidence_contract(
   }
   assert(output[16] >= NAR_AUTOMIX_STRUCTURE_UNKNOWN &&
          output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
+  // This window's tail-tempo confidence is its own tempo confidence.
+  assert(output[20] == output[1]);
 }
 
 static void test_analyzer_rms(void) {
