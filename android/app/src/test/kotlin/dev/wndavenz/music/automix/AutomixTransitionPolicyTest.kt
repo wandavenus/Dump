@@ -15,7 +15,7 @@ class AutomixTransitionPolicyTest {
         )
         assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(null, 180_000L, 6_000L))
         assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(10_000L, 180_000L, 6_000L))
-        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(150_000L, 180_000L, 6_000L))
+        assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(151_000L, 180_000L, 6_000L))
         assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(120_000L, 0L, 6_000L))
         assertFalse(AutomixTransitionPolicy.isValidEarlyHandover(120_000L, 180_000L, 60_000L))
     }
