@@ -428,6 +428,13 @@ class CrossfadeController(
         if (standby === current) return
         if (standby.mediaItemCount == 0 || nextIndex !in queue.indices) return
 
+        // Do not promote either deck or mutate the outgoing queue until audio focus
+        // is confirmed. A failed request must leave the current track untouched.
+        if (!hasAudioFocus() && !requestAudioFocus()) {
+            log("Crossfade deferred: audio focus unavailable; outgoing player remains active")
+            return
+        }
+
         // ── Timeline epoch: every subsequent stamp is relative to this point ──
         CrossfadeTimelineLogger.begin(
             "fade=${actualFadeMs}ms  nextIdx=$nextIndex  " +
@@ -570,19 +577,15 @@ class CrossfadeController(
         switchSessionPlayer(standby)
         CrossfadeTimelineLogger.stamp("beginCrossfade: ActivePlayerProxy.switchTo(standby) DONE", standby)
 
-        // Ensure audio focus before starting the new player
+        // Audio focus was validated before any queue/player mutation above.
         if (standby.playbackState != Player.STATE_READY) {
             CrossfadeTimelineLogger.stamp("beginCrossfade: standby not READY — calling prepare()", standby)
             standby.prepare()
             CrossfadeTimelineLogger.stamp("beginCrossfade: standby.prepare() DONE", standby)
         }
-        if (hasAudioFocus() || requestAudioFocus()) {
-            CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() START (focus granted)", standby)
-            standby.play()
-            CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() DONE", standby)
-        } else {
-            CrossfadeTimelineLogger.stamp("beginCrossfade: WARN no audio focus — standby.play() skipped", standby)
-        }
+        CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() START (focus granted)", standby)
+        standby.play()
+        CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() DONE", standby)
 
         log("Promotion complete → [$nextIndex] '${queue[nextIndex]["title"]}' (fade=${actualFadeMs}ms)")
         emitAll()
@@ -697,7 +700,15 @@ class CrossfadeController(
                 }
 
                 val nowForProgress = monotonicClockMs()
-                val wallDeltaMs = (nowForProgress - lastFadeTickAtMs).coerceAtLeast(0L)
+                // A wall-clock tick is not proof that media advanced. Freeze the
+                // envelope while either deck is paused/buffering, and discard that
+                // interval so recovery cannot cause a large catch-up jump.
+                val bothDecksAdvancing = oldPlayer.isPlaying && newPlayer.isPlaying
+                val wallDeltaMs = if (bothDecksAdvancing && nowForProgress >= lastFadeTickAtMs) {
+                    nowForProgress - lastFadeTickAtMs
+                } else {
+                    0L
+                }
                 if (nowForProgress >= lastFadeTickAtMs) lastFadeTickAtMs = nowForProgress
                 elapsedMediaMs = AutomixTransitionPolicy.advanceMediaTimeline(
                     elapsedMediaMs,
