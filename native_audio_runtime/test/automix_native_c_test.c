@@ -1,6 +1,7 @@
 #include "automix_native.h"
 #include "automix_phase_lock.h"
 #include "automix_tone_processor.h"
+#include "automix_live_tracker.h"
 
 #include <assert.h>
 #include <float.h>
@@ -644,7 +645,35 @@ static void test_tone_processor_various_frame_counts(void) {
   }
 }
 
+static void test_live_tracker_requires_explicit_enable(void) {
+  float pcm[512 * 2] = {0.0f};
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {-1.0, -1.0, -1.0};
+
+  assert(nar_automix_live_tracker_set_enabled(2) == 0);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+  assert(nar_automix_live_tracker_is_enabled() == 0);
+  assert(nar_automix_live_tracker_process(pcm, 512, 2, 48000, 0) == 1);
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+    assert(state[i] == 0.0);
+  }
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  assert(nar_automix_live_tracker_is_enabled() == 1);
+  assert(nar_automix_live_tracker_process(pcm, 512, 2, 48000, 0) == 1);
+  assert(nar_automix_live_tracker_reset(0) == 1);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+  assert(nar_automix_live_tracker_is_enabled() == 0);
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+    assert(state[i] == 0.0);
+  }
+}
+
 int main(void) {
+  test_live_tracker_requires_explicit_enable();
   test_tone_processor_unity_bands_preserve_fade_target();
   test_tone_processor_nonfinite_intermediates_are_sanitized();
   test_tone_processor_various_frame_counts();
