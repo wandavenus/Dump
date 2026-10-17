@@ -1339,7 +1339,10 @@ class AutomixService {
       0,
       _planHorizonCap,
     );
-    final features = await featuresForAll(planningWindow);
+    // Keep expensive per-track fallback work bounded as well: only the
+    // near decks get full feature resolution; farther tracks use cached DSP or
+    // neutral metadata until the background library sweep reaches them.
+    final features = await _featuresForPlan(planningWindow);
     if (!_isAutoMixGenerationCurrent(generation)) return -1;
     final planMetrics = AutomixEngine.planSet(
       tracks: features,
