@@ -11,8 +11,6 @@ import kotlin.math.roundToInt
  * and error mapping — this object only computes plain result maps.
  */
 object AutomixAnalysis {
-    private const val NATIVE_ANALYSIS_VALUE_COUNT = 21
-    private const val TAIL_BPM_CONFIDENCE_INDEX = 20
 
     private class FloatSampleBuffer(private val maxSamples: Int) {
         private var values = FloatArray(minOf(16 * 1024, maxSamples).coerceAtLeast(1))
@@ -138,12 +136,12 @@ object AutomixAnalysis {
 
         // Native result contract is kept in sync with
         // NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in automix_native.h.
-        if (analysis.size < NATIVE_ANALYSIS_VALUE_COUNT) return null
+        if (analysis.size < 21) return null
         fun optional(index: Int): Double? =
             analysis.getOrNull(index)?.takeIf { it.isFinite() }
         val bpm = optional(0)
         val bpmConfidence = analysis[1]
-        val tailBpmConfidence = analysis.getOrNull(TAIL_BPM_CONFIDENCE_INDEX)?.takeIf { it.isFinite() } ?: 0.0
+        val tailBpmConfidence = analysis.getOrNull(20)?.takeIf { it.isFinite() } ?: 0.0
         val alternateBpm = optional(2)
         val beatOffsetMs = optional(3)
         val tonic = analysis[4].toInt()

@@ -243,16 +243,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
       const float mid = high_low - low;
 
       const float output = low * current_bass + mid * current_mid + high * current_high;
-      // Bound post-EQ PCM BEFORE applying the deck's fade coefficient. If an
-      // upstream filter produces an over-range sample, clamping only after
-      // the fade could erase the coefficient's headroom (e.g. 4.0 * 0.25
-      // then clamp => 1.0). Pre-envelope clamping preserves the L1 mix budget.
-      const float bounded_output = isfinite(output)
-          ? fminf(1.0f, fmaxf(-1.0f, output))
-          : 0.0f;
-      const float faded = bounded_output * current_fade;
-      // Defensive final clamp; current_fade is constrained to [0, 1].
-      // This is sample-peak protection, not a reconstructed true-peak limiter.
+      const float faded = output * current_fade;
+      // Clamp each stream's final PCM sample before Android mixes the decks.
+      // This is a sample-peak ceiling, not a reconstructed true-peak limiter.
       interleaved[index] = isfinite(faded)
           ? fminf(1.0f, fmaxf(-1.0f, faded))
           : 0.0f;

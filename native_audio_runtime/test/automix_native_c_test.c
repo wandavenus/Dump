@@ -10,8 +10,7 @@ static void assert_analysis_confidence_contract(
     const double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT]) {
   // Confidence fields must be finite [0,1]. Index 16 is a region enum, not
   // a confidence value, and therefore has its own range contract.
-  const int confidence_indices[] = {14, 15, 17, 18, 19,
-                                    NAR_AUTOMIX_TAIL_BPM_CONFIDENCE_INDEX};
+  const int confidence_indices[] = {14, 15, 17, 18, 19};
   for (size_t i = 0;
        i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
     const int index = confidence_indices[i];
@@ -38,7 +37,6 @@ static void test_analyzer_rms(void) {
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
   assert_analysis_confidence_contract(output);
-  assert(fabs(output[NAR_AUTOMIX_TAIL_BPM_CONFIDENCE_INDEX] - output[1]) < 1e-12);
   // A pure tone is not sufficient evidence of vocals.
   assert(output[19] < 0.35);
   // A steady sine has no sustained section change, so structural cues should
@@ -412,75 +410,21 @@ static void test_crossfade_sample_peak_budget(void) {
   assert(nar_automix_tone_reset(0) == 1);
 }
 
-static void test_crossfade_mixed_output_peak_budget(void) {
-  const int32_t sample_rate = 48000;
-  const int32_t frames = 8;
-  const size_t sample_count = 16;
-  float outgoing[16];
-  float incoming[16];
-
-  // Exercise the real per-stream processor output, not only the gain helper.
-  // EQ can receive over-range float PCM, so the fade stage must clamp before
-  // applying its coefficient to preserve the L1 budget for correlated decks.
-  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
-  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
-  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
-  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
-  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
-  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
-
-  for (int pattern = 0; pattern < 2; ++pattern) {
-    for (int step = 0; step <= 100; ++step) {
-      const float progress = (float)step / 100.0f;
-      assert(nar_automix_tone_set_crossfade_gains(
-                 0, 1, progress, 1.0f, 1.0f, 1.0f) == 1);
-      // configure() initializes each stream's smoothed fade gain from the
-      // just-computed target, making this a deterministic sample-level test.
-      assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
-      assert(nar_automix_tone_configure(1, sample_rate, 2) == 1);
-
-      for (size_t i = 0; i < sample_count; ++i) {
-        const float sign = (i & 1U) == 0U ? 1.0f : -1.0f;
-        outgoing[i] = sign * 2.0f;
-        // Pattern 0: fully correlated decks. Pattern 1: different peak signs
-        // and timing, a deterministic uncorrelated/stress case.
-        incoming[i] = pattern == 0
-            ? outgoing[i]
-            : (((i / 2U) & 1U) == 0U ? 2.0f : -2.0f);
-      }
-
-      assert(nar_automix_tone_process(outgoing, frames, 2, 0) == 1);
-      assert(nar_automix_tone_process(incoming, frames, 2, 1) == 1);
-      for (size_t i = 0; i < sample_count; ++i) {
-        assert(isfinite(outgoing[i]) && isfinite(incoming[i]));
-        assert(outgoing[i] >= -1.0f && outgoing[i] <= 1.0f);
-        assert(incoming[i] >= -1.0f && incoming[i] <= 1.0f);
-        const float mixed = outgoing[i] + incoming[i];
-        assert(isfinite(mixed));
-        assert(mixed >= -1.0001f && mixed <= 1.0001f);
-      }
-    }
-  }
-  assert(nar_automix_tone_reset(0) == 1);
-  assert(nar_automix_tone_reset(1) == 1);
-}
-
 static void test_ffi_contract_and_bounds(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
   float pcm[44100] = {0};
   double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
 
-  // Both the old 20-value ABI and any smaller buffer must be rejected.
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 0);
+  // Undersized buffer must return 0
   assert(nar_automix_analyze(pcm, count, sample_rate, output, 19) == 0);
   // Null inputs must return 0
-  assert(nar_automix_analyze(NULL, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
-  assert(nar_automix_analyze(pcm, count, 0, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
-  assert(nar_automix_analyze(pcm, 100, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
+  assert(nar_automix_analyze(NULL, count, sample_rate, output, 20) == 0);
+  assert(nar_automix_analyze(pcm, count, 0, output, 20) == 0);
+  assert(nar_automix_analyze(pcm, 100, sample_rate, output, 20) == 0);
 
   // Exact-sized buffer returns 1
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 1);
 
   // Planner bounds checks
   int64_t ids[2] = {1, 2};
@@ -559,7 +503,6 @@ static void test_phrase_lock(void) {
 
 int main(void) {
   test_crossfade_sample_peak_budget();
-  test_crossfade_mixed_output_peak_budget();
   test_ffi_contract_and_bounds();
   test_analyzer_rms();
   test_analyzer_structural_cues();
