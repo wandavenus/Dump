@@ -33,11 +33,20 @@ internal object AutomixTransitionPolicy {
             leadMs > fadeDurationMs + MIN_FADE_MS
     }
 
-    /** A beat grid is considered eligible only when both planner-approved BPMs exist. */
-    fun isBeatMatchedPair(outgoingBpm: Float?, incomingBpm: Float?): Boolean =
-        outgoingBpm != null && incomingBpm != null &&
-            outgoingBpm.isFinite() && incomingBpm.isFinite() &&
-            outgoingBpm in 50f..220f && incomingBpm in 50f..220f
+    /**
+     * Phase-lock requires comparable *measured* pulse periods, not merely BPMs
+     * that the planner can octave-fold (half/double-time). The planner may still
+     * allow those pairs for a regular fade, but correcting phase between 60 and
+     * 120 BPM using raw periods can repeatedly pull the incoming deck the wrong way.
+     */
+    fun isBeatMatchedPair(outgoingBpm: Float?, incomingBpm: Float?): Boolean {
+        if (outgoingBpm == null || incomingBpm == null ||
+            !outgoingBpm.isFinite() || !incomingBpm.isFinite() ||
+            outgoingBpm !in 50f..220f || incomingBpm !in 50f..220f
+        ) return false
+        val ratio = outgoingBpm / incomingBpm
+        return ratio in 0.92f..1.08f
+    }
 
     fun hasTransitionCue(fadeSeconds: Float?): Boolean =
         fadeSeconds != null && fadeSeconds.isFinite() && fadeSeconds in 1.5f..12f
