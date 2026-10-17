@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <stdlib.h>
 
 #include "automix_native.h"
 #include "automix_phase_lock.h"
