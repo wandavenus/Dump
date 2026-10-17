@@ -278,7 +278,7 @@ double automixFoldToOctave(double value, double reference) {
 /// provides the exit beat grid ([AutomixTrackFeatures.tailBpm] /
 /// [AutomixTrackFeatures.tailBeatOffsetMs]) because the fade happens at the end
 /// of the file, not at its start.
-AutomixTrackFeatures automixMergeSegments({
+/// Flattens overlapping analysis windows into a stable chord timeline.\n/// Repeated labels in adjacent one-second hops are compressed; overlapping\n/// windows that disagree at effectively the same timestamp keep the stronger\n/// estimate instead of creating a rapid, artificial chord run.\nList<AutomixChordEvent> automixMergeChordProgressions(\n  List<AutomixSegmentFeatures> segments,\n) {\n  final candidates = <AutomixChordEvent>[\n    for (final segment in segments) ...segment.chordProgression,\n  ]..sort((a, b) => a.startMs.compareTo(b.startMs));\n  final merged = <AutomixChordEvent>[];\n  for (final chord in candidates) {\n    if (merged.isEmpty) {\n      merged.add(chord);\n      continue;\n    }\n    final previous = merged.last;\n    final deltaMs = chord.startMs - previous.startMs;\n    if (deltaMs < 0) continue;\n    if (previous.rootPitchClass == chord.rootPitchClass &&\n        previous.quality == chord.quality && deltaMs <= 3000) {\n      if (chord.confidence > previous.confidence) {\n        merged[merged.length - 1] = AutomixChordEvent(\n          startMs: previous.startMs,\n          rootPitchClass: chord.rootPitchClass,\n          root: chord.root,\n          quality: chord.quality,\n          confidence: chord.confidence,\n        );\n      }\n      continue;\n    }\n    if (deltaMs < 500 && chord.confidence <= previous.confidence) continue;\n    if (deltaMs < 500 && chord.confidence > previous.confidence) {\n      merged[merged.length - 1] = chord;\n      continue;\n    }\n    merged.add(chord);\n  }\n  return List<AutomixChordEvent>.unmodifiable(merged);\n}\n\nAutomixTrackFeatures automixMergeSegments({
   required int songId,
   String title = '',
   String artist = '',
@@ -523,6 +523,7 @@ AutomixTrackFeatures automixMergeSegments({
         ? 0
         : automixClamp01(analyzedSeconds / fileSeconds),
     tailAnalyzed: tailSegmentAnalyzed,
+    chordProgression: automixMergeChordProgressions(segments),
   );
 }
 
@@ -596,7 +597,7 @@ class AutomixTransitionCue {
 double? automixExitBpm(AutomixTrackFeatures features) =>
     features.tailBpm ?? features.bpm;
 
-AutomixTransitionCue automixTransitionCue({
+/// A conservative cost for the outgoing tail chord → incoming intro chord.\n/// 0 is compatible and 1 is strongly clashing. Null means no confident pair.\ndouble? automixChordProgressionCost(\n  AutomixTrackFeatures outgoing,\n  AutomixTrackFeatures incoming,\n) {\n  AutomixChordEvent? lastOutgoing;\n  for (final chord in outgoing.chordProgression) {\n    if (chord.confidence < 0.45) continue;\n    if (outgoing.durationSeconds > 0 &&\n        chord.startMs < (outgoing.durationSeconds - 30).clamp(0, double.infinity) * 1000) {\n      continue;\n    }\n    if (lastOutgoing == null || chord.startMs > lastOutgoing.startMs) {\n      lastOutgoing = chord;\n    }\n  }\n  AutomixChordEvent? firstIncoming;\n  for (final chord in incoming.chordProgression) {\n    if (chord.confidence < 0.45 || chord.startMs > 30000) continue;\n    if (firstIncoming == null || chord.startMs < firstIncoming.startMs) {\n      firstIncoming = chord;\n    }\n  }\n  if (lastOutgoing == null || firstIncoming == null) return null;\n\n  final rawDistance = (lastOutgoing.rootPitchClass - firstIncoming.rootPitchClass).abs();\n  final distance = rawDistance > 6 ? 12 - rawDistance : rawDistance;\n  final baseCost = switch (distance) {\n    0 => 0.04,\n    1 => 0.82,\n    2 => 0.30,\n    3 => 0.20,\n    4 => 0.20,\n    5 => 0.12,\n    6 => 0.92,\n    _ => 0.40,\n  };\n  final qualityAdjusted = lastOutgoing.quality == firstIncoming.quality\n      ? baseCost\n      : (baseCost + 0.08).clamp(0.0, 1.0).toDouble();\n  final confidence = math.min(lastOutgoing.confidence, firstIncoming.confidence);\n  // Partial confidence returns the estimate toward neutral, never makes an\n  // uncertain spectral-template match into a hard rejection.\n  return automixClamp01(\n    qualityAdjusted * confidence + 0.5 * (1.0 - confidence),\n  );\n}\n\nAutomixTransitionCue automixTransitionCue({
   required AutomixTrackFeatures outgoing,
   required AutomixTrackFeatures incoming,
   required AutomixSettings settings,
@@ -662,6 +663,8 @@ AutomixTransitionCue automixTransitionCue({
   final keyMismatch = outgoing.keyConfidence >= 0.55 &&
       incoming.keyConfidence >= 0.55 &&
       keyCost >= 0.60;
+  final chordCost = automixChordProgressionCost(outgoing, incoming);
+  final chordMismatch = chordCost != null && chordCost >= 0.62;
   final denseTail = (outro != null && outro >= 0.70) ||
       (outgoing.tailStructureRegion == 3 &&
           outgoing.tailStructureConfidence >= 0.65);
@@ -673,7 +676,7 @@ AutomixTransitionCue automixTransitionCue({
   final AutomixTransitionStrategy strategy;
   if (cueLeadSeconds != null) {
     strategy = AutomixTransitionStrategy.structureAligned;
-  } else if (tempoMismatch || keyMismatch) {
+  } else if (tempoMismatch || keyMismatch || chordMismatch) {
     strategy = AutomixTransitionStrategy.shortHandover;
   } else if (denseTail) {
     strategy = AutomixTransitionStrategy.quickHandover;

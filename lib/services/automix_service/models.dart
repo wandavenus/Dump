@@ -11,7 +11,7 @@ part of '../automix_service.dart';
 // Any field may be null/zero when the analysis is unavailable or uncertain —
 // the engine uses neutral fallback costs instead of rejecting the track.
 
-/// One analyzed window of a file: the native extractor runs on a bounded PCM
+/// A confidence-gated chord label on the source track timeline.\n/// startMs is absolute from the start of the source file.\n@immutable\nclass AutomixChordEvent {\n  const AutomixChordEvent({\n    required this.startMs,\n    required this.rootPitchClass,\n    required this.root,\n    required this.quality,\n    required this.confidence,\n  });\n\n  final double startMs;\n  final int rootPitchClass;\n  final String root;\n  final String quality;\n  final double confidence;\n\n  String get label => '$root$quality';\n\n  Map<String, dynamic> toMap() => <String, dynamic>{\n    'startMs': startMs,\n    'rootPitchClass': rootPitchClass,\n    'root': root,\n    'quality': quality,\n    'confidence': confidence,\n  };\n}\n\nconst List<String> _automixPitchNames = <String>[\n  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',\n];\nconst Set<String> _automixChordQualities = <String>{\n  'maj', 'min', 'dim', 'aug', '7', 'maj7', 'min7', 'sus4',\n};\n\n/// Parses native or cached chord rows defensively. Malformed/low-confidence\n/// rows are ignored rather than becoming false harmonic constraints.\nList<AutomixChordEvent> automixChordEventsFromValue(Object? raw) {\n  if (raw is! List) return const <AutomixChordEvent>[];\n  final events = <AutomixChordEvent>[];\n  for (final item in raw) {\n    if (item is! Map) continue;\n    final time = item['startMs'];\n    final root = item['rootPitchClass'];\n    final quality = item['quality'];\n    final confidence = item['confidence'];\n    if (time is! num || root is! num || quality is! String || confidence is! num) {\n      continue;\n    }\n    final startMs = time.toDouble();\n    final rootValue = root.toDouble();\n    final confidenceValue = confidence.toDouble();\n    if (!startMs.isFinite || startMs < 0 ||\n        !rootValue.isFinite || rootValue != rootValue.roundToDouble() ||\n        rootValue < 0 || rootValue > 11 ||\n        !_automixChordQualities.contains(quality) ||\n        !confidenceValue.isFinite || confidenceValue < 0.08 || confidenceValue > 1) {\n      continue;\n    }\n    final rootPc = rootValue.toInt();\n    events.add(AutomixChordEvent(\n      startMs: startMs,\n      rootPitchClass: rootPc,\n      root: _automixPitchNames[rootPc],\n      quality: quality,\n      confidence: confidenceValue,\n    ));\n  }\n  events.sort((a, b) => a.startMs.compareTo(b.startMs));\n  return List<AutomixChordEvent>.unmodifiable(events);\n}\n\n/// One analyzed window of a file: the native extractor runs on a bounded PCM
 /// window so a long track can be sampled head/middle/tail instead of only its
 /// first five minutes. [automixMergeSegments] folds these into per-track
 /// features.
@@ -40,6 +40,7 @@ class AutomixSegmentFeatures {
     this.rmsDb,
     this.centroidHz,
     this.onsetRate,
+    this.chordProgression = const <AutomixChordEvent>[],
   });
 
   /// Window start in the file (seconds) and its length.
@@ -81,6 +82,9 @@ class AutomixSegmentFeatures {
   final double? rmsDb;
   final double? centroidHz;
   final double? onsetRate;
+
+  /// Native chord estimates on the absolute source timeline, confidence-gated.
+  final List<AutomixChordEvent> chordProgression;
 }
 
 /// Converts the full native-analysis MethodChannel map into a validated window
@@ -177,6 +181,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     rmsDb: finiteValue('rmsDb'),
     centroidHz: finiteValue('centroidHz'),
     onsetRate: finiteValue('onsetRate'),
+    chordProgression: automixChordEventsFromValue(map['chordProgression']),
   );
 }
 
@@ -219,6 +224,7 @@ class AutomixTrackFeatures {
     this.outroEnergy,
     this.analyzedFraction = 0,
     this.tailAnalyzed = false,
+    this.chordProgression = const <AutomixChordEvent>[],
   });
 
   final int songId;
@@ -309,6 +315,9 @@ class AutomixTrackFeatures {
   /// outro beat grid.
   final bool tailAnalyzed;
 
+  /// Time-ordered, confidence-gated chord changes for the analyzed track.
+  final List<AutomixChordEvent> chordProgression;
+
   // ── Serialization (SharedPreferences JSON) ─────────────────────────────────
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -348,6 +357,10 @@ class AutomixTrackFeatures {
     if (outroEnergy != null) 'oe': outroEnergy,
     if (analyzedFraction > 0) 'af': analyzedFraction,
     'ta': tailAnalyzed,
+    if (chordProgression.isNotEmpty)
+      'chords': <Map<String, dynamic>>[
+        for (final chord in chordProgression) chord.toMap(),
+      ],
   };
 
   factory AutomixTrackFeatures.fromMap(Map<dynamic, dynamic> map) {
@@ -388,6 +401,7 @@ class AutomixTrackFeatures {
       outroEnergy: (map['oe'] as num?)?.toDouble(),
       analyzedFraction: (map['af'] as num?)?.toDouble() ?? 0,
       tailAnalyzed: map['ta'] as bool? ?? false,
+      chordProgression: automixChordEventsFromValue(map['chords']),
     );
   }
 }

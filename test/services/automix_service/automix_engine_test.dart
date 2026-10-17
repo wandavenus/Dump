@@ -80,6 +80,10 @@ void main() {
         dropConfidence: 0.7,
         tailBreakdownConfidence: 0.9,
         durationSeconds: 180.0,
+        chordProgression: const <AutomixChordEvent>[
+          AutomixChordEvent(startMs: 0, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.92),
+          AutomixChordEvent(startMs: 16000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.84),
+        ],
       );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
       expect(restored.alternateBpm, 240.0);
@@ -97,6 +101,9 @@ void main() {
       expect(restored.dropConfidence, 0.7);
       expect(restored.tailBreakdownConfidence, 0.9);
       expect(restored.durationSeconds, 180.0);
+      expect(restored.chordProgression.map((c) => c.label), ['Cmaj', 'Gmaj']);
+      expect(restored.chordProgression.last.startMs, 16000.0);
+      expect(restored.chordProgression.last.confidence, 0.84);
 
       final legacy = AutomixTrackFeatures.fromMap({'id': 17, 'bpm': 120});
       expect(legacy.alternateBpm, isNull);
@@ -104,6 +111,7 @@ void main() {
       expect(legacy.dropCueMs, isNull);
       expect(legacy.tailBreakdownCueMs, isNull);
       expect(legacy.durationSeconds, 0.0);
+      expect(legacy.chordProgression, isEmpty);
     });
   });
 
@@ -199,7 +207,7 @@ void main() {
       expect(segment.vocalConfidence, 0.93);
     });
 
-    test('uses neutral fallbacks for malformed field types', () {
+    test('parses and rejects time-stamped chord estimates safely', () {\n      final segment = automixSegmentFeaturesFromAnalysisMap(\n        <String, dynamic>{\n          'chordProgression': <Map<String, Object>>[\n            <String, Object>{\n              'startMs': 1200,\n              'rootPitchClass': 0,\n              'root': 'C',\n              'quality': 'maj',\n              'label': 'Cmaj',\n              'confidence': 0.91,\n            },\n            <String, Object>{\n              'startMs': 2400,\n              'rootPitchClass': 7,\n              'quality': 'min',\n              'confidence': 0.83,\n            },\n            <String, Object>{\n              'startMs': double.infinity,\n              'rootPitchClass': 4,\n              'quality': 'maj',\n              'confidence': 0.9,\n            },\n            <String, Object>{\n              'startMs': 4000,\n              'rootPitchClass': 2,\n              'quality': 'unsupported',\n              'confidence': 0.99,\n            },\n            <String, Object>{\n              'startMs': 5000,\n              'rootPitchClass': 9,\n              'quality': 'min',\n              'confidence': 0.01,\n            },\n          ],\n        },\n        fallbackStartSeconds: 0,\n        fallbackSeconds: 120,\n      );\n\n      expect(segment.chordProgression, hasLength(2));\n      expect(segment.chordProgression.first.label, 'Cmaj');\n      expect(segment.chordProgression.last.root, 'G');\n      expect(segment.chordProgression.last.label, 'Gmin');\n      expect(segment.chordProgression.last.confidence, 0.83);\n    });\n\n    test('uses neutral fallbacks for malformed field types', () {
       final segment = automixSegmentFeaturesFromAnalysisMap(
         <String, dynamic>{
           'segmentStartSeconds': 'not-a-number',
@@ -842,7 +850,7 @@ void main() {
     });
   });
 
-  group('per-transition cue', () {
+  group('chord progression compatibility', () {\n    test('recognizes compatible fifths and penalizes confident semitone clashes', () {\n      AutomixTrackFeatures track(\n        int id, int pc, String quality, double confidence, double timeMs,\n        {double duration = 180},\n      ) => AutomixTrackFeatures(\n        songId: id,\n        durationSeconds: duration,\n        chordProgression: <AutomixChordEvent>[\n          AutomixChordEvent(\n            startMs: timeMs,\n            rootPitchClass: pc,\n            root: const <String>['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][pc],\n            quality: quality,\n            confidence: confidence,\n          ),\n        ],\n      );\n\n      final outgoing = track(1, 0, 'maj', 0.95, 170000);\n      final fifth = track(2, 7, 'maj', 0.95, 1000, duration: 120);\n      final semitone = track(3, 1, 'maj', 0.95, 1000, duration: 120);\n      expect(automixChordProgressionCost(outgoing, fifth), lessThan(0.3));\n      expect(automixChordProgressionCost(outgoing, semitone), greaterThan(0.62));\n    });\n\n    test('returns neutral absence when either chord grid is missing', () {\n      expect(\n        automixChordProgressionCost(_f(1), _f(2)),\n        isNull,\n      );\n    });\n  });\n\n  group('per-transition cue', () {
     AutomixTrackFeatures track(
       int id, {
       double? lufs,
