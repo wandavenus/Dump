@@ -357,7 +357,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         NativeLogger.emit("info", "Stretch", "[Stretch] onQueueEndOfStream EOS received handle=0x${h.toString(16)} hasBufferedState=$hasBufferedStretchState")
         if (h != 0L && hasBufferedStretchState) {
             val channelCount = inputAudioFormat.channelCount
-            val drainFrames = max(1, nativeOutputLatencyFrames(h) * 2)
+            // Signalsmith Stretch 1.2.0 flushes at most one STFT block; outputLatency() is
+            // the documented minimum tail to read and is within the default block size.
+            val drainFrames = max(1, nativeOutputLatencyFrames(h))
             NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush started handle=0x${h.toString(16)} drainFrames=$drainFrames")
             val outputBytes = drainFrames * channelCount * 4
             val output = replaceOutputBuffer(outputBytes)
