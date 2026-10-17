@@ -197,6 +197,8 @@ class Media3PlaybackService : MediaSessionService() {
     // Per-transition shaping, keyed by the INCOMING song id: its fade length,
     // the transfer curve, and the level match with the outgoing deck.
     private val automixFadeSecondsBySongId = mutableMapOf<Int, Float>()
+    // Outgoing media-position where the transition to this incoming song starts.
+    private val automixTransitionStartMsBySongId = mutableMapOf<Int, Long>()
     private val automixCurveBySongId = mutableMapOf<Int, Float>()
     private val automixIncomingTrimBySongId = mutableMapOf<Int, Float>()
     private val automixOutgoingTrimBySongId = mutableMapOf<Int, Float>()
@@ -661,6 +663,10 @@ class Media3PlaybackService : MediaSessionService() {
             getAutoMixFadeSecondsForPlayer = { p ->
                 if (!automixTransitionEnabled) null
                 else automixSongIdOf(p)?.let { automixFadeSecondsBySongId[it] }
+            },
+            getAutoMixTransitionStartMsForPlayer = { p ->
+                if (!automixTransitionEnabled) null
+                else automixSongIdOf(p)?.let { automixTransitionStartMsBySongId[it] }
             },
             getAutoMixCurveForPlayer = { p ->
                 if (!automixTransitionEnabled) 1f
@@ -2331,6 +2337,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixDownbeatOffsetMsBySongId.clear()
         automixDropCueMsBySongId.clear()
         automixFadeSecondsBySongId.clear()
+        automixTransitionStartMsBySongId.clear()
         automixCurveBySongId.clear()
         automixIncomingTrimBySongId.clear()
         automixOutgoingTrimBySongId.clear()
@@ -2370,6 +2377,14 @@ class Media3PlaybackService : MediaSessionService() {
                 val requestedFade = (target["fadeSeconds"] as? Number)?.toFloat()
                 AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade)?.let {
                     automixFadeSecondsBySongId[id] = it
+                }
+                val transitionStartMs = (target["transitionStartMs"] as? Number)?.toDouble()
+                if (transitionStartMs != null &&
+                    transitionStartMs.isFinite() &&
+                    transitionStartMs >= 0.0 &&
+                    transitionStartMs <= 86_400_000.0
+                ) {
+                    automixTransitionStartMsBySongId[id] = transitionStartMs.toLong()
                 }
                 val requestedCurve = (target["fadeCurve"] as? Number)?.toFloat()
                 AutomixTransitionPolicy.curveGamma(strategy, requestedCurve)?.let {
