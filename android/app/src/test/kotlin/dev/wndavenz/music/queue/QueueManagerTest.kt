@@ -2,6 +2,7 @@ package dev.wndavenz.music.queue
 
 import androidx.media3.common.util.UnstableApi
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -346,6 +347,13 @@ class QueueManagerTest {
         mgr.setQueue(fiveItemQueue(), startIndex = 0)
         mgr.reorderQueue(0, 3)
         assertEquals("A", mgr.queue[3]["title"])
+    }
+
+    @Test fun `G05 expected tail snapshot rejects reorder of same IDs`() {
+        assertTrue(QueueManager.expectedTailMatches(listOf(2, 3, 4), listOf(2, 3, 4)))
+        assertFalse(QueueManager.expectedTailMatches(listOf(2, 3, 4), listOf(3, 2, 4)))
+        assertFalse(QueueManager.expectedTailMatches(listOf(2, 3, 4), listOf(2, 3, 4, 5)))
+        assertFalse(QueueManager.expectedTailMatches(listOf(2, 3, 4), listOf(2, 4)))
     }
 
     // ═════════════════════════════════════════════════════════════════════════
