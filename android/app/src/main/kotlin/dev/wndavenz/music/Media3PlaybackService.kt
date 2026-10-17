@@ -1171,6 +1171,8 @@ class Media3PlaybackService : MediaSessionService() {
         // tickRunnable / fadeRunnable from firing against a released ExoPlayer
         // when the system kills the service without a prior prepareShutdown().
         if (::sleepTimerManager.isInitialized) sleepTimerManager.release()
+        // Native state is process-global even when this service is recreated.
+        NativeDspAudioProcessor.setLiveBeatTrackerEnabled(false)
 
         // Shut down URI-metadata I/O executor (H-02 fix).
         ioExecutor.shutdown()
@@ -2342,7 +2344,15 @@ class Media3PlaybackService : MediaSessionService() {
         targets: List<Map<String, Any?>>,
         preloadStandby: Boolean,
     ) {
-        automixTransitionEnabled = enabled
+        val transitionActive = enabled && !bitPerfectModeOn
+        automixTransitionEnabled = transitionActive
+        val trackerEnabled = NativeDspAudioProcessor.setLiveBeatTrackerEnabled(transitionActive)
+        if (transitionActive && !trackerEnabled) {
+            NativeLogger.emit(
+                "warn", "Automix",
+                "Live beat tracker unavailable; using offline beat-grid fallback",
+            )
+        }
         automixTempoMultiplierBySongId.clear()
         automixBpmBySongId.clear()
         automixBeatOffsetMsBySongId.clear()
@@ -2355,7 +2365,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixOutgoingTrimBySongId.clear()
         automixBandOverlapGainsByIncomingSongId.clear()
 
-        if (enabled) {
+        if (transitionActive) {
             for (target in targets) {
                 val parsed = ParsedAutomixTransitionTarget.fromMap(target) ?: continue
                 val id = parsed.id
@@ -2393,26 +2403,26 @@ class Media3PlaybackService : MediaSessionService() {
 
         val activeId = activePlayer?.currentMediaItem?.mediaId?.toIntOrNull()
         val activeSlot = if (activePlayer === primaryPlayer) 0 else 1
-        val activeMultiplier = if (enabled && activeId != null) {
+        val activeMultiplier = if (transitionActive && activeId != null) {
             automixTempoMultiplierBySongId[activeId] ?: 1f
         } else {
             1f
         }
         stretchManager.setAutoMixTempoMultiplier(activeSlot, activeMultiplier)
-        if (!enabled) {
+        if (!transitionActive) {
             stretchManager.setAutoMixTempoMultiplier(0, 1f)
             stretchManager.setAutoMixTempoMultiplier(1, 1f)
         }
         automixToneManager.reset()
 
-        if (preloadStandby && enabled && crossfadeController.crossfadeDurationSec > 0f) {
+        if (preloadStandby && transitionActive && crossfadeController.crossfadeDurationSec > 0f) {
             // Recreate the standby from its queue item so multiplier/beat seek
             // are applied before prepare(), never half-way through decoded PCM.
             preloadManager.preloadNextTrack(force = true)
         }
         NativeLogger.emit(
             "info", "Automix",
-            "Native DJ targets ${if (enabled) "enabled" else "cleared"}: " +
+            "Native DJ targets ${if (transitionActive) "enabled" else "cleared"}: " +
                 "${automixTempoMultiplierBySongId.size} tempo targets, " +
                 "${automixBpmBySongId.size} confident BPMs, " +
                 "${automixBeatOffsetMsBySongId.size} beat phases",
@@ -2463,6 +2473,13 @@ class Media3PlaybackService : MediaSessionService() {
             // Dual-player crossfade and Bit-Perfect Mode never run together.
             crossfadeController.cancel(resetVolume = true)
             preloadManager.releaseStandbyPlayer()
+            // Bit-Perfect uses a clean player and cannot consume AutoMix targets.
+            // Clear those targets and stop live analysis before leaving this pipeline.
+            applyAutomixTransitionNow(
+                enabled = false,
+                targets = emptyList(),
+                preloadStandby = false,
+            )
 
             val wasPlaying = current.isPlaying
             val positionMs = current.currentPosition
