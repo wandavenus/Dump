@@ -10,7 +10,8 @@ static void assert_analysis_confidence_contract(
     const double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT]) {
   // Confidence fields must be finite [0,1]. Index 16 is a region enum, not
   // a confidence value, and therefore has its own range contract.
-  const int confidence_indices[] = {14, 15, 17, 18, 19};
+  const int confidence_indices[] = {14, 15, 17, 18, 19,
+                                    NAR_AUTOMIX_TAIL_BPM_CONFIDENCE_INDEX};
   for (size_t i = 0;
        i < sizeof(confidence_indices) / sizeof(confidence_indices[0]); ++i) {
     const int index = confidence_indices[i];
@@ -37,6 +38,7 @@ static void test_analyzer_rms(void) {
   assert(fabs(output[7] - (-9.03)) < 1.0);
   assert(fabs(output[10] - 2.0) < 1e-9);
   assert_analysis_confidence_contract(output);
+  assert(fabs(output[NAR_AUTOMIX_TAIL_BPM_CONFIDENCE_INDEX] - output[1]) < 1e-12);
   // A pure tone is not sufficient evidence of vocals.
   assert(output[19] < 0.35);
   // A steady sine has no sustained section change, so structural cues should
@@ -419,12 +421,12 @@ static void test_ffi_contract_and_bounds(void) {
   // Undersized buffer must return 0
   assert(nar_automix_analyze(pcm, count, sample_rate, output, 19) == 0);
   // Null inputs must return 0
-  assert(nar_automix_analyze(NULL, count, sample_rate, output, 20) == 0);
-  assert(nar_automix_analyze(pcm, count, 0, output, 20) == 0);
-  assert(nar_automix_analyze(pcm, 100, sample_rate, output, 20) == 0);
+  assert(nar_automix_analyze(NULL, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
+  assert(nar_automix_analyze(pcm, count, 0, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
+  assert(nar_automix_analyze(pcm, 100, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
 
   // Exact-sized buffer returns 1
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 1);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
 
   // Planner bounds checks
   int64_t ids[2] = {1, 2};
