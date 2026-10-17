@@ -3,59 +3,82 @@ package dev.wndavenz.music.automix
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 class AutomixIntegrationTest {
 
     @Test
-    fun `equal power gain integration with dynamic volume target`() {
-        val outgoingTrim = 0.7f
-        val incomingTrim = 0.8f
+    fun `production gain envelope preserves endpoints and follows live volume target`() {
+        val start = AutomixGainEnvelope.gains(
+            progress = 0f,
+            targetVolume = 1f,
+            curveGamma = 1f,
+            outgoingTrim = 0.7f,
+            incomingTrim = 0.8f,
+        )
+        assertEquals(1f, start.outgoing, 0.001f)
+        assertEquals(0f, start.incoming, 0.001f)
 
-        // Progress values 0, 0.25, 0.5, 0.75, 1.0
-        val progressValues = floatArrayOf(0f, 0.25f, 0.5f, 0.75f, 1.0f)
-        var targetVol = 1.0f
+        val ducked = AutomixGainEnvelope.gains(
+            progress = 0.5f,
+            targetVolume = 0.3f,
+            curveGamma = 1f,
+            outgoingTrim = 1f,
+            incomingTrim = 1f,
+        )
+        assertEquals(0.3f * 0.5f, ducked.outgoing + ducked.incoming, 0.001f)
 
-        for (t in progressValues) {
-            val attack = if (t >= 0.25f) 1f else t / 0.25f
-            val outgoingTrimNow = 1f - (1f - outgoingTrim) * attack
+        val end = AutomixGainEnvelope.gains(
+            progress = 1f,
+            targetVolume = 0.42f,
+            curveGamma = 1.35f,
+            outgoingTrim = 0.7f,
+            incomingTrim = 0.6f,
+        )
+        assertEquals(0f, end.outgoing, 0.001f)
+        assertEquals(0.42f, end.incoming, 0.001f)
+    }
 
-            val release = if (t <= 0.75f) 0f else (t - 0.75f) / 0.25f
-            val incomingTrimNow = incomingTrim + (1f - incomingTrim) * release
+    @Test
+    fun `production gain envelope bounds correlated deck sum across trims and curves`() {
+        val targets = floatArrayOf(0.15f, 0.3f, 0.7f, 1f)
+        val gammas = floatArrayOf(0.6f, 0.85f, 1f, 1.35f, 1.6f)
+        val trims = floatArrayOf(0f, 0.32f, 0.7f, 1f)
 
-            val theta = (t * PI / 2.0).toFloat()
-            val outgoingGain = outgoingTrimNow * cos(theta)
-            val incomingGain = incomingTrimNow * sin(theta)
-
-            val gainSum = outgoingGain + incomingGain
-            val headroomScale = if (gainSum > 1.414f) 1.414f / gainSum else 1f
-
-            val oldVol = (targetVol * outgoingGain * headroomScale).coerceIn(0f, targetVol)
-            val newVol = (targetVol * incomingGain * headroomScale).coerceIn(0f, targetVol)
-
-            if (t == 0f) {
-                assertEquals(targetVol, oldVol, 0.001f)
-                assertEquals(0f, newVol, 0.001f)
-            } else if (t == 1.0f) {
-                assertEquals(0f, oldVol, 0.001f)
-                assertEquals(targetVol, newVol, 0.001f)
+        for (target in targets) {
+            for (gamma in gammas) {
+                for (outTrim in trims) {
+                    for (inTrim in trims) {
+                        for (step in 0..100) {
+                            val gains = AutomixGainEnvelope.gains(
+                                progress = step / 100f,
+                                targetVolume = target,
+                                curveGamma = gamma,
+                                outgoingTrim = outTrim,
+                                incomingTrim = inTrim,
+                            )
+                            assertTrue(gains.outgoing in 0f..target)
+                            assertTrue(gains.incoming in 0f..target)
+                            assertTrue(
+                                gains.outgoing + gains.incoming <= target + 0.0001f,
+                            )
+                        }
+                    }
+                }
             }
-
-            assertTrue(oldVol in 0f..targetVol)
-            assertTrue(newVol in 0f..targetVol)
         }
+    }
 
-        // Test audio focus ducking (volume drops to 0.3)
-        targetVol = 0.3f
-        val t = 0.5f
-        val theta = (t * PI / 2.0).toFloat()
-        val oldVolDucked = targetVol * cos(theta)
-        val newVolDucked = targetVol * sin(theta)
-
-        assertEquals(0.3f * 0.7071f, oldVolDucked, 0.01f)
-        assertEquals(0.3f * 0.7071f, newVolDucked, 0.01f)
+    @Test
+    fun `production gain envelope safely handles invalid control values`() {
+        val gains = AutomixGainEnvelope.gains(
+            progress = Float.NaN,
+            targetVolume = Float.POSITIVE_INFINITY,
+            curveGamma = Float.NaN,
+            outgoingTrim = Float.NaN,
+            incomingTrim = Float.POSITIVE_INFINITY,
+        )
+        assertEquals(0f, gains.outgoing, 0f)
+        assertEquals(0f, gains.incoming, 0f)
     }
 
     @Test
