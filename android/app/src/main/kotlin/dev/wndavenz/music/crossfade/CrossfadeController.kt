@@ -650,20 +650,22 @@ class CrossfadeController(
     highOverlapGains: Pair<Float, Float>?,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
-        // durationMs is source-media time. Measuring progress against the
-        // outgoing player's own timeline keeps the overlap correct across manual
-        // speed changes and pauses/buffering, rather than assuming wall time.
-        val fadeStartPositionMs = oldPlayer.currentPosition.coerceAtLeast(0L)
+        // durationMs is source-media time. Integrate monotonic wall time using
+        // the outgoing processor's applied speed each tick, rather than relying
+        // on PlaybackParameters.speed (Signalsmith owns the real stretch ratio).
+        val sourcePositionAtStartMs = oldPlayer.currentPosition.coerceAtLeast(0L)
         val sourceDurationMs = oldPlayer.duration
         val effectiveDurationMs = if (sourceDurationMs > 0L && sourceDurationMs != C.TIME_UNSET) {
             minOf(
                 durationMs,
-                (sourceDurationMs - fadeStartPositionMs).coerceAtLeast(1L),
+                (sourceDurationMs - sourcePositionAtStartMs).coerceAtLeast(1L),
             )
         } else {
             durationMs.coerceAtLeast(1L)
         }
         val estimatedSteps = (effectiveDurationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
+        var elapsedMediaMs = 0.0
+        var lastFadeTickAtMs = monotonicClockMs()
         var step = 0
         var lastPhaseLockAt: Long? = null
         var nativeFadeActive = nativeFadeEnabled
@@ -695,9 +697,16 @@ class CrossfadeController(
                     return
                 }
 
+                val nowForProgress = monotonicClockMs()
+                val wallDeltaMs = (nowForProgress - lastFadeTickAtMs).coerceAtLeast(0L)
+                if (nowForProgress >= lastFadeTickAtMs) lastFadeTickAtMs = nowForProgress
+                elapsedMediaMs = AutomixTransitionPolicy.advanceMediaTimeline(
+                    elapsedMediaMs,
+                    wallDeltaMs,
+                    getMediaPlaybackSpeedForPlayer(oldPlayer),
+                )
                 val t = AutomixTransitionPolicy.mediaTimelineProgress(
-                    fadeStartPositionMs,
-                    oldPlayer.currentPosition.coerceAtLeast(0L),
+                    elapsedMediaMs,
                     effectiveDurationMs,
                 )
                 if (t >= 1f) {
@@ -845,10 +854,8 @@ class CrossfadeController(
                             // time, then into incoming source-media time. Read both applied
                             // speeds every sample so speed changes during a blend are tracked.
                             val remainingOutgoingMediaMs =
-                                (effectiveDurationMs.toDouble() -
-                                    (oldPlayer.currentPosition - fadeStartPositionMs)
-                                        .coerceAtLeast(0L).toDouble()
-                                ).coerceAtLeast(0.0)
+                                (effectiveDurationMs.toDouble() - elapsedMediaMs)
+                                    .coerceAtLeast(0.0)
                             val outgoingSpeed = AutomixTransitionPolicy.normalizedPlaybackSpeed(
                                 getMediaPlaybackSpeedForPlayer(oldPlayer),
                             ).toDouble()
