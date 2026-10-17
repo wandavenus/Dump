@@ -40,6 +40,13 @@ static _Atomic int g_reset_pending[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT] = {1, 1}
 static _Atomic double g_published[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT]
                                   [NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT];
 static _Atomic int g_tracker_enabled = 0;
+static _Atomic uint32_t g_tracker_generation = 0;
+
+static void clear_published_state(int32_t slot) {
+  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+    atomic_store_explicit(&g_published[slot][i], 0.0, memory_order_release);
+  }
+}
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_is_enabled(void) {
   return atomic_load_explicit(&g_tracker_enabled, memory_order_acquire) != 0;
@@ -58,11 +65,10 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_set_enabled(int32_t enabled) 
     atomic_store_explicit(&g_tracker_enabled, 0, memory_order_release);
   }
   for (int32_t slot = 0; slot < NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT; ++slot) {
-    for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
-      atomic_store_explicit(&g_published[slot][i], 0.0, memory_order_release);
-    }
+    clear_published_state(slot);
     atomic_store_explicit(&g_reset_pending[slot], 1, memory_order_release);
   }
+  atomic_fetch_add_explicit(&g_tracker_generation, 1, memory_order_acq_rel);
   if (requested) {
     atomic_store_explicit(&g_tracker_enabled, 1, memory_order_release);
   }
@@ -219,6 +225,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
   // Do not extract onset envelopes or run autocorrelation when AutoMix has
   // no active transition plan. Keep the API successful for safe pass-through.
   if (!atomic_load_explicit(&g_tracker_enabled, memory_order_acquire)) return 1;
+  const uint32_t generation_at_start = atomic_load_explicit(
+      &g_tracker_generation, memory_order_acquire);
   if (atomic_exchange_explicit(&g_reset_pending[stream_slot], 0,
                                memory_order_acq_rel) != 0) {
     reset_internal(stream_slot);
@@ -307,6 +315,14 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
       tracker->phase_elapsed_ms = 0.0;
     }
     publish_state(stream_slot, tracker);
+  }
+  // If AutoMix was disabled or re-enabled during this callback, discard any
+  // results from the old tracking epoch. Audio callbacks stay lock-free.
+  if (!atomic_load_explicit(&g_tracker_enabled, memory_order_acquire) ||
+      atomic_load_explicit(&g_tracker_generation, memory_order_acquire) !=
+          generation_at_start) {
+    clear_published_state(stream_slot);
+    atomic_store_explicit(&g_reset_pending[stream_slot], 1, memory_order_release);
   }
   return 1;
 }
