@@ -28,6 +28,9 @@ typedef struct {
   int32_t frames_since_estimate;
   float onset_history[LIVE_HISTORY_FRAMES];
   double bpm;
+  // Beat phase captured at the most recent autocorrelation estimate.
+  // phase_elapsed_ms is re-projected at every PCM callback using this value.
+  double phase_at_estimate_ms;
   double phase_elapsed_ms;
   double confidence;
 } NarLiveTracker;
@@ -92,6 +95,7 @@ static void estimate_live_beat(int32_t slot) {
   mean /= count;
   if (squared < 1e-7 || squared - count * mean * mean < 1e-7) {
     tracker->bpm = 0.0;
+    tracker->phase_at_estimate_ms = 0.0;
     tracker->phase_elapsed_ms = 0.0;
     tracker->confidence = 0.0;
     publish_state(slot, tracker);
@@ -165,6 +169,7 @@ static void estimate_live_beat(int32_t slot) {
   }
   tracker->phase_elapsed_ms =
       (double)peak_age * tracker->frame_samples * 1000.0 / tracker->sample_rate;
+  tracker->phase_at_estimate_ms = tracker->phase_elapsed_ms;
   const double margin = fmax(0.0, best_score - second_score);
   const double periodicity = clamp01((best_score - 0.10) / 0.45);
   const double uniqueness = clamp01((margin + 0.025) / 0.18);
@@ -250,6 +255,26 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
       tracker->frames_since_estimate = 0;
       estimate_live_beat(stream_slot);
     }
+  }
+
+  // The BPM/autocorrelation work is refreshed every 250 ms to bound CPU work,
+  // but phase must advance on every audio callback; otherwise the crossfade
+  // controller would repeatedly consume a stale beat phase between updates.
+  if (tracker->bpm >= LIVE_MIN_BPM && tracker->bpm <= LIVE_MAX_BPM &&
+      tracker->confidence > 0.0 && tracker->sample_rate > 0) {
+    const int64_t unestimated_samples =
+        (int64_t)tracker->frames_since_estimate * tracker->frame_samples +
+        tracker->samples_in_frame;
+    const double elapsed_ms = (double)unestimated_samples * 1000.0 /
+        tracker->sample_rate;
+    const double beat_period_ms = 60000.0 / tracker->bpm;
+    tracker->phase_elapsed_ms = fmod(
+        tracker->phase_at_estimate_ms + elapsed_ms, beat_period_ms);
+    if (!isfinite(tracker->phase_elapsed_ms) || tracker->phase_elapsed_ms < 0.0) {
+      tracker->confidence = 0.0;
+      tracker->phase_elapsed_ms = 0.0;
+    }
+    publish_state(stream_slot, tracker);
   }
   return 1;
 }
