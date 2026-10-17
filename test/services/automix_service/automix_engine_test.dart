@@ -971,6 +971,12 @@ void main() {
       double durationSeconds = 0,
       double? tailBreakdownCueMs,
       double tailBreakdownConfidence = 0,
+      double tailBpmConfidence = 0,
+      double? tailBeatOffsetMs,
+      double? beatOffsetMs,
+      double? dropCueMs,
+      double dropConfidence = 0,
+      double bpmConfidence = 0.9,
       double? rmsDb,
       double? introRmsDb,
       double? outroRmsDb,
@@ -986,8 +992,13 @@ void main() {
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: tailBpm,
-      bpmConfidence: 0.9,
+      bpmConfidence: bpmConfidence,
+      beatOffsetMs: beatOffsetMs,
       tailBpm: tailBpm,
+      tailBpmConfidence: tailBpmConfidence,
+      tailBeatOffsetMs: tailBeatOffsetMs,
+      dropCueMs: dropCueMs,
+      dropConfidence: dropConfidence,
       loudnessLufs: lufs,
       rmsDb: rmsDb,
       introRmsDb: introRmsDb,
@@ -1044,6 +1055,59 @@ void main() {
       expect(cue.curveGamma, greaterThanOrEqualTo(1.35));
       expect(cue.outgoingTrim, closeTo(0.6309, 0.001)); // 4 dB
       expect(cue.incomingTrim, 1.0);
+    });
+
+    test('confident incoming drop schedules an early exit separately from fade length', () {
+      final outgoing = track(
+        1,
+        tailBpm: 120,
+        tailBpmConfidence: 0.9,
+        tailBeatOffsetMs: 125.0,
+        durationSeconds: 240,
+      );
+      final incoming = track(
+        2,
+        tailBpm: 120,
+        bpmConfidence: 0.9,
+        beatOffsetMs: 300.0,
+        dropCueMs: 32000,
+        dropConfidence: 0.9,
+        durationSeconds: 210,
+      );
+
+      final cue = automixTransitionCue(
+        outgoing: outgoing,
+        incoming: incoming,
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.transitionStartMs, 195000.0);
+      expect(cue.fadeSeconds, inInclusiveRange(1.5, 12.0));
+      expect(cue.fadeSeconds, lessThan(45.0));
+    });
+
+    test('uncertain incoming drop keeps the conventional near-end transition', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          durationSeconds: 240,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          dropCueMs: 32000,
+          dropConfidence: 0.2,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.transitionStartMs, isNull);
     });
 
     test('structure cues require reliable tail confidence and select alignment', () {
