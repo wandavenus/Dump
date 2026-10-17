@@ -3,6 +3,7 @@
 #include "automix_tone_processor.h"
 
 #include <assert.h>
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -589,6 +590,35 @@ static void test_tone_processor_unity_bands_preserve_fade_target(void) {
   }
 }
 
+static void test_tone_processor_nonfinite_intermediates_are_sanitized(void) {
+  const int32_t sample_rate = 48000;
+  assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_reset(0) == 1);
+
+  // The finite extremes pass input sanitization but overflow the IIR
+  // difference on the sign change. Both scalar C and AArch64 NEON must emit
+  // silence for the affected frames, never a NaN or a clipped -1 sentinel.
+  float pcm[] = {
+      FLT_MAX, FLT_MAX,
+      -FLT_MAX, -FLT_MAX,
+      FLT_MAX, -FLT_MAX,
+      -FLT_MAX, FLT_MAX,
+  };
+  assert(nar_automix_tone_process(pcm, 4, 2, 0) == 1);
+  for (size_t i = 0; i < sizeof(pcm) / sizeof(pcm[0]); ++i) {
+    assert(isfinite(pcm[i]));
+    assert(pcm[i] >= -1.0f && pcm[i] <= 1.0f);
+  }
+  // Frame 1 is where the finite input subtraction overflows; C maps the
+  // resulting non-finite processed sample to 0, and NEON must match it.
+  assert(fabsf(pcm[2]) < 1e-6f);
+  assert(fabsf(pcm[3]) < 1e-6f);
+}
+
 static void test_tone_processor_various_frame_counts(void) {
   const int32_t sample_rate = 48000;
   assert(nar_automix_tone_configure(0, sample_rate, 2) == 1);
@@ -616,6 +646,7 @@ static void test_tone_processor_various_frame_counts(void) {
 
 int main(void) {
   test_tone_processor_unity_bands_preserve_fade_target();
+  test_tone_processor_nonfinite_intermediates_are_sanitized();
   test_tone_processor_various_frame_counts();
   test_crossfade_sample_peak_budget();
   test_ffi_contract_and_bounds();
