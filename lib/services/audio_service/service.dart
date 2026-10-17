@@ -1,5 +1,13 @@
 part of '../audio_service.dart';
 
+bool automixIdsMatch(List<int> left, List<int> right) {
+  if (left.length != right.length) return false;
+  for (var i = 0; i < left.length; i++) {
+    if (left[i] != right[i]) return false;
+  }
+  return true;
+}
+
 /// Main facade for all audio playback operations.
 ///
 /// Architecture:
@@ -810,15 +818,36 @@ class AudioService {
       expectedTailIds: expectedTailIds,
       orderedIds: orderedIds,
     );
-    final byId = <int, LocalSong>{for (final song in tail) song.id: song};
+
+    // The native call yields to the event loop. A queue edit may have landed
+    // before this continuation resumes, so never write the captured tail back
+    // over a newer local queue snapshot.
+    final latestState = playbackState.value;
+    final latestIndex = latestState.currentIndex;
+    if (latestState.currentSong?.id != currentId ||
+        latestIndex < 0 ||
+        latestIndex >= _playlist.length ||
+        _playlist[latestIndex].id != currentId) {
+      throw StateError('Active track changed during AutoMix queue reorder');
+    }
+    final latestTail = _playlist.skip(latestIndex + 1).toList(growable: false);
+    final latestTailIds = latestTail.map((song) => song.id).toList(growable: false);
+    if (automixIdsMatch(latestTailIds, orderedIds)) {
+      // Native's queue event already applied this exact reorder locally.
+      return;
+    }
+    if (!automixIdsMatch(latestTailIds, expectedTailIds)) {
+      throw StateError('Queue changed while AutoMix reorder was in flight');
+    }
+    final byId = <int, LocalSong>{for (final song in latestTail) song.id: song};
     final mutable = <LocalSong>[
-      ..._playlist.take(currentIndex + 1),
+      ..._playlist.take(latestIndex + 1),
       for (final id in orderedIds) byId[id]!,
     ];
     _playlist = List<LocalSong>.unmodifiable(mutable);
     _currentIndex = _playlist.indexWhere((song) => song.id == currentId);
     _setState(
-      playbackState.value.copyWith(
+      latestState.copyWith(
         currentPlaylist: _playlist,
         currentIndex: _currentIndex,
       ),
