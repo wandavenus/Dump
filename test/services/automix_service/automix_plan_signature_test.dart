@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:musicplayer/services/automix_service.dart';
 
@@ -113,6 +115,102 @@ void main() {
       ];
 
       expect(signature(withFarTarget), signature(changedFarTarget));
+    });
+
+    test('publishes only the active pair when a later queue item repeats an ID', () {
+      final targets = automixImmediateTransitionTargets(<Map<String, Object?>>[
+        <String, Object?>{'id': 101, 'bpm': 128.0, 'beatOffsetMs': 40.0},
+        <String, Object?>{
+          'id': 202,
+          'bpm': 126.0,
+          'beatOffsetMs': 500.0,
+          'fadeSeconds': 3.8,
+          'transitionStartMs': 135000.0,
+          'fadeCurve': 1.0,
+          'levelTrimOutgoing': 0.8,
+          'levelTrimIncoming': 0.9,
+        },
+        // This later occurrence must never overwrite active A -> B targets.
+        <String, Object?>{
+          'id': 101,
+          'bpm': 88.0,
+          'multiplier': 0.92,
+          'fadeSeconds': 12.0,
+          'transitionStartMs': 60000.0,
+        },
+      ]);
+
+      expect(targets, hasLength(2));
+      expect(targets.first['bpm'], 128.0);
+      expect(targets.last['id'], 202);
+      expect(targets.last['fadeSeconds'], 3.8);
+      expect(targets.last['transitionStartMs'], 135000.0);
+      expect(targets.last['levelTrimOutgoing'], 0.8);
+      expect(targets.last['levelTrimIncoming'], 0.9);
+    });
+
+    test('same-ID immediate pair falls back to ordinary crossfade targets', () {
+      expect(
+        automixImmediateTransitionTargets(<Map<String, Object?>>[
+          <String, Object?>{'id': 101, 'bpm': 128.0, 'multiplier': 1.0},
+          <String, Object?>{'id': 101, 'bpm': 92.0, 'multiplier': 0.92},
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('shared Dart-to-Media3 transition fixture retains every cue field', () async {
+      final values = <String, String>{};
+      for (final line in await File(
+        'android/app/src/test/resources/automix_transition_target.properties',
+      ).readAsLines()) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+        final separator = trimmed.indexOf('=');
+        if (separator <= 0) continue;
+        values[trimmed.substring(0, separator).trim()] =
+            trimmed.substring(separator + 1).trim();
+      }
+
+      final incoming = <String, Object?>{
+        'id': int.parse(values['id']!),
+        'multiplier': double.parse(values['multiplier']!),
+        'bpm': double.parse(values['bpm']!),
+        'beatOffsetMs': double.parse(values['beatOffsetMs']!),
+        'downbeatOffsetMs': double.parse(values['downbeatOffsetMs']!),
+        'dropCueMs': double.parse(values['dropCueMs']!),
+        'transitionStrategy': int.parse(values['transitionStrategy']!),
+        'fadeSeconds': double.parse(values['fadeSeconds']!),
+        'transitionStartMs': double.parse(values['transitionStartMs']!),
+        'fadeCurve': double.parse(values['fadeCurve']!),
+        'levelTrimOutgoing': double.parse(values['levelTrimOutgoing']!),
+        'levelTrimIncoming': double.parse(values['levelTrimIncoming']!),
+      };
+      final targets = automixImmediateTransitionTargets(<Map<String, Object?>>[
+        <String, Object?>{'id': 101, 'bpm': 128.0},
+        incoming,
+        <String, Object?>{'id': 101, 'bpm': 80.0, 'fadeSeconds': 12.0},
+      ]);
+
+      expect(targets, hasLength(2));
+      for (final key in <String>[
+        'id',
+        'multiplier',
+        'bpm',
+        'beatOffsetMs',
+        'downbeatOffsetMs',
+        'dropCueMs',
+        'transitionStrategy',
+        'fadeSeconds',
+        'transitionStartMs',
+        'fadeCurve',
+        'levelTrimOutgoing',
+        'levelTrimIncoming',
+      ]) {
+        expect(targets.last, contains(key), reason: 'Missing $key in Dart payload');
+      }
+      expect(targets.last['transitionStartMs'], 135000.0);
+      expect(targets.last['fadeSeconds'], 3.8);
     });
   });
 }
