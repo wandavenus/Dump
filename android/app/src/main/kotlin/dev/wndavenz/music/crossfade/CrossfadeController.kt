@@ -96,7 +96,6 @@ class CrossfadeController(
     private val getAutoMixLiveBeatStateForPlayer: (ExoPlayer) -> AutomixLiveBeatState? = { null },
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
-    private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float? = { null },
     private val getMediaPlaybackSpeedForPlayer: (ExoPlayer) -> Float = { it.playbackParameters.speed },
     private val monotonicClockMs: () -> Long = { SystemClock.uptimeMillis() },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
