@@ -4,7 +4,7 @@ This document records the production path verified during the follow-up audit fo
 
 ## 1. Analysis path and ABI
 
-1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows using a 2-pole Biquad Butterworth low-pass anti-aliasing filter before decimation ($f_c = 0.45 \times f_{target}$) and phase-cancellation energy protection for stereo-to-mono downmixing, calling `AutomixNative.nativeAnalyze`.
+1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows through `AutomixPcmDownsampler`: a 2-pole Butterworth biquad low-pass runs at the source rate with cutoff $f_c = 0.45 \\times f_{output}$ before decimation. Stereo normally uses an L/R average, but falls back to the stronger channel when the mid signal is below 25% of the stronger channel to avoid near-total phase cancellation. It then calls `AutomixNative.nativeAnalyze`.
 2. JNI (`automix_jni.cpp`) forwards the 21-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`, including explicit `tailBpmConfidence` (index 20).
 3. Kotlin maps the output slots to MethodChannel fields. The Dart parser `automixSegmentFeaturesFromAnalysisMap` validates types, finiteness, confidence ranges, key codes and cue offsets rather than silently dropping new fields.
 4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure, breakdown, and `tailBpmConfidence` metadata are kept distinct from head metadata.
