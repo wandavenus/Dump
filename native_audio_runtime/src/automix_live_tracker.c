@@ -6,8 +6,8 @@
 #include <string.h>
 
 #define LIVE_HISTORY_FRAMES 600
-#define LIVE_MIN_FRAMES 300
-#define LIVE_UPDATE_FRAMES 100
+#define LIVE_MIN_FRAMES 200
+#define LIVE_UPDATE_FRAMES 25
 #define LIVE_MIN_BPM 60.0
 #define LIVE_MAX_BPM 200.0
 

@@ -4,7 +4,7 @@ This document records the production path verified during the follow-up audit fo
 
 ## 1. Analysis path and ABI
 
-1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows through `AutomixPcmDownsampler`: a 2-pole Butterworth biquad low-pass runs at the source rate with cutoff $f_c = 0.45 \\times f_{output}$ before decimation. Stereo normally uses an L/R average, but falls back to the stronger channel when the mid signal is below 25% of the stronger channel to avoid near-total phase cancellation. It then calls `AutomixNative.nativeAnalyze`.
+1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows through `AutomixPcmDownsampler`: a 2-pole Butterworth biquad low-pass runs at the source rate with cutoff $f_c = 0.45 \\times f_{output}$ before decimation. Stereo normally uses an L/R average, but falls back to the stronger channel when the mid signal is below 25% of the stronger channel to avoid near-total phase cancellation. It calls `AutomixNative.nativeAnalyze` for BPM/key/structure metadata and `nativeAnalyzeChords` for two-second chroma-template chord windows at a one-second hop.
 2. JNI (`automix_jni.cpp`) forwards the 21-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`, including explicit `tailBpmConfidence` (index 20).
 3. Kotlin maps the output slots to MethodChannel fields. The Dart parser `automixSegmentFeaturesFromAnalysisMap` validates types, finiteness, confidence ranges, key codes and cue offsets rather than silently dropping new fields.
 4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure, breakdown, and `tailBpmConfidence` metadata are kept distinct from head metadata.
@@ -28,7 +28,7 @@ The native planner receives 16 feature values per track, plus key and artist-gro
 
 The Dart reference scorer mirrors the native cost. Regression tests exercise high-confidence vocal clashes, a lower-confidence alternative, deterministic ordering and native/reference ordering parity.
 
-**Limits:** key/Camelot compatibility is present; chord-progression analysis is not implemented. The vocal estimate is not an ML vocal detector or a source separator, so only confident estimates should influence order.
+**Chord progression:** native analysis emits time-stamped root/quality candidates (major, minor, diminished, augmented, dominant 7, major 7, minor 7, suspended 4) with a confidence score. Kotlin and Dart validate the confidence and pitch-class contract; overlapping windows are compressed, results persist in cache schema v12, and confident outgoing-tail/incoming-intro chord clashes can shorten the transition. This is a spectral-template estimator, not a trained transcription model; uncertain or missing chords remain neutral. The vocal estimate is not an ML vocal detector or a source separator, so only confident estimates should influence order.
 
 ## 3. Transition decision to Media3 playback
 
@@ -42,7 +42,7 @@ After planning, `AutomixService` computes a cue per incoming track in `automixTr
 
 `_buildNativeTargets` sends those values through the `musicplayer/automix` MethodChannel. `Media3PlaybackService.applyAutomixTransitionNow` stores them by incoming song ID; `CrossfadeController` retrieves the target for the standby deck and applies the selected fade duration/curve during the actual two-player transition using an injectable `MonotonicClock` and real elapsed time calculation. Transition completion logic is protected by an `AtomicBoolean` single-execution guard to prevent race conditions during cancellations or delays.
 
-Phrase alignment uses the offline beat/downbeat grids with current Media3 player positions.
+Phrase alignment prefers the offline phrase/downbeat grids. In parallel, the live tracker taps the decoded float PCM in the native audio callback before DSP: a fixed 100 Hz onset envelope, six-second history and periodic autocorrelation update a per-deck BPM / elapsed-beat-phase / confidence snapshot. State is isolated for each Media3 stream slot and published atomically without allocating or taking locks in the audio callback. During a crossfade, the controller uses the two live snapshots when both pass the confidence gate, otherwise it falls back to the offline beat grids. The current tracker is heuristic and confidence-gated, not a guaranteed beat/downbeat transcription system.
 
 ## 4. Feature-driven EQ and overlap headroom
 
