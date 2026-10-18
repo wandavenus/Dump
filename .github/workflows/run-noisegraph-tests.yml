@@ -8,6 +8,10 @@ on:
       - "native_audio_runtime/src/**"
       - "native_audio_runtime/test/**"
       - "native_audio_runtime/pubspec.yaml"
+      - "lib/services/automix_service/**"
+      - "lib/services/automix_service.dart"
+      - "test/services/automix_service/**"
+      - ".github/workflows/run-noisegraph-tests.yml"
   workflow_dispatch:
     inputs:
       suite:
@@ -41,7 +45,7 @@ jobs:
         env:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SOURCE_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
-          TEST_SUITE: ${{ inputs.suite || (github.event_name == 'push' && 'native-c') || 'all' }}
+          TEST_SUITE: ${{ inputs.suite || 'all' }}
         run: |
           set -euo pipefail
           if [[ ! "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
