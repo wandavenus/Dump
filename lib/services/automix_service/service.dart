@@ -1448,6 +1448,7 @@ class AutomixService {
         playlist: sequenced,
         index: 0,
         autoplay: true,
+        rethrowOnError: true,
       );
       if (!_isAutoMixGenerationCurrent(generation)) return -1;
       // Commit the queue plan cache only after the playback handoff completes.
