@@ -28,6 +28,9 @@ AutomixTrackFeatures _f(
   double tailStructureConfidence = 0,
   double dropConfidence = 0,
   double tailBreakdownConfidence = 0,
+  double? tailBpm,
+  double? introEnergy,
+  double? outroEnergy,
 }) {
   return AutomixTrackFeatures(
     songId: id,
@@ -56,6 +59,9 @@ AutomixTrackFeatures _f(
     rmsDb: rms,
     centroidHz: centroid,
     onsetRate: onset,
+    tailBpm: tailBpm,
+    introEnergy: introEnergy,
+    outroEnergy: outroEnergy,
   );
 }
 
@@ -713,6 +719,107 @@ void main() {
       final peakPos = plan.order.indexOf(peakIdx) / (plan.order.length - 1);
       expect(peakPos, greaterThan(0.3));
       expect(peakPos, lessThan(0.8));
+    });
+  });
+
+  group('mix-seam-aware sequencing', () {
+    test('scores tempo at the seam using the outgoing exit (tail) tempo', () {
+      // Track A's head sits at 100 BPM, but its tail (where the fade happens)
+      // is 128 BPM. The naturally compatible incoming track heads at 128.
+      final tracks = [
+        _f(1, bpm: 100, tailBpm: 128, camelot: 8, minor: true, rms: -12),
+        _f(2, bpm: 128, camelot: 8, minor: true, rms: -12),
+        _f(3, bpm: 100, camelot: 8, minor: true, rms: -12),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      // The tail-matched track (index 1) must follow the outgoing track, even
+      // though the head-BPM-matched track (index 2) is what a head-only score
+      // would pick.
+      expect(native.order, [0, 1, 2]);
+      expect(native.order, reference.order);
+    });
+
+    test('penalizes a mismatched outro/intro energy seam', () {
+      // Track 0 exits loud. Track 1 enters quiet and track 2 enters equally
+      // loud; track 1 has the smaller song id, so only the section-seam term
+      // makes the engine prefer the matching-energy track 2 first.
+      final tracks = [
+        _f(1, bpm: 120, camelot: 8, minor: true, rms: -12, outroEnergy: 0.9),
+        _f(2, bpm: 120, camelot: 8, minor: true, rms: -12, introEnergy: 0.1),
+        _f(3, bpm: 120, camelot: 8, minor: true, rms: -12, introEnergy: 0.9),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 2, 1]);
+      expect(native.order, reference.order);
+    });
+
+    test('keeps native/reference parity when mix-seam features are present', () {
+      final tracks = [
+        for (var i = 0; i < 30; i++)
+          _f(
+            i + 1,
+            bpm: 78 + (i * 13 % 70).toDouble(),
+            tailBpm: i % 3 == 0 ? null : 90 + (i * 7 % 60).toDouble(),
+            introEnergy: i % 4 == 0 ? null : (i % 10) / 10,
+            outroEnergy: i % 5 == 0 ? null : ((i + 3) % 10) / 10,
+            camelot: (i * 5 % 12) + 1,
+            minor: i.isOdd,
+            rms: -24 + (i % 12).toDouble(),
+            bpmConf: (i % 10) / 10,
+            keyConf: (i % 8) / 8,
+          ),
+      ];
+      for (final profile in AutomixProfile.values) {
+        final settings = AutomixSettings(
+          profile: profile,
+          bpmTolerancePercent: 7.5,
+          crossfadeBeats: 24,
+          harmonicFilter: profile == AutomixProfile.harmonic,
+        );
+        final reference = DartAutomixEngineReference.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 5,
+        );
+        final native = AutomixEngine.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 5,
+        );
+        expect(native.order, reference.order, reason: 'profile $profile');
+        expect(
+          native.crossfadeSeconds,
+          closeTo(reference.crossfadeSeconds, 1e-10),
+          reason: 'profile $profile crossfade',
+        );
+        expect(
+          native.averageCost,
+          closeTo(reference.averageCost, 1e-10),
+          reason: 'profile $profile average cost',
+        );
+      }
     });
   });
 

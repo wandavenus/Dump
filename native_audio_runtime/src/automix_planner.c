@@ -193,8 +193,15 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
                               const double* energies, int32_t profile,
                               double tolerance, int32_t avoid_artist_repeat,
                               int32_t harmonic_filter) {
-  const double bpm_a = feature(rows, a, NAR_AUTOMIX_BPM);
+  const double head_bpm_a = feature(rows, a, NAR_AUTOMIX_BPM);
   const double bpm_b = feature(rows, b, NAR_AUTOMIX_BPM);
+  // A transition lives in the outgoing track's tail and the incoming track's
+  // head, so score tempo compatibility at that seam: prefer the outgoing exit
+  // (tail) tempo when the exit window produced one, else its head estimate.
+  const double tail_bpm_a = feature(rows, a, NAR_AUTOMIX_TAIL_BPM);
+  const double bpm_a = (isfinite(tail_bpm_a) && tail_bpm_a > 0.0)
+      ? tail_bpm_a
+      : head_bpm_a;
   const double measured_tempo = tempo_cost(
       bpm_a, feature(rows, a, NAR_AUTOMIX_ALTERNATE_BPM), bpm_b,
       feature(rows, b, NAR_AUTOMIX_ALTERNATE_BPM), tolerance);
@@ -223,8 +230,18 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const double position = total_steps <= 1
       ? 1.0 : clamp01((double)step_index / (total_steps - 1));
   const double delta = energies[b] - energies[a];
+  // Section-seam continuity: blending a quiet outgoing outro into a loud
+  // incoming intro (or the reverse) is rougher than the whole-track energy
+  // delta alone implies. Both values are relative to their own track's peak,
+  // so a large gap marks a mismatched hand-over.
+  const double outro_a = feature(rows, a, NAR_AUTOMIX_OUTRO_ENERGY);
+  const double intro_b = feature(rows, b, NAR_AUTOMIX_INTRO_ENERGY);
+  const double seam = (isfinite(outro_a) && isfinite(intro_b))
+      ? fabs(outro_a - intro_b) * 0.5
+      : 0.0;
   double energy = 0.30 * fabs(delta) +
-      0.55 * fabs(energies[b] - energy_target(position, profile));
+      0.55 * fabs(energies[b] - energy_target(position, profile)) +
+      0.30 * seam;
   if (profile == PROFILE_ENERGY) {
     if (position < 0.55 && delta < -0.05) energy += 0.8 * -delta;
     else if (position >= 0.55 && delta > 0.05) energy += 0.8 * delta;
