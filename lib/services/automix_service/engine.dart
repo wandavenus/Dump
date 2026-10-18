@@ -1157,9 +1157,11 @@ const Map<AutomixProfile, (double, double, double, double)> _profileWeights = {
 /// Cost of playing track [b] immediately after track [a]. Weighted mean of
 /// four sub-costs, clamped to 0..1:
 ///
-/// * tempo — see [automixTempoCost]
+/// * tempo — see [automixTempoCost], measured at the mix seam (outgoing exit
+///   tempo vs incoming head tempo) when the outgoing tail window has one
 /// * key   — [automixCamelotCost], scaled by key detection confidence
-/// * energy — continuity + arc-following (see [_energyTargetPos])
+/// * energy — continuity + arc-following (see [_energyTargetPos]) plus an
+///   intro/outro section-seam term
 /// * variety — small penalty for back-to-back same-artist tracks
 double _transitionCost({
   required AutomixTrackFeatures a,
@@ -1171,8 +1173,14 @@ double _transitionCost({
   required AutomixSettings settings,
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
+  // A transition lives in the outgoing track's tail and the incoming track's
+  // head, so score tempo compatibility at that seam: prefer the outgoing exit
+  // (tail) tempo when the exit window produced one, else its head estimate.
+  final referenceBpm = a.tailBpm != null && a.tailBpm! > 0
+      ? a.tailBpm
+      : a.bpm;
   final measuredTempo = automixTempoCost(
-    a.bpm,
+    referenceBpm,
     a.alternateBpm,
     b.bpm,
     b.alternateBpm,
@@ -1209,7 +1217,17 @@ double _transitionCost({
       : automixClamp01(stepIndex / (totalSteps - 1));
   final target = _energyTargetPos(pos, settings.profile);
   final delta = eB - eA;
-  var energy = 0.30 * delta.abs() + 0.55 * (eB - target).abs();
+  // Section-seam continuity: a fade between a quiet outro and a loud intro (or
+  // the reverse) is rougher than the whole-track energy delta alone implies.
+  // Both values are relative to their own track's peak, so a large gap marks a
+  // mismatched hand-over. Missing or non-finite sections stay neutral.
+  final outro = a.outroEnergy;
+  final intro = b.introEnergy;
+  final seam = outro != null && intro != null && outro.isFinite && intro.isFinite
+      ? (outro - intro).abs() * 0.5
+      : 0.0;
+  var energy =
+      0.30 * delta.abs() + 0.55 * (eB - target).abs() + 0.30 * seam;
   if (settings.profile == AutomixProfile.energy) {
     final beforePeak = pos < 0.55;
     if (beforePeak && delta < -0.05) {

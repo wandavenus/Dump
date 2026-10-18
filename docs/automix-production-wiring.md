@@ -31,11 +31,13 @@ playback recovery. Existing callers keep the default log-and-return behavior.
 
 The native planner receives 16 feature values per track, plus key and artist-group arrays. Its transition cost currently uses:
 
-- confidence-weighted tempo compatibility and half/double-time variants;
+- confidence-weighted tempo compatibility and half/double-time variants, measured at the **mix seam**: the outgoing track's exit (tail) tempo when its tail window produced one, otherwise its head estimate, against the incoming track's head tempo;
 - estimated key compatibility on the Camelot wheel;
-- relative energy shaping across the planned set;
+- relative energy shaping across the planned set, plus an intro/outro **section-seam** term (`|outroEnergy_out − introEnergy_in|`) that discourages handing a loud outro into a quiet intro or the reverse when both windows were analyzed;
 - artist repetition avoidance;
 - vocal-conflict penalty only when both tracks have useful vocal likelihood and confidence.
+
+Both seam terms are additive and stay neutral (zero contribution) when the relevant window was not analyzed, so they cannot make a partially-analyzed pair worse than the previous whole-track scoring. The Dart reference scorer in `AutomixEngine` mirrors the native cost exactly; a parity regression covers tracks with tail/intro/outro values present.
 
 The Dart reference scorer mirrors the native cost. Regression tests exercise high-confidence vocal clashes, a lower-confidence alternative, deterministic ordering and native/reference ordering parity.
 

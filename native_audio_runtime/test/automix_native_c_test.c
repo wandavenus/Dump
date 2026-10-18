@@ -148,6 +148,68 @@ static void test_planner_keeps_start_and_permutation(void) {
   assert(metrics[1] >= 0.0 && metrics[1] <= 1.0);
 }
 
+static void test_planner_scores_tempo_at_seam(void) {
+  const int64_t ids[] = {1, 2, 3};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+  // Track 0 heads at 100 BPM but exits (tail) at 128 BPM; track 1 heads at 128
+  // and track 2 heads at 100. The blend happens in track 0's tail, so track 1
+  // is the compatible successor even though track 2 matches the head tempo.
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_BPM] = 100.0;
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_TAIL_BPM] = 128.0;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_BPM] = 128.0;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_BPM] = 100.0;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 1);
+  assert(order[2] == 2);
+}
+
+static void test_planner_penalizes_energy_seam(void) {
+  const int64_t ids[] = {1, 2, 3};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+  // Track 0 exits loud. Track 1 enters quiet and track 2 enters equally loud;
+  // track 1 has the smaller song id, so only the seam term makes the engine
+  // prefer the matching-energy track 2 first.
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_OUTRO_ENERGY] = 0.9;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_INTRO_ENERGY] = 0.1;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_INTRO_ENERGY] = 0.9;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 2);
+  assert(order[2] == 1);
+}
+
 
 static void test_chord_progression_analysis(void) {
   const int32_t sample_rate = 22050;
@@ -819,6 +881,8 @@ int main(void) {
   test_analyzer_structural_cues();
   test_planner_vocal_conflict();
   test_planner_keeps_start_and_permutation();
+  test_planner_scores_tempo_at_seam();
+  test_planner_penalizes_energy_seam();
   test_chord_progression_analysis();
   test_phase_lock_factor();
   test_phrase_lock();
