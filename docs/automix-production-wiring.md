@@ -25,9 +25,9 @@ window (`automixPlanWindow`) and engine call. It is rejected while an automatic
 plan pass or another active AutoMix session owns the transition, reports failures
 as `-1` instead of throwing, commits its cached tail/signature only after the
 playback handoff, and attempts generation-guarded cleanup of the native transition
-and crossfade if setup fails. Playback handoff errors swallowed inside
-`AudioService.playSongAt` remain a separate limitation until that API exposes a
-strict transactional result.
+and crossfade if setup fails. The one-shot caller opts into `playSongAt(rethrowOnError: true)`, which rethrows
+handoff failures after restoring Dart state and attempting native queue/playhead/
+playback recovery. Existing callers keep the default log-and-return behavior.
 
 The native planner receives 16 feature values per track, plus key and artist-group arrays. Its transition cost currently uses:
 
