@@ -1,11 +1,11 @@
 # Audit Implementasi AutoMix — v2 (2026-10-18)
 
-**Status:** Audit v1 (statis) selesai; audit lanjutan v2 menemukan 6 temuan baru dan seluruh rekomendasi P1/P2/P3 telah **diterapkan sebagai perubahan working tree** di atas SHA audit.  
+**Status:** Audit statis dan tindak lanjut perbaikan; status CI dicatat terpisah agar hasil lama tidak dianggap memvalidasi perubahan baru.  
 **Repository:** `wandavenus/Dump`  
 **Branch:** `main`  
-**Revisi kode audit v1:** [`f841a4a`](https://github.com/wandavenus/Dump/commit/f841a4a7c68d0c4bc1d37efcf9828b7712697e4b)  
-**Revisi kode audit v2 (HEAD):** [`fadb0bd`](https://github.com/wandavenus/Dump/commit/fadb0bddc40eb7287b0197262d72b5423a5a1d66) — "Bound AutoMix startup feature loading to near tracks"  
-**Perbaikan v2:** diterapkan pada working tree setelah `fadb0bd` (belum di-commit saat laporan ini ditulis; 12 file berubah).  
+**Revisi audit v1:** [`f841a4a`](https://github.com/wandavenus/Dump/commit/f841a4a7c68d0c4bc1d37efcf9828b7712697e4b)  
+**Revisi kode yang mendasari audit v2:** [`fadb0bd`](https://github.com/wandavenus/Dump/commit/fadb0bddc40eb7287b0197262d72b5423a5a1d66) — "Bound AutoMix startup feature loading to near tracks"  
+**Tindak lanjut committed pada `main`:** tracker seqlock/generation per-slot, regresi concurrent reset, hardening rollback `startAutomix`, fix ARM64 NEON, dan migrasi CI native C ke Noisegraph.  
 **Cakupan:** Dart planning/cache/settings/gating, bridge MethodChannel, PCM decode/downsample, JNI, native analyzer/planner/live beat tracker/tone DSP, Kotlin dual-player preload/crossfade, ARM64 NEON, tests, dan CI.
 
 > Laporan ini menilai source pada SHA di atas ditambah patch working tree yang menyertainya. Verifikasi eksekusi (Flutter/Kotlin/C) harus dilakukan lewat dispatch workflow; laporan ini tidak melakukan pengukuran audio hasil render di perangkat fisik.
@@ -182,3 +182,14 @@ Untuk source SHA `f841a4a` (audit v1), bukti CI historis ada di [Noisegraph run 
 - Dump `run-noisegraph-tests.yml` kini men-dispatch suite `native-c` saat file di `native_audio_runtime/src/**`, `native_audio_runtime/test/**`, atau `native_audio_runtime/pubspec.yaml` berubah pada `main`. Workflow lama `native-tests.yml` dihapus agar tidak ada dua jalur yang tumpang tindih.
 - Kegagalan assembler ARM64 diperbaiki dengan mengganti `FCMLE` yang salah memakai register sebagai operand ketiga menjadi `FCMGE` dengan operand dibalik: `fcmge v6.2s, v31.2s, v3.2s` dan `fcmge v7.2s, v31.2s, v7.2s`. Ini mempertahankan pemeriksaan nilai absolut `<= FLT_MAX`, dan membuat instruksi valid untuk assembler AArch64.
 - **Validasi aktual:** [Noisegraph run #16](https://github.com/wandavenus/Noisegraph/actions/runs/39131548284) lulus pada Dump commit `5875a1f7b252d3100eda698a03dd4ae65ce7a6bd`. Seluruh langkah `native-c` sukses: 61 native runtime tests, 2 benchmark tests, build/run C x86_64 dengan ASan/UBSan, build ARM64+NEON, dan eksekusi suite C ARM64 via QEMU. Commit dokumentasi/penghapusan workflow setelahnya tidak mengubah native source yang diuji.
+
+## 9. Follow-up diff review: concurrency dan kegagalan startup
+
+Review lanjutan terhadap patch yang sudah berada di `main` menindaklanjuti empat risiko:
+
+- **Generation per-slot:** `g_tracker_generation` sekarang dipisah untuk dua deck. Reset slot 1 tidak lagi membatalkan callback slot 0; tes regresi menjalankan callback slot 0 bersamaan dengan reset slot 1.
+- **Publikasi tuple seqlock:** version dan payload BPM/phase/confidence sekarang memakai urutan atomik sequentially-consistent, dan jalur clear tidak lagi menulis payload di luar protokol sequence. Hanya publisher audio yang tetap memakai try-lock non-blocking; jalur reset berada di control thread dan menunggu lock sebentar bila perlu.
+- **`startAutomix` failure safety:** one-shot start ditolak saat sesi AutoMix lain sudah aktif, cache `_plannedTail`/signature baru di-commit setelah playback handoff, dan kegagalan setup melakukan cleanup transition/crossfade jika generation masih dimiliki operasi tersebut. Operasi generation baru tidak dibatalkan oleh cleanup usang.
+- **Metadata laporan:** header dan status working-tree lama diperbarui; source revision dan CI dinyatakan eksplisit.
+
+Batasan: `AudioService.playSongAt` saat ini menangani error playback internal dengan logging, bukan selalu melemparkannya kembali. Karena itu, rollback pada `startAutomix` mencakup kegagalan yang benar-benar dipropagasikan oleh setup/channel; keberhasilan suara end-to-end tetap perlu diverifikasi melalui hasil playback perangkat nyata.
