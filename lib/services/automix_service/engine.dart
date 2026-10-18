@@ -1154,6 +1154,26 @@ const Map<AutomixProfile, (double, double, double, double)> _profileWeights = {
   AutomixProfile.energy: (0.15, 0.15, 0.55, 0.15),
 };
 
+/// Section-shape compatibility across the mix seam. The loudness side of a
+/// hand-over is already covered by the energy seam; this term adds the shape:
+/// two full-arrangement peaks back to back are rough, while leaving a peak
+/// into a calm or building intro (or moving between calm sections) is smooth.
+/// Mirrors `structure_seam_cost` in the native planner.
+double _structureSeamCost(int tailRegion, int headRegion) {
+  // Region ids follow NarAutomixStructureRegion: 1 low activity, 2 buildup,
+  // 3 drop, 4 breakdown, 5 stable high.
+  bool quiet(int region) =>
+      region == 1 || region == 2 || region == 4;
+  bool peak(int region) => region == 3 || region == 5;
+  if (peak(tailRegion) && peak(headRegion)) {
+    return (tailRegion == 3 || headRegion == 3) ? 0.5 : 0.35;
+  }
+  if (quiet(tailRegion) && quiet(headRegion)) return 0.0;
+  if (peak(tailRegion) && quiet(headRegion)) return 0.0;
+  if (quiet(tailRegion) && peak(headRegion)) return 0.2;
+  return 0.0;
+}
+
 /// Cost of playing track [b] immediately after track [a]. Weighted mean of
 /// four sub-costs, clamped to 0..1:
 ///
@@ -1161,7 +1181,7 @@ const Map<AutomixProfile, (double, double, double, double)> _profileWeights = {
 ///   tempo vs incoming head tempo) when the outgoing tail window has one
 /// * key   — [automixCamelotCost], scaled by key detection confidence
 /// * energy — continuity + arc-following (see [_energyTargetPos]) plus an
-///   intro/outro section-seam term
+///   intro/outro section-seam term and a confidence-gated section-shape term
 /// * variety — small penalty for back-to-back same-artist tracks
 double _transitionCost({
   required AutomixTrackFeatures a,
@@ -1226,8 +1246,24 @@ double _transitionCost({
   final seam = outro != null && intro != null && outro.isFinite && intro.isFinite
       ? (outro - intro).abs() * 0.5
       : 0.0;
+  // Section-shape compatibility across the seam, gated on both windows having
+  // a confident region label. Missing or uncertain structure stays neutral.
+  final tailRegion = a.tailStructureRegion;
+  final headRegion = b.structureRegion;
+  var structure = 0.0;
+  if (a.tailStructureConfidence >= 0.5 &&
+      b.structureConfidence >= 0.5 &&
+      tailRegion >= 1 &&
+      tailRegion <= 5 &&
+      headRegion >= 1 &&
+      headRegion <= 5) {
+    structure = _structureSeamCost(tailRegion, headRegion);
+  }
   var energy =
-      0.30 * delta.abs() + 0.55 * (eB - target).abs() + 0.30 * seam;
+      0.30 * delta.abs() +
+      0.55 * (eB - target).abs() +
+      0.30 * seam +
+      0.25 * structure;
   if (settings.profile == AutomixProfile.energy) {
     final beforePeak = pos < 0.55;
     if (beforePeak && delta < -0.05) {
@@ -1291,10 +1327,20 @@ class DartAutomixEngineReference {
   /// Number of best candidates that get a full one-step lookahead re-score.
   static const int _lookaheadTopK = 3;
 
-  /// Improvement-pass budget for the swap polisher.
+  /// Improvement-pass budget for the swap polisher. Insertion (Or-opt) and
+  /// reversal scans extend the neighborhood for sets at or above
+  /// [_polishMinTracks] — the same size gate the greedy lookahead uses.
   static const int _maxPasses = 6;
   static const int _maxSwapBreach = 4;
   static const int _maxEvalsPerPass = 4000;
+  static const int _maxInsertEvals = 2000;
+  static const int _maxReverseEvals = 1200;
+  static const int _polishMinTracks = 25;
+
+  /// A repeated artist inside this many recent positions is discouraged by
+  /// the greedy pick. The immediately previous slot is already covered by the
+  /// variety term inside [_transitionCost], so the cooldown starts one back.
+  static const int _artistCooldown = 4;
 
   /// Median crossfade bound guard.
   static const double _defaultBpm = 110.0;
@@ -1357,6 +1403,7 @@ class DartAutomixEngineReference {
         totalSteps: n,
         medianBpm: medianBpm,
         withLookahead: withLookahead,
+        plan: plan,
       );
       // Defensive: _pickNext always returns an unplayed index, but a bug must
       // never crash playback — degrade to the first unplayed track instead.
@@ -1370,8 +1417,11 @@ class DartAutomixEngineReference {
 
     // ── 4. Bounded local improvement ──────────────────────────────────
     var evals = 0;
-    for (var pass = 0; pass < _maxPasses && evals < _maxEvalsPerPass; pass++) {
+    var insertEvals = 0;
+    var reverseEvals = 0;
+    for (var pass = 0; pass < _maxPasses; pass++) {
       var improved = false;
+      // Pairwise swaps within the breach window.
       for (int i = 1; i < n - 1 && evals < _maxEvalsPerPass; i++) {
         final jEnd = (i + _maxSwapBreach).clamp(i + 1, n - 1);
         for (int j = i + 1; j <= jEnd && evals < _maxEvalsPerPass; j++) {
@@ -1387,6 +1437,84 @@ class DartAutomixEngineReference {
           } else {
             plan[i] = origI;
             plan[j] = origJ;
+          }
+        }
+      }
+      if (n >= _polishMinTracks) {
+        // Or-opt: relocate a single track to a nearby position. Unlike a swap
+        // this also re-times the interior links (their arc positions shift),
+        // so the move is scored by recomputing the affected link window.
+        for (int i = 1; i < n - 1 && insertEvals < _maxInsertEvals; i++) {
+          for (int step = 1;
+              step <= _maxSwapBreach && insertEvals < _maxInsertEvals;
+              step++) {
+            for (int backwards = 0;
+                backwards < 2 && insertEvals < _maxInsertEvals;
+                backwards++) {
+              final to = backwards == 1 ? i - step : i + step;
+              // Never displace the pinned start track or run off the end.
+              if (to <= 0 || to >= n) continue;
+              insertEvals++;
+              final lo = i < to ? i : to;
+              final hi = i < to ? to : i;
+              final lastLink = hi + 1 < n - 1 ? hi + 1 : n - 1;
+              final before = _windowCost(
+                plan,
+                lo,
+                lastLink,
+                tracks,
+                energies,
+                settings,
+              );
+              _moveElement(plan, i, to);
+              final after = _windowCost(
+                plan,
+                lo,
+                lastLink,
+                tracks,
+                energies,
+                settings,
+              );
+              if (after < before - 1e-9) {
+                improved = true;
+              } else {
+                _moveElement(plan, to, i);
+              }
+            }
+          }
+        }
+        // 2-opt style reversal of short segments; arc positions stay attached
+        // to the plan slots, only the links inside the window change.
+        for (int i = 1; i < n - 1 && reverseEvals < _maxReverseEvals; i++) {
+          for (int step = 2;
+              step <= _maxSwapBreach && reverseEvals < _maxReverseEvals;
+              step++) {
+            final j = i + step;
+            if (j >= n) continue;
+            reverseEvals++;
+            final lastLink = j + 1 < n - 1 ? j + 1 : n - 1;
+            final before = _windowCost(
+              plan,
+              i,
+              lastLink,
+              tracks,
+              energies,
+              settings,
+            );
+            _reverseRange(plan, i, j);
+            final after = _windowCost(
+              plan,
+              i,
+              lastLink,
+              tracks,
+              energies,
+              settings,
+            );
+            if (after < before - 1e-9) {
+              improved = true;
+            } else {
+              _reverseRange(plan, i, j);
+            }
           }
         }
       }
@@ -1408,6 +1536,34 @@ class DartAutomixEngineReference {
     return bpms[bpms.length ~/ 2];
   }
 
+  /// Greedy-only bias against artist clustering: penalize a candidate whose
+  /// artist already sits 2..[_artistCooldown] positions back. The immediately
+  /// previous slot is handled by the variety term inside [_transitionCost].
+  /// [planCount] may be `plan.length + 1` for the lookahead scan so the
+  /// candidate's extra slot shifts the window the same way the eventual path
+  /// would. Returns 0 for unlabeled artists.
+  static double _artistCooldownCost({
+    required List<int> plan,
+    required int planCount,
+    required List<AutomixTrackFeatures> tracks,
+    required AutomixTrackFeatures candidate,
+    required AutomixSettings settings,
+  }) {
+    final artist = candidate.artist.trim().toLowerCase();
+    if (artist.isEmpty) return 0.0;
+    final base = settings.avoidArtistRepeat ? 0.35 : 0.15;
+    var penalty = 0.0;
+    for (var back = 2; back <= _artistCooldown; back++) {
+      final index = planCount - back;
+      if (index < 0) break;
+      final other = tracks[plan[index]].artist.trim().toLowerCase();
+      if (other != artist) continue;
+      final scaled = base * (_artistCooldown - back + 1) / _artistCooldown;
+      if (scaled > penalty) penalty = scaled;
+    }
+    return penalty;
+  }
+
   static int _pickNext({
     required int current,
     required int stepIndex,
@@ -1420,6 +1576,7 @@ class DartAutomixEngineReference {
     required int totalSteps,
     required double medianBpm,
     required bool withLookahead,
+    required List<int> plan,
   }) {
     final nTotal = tracks.length;
 
@@ -1439,14 +1596,21 @@ class DartAutomixEngineReference {
       scored.add((
         cand,
         _transitionCost(
-          a: tracks[current],
-          b: tracks[cand],
-          eA: energies[current],
-          eB: energies[cand],
-          stepIndex: stepIndex,
-          totalSteps: totalSteps,
-          settings: settings,
-        ),
+              a: tracks[current],
+              b: tracks[cand],
+              eA: energies[current],
+              eB: energies[cand],
+              stepIndex: stepIndex,
+              totalSteps: totalSteps,
+              settings: settings,
+            ) +
+            _artistCooldownCost(
+              plan: plan,
+              planCount: plan.length,
+              tracks: tracks,
+              candidate: tracks[cand],
+              settings: settings,
+            ),
       ));
     }
 
@@ -1459,14 +1623,21 @@ class DartAutomixEngineReference {
         final cand = slotOrder[s];
         if (played[cand]) continue;
         final cost = _transitionCost(
-          a: tracks[current],
-          b: tracks[cand],
-          eA: energies[current],
-          eB: energies[cand],
-          stepIndex: stepIndex,
-          totalSteps: totalSteps,
-          settings: settings,
-        );
+              a: tracks[current],
+              b: tracks[cand],
+              eA: energies[current],
+              eB: energies[cand],
+              stepIndex: stepIndex,
+              totalSteps: totalSteps,
+              settings: settings,
+            ) +
+            _artistCooldownCost(
+              plan: plan,
+              planCount: plan.length,
+              tracks: tracks,
+              candidate: tracks[cand],
+              settings: settings,
+            );
         if (cost < bestScore) {
           bestScore = cost;
           best = cand;
@@ -1507,15 +1678,24 @@ class DartAutomixEngineReference {
       );
       for (final cand2 in nextCandidates) {
         if (played[cand2] || cand2 == current) continue;
+        // plan.length + 1 because the candidate will occupy one more slot
+        // than the path built so far when cand2 actually follows it.
         final c = _transitionCost(
-          a: tracks[cand],
-          b: tracks[cand2],
-          eA: energies[cand],
-          eB: energies[cand2],
-          stepIndex: stepIndex + 1,
-          totalSteps: totalSteps,
-          settings: settings,
-        );
+              a: tracks[cand],
+              b: tracks[cand2],
+              eA: energies[cand],
+              eB: energies[cand2],
+              stepIndex: stepIndex + 1,
+              totalSteps: totalSteps,
+              settings: settings,
+            ) +
+            _artistCooldownCost(
+              plan: plan,
+              planCount: plan.length + 1,
+              tracks: tracks,
+              candidate: tracks[cand2],
+              settings: settings,
+            );
         if (c < minNext) minNext = c;
       }
       if (minNext.isFinite) score += _lookaheadGamma * minNext;
@@ -1669,6 +1849,60 @@ class DartAutomixEngineReference {
     return sum;
   }
 
+  /// Sum of the path links (p-1, p) for p in [firstLink, lastLink]. Insertion
+  /// and reversal moves disturb more than the two boundary links: interior
+  /// links keep their element pairs but their arc positions shift, so the
+  /// whole affected window is re-scored.
+  static double _windowCost(
+    List<int> plan,
+    int firstLink,
+    int lastLink,
+    List<AutomixTrackFeatures> tracks,
+    List<double> energies,
+    AutomixSettings settings,
+  ) {
+    var sum = 0.0;
+    for (var p = firstLink; p <= lastLink; p++) {
+      sum += _transitionCost(
+        a: tracks[plan[p - 1]],
+        b: tracks[plan[p]],
+        eA: energies[plan[p - 1]],
+        eB: energies[plan[p]],
+        stepIndex: p,
+        totalSteps: plan.length,
+        settings: settings,
+      );
+    }
+    return sum;
+  }
+
+  /// Move plan[from] to index [to], shifting the elements in between. The
+  /// inverse call `_moveElement(plan, to, from)` restores the previous order.
+  static void _moveElement(List<int> plan, int from, int to) {
+    final value = plan[from];
+    if (to > from) {
+      for (var k = from; k < to; k++) {
+        plan[k] = plan[k + 1];
+      }
+    } else if (to < from) {
+      for (var k = from; k > to; k--) {
+        plan[k] = plan[k - 1];
+      }
+    }
+    plan[to] = value;
+  }
+
+  /// Reverse plan[left..right] in place.
+  static void _reverseRange(List<int> plan, int left, int right) {
+    while (left < right) {
+      final value = plan[left];
+      plan[left] = plan[right];
+      plan[right] = value;
+      left++;
+      right--;
+    }
+  }
+
   /// Whole-set crossfade: [AutomixSettings.crossfadeBeats] beats at the
   /// set's median analyzed BPM, clamped to 1.5..12 s so pathological tempos
   /// cannot produce absurd fades.
@@ -1726,6 +1960,10 @@ class AutomixEngine {
           analyzedFraction: track.analyzedFraction,
           vocalLikelihood: track.vocalLikelihood,
           vocalConfidence: track.vocalConfidence,
+          structureRegion: track.structureRegion,
+          structureConfidence: track.structureConfidence,
+          tailStructureRegion: track.tailStructureRegion,
+          tailStructureConfidence: track.tailStructureConfidence,
         ),
       );
     }

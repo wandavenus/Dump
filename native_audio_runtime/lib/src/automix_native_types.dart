@@ -24,6 +24,10 @@ class NativeAutomixTrack {
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.tailBpmConfidence = 0,
+    this.structureRegion = 0,
+    this.structureConfidence = 0,
+    this.tailStructureRegion = 0,
+    this.tailStructureConfidence = 0,
   });
 
   final int songId;
@@ -47,6 +51,15 @@ class NativeAutomixTrack {
   final double vocalLikelihood;
   final double vocalConfidence;
   final double tailBpmConfidence;
+
+  /// Section region of the analyzed head window
+  /// (NarAutomixStructureRegion; 0 means unknown).
+  final int structureRegion;
+  final double structureConfidence;
+
+  /// Section region of the analyzed exit (tail) window.
+  final int tailStructureRegion;
+  final double tailStructureConfidence;
 }
 
 class NativeAutomixPlan {

@@ -6,6 +6,23 @@
 
 enum { PROFILE_DJ = 0, PROFILE_HARMONIC = 1, PROFILE_ENERGY = 2 };
 
+// Bounded local-search budgets for the swap/insertion/reversal polisher.
+// Insertion and reversal only run for sets at or above POLISH_MIN_TRACKS
+// (the same size gate the greedy lookahead uses); smaller sets are already
+// covered exhaustively by the bounded swap scan.
+enum {
+  NAR_PLAN_MAX_PASSES = 6,
+  NAR_PLAN_MAX_SWAP_EVALS = 4000,
+  NAR_PLAN_MAX_INSERT_EVALS = 2000,
+  NAR_PLAN_MAX_REVERSE_EVALS = 1200,
+  NAR_PLAN_MAX_BREACH = 4,
+  NAR_PLAN_POLISH_MIN_TRACKS = 25,
+  // A repeated artist inside this many recent positions is discouraged by the
+  // greedy pick. The immediately previous slot is already covered by the
+  // variety term inside transition_cost, so the cooldown starts one back.
+  NAR_PLAN_ARTIST_COOLDOWN = 4,
+};
+
 typedef struct {
   int32_t index;
   double tempo;
@@ -41,6 +58,38 @@ static double confidence_blend(double measured, double confidence,
                                double neutral) {
   const double c = clamp01(confidence);
   return neutral + (measured - neutral) * c;
+}
+
+// Section-shape compatibility across the mix seam. The loudness side of a
+// hand-over is already covered by the energy seam; this term adds the shape:
+// two full-arrangement peaks back to back are rough, while leaving a peak
+// into a calm or building intro (or moving between calm sections) is smooth.
+static double structure_seam_cost(int32_t tail_region, int32_t head_region) {
+  const int tail_quiet =
+      tail_region == NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY ||
+      tail_region == NAR_AUTOMIX_STRUCTURE_BUILDUP ||
+      tail_region == NAR_AUTOMIX_STRUCTURE_BREAKDOWN;
+  const int head_quiet =
+      head_region == NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY ||
+      head_region == NAR_AUTOMIX_STRUCTURE_BUILDUP ||
+      head_region == NAR_AUTOMIX_STRUCTURE_BREAKDOWN;
+  const int tail_peak = tail_region == NAR_AUTOMIX_STRUCTURE_DROP ||
+                        tail_region == NAR_AUTOMIX_STRUCTURE_STABLE_HIGH;
+  const int head_peak = head_region == NAR_AUTOMIX_STRUCTURE_DROP ||
+                        head_region == NAR_AUTOMIX_STRUCTURE_STABLE_HIGH;
+  if (tail_peak && head_peak) {
+    return (tail_region == NAR_AUTOMIX_STRUCTURE_DROP ||
+            head_region == NAR_AUTOMIX_STRUCTURE_DROP)
+        ? 0.5
+        : 0.35;
+  }
+  // Calm-to-calm and peak-to-calm seams are the smooth hand-overs; a calm
+  // tail into an imminent peak only gets a mild extra because the energy seam
+  // already flags the loudness jump.
+  if (tail_quiet && head_quiet) return 0.0;
+  if (tail_peak && head_quiet) return 0.0;
+  if (tail_quiet && head_peak) return 0.2;
+  return 0.0;
 }
 
 static double camelot_cost(int32_t a, int32_t minor_a,
@@ -239,9 +288,32 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const double seam = (isfinite(outro_a) && isfinite(intro_b))
       ? fabs(outro_a - intro_b) * 0.5
       : 0.0;
+  // Section-shape compatibility across the seam, gated on both windows having
+  // a confident region label. Missing or uncertain structure stays neutral.
+  const double tail_region_raw =
+      feature(rows, a, NAR_AUTOMIX_TAIL_STRUCTURE_REGION);
+  const double head_region_raw =
+      feature(rows, b, NAR_AUTOMIX_STRUCTURE_REGION);
+  const double tail_region_confidence =
+      feature(rows, a, NAR_AUTOMIX_TAIL_STRUCTURE_CONFIDENCE);
+  const double head_region_confidence =
+      feature(rows, b, NAR_AUTOMIX_STRUCTURE_CONFIDENCE);
+  double structure = 0.0;
+  if (isfinite(tail_region_raw) && isfinite(head_region_raw) &&
+      isfinite(tail_region_confidence) && isfinite(head_region_confidence) &&
+      tail_region_confidence >= 0.5 && head_region_confidence >= 0.5) {
+    const int32_t tail_region = (int32_t)lround(tail_region_raw);
+    const int32_t head_region = (int32_t)lround(head_region_raw);
+    if (tail_region >= NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY &&
+        tail_region <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH &&
+        head_region >= NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY &&
+        head_region <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH) {
+      structure = structure_seam_cost(tail_region, head_region);
+    }
+  }
   double energy = 0.30 * fabs(delta) +
       0.55 * fabs(energies[b] - energy_target(position, profile)) +
-      0.30 * seam;
+      0.30 * seam + 0.25 * structure;
   if (profile == PROFILE_ENERGY) {
     if (position < 0.55 && delta < -0.05) energy += 0.8 * -delta;
     else if (position >= 0.55 && delta > 0.05) energy += 0.8 * delta;
@@ -354,6 +426,31 @@ static void sort_scored(ScoredCandidate* scored, int32_t count) {
   }
 }
 
+// Greedy-only bias against artist clustering: penalize a candidate whose
+// artist already sits 2..NAR_PLAN_ARTIST_COOLDOWN positions back. The
+// immediately previous slot is handled by the variety term inside
+// transition_cost. `plan` holds the path so far; for the lookahead scan call
+// with plan_count + 1 so the candidate's extra slot shifts the window the
+// same way the eventual path would. Returns 0 for unlabeled artists.
+static double artist_cooldown_cost(const int32_t* plan, int32_t plan_count,
+                                   const int32_t* artist_groups,
+                                   int32_t candidate_group,
+                                   int32_t avoid_artist_repeat) {
+  if (candidate_group <= 0) return 0.0;
+  const double base = avoid_artist_repeat ? 0.35 : 0.15;
+  double penalty = 0.0;
+  for (int32_t back = 2; back <= NAR_PLAN_ARTIST_COOLDOWN; ++back) {
+    const int32_t index = plan_count - back;
+    if (index < 0) break;
+    if (artist_groups[plan[index]] != candidate_group) continue;
+    const double scaled = base *
+        (double)(NAR_PLAN_ARTIST_COOLDOWN - back + 1) /
+        (double)NAR_PLAN_ARTIST_COOLDOWN;
+    if (scaled > penalty) penalty = scaled;
+  }
+  return penalty;
+}
+
 static int32_t pick_next(int32_t current, int32_t step_index,
                          int32_t total_steps, const uint8_t* played,
                          const TempoSlot* slots, const int64_t* song_ids,
@@ -362,7 +459,8 @@ static int32_t pick_next(int32_t current, int32_t step_index,
                          int32_t profile, double tolerance,
                          int32_t avoid_artist_repeat, int32_t harmonic_filter,
                          double median_bpm, uint8_t* candidates,
-                         ScoredCandidate* scored, uint8_t* next_candidates) {
+                         ScoredCandidate* scored, uint8_t* next_candidates,
+                         const int32_t* plan, int32_t plan_count) {
   candidate_pool(current, slots, total_steps, played, -1, song_ids, rows,
                  median_bpm, candidates);
   int32_t scored_count = 0;
@@ -372,7 +470,9 @@ static int32_t pick_next(int32_t current, int32_t step_index,
         i,
         transition_cost(current, i, step_index, total_steps, song_ids,
                         artist_groups, rows, keys, energies, profile, tolerance,
-                        avoid_artist_repeat, harmonic_filter),
+                        avoid_artist_repeat, harmonic_filter) +
+            artist_cooldown_cost(plan, plan_count, artist_groups, artist_groups[i],
+                                 avoid_artist_repeat),
         song_ids[i]};
   }
 
@@ -380,18 +480,15 @@ static int32_t pick_next(int32_t current, int32_t step_index,
     for (int32_t s = 0; s < total_steps; ++s) {
       const int32_t candidate = slots[s].index;
       if (played[candidate]) continue;
-      if (scored_count == 0 ||
+      const double cost =
           transition_cost(current, candidate, step_index, total_steps,
                           song_ids, artist_groups, rows, keys, energies,
                           profile, tolerance, avoid_artist_repeat,
-                          harmonic_filter) < scored[0].cost) {
-        scored[0] = (ScoredCandidate){
-            candidate,
-            transition_cost(current, candidate, step_index, total_steps,
-                            song_ids, artist_groups, rows, keys, energies,
-                            profile, tolerance, avoid_artist_repeat,
-                            harmonic_filter),
-            song_ids[candidate]};
+                          harmonic_filter) +
+          artist_cooldown_cost(plan, plan_count, artist_groups,
+                               artist_groups[candidate], avoid_artist_repeat);
+      if (scored_count == 0 || cost < scored[0].cost) {
+        scored[0] = (ScoredCandidate){candidate, cost, song_ids[candidate]};
       }
       scored_count = 1;
     }
@@ -412,10 +509,14 @@ static int32_t pick_next(int32_t current, int32_t step_index,
                    song_ids, rows, median_bpm, next_candidates);
     for (int32_t next = 0; next < total_steps; ++next) {
       if (!next_candidates[next] || played[next] || next == current) continue;
+      // plan_count + 1 because the candidate will occupy one more slot than
+      // the path built so far when `next` actually follows it.
       const double cost = transition_cost(
           candidate, next, step_index + 1, total_steps, song_ids,
           artist_groups, rows, keys, energies, profile, tolerance,
-          avoid_artist_repeat, harmonic_filter);
+          avoid_artist_repeat, harmonic_filter) +
+          artist_cooldown_cost(plan, plan_count + 1, artist_groups,
+                               artist_groups[next], avoid_artist_repeat);
       if (cost < min_next) min_next = cost;
     }
     if (isfinite(min_next)) score += 0.35 * min_next;
@@ -451,6 +552,39 @@ static double link_cost(const int32_t* plan, int32_t from, int32_t to,
   return transition_cost(
       plan[from], plan[to], to, count, song_ids, artist_groups, rows, keys,
       energies, profile, tolerance, avoid_artist_repeat, harmonic_filter);
+}
+
+// Sum of the path links (p-1, p) for p in [first_link, last_link]. Used by
+// the insertion/reversal polisher to score exactly the links a local move
+// disturbs, including the arc-position shifts of the interior links.
+static double window_cost(const int32_t* plan, int32_t first_link,
+                          int32_t last_link, int32_t count,
+                          const int64_t* song_ids,
+                          const int32_t* artist_groups, const double* rows,
+                          const int32_t* keys, const double* energies,
+                          int32_t profile, double tolerance,
+                          int32_t avoid_artist_repeat, int32_t harmonic_filter) {
+  double sum = 0.0;
+  for (int32_t p = first_link; p <= last_link; ++p) {
+    sum += link_cost(plan, p - 1, p, count, song_ids, artist_groups, rows, keys,
+                     energies, profile, tolerance, avoid_artist_repeat,
+                     harmonic_filter);
+  }
+  return sum;
+}
+
+// Move plan[from] to index `to`, shifting the elements in between; the
+// inverse call move_element(plan, to, from) restores the previous order.
+static void move_element(int32_t* plan, int32_t from, int32_t to) {
+  const int32_t value = plan[from];
+  if (to > from) {
+    memmove(&plan[from], &plan[from + 1],
+            (size_t)(to - from) * sizeof(int32_t));
+  } else if (to < from) {
+    memmove(&plan[to + 1], &plan[to],
+            (size_t)(from - to) * sizeof(int32_t));
+  }
+  plan[to] = value;
 }
 
 static double local_cost(const int32_t* plan, int32_t i, int32_t j,
@@ -579,7 +713,7 @@ int32_t nar_automix_plan_set(
         current, plan_count, track_count, played, slots, song_ids,
         artist_groups, features, keys, energies, profile, bpm_tolerance,
         avoid_artist_repeat, harmonic_filter, median_bpm, candidates, scored,
-        next_candidates);
+        next_candidates, output_order, plan_count);
     if (next < 0 || next >= track_count || played[next]) {
       next = -1;
       for (int32_t i = 0; i < track_count; ++i) {
@@ -601,11 +735,18 @@ int32_t nar_automix_plan_set(
   }
 
   int32_t evaluations = 0;
-  for (int32_t pass = 0; pass < 6 && evaluations < 4000; ++pass) {
+  int32_t insert_evaluations = 0;
+  int32_t reverse_evaluations = 0;
+  for (int32_t pass = 0; pass < NAR_PLAN_MAX_PASSES; ++pass) {
     int improved = 0;
-    for (int32_t i = 1; i < track_count - 1 && evaluations < 4000; ++i) {
-      const int32_t end = (i + 4 < track_count - 1) ? i + 4 : track_count - 1;
-      for (int32_t j = i + 1; j <= end && evaluations < 4000; ++j) {
+    // Pairwise swaps within the breach window.
+    for (int32_t i = 1;
+         i < track_count - 1 && evaluations < NAR_PLAN_MAX_SWAP_EVALS; ++i) {
+      const int32_t end = (i + NAR_PLAN_MAX_BREACH < track_count - 1)
+          ? i + NAR_PLAN_MAX_BREACH
+          : track_count - 1;
+      for (int32_t j = i + 1;
+           j <= end && evaluations < NAR_PLAN_MAX_SWAP_EVALS; ++j) {
         ++evaluations;
         const double before = local_cost(
             output_order, i, j, track_count, song_ids, artist_groups, features,
@@ -624,6 +765,85 @@ int32_t nar_automix_plan_set(
         } else {
           output_order[i] = original_i;
           output_order[j] = original_j;
+        }
+      }
+    }
+    if (track_count >= NAR_PLAN_POLISH_MIN_TRACKS) {
+      // Or-opt: relocate a single track to a nearby position. Unlike a swap
+      // this also re-times the interior links (their arc positions shift), so
+      // the move is scored by recomputing the affected link window.
+      for (int32_t i = 1;
+           i < track_count - 1 && insert_evaluations < NAR_PLAN_MAX_INSERT_EVALS;
+           ++i) {
+        for (int32_t step = 1;
+             step <= NAR_PLAN_MAX_BREACH &&
+             insert_evaluations < NAR_PLAN_MAX_INSERT_EVALS;
+             ++step) {
+          for (int32_t backwards = 0;
+               backwards < 2 && insert_evaluations < NAR_PLAN_MAX_INSERT_EVALS;
+               ++backwards) {
+            const int32_t to = backwards ? i - step : i + step;
+            // Never displace the pinned start track or run off the end.
+            if (to <= 0 || to >= track_count) continue;
+            ++insert_evaluations;
+            const int32_t lo = i < to ? i : to;
+            const int32_t hi = i < to ? to : i;
+            const int32_t last_link =
+                hi + 1 < track_count - 1 ? hi + 1 : track_count - 1;
+            const double before = window_cost(
+                output_order, lo, last_link, track_count, song_ids,
+                artist_groups, features, keys, energies, profile,
+                bpm_tolerance, avoid_artist_repeat, harmonic_filter);
+            move_element(output_order, i, to);
+            const double after = window_cost(
+                output_order, lo, last_link, track_count, song_ids,
+                artist_groups, features, keys, energies, profile,
+                bpm_tolerance, avoid_artist_repeat, harmonic_filter);
+            if (after < before - 1e-9) {
+              improved = 1;
+            } else {
+              move_element(output_order, to, i);
+            }
+          }
+        }
+      }
+      // 2-opt style reversal of short segments; arc positions stay attached
+      // to the plan slots, only the links inside the window change.
+      for (int32_t i = 1;
+           i < track_count - 1 && reverse_evaluations < NAR_PLAN_MAX_REVERSE_EVALS;
+           ++i) {
+        for (int32_t step = 2;
+             step <= NAR_PLAN_MAX_BREACH &&
+             reverse_evaluations < NAR_PLAN_MAX_REVERSE_EVALS;
+             ++step) {
+          const int32_t j = i + step;
+          if (j >= track_count) continue;
+          ++reverse_evaluations;
+          const int32_t last_link =
+              j + 1 < track_count - 1 ? j + 1 : track_count - 1;
+          const double before = window_cost(
+              output_order, i, last_link, track_count, song_ids, artist_groups,
+              features, keys, energies, profile, bpm_tolerance,
+              avoid_artist_repeat, harmonic_filter);
+          for (int32_t left = i, right = j; left < right; ++left, --right) {
+            const int32_t value = output_order[left];
+            output_order[left] = output_order[right];
+            output_order[right] = value;
+          }
+          const double after = window_cost(
+              output_order, i, last_link, track_count, song_ids, artist_groups,
+              features, keys, energies, profile, bpm_tolerance,
+              avoid_artist_repeat, harmonic_filter);
+          if (after < before - 1e-9) {
+            improved = 1;
+          } else {
+            for (int32_t left = i, right = j; left < right;
+                 ++left, --right) {
+              const int32_t value = output_order[left];
+              output_order[left] = output_order[right];
+              output_order[right] = value;
+            }
+          }
         }
       }
     }

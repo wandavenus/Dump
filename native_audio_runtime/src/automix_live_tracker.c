@@ -249,23 +249,40 @@ static void estimate_live_beat(int32_t slot) {
     tracker->bpm = candidate_bpm;
   }
 
-  double peak = 0.0;
-  int32_t peak_age = 0;
-  const int32_t phase_search = best_lag < count ? best_lag : count;
-  for (int32_t age = 0; age < phase_search; ++age) {
-    const double value = history_age(tracker, age);
-    if (value > peak) {
-      peak = value;
-      peak_age = age;
+  // Beat-phase selection: score every candidate grid phase by the total onset
+  // energy it aligns across the whole history window, allowing ±1 frame of
+  // drift per beat, and publish the most recent beat of the winning grid.
+  // A single loud accent or noise spike can no longer hijack the phase the
+  // way it could when the latest period's loudest onset won outright.
+  double best_grid = 0.0;
+  int32_t best_phase = 0;
+  for (int32_t phase = 0; phase < best_lag && phase < count; ++phase) {
+    double sum = 0.0;
+    for (int32_t age = phase; age < count; age += best_lag) {
+      double aligned = history_age(tracker, age);
+      if (aligned <= 0.0) continue;
+      if (age > 0) {
+        const double newer = history_age(tracker, age - 1);
+        if (newer > aligned) aligned = newer;
+      }
+      if (age + 1 < count) {
+        const double older = history_age(tracker, age + 1);
+        if (older > aligned) aligned = older;
+      }
+      sum += aligned;
+    }
+    if (sum > best_grid) {
+      best_grid = sum;
+      best_phase = phase;
     }
   }
-  tracker->phase_elapsed_ms =
-      (double)peak_age * tracker->frame_samples * 1000.0 / tracker->sample_rate;
+  tracker->phase_elapsed_ms = (double)best_phase * tracker->frame_samples *
+      1000.0 / tracker->sample_rate;
   tracker->phase_at_estimate_ms = tracker->phase_elapsed_ms;
   const double margin = fmax(0.0, best_score - second_score);
   const double periodicity = clamp01((best_score - 0.10) / 0.45);
   const double uniqueness = clamp01((margin + 0.025) / 0.18);
-  tracker->confidence = peak > 1e-6 ? periodicity * uniqueness : 0.0;
+  tracker->confidence = best_grid > 1e-6 ? periodicity * uniqueness : 0.0;
   if (count < 450) tracker->confidence *= (double)(count - LIVE_MIN_FRAMES) / 150.0;
   tracker->confidence = clamp01(tracker->confidence);
   publish_state(slot, tracker);
