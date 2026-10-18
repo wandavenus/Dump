@@ -693,6 +693,15 @@ class CrossfadeController(
                     setAutoMixTailFilter(oldPlayer, 1f)
                     setAutoMixFadeGain(newPlayer, 1f)
                     setAutoMixFadeGain(oldPlayer, 1f)
+                    // A mid-fade abort is a cancel: restore the new active
+                    // deck's volume, drop the preloaded index that belonged to
+                    // the aborted promotion, repair a promoted one-item
+                    // timeline, and let the service drain any deferred AutoMix
+                    // target update instead of leaving it pending forever.
+                    getActivePlayer()?.volume = getVolumeBeforeDuck().coerceIn(0f, 1f)
+                    preloadManager.resetPreloadedIndex()
+                    rebuildPromotedQueue()
+                    onCrossfadeCancelled()
                     log("Fade aborted — active player changed mid-fade")
                     // Reset epoch so a subsequent crossfade starts with a clean timeline.
                     CrossfadeTimelineLogger.end("runEqualPowerFade abort — player changed mid-fade")

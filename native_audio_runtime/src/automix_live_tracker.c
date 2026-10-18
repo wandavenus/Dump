@@ -42,7 +42,42 @@ static _Atomic double g_published[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT]
 static _Atomic int g_tracker_enabled = 0;
 static _Atomic uint32_t g_tracker_generation = 0;
 
+// Published BPM / phase / confidence are read by the controller thread while
+// the audio callback writes them. A seqlock keeps a reader from consuming a
+// torn tuple (e.g. BPM from one estimate with phase from another): version is
+// odd during a write, and a reader retries until it observes the same even
+// version before and after its loads. Writers are serialized by a lightweight
+// flag so two control threads (or a control thread and the audio callback)
+// can never interleave sequence numbers; the audio-side writer uses a
+// non-blocking try-acquire and simply skips this callback when busy.
+static _Atomic uint32_t g_published_version[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT];
+static atomic_flag g_publish_lock = ATOMIC_FLAG_INIT;
+
+static void publish_state_locked(int32_t slot, double bpm, double phase, double confidence) {
+  const uint32_t version = atomic_load_explicit(
+      &g_published_version[slot], memory_order_relaxed);
+  atomic_store_explicit(&g_published_version[slot], version | 1u, memory_order_relaxed);
+  atomic_thread_fence(memory_order_release);
+  atomic_store_explicit(&g_published[slot][0], bpm, memory_order_relaxed);
+  atomic_store_explicit(&g_published[slot][1], phase, memory_order_relaxed);
+  atomic_store_explicit(&g_published[slot][2], confidence, memory_order_relaxed);
+  atomic_thread_fence(memory_order_release);
+  atomic_store_explicit(&g_published_version[slot], version + 2u, memory_order_release);
+}
+
 static void clear_published_state(int32_t slot) {
+  // Control-thread path: bounded spin. The audio-side writer only holds the
+  // flag for three stores, so the first CAS attempt almost always succeeds.
+  for (int attempt = 0; attempt < 1024; ++attempt) {
+    if (!atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
+      publish_state_locked(slot, 0.0, 0.0, 0.0);
+      atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
+      return;
+    }
+  }
+  // Pathological contention: still zero the fields atomically. A reader would
+  // at worst see a mixed tuple for one callback, which consumers reject via
+  // their range validation.
   for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
     atomic_store_explicit(&g_published[slot][i], 0.0, memory_order_release);
   }
@@ -62,7 +97,15 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_set_enabled(int32_t enabled) 
   // only after both slots have a pending reset, so old phase/history can never
   // leak into a newly enabled AutoMix session.
   if (!requested) {
-    atomic_store_explicit(&g_tracker_enabled, 0, memory_order_release);
+    // Atomic transition: if another control thread already disabled the
+    // tracker, its clear+bump is authoritative and this call must not repeat
+    // them (redundant generation bumps would discard live results for nothing).
+    int expected = 1;
+    if (!atomic_compare_exchange_strong_explicit(
+            &g_tracker_enabled, &expected, 0, memory_order_acq_rel,
+            memory_order_acquire)) {
+      return 1;
+    }
   }
   for (int32_t slot = 0; slot < NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT; ++slot) {
     clear_published_state(slot);
@@ -78,9 +121,24 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_set_enabled(int32_t enabled) 
 static double clamp01(double value) { return fmin(1.0, fmax(0.0, value)); }
 
 static void publish_state(int32_t slot, const NarLiveTracker* tracker) {
-  atomic_store_explicit(&g_published[slot][0], tracker->bpm, memory_order_release);
-  atomic_store_explicit(&g_published[slot][1], tracker->phase_elapsed_ms, memory_order_release);
-  atomic_store_explicit(&g_published[slot][2], tracker->confidence, memory_order_release);
+  // Audio-callback writer: never block. If a control thread is mid-clear or
+  // mid-reset, skip this publish; the next callback (~10 ms) republishes.
+  if (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
+    return;
+  }
+  publish_state_locked(slot, tracker->bpm, tracker->phase_elapsed_ms,
+                       tracker->confidence);
+  atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
+}
+
+// Audio-callback variant of the clear: a busy flag means a control-thread
+// clear is in progress (and will zero the tuple itself).
+static void clear_published_state_audio(int32_t slot) {
+  if (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
+    return;
+  }
+  publish_state_locked(slot, 0.0, 0.0, 0.0);
+  atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
 static void reset_internal(int32_t slot) {
@@ -321,7 +379,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
   if (!atomic_load_explicit(&g_tracker_enabled, memory_order_acquire) ||
       atomic_load_explicit(&g_tracker_generation, memory_order_acquire) !=
           generation_at_start) {
-    clear_published_state(stream_slot);
+    clear_published_state_audio(stream_slot);
     atomic_store_explicit(&g_reset_pending[stream_slot], 1, memory_order_release);
   }
   return 1;
@@ -333,18 +391,40 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_get(
       output == NULL || output_count < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) {
     return 0;
   }
+  // Seqlock read: BPM, phase and confidence must come from the same estimate.
+  // Retry while a writer holds the sequence odd or moved between the loads.
+  for (int attempt = 0; attempt < 16; ++attempt) {
+    const uint32_t before = atomic_load_explicit(
+        &g_published_version[stream_slot], memory_order_acquire);
+    if ((before & 1u) != 0u) continue;
+    const double bpm = atomic_load_explicit(&g_published[stream_slot][0],
+                                            memory_order_relaxed);
+    const double phase = atomic_load_explicit(&g_published[stream_slot][1],
+                                              memory_order_relaxed);
+    const double confidence = atomic_load_explicit(&g_published[stream_slot][2],
+                                                   memory_order_relaxed);
+    const uint32_t after = atomic_load_explicit(
+        &g_published_version[stream_slot], memory_order_acquire);
+    if (before == after) {
+      output[0] = bpm;
+      output[1] = phase;
+      output[2] = confidence;
+      return 1;
+    }
+  }
+  // Extremely contended: report zeros rather than a possibly torn tuple.
   for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
-    output[i] = atomic_load_explicit(&g_published[stream_slot][i],
-                                     memory_order_acquire);
+    output[i] = 0.0;
   }
   return 1;
 }
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_reset(int32_t stream_slot) {
   if (stream_slot < 0 || stream_slot >= NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT) return 0;
-  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
-    atomic_store_explicit(&g_published[stream_slot][i], 0.0, memory_order_release);
-  }
+  clear_published_state(stream_slot);
   atomic_store_explicit(&g_reset_pending[stream_slot], 1, memory_order_release);
+  // Bump the epoch so an in-flight audio callback cannot republish pre-reset
+  // phase after this call; its tail check discards the stale results.
+  atomic_fetch_add_explicit(&g_tracker_generation, 1, memory_order_acq_rel);
   return 1;
 }

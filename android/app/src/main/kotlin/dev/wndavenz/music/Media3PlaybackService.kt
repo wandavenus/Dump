@@ -2346,8 +2346,13 @@ class Media3PlaybackService : MediaSessionService() {
     ) {
         val transitionActive = enabled && !bitPerfectModeOn
         automixTransitionEnabled = transitionActive
-        val trackerEnabled = NativeDspAudioProcessor.setLiveBeatTrackerEnabled(transitionActive)
-        if (transitionActive && !trackerEnabled) {
+        // Live beat tracking only matters when a fade can actually run; mirror
+        // the standby-preload gate so a zero crossfade duration does not keep
+        // the tracker consuming PCM for nothing.
+        val trackerActive = transitionActive &&
+            crossfadeController.crossfadeDurationSec > 0f
+        val trackerEnabled = NativeDspAudioProcessor.setLiveBeatTrackerEnabled(trackerActive)
+        if (trackerActive && !trackerEnabled) {
             NativeLogger.emit(
                 "warn", "Automix",
                 "Live beat tracker unavailable; using offline beat-grid fallback",

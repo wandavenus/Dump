@@ -7,6 +7,7 @@
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void assert_analysis_confidence_contract(
     const double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT]) {
@@ -672,8 +673,66 @@ static void test_live_tracker_requires_explicit_enable(void) {
   }
 }
 
+static void test_live_tracker_disable_clears_live_state(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t chunk_frames = 512;
+  const int32_t total_frames = sample_rate * 8;
+  float pcm[512 * 2];
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0.0, 0.0, 0.0};
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  // 120 BPM click train: a 3 ms decaying burst every 0.5 s. This is the
+  // realistic case the old test missed — a live, non-zero BPM/precision tuple
+  // must be cleared by a disable instead of lingering for the controller.
+  int32_t produced = 0;
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t absolute = (int64_t)produced + i;
+      const int64_t phase = absolute % 24000;
+      const float value = phase < 48
+          ? (float)(0.9 * (1.0 - (double)phase / 48.0))
+          : 0.0f;
+      pcm[i * 2] = value;
+      pcm[i * 2 + 1] = value;
+    }
+    assert(nar_automix_live_tracker_process(pcm, frames, 2, sample_rate, 0) == 1);
+    produced += frames;
+  }
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[0] > 100.0 && state[0] < 140.0);
+  assert(state[2] > 0.0);
+
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+  assert(nar_automix_live_tracker_is_enabled() == 0);
+  // Idempotent disable must succeed without corrupting the zeroed tuple.
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+    assert(state[i] == 0.0);
+  }
+
+  // Re-enabling must start from a clean epoch: silence cannot resurrect the
+  // pre-disable phase, so the tuple stays zero.
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  memset(pcm, 0, sizeof(pcm));
+  for (int32_t i = 0; i < 4; ++i) {
+    assert(nar_automix_live_tracker_process(
+               pcm, chunk_frames, 2, sample_rate, 0) == 1);
+  }
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[0] == 0.0);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 int main(void) {
   test_live_tracker_requires_explicit_enable();
+  test_live_tracker_disable_clears_live_state();
   test_tone_processor_unity_bands_preserve_fade_target();
   test_tone_processor_nonfinite_intermediates_are_sanitized();
   test_tone_processor_various_frame_counts();

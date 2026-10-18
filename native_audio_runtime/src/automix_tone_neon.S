@@ -40,7 +40,10 @@ nar_automix_tone_process_stereo_neon:
     fsub    s20, s17, s18
     fdiv    s20, s20, s19
     ldr     q31, .Lautomix_tone_max_finite
-    cbz     w1, .Lautomix_tone_store
+    // frames <= 0 must skip the loop; a negative count would otherwise spin
+    // `subs` through ~4 billion iterations before wrapping.
+    cmp     w1, #0
+    b.le    .Lautomix_tone_store
 
 .Lautomix_tone_loop:
     // Smooth all three isolator gains at a 20 ms time constant.

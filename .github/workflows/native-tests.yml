@@ -41,3 +41,43 @@ jobs:
       - name: Run Performance Benchmarks
         working-directory: native_audio_runtime
         run: flutter test test/native_benchmark.dart
+
+      # The AutoMix C suite below compiles the in-repo planner/analyzer/
+      # crossfade/tone/tracker sources directly, so native contract tests run
+      # without the external Noisegraph dispatcher.
+      - name: Build AutoMix C Suite (x86_64, ASan+UBSan)
+        working-directory: native_audio_runtime
+        run: |
+          clang -std=c11 -O1 -g -fno-omit-frame-pointer \
+            -fsanitize=address,undefined -Wall -Wextra \
+            -I src \
+            test/automix_native_c_test.c \
+            src/automix_analyzer.c src/automix_planner.c \
+            src/automix_phase_lock.c src/automix_tone_processor.c \
+            src/automix_live_tracker.c \
+            -lm -o /tmp/automix_native_c_test
+
+      - name: Run AutoMix C Suite (x86_64)
+        run: /tmp/automix_native_c_test
+
+      - name: Install ARM64 Emulation Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu qemu-user-static
+
+      # Cross-compiled run so the NEON assembly paths (window/RMS + stereo
+      # tone) are actually executed, including the negative-frame guard.
+      - name: Build AutoMix C Suite (arm64 + NEON)
+        working-directory: native_audio_runtime
+        run: |
+          aarch64-linux-gnu-gcc -std=c11 -O2 -g -Wall -Wextra \
+            -I src \
+            test/automix_native_c_test.c \
+            src/automix_analyzer.c src/automix_planner.c \
+            src/automix_phase_lock.c src/automix_tone_processor.c \
+            src/automix_live_tracker.c \
+            src/automix_neon.S src/automix_tone_neon.S \
+            -lm -o /tmp/automix_native_c_test_arm64
+
+      - name: Run AutoMix C Suite (arm64 under qemu)
+        run: qemu-aarch64-static -L /usr/aarch64-linux-gnu /tmp/automix_native_c_test_arm64
