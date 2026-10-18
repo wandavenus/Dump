@@ -139,7 +139,7 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 - **Node.js** — hanya untuk build/serve web (`server.js`, `watch-rebuild.js`, `rebuild-web.js`).
 - **NDK r28c** — clang arm64 untuk kompilasi `.c`/`.h` DSP.
 - **JDK 21** (Temurin).
-- **GitHub Actions** — 6 workflow.
+- **GitHub Actions** — 8 workflow.
 - **CodeQL** — security-extended + security-and-quality.
 
 ---
@@ -716,7 +716,7 @@ npm run build   # flutter build web --release --base-href /
 |---|---|---|
 | `flutter-check.yml` | push/PR pada `android/lib/assets/pubspec` | Lint + debug assemble. |
 | `kotlin-tests.yml` | push/PR pada `android/` | Unit test Kotlin (JDK 21). |
-| `native-tests.yml` | push/PR pada `native_audio_runtime/src`+`test` | Test C/DSP (FFI). |
+| `run-noisegraph-tests.yml` | push pada `native_audio_runtime/src`+`test`+`pubspec`, atau dispatch manual | Mengirim suite `native-c` ke `wandavenus/Noisegraph`; suite di sana menjalankan tes native runtime, benchmark, C ASan/UBSan x86_64, dan ARM64 NEON via QEMU. |
 | `android.yml` | push/PR pada lib/android/native | Build Android. |
 | `codeql.yml` | push/PR + mingguan (Sen 03:00 UTC) | CodeQL security-extended + quality. |
 | `pages.yml` | — | Deploy web (GitHub Pages). |
