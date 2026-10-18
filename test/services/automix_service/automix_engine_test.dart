@@ -263,6 +263,9 @@ void main() {
               'confidence': 0.01,
             },
           ],
+          'startBpm': 128.5,
+          'endBpm': 0.0,
+          'tempoStability': 0.62,
         },
         fallbackStartSeconds: 0,
         fallbackSeconds: 120,
@@ -274,6 +277,23 @@ void main() {
       expect(segment.chordProgression[1].confidence, 0.83);
       expect(segment.chordProgression[2].label, 'Bm7b5');
       expect(segment.chordProgression[3].label, 'Fsus2');
+      // Non-positive BPMs are rejected; a valid stability parses.
+      expect(segment.startBpm, 128.5);
+      expect(segment.endBpm, isNull);
+      expect(segment.tempoStability, 0.62);
+
+      final invalidCurve = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'startBpm': 'fast',
+          'endBpm': double.nan,
+          'tempoStability': 1.5,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(invalidCurve.startBpm, isNull);
+      expect(invalidCurve.endBpm, isNull);
+      expect(invalidCurve.tempoStability, isNull);
     });
 
     test('uses neutral fallbacks for malformed field types', () {
@@ -1033,6 +1053,9 @@ void main() {
       double vocalLikelihood = 0,
       double vocalConfidence = 0,
       double tailBpmConfidence = 0,
+      double? startBpm,
+      double? endBpm,
+      double? tempoStability,
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
@@ -1050,6 +1073,9 @@ void main() {
       vocalLikelihood: vocalLikelihood,
       vocalConfidence: vocalConfidence,
       tailBpmConfidence: tailBpmConfidence,
+      startBpm: startBpm,
+      endBpm: endBpm,
+      tempoStability: tempoStability,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -1071,6 +1097,48 @@ void main() {
       expect(merged.tailBeatOffsetMs, closeTo(240_040, 0.5));
       // Both windows agreed, so the vote is not neutral.
       expect(merged.bpmConfidence, greaterThan(0.3));
+    });
+
+    test('folds the tempo curve into the track BPM octave', () {
+      final merged = automixMergeSegments(
+        songId: 8,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.9,
+            startBpm: 120,
+            endBpm: 121,
+            tempoStability: 0.8,
+          ),
+          seg(
+            240,
+            bpm: 60,
+            conf: 0.7,
+            startBpm: 62,
+            endBpm: 60,
+            tempoStability: 0.4,
+          ),
+        ],
+      );
+      // The head start stays at 120; the tail's 60 BPM folds onto that octave.
+      expect(merged.startBpm, closeTo(120, 1));
+      expect(merged.endBpm, closeTo(120, 1));
+      // Confidence-weighted stability: (0.8*0.9 + 0.4*0.7) / (0.9 + 0.7).
+      expect(merged.tempoStability, closeTo(0.625, 0.001));
+    });
+
+    test('keeps the exit pulse unknown when the tail window failed', () {
+      final merged = automixMergeSegments(
+        songId: 9,
+        segments: [
+          seg(0, bpm: 120, conf: 0.9, startBpm: 120, endBpm: 118),
+        ],
+        tailSegmentAnalyzed: false,
+      );
+      expect(merged.startBpm, closeTo(120, 1));
+      expect(merged.endBpm, isNull);
+      expect(merged.tempoStability, isNull);
     });
 
     test('does not substitute general BPM confidence for tail confidence', () {

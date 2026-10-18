@@ -5,7 +5,7 @@ import 'package:ffi/ffi.dart' as pkg_ffi;
 import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
-const int _analysisOutputCount = 21;
+const int _analysisOutputCount = 24;
 const int _featureCount = 20;
 
 /// Synchronous FFI facade over the AutoMix native C core.
@@ -157,6 +157,9 @@ class NativeAutomix {
         vocalLikelihood: output[18],
         vocalConfidence: output[19],
         tailBpmConfidence: output[20],
+        startBpm: nullable(21),
+        endBpm: nullable(22),
+        tempoStability: nullable(23),
       );
     } finally {
       pkg_ffi.calloc.free(samples);

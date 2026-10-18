@@ -12,7 +12,7 @@ extern "C" {
 
 #define NAR_AUTOMIX_FEATURE_COUNT 20
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 21
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 24
 
 // Structural region classification labels.
 enum NarAutomixStructureRegion {
@@ -55,7 +55,7 @@ enum NarAutomixFeatureIndex {
 // Key fields per track: [Camelot number (0 means unknown), mode
 // (-1 unknown, 0 major, 1 minor)].
 //
-// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 21):
+// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 24):
 //  0: BPM (NaN when unknown)
 //  1: BPM confidence (0..1)
 //  2: Alternate BPM (NaN when unknown)
@@ -77,6 +77,9 @@ enum NarAutomixFeatureIndex {
 // 18: Vocal likelihood (0..1)
 // 19: Vocal confidence (0..1)
 // 20: Tail BPM confidence (0..1); confidence of this analyzed window's tempo estimate
+// 21: Start-quarter BPM (NaN when unknown); first quarter's own tempo estimate
+// 22: End-quarter BPM (NaN when unknown); last quarter's own tempo estimate
+// 23: Tempo stability (0..1, NaN when unknown); mean octave-folded agreement of the quarter-window tempo estimates with the whole-window estimate
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     const float* mono,
     int32_t sample_count,

@@ -371,6 +371,40 @@ AutomixTrackFeatures automixMergeSegments({
     }
   }
 
+  // ── Tempo curve: outward pulse and cross-window stability ────────────────
+  // The head window supplies the intro pulse and the last analyzed window the
+  // exit pulse, both folded into the track BPM's octave like [tailBpm]. Only
+  // tail windows count towards the exit pulse so a missing tail decode cannot
+  // silently promote the intro grid to the exit.
+  double? curveBpmOf(double? value) {
+    if (value == null || !value.isFinite || value <= 0) return null;
+    return bpm == null ? value : automixFoldToOctave(value, bpm);
+  }
+
+  double? startBpm;
+  double? endBpm;
+  if (segments.isNotEmpty) {
+    startBpm = curveBpmOf(segments.first.startBpm);
+    if (tailSegmentAnalyzed) {
+      endBpm = curveBpmOf(segments.last.endBpm);
+    }
+  }
+  var stabilityWeight = 0.0;
+  var stabilitySum = 0.0;
+  for (final s in segments) {
+    if (s.tempoStability != null &&
+        s.tempoStability!.isFinite &&
+        s.tempoStability! >= 0 &&
+        s.tempoStability! <= 1) {
+      final w = s.bpmConfidence > 0 ? s.bpmConfidence : 0.5;
+      stabilitySum += s.tempoStability! * w;
+      stabilityWeight += w;
+    }
+  }
+  final tempoStability = stabilityWeight > 0
+      ? stabilitySum / stabilityWeight
+      : null;
+
   // ── Key vote ──────────────────────────────────────────────────────────────
   final withKey = segments
       .where((s) => s.camelotNumber != null && s.keyConfidence > 0)
@@ -567,6 +601,9 @@ AutomixTrackFeatures automixMergeSegments({
     tailBpm: tailBpm,
     tailBpmConfidence: tailBpmConfidence,
     tailBeatOffsetMs: tailBeatOffsetMs,
+    startBpm: startBpm,
+    endBpm: endBpm,
+    tempoStability: tempoStability,
     introRmsDb: firstSegment?.rmsDb,
     outroRmsDb: tailSegmentAnalyzed ? lastSegment?.rmsDb : null,
     introEnergy: introEnergy,

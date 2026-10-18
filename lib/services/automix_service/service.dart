@@ -976,7 +976,8 @@ class AutomixService {
   // v7: preserve native half/double-time alternate BPM and true source duration.
   // v9: persist vocal confidence and intro/tail structural-region metadata.
   // v11: add tailBpmConfidence to segment and track features.
-  static const int _analysisSchemaVersion = 12;
+  // v13: add the tempo-curve fields (startBpm, endBpm, tempoStability).
+  static const int _analysisSchemaVersion = 13;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
