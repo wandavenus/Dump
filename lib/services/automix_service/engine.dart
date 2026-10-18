@@ -1144,6 +1144,61 @@ double _energyTargetPos(double pos, AutomixProfile profile) {
   }
 }
 
+/// Set-adaptive energy arc: the profile arc projected onto the measured
+/// p20..p80 range of the normalized set energies. Mirrors `build_energy_arc`
+/// in the native planner; a set with fewer than four tracks or a narrow
+/// measured range keeps the fixed profile target only.
+class _EnergyArc {
+  const _EnergyArc._(this.low, this.high, this.adaptive);
+
+  final double low;
+  final double high;
+  final bool adaptive;
+
+  static const _EnergyArc disabled = _EnergyArc._(0.0, 1.0, false);
+
+  factory _EnergyArc.fromEnergies(List<double> energies) {
+    if (energies.length < 4) return _EnergyArc.disabled;
+    final sorted = List<double>.of(energies)..sort();
+    final low = _percentileSorted(sorted, 0.20);
+    final high = _percentileSorted(sorted, 0.80);
+    if (high - low < 0.10) return _EnergyArc.disabled;
+    return _EnergyArc._(low, high, true);
+  }
+
+  static double _percentileSorted(List<double> sorted, double fraction) {
+    final index = (sorted.length - 1) * fraction;
+    final low = index.floor();
+    final high = index.ceil();
+    if (low == high) return sorted[low];
+    return sorted[low] + (sorted[high] - sorted[low]) * (index - low);
+  }
+}
+
+/// Smooth 0..1 arc shape over the normalized plan position. The underlying
+/// tent peaks at `peak` and falls to zero at both ends; the smoothstep
+/// removes the corner at the peak. `base` lifts the ends for flat profiles.
+double _arcShape(double position, AutomixProfile profile) {
+  var peak = 0.6;
+  var base = 0.0;
+  if (profile == AutomixProfile.energy) {
+    peak = 0.5;
+  } else if (profile == AutomixProfile.harmonic) {
+    base = 0.35;
+  }
+  final p = automixClamp01(position);
+  final t = automixClamp01(p < peak ? p / peak : (1.0 - p) / (1.0 - peak));
+  final smooth = t * t * (3.0 - 2.0 * t);
+  return base + (1.0 - base) * smooth;
+}
+
+double _energyTargetArc(double pos, AutomixProfile profile, _EnergyArc arc) {
+  final fixed = _energyTargetPos(pos, profile);
+  if (!arc.adaptive) return fixed;
+  final adaptive = arc.low + (arc.high - arc.low) * _arcShape(pos, profile);
+  return automixClamp01(0.5 * fixed + 0.5 * adaptive);
+}
+
 // ── Transition cost ──────────────────────────────────────────────────────────
 
 /// Weight sets per [AutomixProfile]: (tempo, key, energy, variety).
@@ -1191,6 +1246,7 @@ double _transitionCost({
   required int stepIndex,
   required int totalSteps,
   required AutomixSettings settings,
+  _EnergyArc arc = _EnergyArc.disabled,
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
   // A transition lives in the outgoing track's tail and the incoming track's
@@ -1235,7 +1291,7 @@ double _transitionCost({
   final pos = totalSteps <= 1
       ? 1.0
       : automixClamp01(stepIndex / (totalSteps - 1));
-  final target = _energyTargetPos(pos, settings.profile);
+  final target = _energyTargetArc(pos, settings.profile, arc);
   final delta = eB - eA;
   // Section-seam continuity: a fade between a quiet outro and a loud intro (or
   // the reverse) is rougher than the whole-track energy delta alone implies.
@@ -1364,6 +1420,7 @@ class DartAutomixEngineReference {
 
     // ── 1. Energies ───────────────────────────────────────────────────
     final energies = automixNormalizeEnergy(tracks);
+    final arc = _EnergyArc.fromEnergies(energies);
 
     // ── 2. Tempo-sorted slot order for the bounded-neighborhood walk ──
     // Unknown tempos occupy the median so they sit between known plateaus
@@ -1404,6 +1461,7 @@ class DartAutomixEngineReference {
         medianBpm: medianBpm,
         withLookahead: withLookahead,
         plan: plan,
+        arc: arc,
       );
       // Defensive: _pickNext always returns an unplayed index, but a bug must
       // never crash playback — degrade to the first unplayed track instead.
@@ -1426,12 +1484,12 @@ class DartAutomixEngineReference {
         final jEnd = (i + _maxSwapBreach).clamp(i + 1, n - 1);
         for (int j = i + 1; j <= jEnd && evals < _maxEvalsPerPass; j++) {
           evals++;
-          final before = _localCost(plan, i, j, tracks, energies, settings);
+          final before = _localCost(plan, i, j, tracks, energies, settings, arc);
           final origI = plan[i];
           final origJ = plan[j];
           plan[i] = origJ;
           plan[j] = origI;
-          final after = _localCost(plan, i, j, tracks, energies, settings);
+          final after = _localCost(plan, i, j, tracks, energies, settings, arc);
           if (after < before - 1e-9) {
             improved = true;
           } else {
@@ -1465,6 +1523,7 @@ class DartAutomixEngineReference {
                 tracks,
                 energies,
                 settings,
+                arc,
               );
               _moveElement(plan, i, to);
               final after = _windowCost(
@@ -1474,6 +1533,7 @@ class DartAutomixEngineReference {
                 tracks,
                 energies,
                 settings,
+                arc,
               );
               if (after < before - 1e-9) {
                 improved = true;
@@ -1500,6 +1560,7 @@ class DartAutomixEngineReference {
               tracks,
               energies,
               settings,
+              arc,
             );
             _reverseRange(plan, i, j);
             final after = _windowCost(
@@ -1509,6 +1570,7 @@ class DartAutomixEngineReference {
               tracks,
               energies,
               settings,
+              arc,
             );
             if (after < before - 1e-9) {
               improved = true;
@@ -1524,7 +1586,7 @@ class DartAutomixEngineReference {
     return AutomixPlan(
       order: List<int>.unmodifiable(plan),
       crossfadeSeconds: _crossfadeSeconds(tracks, plan, settings),
-      averageCost: _pathCost(plan, tracks, energies, settings) / (n - 1),
+      averageCost: _pathCost(plan, tracks, energies, settings, arc) / (n - 1),
     );
   }
 
@@ -1577,6 +1639,7 @@ class DartAutomixEngineReference {
     required double medianBpm,
     required bool withLookahead,
     required List<int> plan,
+    required _EnergyArc arc,
   }) {
     final nTotal = tracks.length;
 
@@ -1603,6 +1666,7 @@ class DartAutomixEngineReference {
               stepIndex: stepIndex,
               totalSteps: totalSteps,
               settings: settings,
+              arc: arc,
             ) +
             _artistCooldownCost(
               plan: plan,
@@ -1630,6 +1694,7 @@ class DartAutomixEngineReference {
               stepIndex: stepIndex,
               totalSteps: totalSteps,
               settings: settings,
+              arc: arc,
             ) +
             _artistCooldownCost(
               plan: plan,
@@ -1688,6 +1753,7 @@ class DartAutomixEngineReference {
               stepIndex: stepIndex + 1,
               totalSteps: totalSteps,
               settings: settings,
+              arc: arc,
             ) +
             _artistCooldownCost(
               plan: plan,
@@ -1794,6 +1860,7 @@ class DartAutomixEngineReference {
     List<AutomixTrackFeatures> tracks,
     List<double> energies,
     AutomixSettings settings,
+    _EnergyArc arc,
   ) {
     var sum = 0.0;
     final n = plan.length;
@@ -1806,6 +1873,7 @@ class DartAutomixEngineReference {
         stepIndex: i + 1,
         totalSteps: n,
         settings: settings,
+        arc: arc,
       );
     }
     return sum;
@@ -1821,6 +1889,7 @@ class DartAutomixEngineReference {
     List<AutomixTrackFeatures> tracks,
     List<double> energies,
     AutomixSettings settings,
+    _EnergyArc arc,
   ) {
     final n = plan.length;
     double link(int from, int to) {
@@ -1833,6 +1902,7 @@ class DartAutomixEngineReference {
         stepIndex: to,
         totalSteps: n,
         settings: settings,
+        arc: arc,
       );
     }
 
@@ -1860,6 +1930,7 @@ class DartAutomixEngineReference {
     List<AutomixTrackFeatures> tracks,
     List<double> energies,
     AutomixSettings settings,
+    _EnergyArc arc,
   ) {
     var sum = 0.0;
     for (var p = firstLink; p <= lastLink; p++) {
@@ -1871,6 +1942,7 @@ class DartAutomixEngineReference {
         stepIndex: p,
         totalSteps: plan.length,
         settings: settings,
+        arc: arc,
       );
     }
     return sum;

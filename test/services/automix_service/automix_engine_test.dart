@@ -873,6 +873,29 @@ void main() {
       expect(native.order, reference.order);
     });
 
+    test('adaptive energy arc lifts loud tracks into the measured peak', () {
+      // Same fixture as the native regression: five quiet tracks and two
+      // loud ones over equal tempo/key. The set-adaptive arc projects the DJ
+      // arc onto the measured p20..p80 range, so the loud pair lands near the
+      // middle instead of chaining ascending energies (0..6).
+      const rms = [-26.0, -25.0, -24.0, -22.0, -20.0, -4.0, -3.0];
+      final tracks = [for (var i = 0; i < 7; i++) _f(i + 1, bpm: 120, camelot: 8, minor: true, rms: rms[i])];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 1, 2, 5, 6, 4, 3]);
+      expect(native.order, reference.order);
+    });
+
     test('spreads a repeated artist past the cooldown window', () {
       // Every transition costs the same, so only the artist cooldown can break
       // the id-ordered tie. Without it the planner would chain X, Y, X (song
