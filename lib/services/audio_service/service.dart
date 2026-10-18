@@ -552,6 +552,7 @@ class AudioService {
     required List<LocalSong> playlist,
     required int index,
     bool autoplay = true,
+    bool rethrowOnError = false,
   }) async {
     initialize();
 
@@ -560,6 +561,9 @@ class AudioService {
         'AudioService',
         'playSongAt ignored — already loading',
       );
+      if (rethrowOnError) {
+        throw StateError('playSongAt cannot start while another load is active');
+      }
       return;
     }
     if (playlist.isEmpty || index < 0 || index >= playlist.length) {
@@ -567,9 +571,16 @@ class AudioService {
         'AudioService',
         'playSongAt: invalid args (index=$index, count=${playlist.length})',
       );
+      if (rethrowOnError) {
+        throw RangeError('playSongAt received an invalid playlist/index');
+      }
       return;
     }
 
+    final previousPlaylist = _playlist;
+    final previousIndex = _currentIndex;
+    final previousState = playbackState.value;
+    final previousSong = _previousSong;
     _isLoading = true;
     final immutable = List<LocalSong>.unmodifiable(playlist);
     final selectedSong = immutable[index];
@@ -595,6 +606,7 @@ class AudioService {
       await _ReplayGainApplicator.apply(selectedSong);
       if (autoplay) await PlaybackManager.play();
 
+      _previousSong = selectedSong;
       LogService.log(
         'AudioService',
         'Now playing [${index + 1}/${immutable.length}]: '
@@ -607,8 +619,38 @@ class AudioService {
         'playSongAt failed: $e',
         stackTrace: st.toString(),
       );
+      if (rethrowOnError) {
+        // Restore the in-memory queue before attempting native recovery so any
+        // state callbacks emitted during rollback resolve against the old queue.
+        _playlist = previousPlaylist;
+        _currentIndex = previousIndex;
+        _previousSong = previousSong;
+        _setState(previousState.copyWith(isLoading: false));
+        try {
+          if (previousPlaylist.isNotEmpty &&
+              previousIndex >= 0 &&
+              previousIndex < previousPlaylist.length) {
+            await PlaybackManager.setQueue(previousPlaylist, previousIndex);
+            await PlaybackManager.seek(previousState.position);
+            if (previousState.isPlaying) {
+              await PlaybackManager.play();
+            } else {
+              await PlaybackManager.pause();
+            }
+          } else {
+            await PlaybackManager.stop();
+          }
+        } on Object catch (rollbackError, rollbackStack) {
+          LogService.warn(
+            'AudioService',
+            'playSongAt native rollback failed: $rollbackError',
+          );
+          LogService.verbose('AudioService', rollbackStack.toString());
+        }
+        _setState(previousState.copyWith(isLoading: false));
+        rethrow;
+      }
     } finally {
-      _previousSong = selectedSong;
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
     }
