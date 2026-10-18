@@ -21,10 +21,13 @@ playback updates:
 
 `AutomixService.startAutomix` is a public one-shot entry retained for an explicit
 manual start; no UI caller currently invokes it. It shares the same bounded
-window (`automixPlanWindow`) and engine call, is rejected while an automatic
-plan pass is already running, reports failures as `-1` instead of throwing, and
-records the pushed target signature so a later automatic pass refreshes native
-deck targets instead of re-pushing an identical plan.
+window (`automixPlanWindow`) and engine call. It is rejected while an automatic
+plan pass or another active AutoMix session owns the transition, reports failures
+as `-1` instead of throwing, commits its cached tail/signature only after the
+playback handoff, and attempts generation-guarded cleanup of the native transition
+and crossfade if setup fails. Playback handoff errors swallowed inside
+`AudioService.playSongAt` remain a separate limitation until that API exposes a
+strict transactional result.
 
 The native planner receives 16 feature values per track, plus key and artist-group arrays. Its transition cost currently uses:
 
