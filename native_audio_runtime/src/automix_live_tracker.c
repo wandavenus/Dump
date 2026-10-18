@@ -40,7 +40,7 @@ static _Atomic int g_reset_pending[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT] = {1, 1}
 static _Atomic double g_published[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT]
                                   [NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT];
 static _Atomic int g_tracker_enabled = 0;
-static _Atomic uint32_t g_tracker_generation = 0;
+static _Atomic uint32_t g_tracker_generation[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT] = {0, 0};
 
 // Published BPM / phase / confidence are read by the controller thread while
 // the audio callback writes them. A seqlock keeps a reader from consuming a
@@ -54,33 +54,30 @@ static _Atomic uint32_t g_published_version[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT]
 static atomic_flag g_publish_lock = ATOMIC_FLAG_INIT;
 
 static void publish_state_locked(int32_t slot, double bpm, double phase, double confidence) {
-  const uint32_t version = atomic_load_explicit(
-      &g_published_version[slot], memory_order_relaxed);
-  atomic_store_explicit(&g_published_version[slot], version | 1u, memory_order_relaxed);
-  atomic_thread_fence(memory_order_release);
-  atomic_store_explicit(&g_published[slot][0], bpm, memory_order_relaxed);
-  atomic_store_explicit(&g_published[slot][1], phase, memory_order_relaxed);
-  atomic_store_explicit(&g_published[slot][2], confidence, memory_order_relaxed);
-  atomic_thread_fence(memory_order_release);
-  atomic_store_explicit(&g_published_version[slot], version + 2u, memory_order_release);
+  // Use one sequentially-consistent order for the sequence and all payload
+  // fields. This prevents weakly ordered ARM64 CPUs from making a payload
+  // store visible before the odd version, or a payload load escape the read
+  // window. The payload itself remains atomic, so there is no C data race.
+  uint32_t version = atomic_load_explicit(
+      &g_published_version[slot], memory_order_seq_cst);
+  if ((version & 1u) != 0u) version++;
+  atomic_store_explicit(&g_published_version[slot], version + 1u,
+                        memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][0], bpm, memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][1], phase, memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][2], confidence, memory_order_seq_cst);
+  atomic_store_explicit(&g_published_version[slot], version + 2u,
+                        memory_order_seq_cst);
 }
 
 static void clear_published_state(int32_t slot) {
-  // Control-thread path: bounded spin. The audio-side writer only holds the
-  // flag for three stores, so the first CAS attempt almost always succeeds.
-  for (int attempt = 0; attempt < 1024; ++attempt) {
-    if (!atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
-      publish_state_locked(slot, 0.0, 0.0, 0.0);
-      atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
-      return;
-    }
+  // Control-thread path: this may wait briefly for the audio callback's
+  // non-blocking publisher. Never bypass the sequence protocol to clear fields:
+  // doing so could let readers accept a mixed tuple as a consistent snapshot.
+  while (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
   }
-  // Pathological contention: still zero the fields atomically. A reader would
-  // at worst see a mixed tuple for one callback, which consumers reject via
-  // their range validation.
-  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
-    atomic_store_explicit(&g_published[slot][i], 0.0, memory_order_release);
-  }
+  publish_state_locked(slot, 0.0, 0.0, 0.0);
+  atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_is_enabled(void) {
@@ -108,10 +105,12 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_set_enabled(int32_t enabled) 
     }
   }
   for (int32_t slot = 0; slot < NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT; ++slot) {
-    clear_published_state(slot);
+    // Invalidate callbacks already processing this slot before clearing its
+    // published tuple. A reset on either deck must not invalidate the other.
+    atomic_fetch_add_explicit(&g_tracker_generation[slot], 1, memory_order_acq_rel);
     atomic_store_explicit(&g_reset_pending[slot], 1, memory_order_release);
+    clear_published_state(slot);
   }
-  atomic_fetch_add_explicit(&g_tracker_generation, 1, memory_order_acq_rel);
   if (requested) {
     atomic_store_explicit(&g_tracker_enabled, 1, memory_order_release);
   }
@@ -284,7 +283,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
   // no active transition plan. Keep the API successful for safe pass-through.
   if (!atomic_load_explicit(&g_tracker_enabled, memory_order_acquire)) return 1;
   const uint32_t generation_at_start = atomic_load_explicit(
-      &g_tracker_generation, memory_order_acquire);
+      &g_tracker_generation[stream_slot], memory_order_acquire);
   if (atomic_exchange_explicit(&g_reset_pending[stream_slot], 0,
                                memory_order_acq_rel) != 0) {
     reset_internal(stream_slot);
@@ -377,7 +376,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
   // If AutoMix was disabled or re-enabled during this callback, discard any
   // results from the old tracking epoch. Audio callbacks stay lock-free.
   if (!atomic_load_explicit(&g_tracker_enabled, memory_order_acquire) ||
-      atomic_load_explicit(&g_tracker_generation, memory_order_acquire) !=
+      atomic_load_explicit(&g_tracker_generation[stream_slot], memory_order_acquire) !=
           generation_at_start) {
     clear_published_state_audio(stream_slot);
     atomic_store_explicit(&g_reset_pending[stream_slot], 1, memory_order_release);
@@ -421,10 +420,10 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_get(
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_reset(int32_t stream_slot) {
   if (stream_slot < 0 || stream_slot >= NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT) return 0;
-  clear_published_state(stream_slot);
+  // Invalidate any callback already processing this deck first. Its tail check
+  // will discard stale results and leave the reset pending for the next callback.
+  atomic_fetch_add_explicit(&g_tracker_generation[stream_slot], 1, memory_order_acq_rel);
   atomic_store_explicit(&g_reset_pending[stream_slot], 1, memory_order_release);
-  // Bump the epoch so an in-flight audio callback cannot republish pre-reset
-  // phase after this call; its tail check discards the stale results.
-  atomic_fetch_add_explicit(&g_tracker_generation, 1, memory_order_acq_rel);
+  clear_published_state(stream_slot);
   return 1;
 }
