@@ -10,6 +10,7 @@ on:
       - "native_audio_runtime/pubspec.yaml"
       - "lib/services/automix_service/**"
       - "lib/services/automix_service.dart"
+      - "lib/services/audio_service/**"
       - "test/services/automix_service/**"
       - ".github/workflows/run-noisegraph-tests.yml"
   workflow_dispatch:
