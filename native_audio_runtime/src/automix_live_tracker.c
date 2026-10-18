@@ -27,12 +27,21 @@ typedef struct {
   int32_t history_count;
   int32_t frames_since_estimate;
   float onset_history[LIVE_HISTORY_FRAMES];
+  float level_history[LIVE_HISTORY_FRAMES];
   double bpm;
   // Beat phase captured at the most recent autocorrelation estimate.
   // phase_elapsed_ms is re-projected at every PCM callback using this value.
   double phase_at_estimate_ms;
   double phase_elapsed_ms;
   double confidence;
+  // Downbeat phase is estimated once per autocorrelation update and
+  // re-projected against the bar period (4 beats) on every PCM callback.
+  double downbeat_at_estimate_ms;
+  double downbeat_elapsed_ms;
+  double downbeat_confidence;
+  // Coarse section cue: recent frame-level RMS compared with the window
+  // before it. Positive values mean the track is building up.
+  double activity_trend;
 } NarLiveTracker;
 
 static NarLiveTracker g_tracker[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT];
@@ -53,7 +62,9 @@ static _Atomic uint32_t g_tracker_generation[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT
 static _Atomic uint32_t g_published_version[NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT];
 static atomic_flag g_publish_lock = ATOMIC_FLAG_INIT;
 
-static void publish_state_locked(int32_t slot, double bpm, double phase, double confidence) {
+static void publish_state_locked(
+    int32_t slot, double bpm, double phase, double confidence,
+    double downbeat_phase, double downbeat_confidence, double trend) {
   // Use one sequentially-consistent order for the sequence and all payload
   // fields. This prevents weakly ordered ARM64 CPUs from making a payload
   // store visible before the odd version, or a payload load escape the read
@@ -66,6 +77,11 @@ static void publish_state_locked(int32_t slot, double bpm, double phase, double 
   atomic_store_explicit(&g_published[slot][0], bpm, memory_order_seq_cst);
   atomic_store_explicit(&g_published[slot][1], phase, memory_order_seq_cst);
   atomic_store_explicit(&g_published[slot][2], confidence, memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][3], downbeat_phase,
+                        memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][4], downbeat_confidence,
+                        memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][5], trend, memory_order_seq_cst);
   atomic_store_explicit(&g_published_version[slot], version + 2u,
                         memory_order_seq_cst);
 }
@@ -76,7 +92,7 @@ static void clear_published_state(int32_t slot) {
   // doing so could let readers accept a mixed tuple as a consistent snapshot.
   while (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
   }
-  publish_state_locked(slot, 0.0, 0.0, 0.0);
+  publish_state_locked(slot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
   atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
@@ -126,7 +142,8 @@ static void publish_state(int32_t slot, const NarLiveTracker* tracker) {
     return;
   }
   publish_state_locked(slot, tracker->bpm, tracker->phase_elapsed_ms,
-                       tracker->confidence);
+                       tracker->confidence, tracker->downbeat_elapsed_ms,
+                       tracker->downbeat_confidence, tracker->activity_trend);
   atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
@@ -136,7 +153,7 @@ static void clear_published_state_audio(int32_t slot) {
   if (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
     return;
   }
-  publish_state_locked(slot, 0.0, 0.0, 0.0);
+  publish_state_locked(slot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
   atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
@@ -149,6 +166,31 @@ static float history_age(const NarLiveTracker* tracker, int32_t age) {
   int32_t index = tracker->history_write - 1 - age;
   while (index < 0) index += LIVE_HISTORY_FRAMES;
   return tracker->onset_history[index];
+}
+
+static float level_age(const NarLiveTracker* tracker, int32_t age) {
+  int32_t index = tracker->history_write - 1 - age;
+  while (index < 0) index += LIVE_HISTORY_FRAMES;
+  return tracker->level_history[index];
+}
+
+// Coarse section cue: compare the mean frame RMS of the most recent quarter of
+// the history window with the quarter before it. Frame RMS (unlike onset flux)
+// is not dominated by a single level jump, so a build-up reads as a sustained
+// positive trend and a steady section reads near zero.
+static double activity_trend(const NarLiveTracker* tracker) {
+  const int32_t window = tracker->history_count / 4;
+  if (window < 25) return 0.0;
+  double recent = 0.0;
+  double older = 0.0;
+  for (int32_t age = 0; age < window; ++age) {
+    recent += level_age(tracker, age);
+    older += level_age(tracker, age + window);
+  }
+  const double total = recent + older;
+  if (total < 1e-9) return 0.0;
+  const double trend = (recent - older) / total;
+  return fmin(1.0, fmax(-1.0, trend));
 }
 
 static double normalized_correlation(
@@ -173,9 +215,14 @@ static void estimate_live_beat(int32_t slot) {
   if (count < LIVE_MIN_FRAMES || tracker->sample_rate <= 0 ||
       tracker->frame_samples <= 0) {
     tracker->confidence = 0.0;
+    tracker->downbeat_at_estimate_ms = 0.0;
+    tracker->downbeat_elapsed_ms = 0.0;
+    tracker->downbeat_confidence = 0.0;
+    tracker->activity_trend = 0.0;
     publish_state(slot, tracker);
     return;
   }
+  tracker->activity_trend = activity_trend(tracker);
 
   double mean = 0.0;
   double squared = 0.0;
@@ -190,6 +237,9 @@ static void estimate_live_beat(int32_t slot) {
     tracker->phase_at_estimate_ms = 0.0;
     tracker->phase_elapsed_ms = 0.0;
     tracker->confidence = 0.0;
+    tracker->downbeat_at_estimate_ms = 0.0;
+    tracker->downbeat_elapsed_ms = 0.0;
+    tracker->downbeat_confidence = 0.0;
     publish_state(slot, tracker);
     return;
   }
@@ -212,6 +262,9 @@ static void estimate_live_beat(int32_t slot) {
   }
   if (best_lag < 0 || !isfinite(best_score) || best_score < 0.12) {
     tracker->confidence = 0.0;
+    tracker->downbeat_at_estimate_ms = 0.0;
+    tracker->downbeat_elapsed_ms = 0.0;
+    tracker->downbeat_confidence = 0.0;
     publish_state(slot, tracker);
     return;
   }
@@ -285,6 +338,64 @@ static void estimate_live_beat(int32_t slot) {
   tracker->confidence = best_grid > 1e-6 ? periodicity * uniqueness : 0.0;
   if (count < 450) tracker->confidence *= (double)(count - LIVE_MIN_FRAMES) / 150.0;
   tracker->confidence = clamp01(tracker->confidence);
+
+  // Downbeat phase: the pulse train repeats every best_lag frames. Score the
+  // four beat positions of a 4/4 bar by how much onset energy each position
+  // carries across the whole history window (same ±1 frame tolerance as the
+  // beat grid) and treat the strongest position as the bar start, so an
+  // accented on-beat kick identifies which recent pulse is the downbeat.
+  const double frames_to_ms =
+      (double)tracker->frame_samples * 1000.0 / tracker->sample_rate;
+  const double bar_period_ms = (double)best_lag * 4.0 * frames_to_ms;
+  double bar_scores[4] = {0.0, 0.0, 0.0, 0.0};
+  for (int32_t position = 0; position < 4; ++position) {
+    double sum = 0.0;
+    int32_t pulse = 0;
+    for (int32_t age = best_phase; age < count; age += best_lag, ++pulse) {
+      if (pulse % 4 != position) continue;
+      double aligned = history_age(tracker, age);
+      if (aligned <= 0.0) continue;
+      if (age > 0) {
+        const double newer = history_age(tracker, age - 1);
+        if (newer > aligned) aligned = newer;
+      }
+      if (age + 1 < count) {
+        const double older = history_age(tracker, age + 1);
+        if (older > aligned) aligned = older;
+      }
+      sum += aligned;
+    }
+    bar_scores[position] = sum;
+  }
+  int32_t best_bar = 0;
+  double best_bar_score = -1.0;
+  double second_bar_score = 0.0;
+  for (int32_t position = 0; position < 4; ++position) {
+    if (bar_scores[position] > best_bar_score) {
+      second_bar_score = best_bar_score;
+      best_bar_score = bar_scores[position];
+      best_bar = position;
+    } else if (bar_scores[position] > second_bar_score) {
+      second_bar_score = bar_scores[position];
+    }
+  }
+  if (second_bar_score < 0.0) second_bar_score = 0.0;
+  // best_bar is the pulse index modulo 4 that carries the accent, counted
+  // back from the newest beat pulse, so the most recent downbeat is exactly
+  // that many pulses before the newest beat pulse.
+  const int32_t downbeat_pulses_back = best_bar;
+  tracker->downbeat_at_estimate_ms =
+      (double)(best_phase + downbeat_pulses_back * best_lag) * frames_to_ms;
+  double downbeat_elapsed =
+      fmod(tracker->downbeat_at_estimate_ms, bar_period_ms);
+  if (!isfinite(downbeat_elapsed) || downbeat_elapsed < 0.0) {
+    downbeat_elapsed = 0.0;
+  }
+  tracker->downbeat_elapsed_ms = downbeat_elapsed;
+  const double bar_margin = best_bar_score > 1e-9
+      ? clamp01((best_bar_score - second_bar_score) / best_bar_score)
+      : 0.0;
+  tracker->downbeat_confidence = tracker->confidence * clamp01(bar_margin * 2.0);
   publish_state(slot, tracker);
 }
 
@@ -359,6 +470,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     tracker->has_previous_db = 1;
     const float onset = (float)fmin(24.0, fmax(0.0, flux - 1.5));
     tracker->onset_history[tracker->history_write] = onset;
+    tracker->level_history[tracker->history_write] = (float)full_rms;
     tracker->history_write = (tracker->history_write + 1) % LIVE_HISTORY_FRAMES;
     if (tracker->history_count < LIVE_HISTORY_FRAMES) tracker->history_count++;
     tracker->samples_in_frame = 0;
@@ -384,9 +496,15 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     const double beat_period_ms = 60000.0 / tracker->bpm;
     tracker->phase_elapsed_ms = fmod(
         tracker->phase_at_estimate_ms + elapsed_ms, beat_period_ms);
-    if (!isfinite(tracker->phase_elapsed_ms) || tracker->phase_elapsed_ms < 0.0) {
+    tracker->downbeat_elapsed_ms = fmod(
+        tracker->downbeat_at_estimate_ms + elapsed_ms, beat_period_ms * 4.0);
+    if (!isfinite(tracker->phase_elapsed_ms) || tracker->phase_elapsed_ms < 0.0 ||
+        !isfinite(tracker->downbeat_elapsed_ms) ||
+        tracker->downbeat_elapsed_ms < 0.0) {
       tracker->confidence = 0.0;
+      tracker->downbeat_confidence = 0.0;
       tracker->phase_elapsed_ms = 0.0;
+      tracker->downbeat_elapsed_ms = 0.0;
     }
     publish_state(stream_slot, tracker);
   }
@@ -419,12 +537,21 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_get(
                                               memory_order_relaxed);
     const double confidence = atomic_load_explicit(&g_published[stream_slot][2],
                                                    memory_order_relaxed);
+    const double downbeat = atomic_load_explicit(&g_published[stream_slot][3],
+                                                 memory_order_relaxed);
+    const double downbeat_confidence = atomic_load_explicit(
+        &g_published[stream_slot][4], memory_order_relaxed);
+    const double trend = atomic_load_explicit(&g_published[stream_slot][5],
+                                              memory_order_relaxed);
     const uint32_t after = atomic_load_explicit(
         &g_published_version[stream_slot], memory_order_acquire);
     if (before == after) {
       output[0] = bpm;
       output[1] = phase;
       output[2] = confidence;
+      output[3] = downbeat;
+      output[4] = downbeat_confidence;
+      output[5] = trend;
       return 1;
     }
   }

@@ -64,11 +64,21 @@ import java.nio.ByteBuffer
  *  ExoPlayer audio threads wrote the same unsynchronized global state during
  *  crossfade, a genuine data race.
  */
-/** Confidence-gated beat estimate from one deck's decoded PCM stream. */
+/**
+ * Confidence-gated beat estimate from one deck's decoded PCM stream.
+ *
+ * [downbeatElapsedMs]/[downbeatConfidence] describe the 4/4 bar grid: elapsed
+ * time since the latest estimated downbeat and how much better that bar
+ * position scored than the runner-up. [activityTrend] compares the most recent
+ * history window's frame RMS with the window before it (positive = building).
+ */
 data class AutomixLiveBeatState(
     val bpm: Float,
     val phaseElapsedMs: Double,
     val confidence: Float,
+    val downbeatElapsedMs: Double = 0.0,
+    val downbeatConfidence: Float = 0f,
+    val activityTrend: Float = 0f,
 )
 
 @UnstableApi
@@ -133,11 +143,25 @@ class NativeDspAudioProcessor(
                 val bpm = values[0]
                 val phaseMs = values[1]
                 val confidence = values[2]
+                val downbeatMs = if (values.size >= 4) values[3] else 0.0
+                val downbeatConfidence = if (values.size >= 5) values[4] else 0.0
+                val activityTrend = if (values.size >= 6) values[5] else 0.0
                 if (!bpm.isFinite() || bpm !in 50.0..250.0 ||
                     !phaseMs.isFinite() || phaseMs < 0.0 ||
-                    !confidence.isFinite() || confidence !in 0.0..1.0
+                    !confidence.isFinite() || confidence !in 0.0..1.0 ||
+                    !downbeatMs.isFinite() || downbeatMs !in 0.0..20_000.0 ||
+                    !downbeatConfidence.isFinite() ||
+                    downbeatConfidence !in 0.0..1.0 ||
+                    !activityTrend.isFinite() || activityTrend !in -1.0..1.0
                 ) return null
-                AutomixLiveBeatState(bpm.toFloat(), phaseMs, confidence.toFloat())
+                AutomixLiveBeatState(
+                    bpm = bpm.toFloat(),
+                    phaseElapsedMs = phaseMs,
+                    confidence = confidence.toFloat(),
+                    downbeatElapsedMs = downbeatMs,
+                    downbeatConfidence = downbeatConfidence.toFloat(),
+                    activityTrend = activityTrend.toFloat(),
+                )
             } catch (_: LinkageError) {
                 null
             }

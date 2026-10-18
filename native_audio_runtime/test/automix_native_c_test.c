@@ -1188,8 +1188,97 @@ static void test_live_tracker_phase_follows_beat_grid(void) {
   assert(nar_automix_live_tracker_set_enabled(0) == 1);
 }
 
+static void test_live_tracker_publishes_downbeat_phase(void) {
+  // 120 BPM click train with a low-frequency accent every fourth beat, i.e. a
+  // 2 s bar. The stream ends 300 ms after the last click and 1800 ms after
+  // the last accent, so the downbeat output must follow the accent, not the
+  // most recent beat pulse.
+  const double pi = 3.14159265358979323846;
+  const int32_t sample_rate = 48000;
+  const int32_t chunk_frames = 512;
+  const int32_t total_frames = 566400;  // 11.8 s
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  float pcm[512 * 2];
+  int32_t produced = 0;
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t n = (int64_t)produced + i;
+      const double t = (double)n / sample_rate;
+      double value = 0.01 * sin(2.0 * pi * 300.0 * t);
+      const int64_t click_phase = n % 24000;
+      if (click_phase < 48) {
+        // A moderate click keeps its onset flux below the 24 dB history cap
+        // so the accented downbeat stays distinguishable after saturation.
+        value += 0.25 * (1.0 - (double)click_phase / 48.0) *
+            sin(2.0 * pi * 800.0 * t);
+      }
+      const int64_t accent_phase = n % 96000;
+      if (accent_phase < 48) {
+        value += 0.9 * (1.0 - (double)accent_phase / 48.0) *
+            sin(2.0 * pi * 100.0 * t);
+      }
+      pcm[i * 2] = (float)value;
+      pcm[i * 2 + 1] = (float)value;
+    }
+    assert(nar_automix_live_tracker_process(pcm, frames, 2, sample_rate, 0) ==
+           1);
+    produced += frames;
+  }
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[0] > 100.0 && state[0] < 140.0);
+  assert(state[1] > 240.0 && state[1] < 360.0);
+  assert(state[2] > 0.0);
+  assert(state[3] > 1740.0 && state[3] < 1860.0);
+  assert(state[4] > 0.0 && state[4] <= state[2] + 1e-9);
+  assert(state[4] >= 0.25 * state[2]);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
+static void test_live_tracker_reports_activity_trend(void) {
+  // Noise-only stream: 6 s quiet then 2.25 s loud. The final 1.5 s window is
+  // entirely loud while the window before it is half quiet, so the published
+  // trend must be clearly positive (a frame-RMS trend, not a level jump).
+  const int32_t sample_rate = 48000;
+  const int32_t total_frames = (int32_t)(sample_rate * 8.25);
+  unsigned long long seed = 0x9E3779B97F4A7C15ull;
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  float pcm[256 * 2];
+  int32_t produced = 0;
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < 256
+        ? (total_frames - produced)
+        : 256;
+    const double amplitude = produced < sample_rate * 6 ? 0.02 : 0.4;
+    for (int32_t i = 0; i < frames; ++i) {
+      seed ^= seed << 13;
+      seed ^= seed >> 7;
+      seed ^= seed << 17;
+      const double noise =
+          ((double)(seed >> 11) / 4503599627370496.0) * 2.0 - 1.0;
+      const float value = (float)(amplitude * noise);
+      pcm[i * 2] = value;
+      pcm[i * 2 + 1] = value;
+    }
+    assert(nar_automix_live_tracker_process(pcm, frames, 2, sample_rate, 0) ==
+           1);
+    produced += frames;
+  }
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[5] > 0.2 && state[5] <= 1.0);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 int main(void) {
   test_live_tracker_phase_follows_beat_grid();
+  test_live_tracker_publishes_downbeat_phase();
+  test_live_tracker_reports_activity_trend();
   test_live_tracker_requires_explicit_enable();
   test_live_tracker_disable_clears_live_state();
   test_live_tracker_reset_is_slot_local_during_processing();
