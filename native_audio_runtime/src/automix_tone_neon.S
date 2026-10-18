@@ -61,7 +61,7 @@ nar_automix_tone_process_stereo_neon:
     // Load and sanitize one interleaved L/R frame before updating IIR history.
     ld1     {v2.2s}, [x0]
     fabs    v3.2s, v2.2s
-    fcmle   v6.2s, v3.2s, v31.2s
+    fcmge   v6.2s, v31.2s, v3.2s
     movi    v3.2s, #0
     bsl     v6.8b, v2.8b, v3.8b
 
@@ -87,7 +87,7 @@ nar_automix_tone_process_stereo_neon:
     // Match the scalar C path: any non-finite processed sample becomes 0.
     // FMAX/FMIN alone are not a portable isfinite check for NaN/Inf.
     fabs    v7.2s, v3.2s
-    fcmle   v7.2s, v7.2s, v31.2s
+    fcmge   v7.2s, v31.2s, v7.2s
     movi    v2.2s, #0
     bsl     v7.8b, v3.8b, v2.8b
     mov     v3.8b, v7.8b
