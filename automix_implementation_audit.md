@@ -97,7 +97,7 @@ Yang tetap deferred: smoke/instrumentation test dual-player dengan PCM capture d
 
 ### NEW-4 (Sedang) — Suite C tidak dikompilasi di CI repo; tes disable vacuous ✅ Fixed
 
-**Lokasi:** `.github/workflows/native-tests.yml`, `native_audio_runtime/test/automix_native_c_test.c`.
+**Lokasi saat audit awal:** `.github/workflows/native-tests.yml`, `native_audio_runtime/test/automix_native_c_test.c`. Workflow kemudian dipindahkan ke `wandavenus/Noisegraph/.github/workflows/test-suite.yml` (job `native-c`).
 
 **Bukti / root cause:** workflow native hanya menjalankan `flutter test` (yang memuat library build eksternal/Noisegraph) — suite C in-repo (`automix_native_c_test.c` + sumber `automix_*`) tidak pernah dikompilasi langsung oleh repo ini. Selain itu, tes disable tracker lama hanya mengirim audio senyap, sehingga "state nol setelah disable" juga benar bila tracker memang tidak pernah menghasilkan apa pun — asersinya vacuous.
 
@@ -140,7 +140,7 @@ Tes `test_live_tracker_disable_clears_live_state` kini mengirim click train 120 
 - **Kotlin:** `CrossfadeControllerTest` — harness dapat mensimulasikan takeover eksternal (`activePlayerState`), menghitung `onCrossfadeCancelled`; tes baru **C11** (abort = cancel penuh) dan **C12** (completion penuh tanpa cancel).
 - **C native:** tes baru `test_live_tracker_disable_clears_live_state` (click train 120 BPM, tuple hidup → disable → nol, re-enable bersih).
 - **Dart:** tes integrasi baru untuk gate Bit-Perfect `analyzeLibrary`.
-- **CI (`native-tests.yml`):** langkah baru build+run suite C in-repo (x86_64 ASan/UBSan), plus build ARM64 + run `qemu-aarch64-static` agar jalur NEON dieksekusi.
+- **CI (setelah migrasi):** `wandavenus/Noisegraph/.github/workflows/test-suite.yml` job `native-c` menjalankan suite C in-repo (x86_64 ASan/UBSan), build ARM64 + `qemu-aarch64-static`, native runtime tests, dan benchmark. `run-noisegraph-tests.yml` men-dispatch `native-c` pada perubahan native source/test/pubspec.
 
 ## 5. Temuan positif (tidak berubah dari v1)
 
@@ -171,7 +171,14 @@ Tes `test_live_tracker_disable_clears_live_state` kini mengirim click train 120 
 Perubahan v2 ditulis di lingkungan tanpa toolchain (tidak ada `dart`/`flutter`/`clang`), sehingga **belum ada kompilasi/tes lokal** yang dijalankan untuk patch ini; verifikasi sintaks dilakukan lewat inspeksi dan pencocokan kontrak. Langkah verifikasi yang wajib dijalankan sebelum merge:
 
 1. `flutter analyze` + `flutter test test/services/automix_service`.
-2. Workflow `native-tests.yml` (dispatch manual) — kini mencakup suite C sanitizer dan run ARM64 qemu.
+2. Workflow Noisegraph `test-suite.yml`, job `native-c` — mencakup suite C sanitizer dan run ARM64 QEMU; perubahan native pada Dump otomatis men-dispatch job tersebut.
 3. Kotlin unit tests (task Gradle) untuk `CrossfadeControllerTest` baru.
 
 Untuk source SHA `f841a4a` (audit v1), bukti CI historis ada di [Noisegraph run 39029415905](https://github.com/wandavenus/Noisegraph/actions/runs/39029415905) (lima job sukses: dart, native-c, flutter, kotlin, android-arm64) dan build release di [run 39029852100](https://github.com/wandavenus/Noisegraph/actions/runs/39029852100). Patch v2 memerlukan run baru pada SHA hasil commit; status "hijau" run lama tidak berlaku untuk patch ini. Tidak ada pengujian playback langsung di perangkat fisik dan tidak ada pengukuran/capture PCM end-to-end dalam audit ini.
+
+## 8. Follow-up migrasi CI (18 Oktober 2026)
+
+- Suite yang sebelumnya ada di Dump `.github/workflows/native-tests.yml` telah digabung ke job `native-c` di [Noisegraph test-suite](https://github.com/wandavenus/Noisegraph/blob/main/.github/workflows/test-suite.yml).
+- Dump `run-noisegraph-tests.yml` kini men-dispatch suite `native-c` saat file di `native_audio_runtime/src/**`, `native_audio_runtime/test/**`, atau `native_audio_runtime/pubspec.yaml` berubah pada `main`. Workflow lama `native-tests.yml` dihapus agar tidak ada dua jalur yang tumpang tindih.
+- Kegagalan assembler ARM64 diperbaiki dengan mengganti `FCMLE` yang salah memakai register sebagai operand ketiga menjadi `FCMGE` dengan operand dibalik: `fcmge v6.2s, v31.2s, v3.2s` dan `fcmge v7.2s, v31.2s, v7.2s`. Ini mempertahankan pemeriksaan nilai absolut `<= FLT_MAX`, dan membuat instruksi valid untuk assembler AArch64.
+- Status validasi sesudah perubahan harus dibaca dari [Noisegraph Actions](https://github.com/wandavenus/Noisegraph/actions/workflows/test-suite.yml); temuan perbaikan sumber tidak dianggap lulus CI sebelum job ARM64 build dan QEMU benar-benar selesai.
