@@ -106,6 +106,62 @@ class AutomixTransitionPolicyTest {
     }
 
     @Test
+    fun `fade start snaps to the largest phrase boundary within tolerance`() {
+        // 120 BPM: beat 500 ms, 64/32/16/4-beat grids = 32/16/8/2 s.
+        assertEquals(
+            32_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(32_050L, 500.0, 0.0, 0.0),
+        )
+        assertEquals(
+            16_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(16_300L, 500.0, 0.0, 0.0),
+        )
+        assertEquals(
+            8_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(8_150L, 500.0, 0.0, 0.0),
+        )
+        assertEquals(
+            2_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(2_100L, 500.0, 0.0, 0.0),
+        )
+    }
+
+    @Test
+    fun `phrase snap honours the analyzed phrase phase`() {
+        // Downbeat phase 800 ms shifts every grid boundary by 800 ms.
+        assertEquals(
+            16_800L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(16_900L, 500.0, 800.0, 800.0),
+        )
+        // No boundary at/before the ideal start (grid starts at 800 ms) falls
+        // through without inventing a negative start.
+        assertEquals(
+            100L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(100L, 500.0, null, 800.0),
+        )
+    }
+
+    @Test
+    fun `phrase snap falls back to the legacy beat snap without a phrase phase`() {
+        assertEquals(
+            10_200L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(10_350L, 500.0, 200.0, null),
+        )
+        assertEquals(
+            10_350L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(10_350L, 500.0, null, null),
+        )
+        assertEquals(
+            10_350L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(10_350L, Double.NaN, 0.0, 0.0),
+        )
+        assertEquals(
+            10_350L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(10_350L, 0.0, 0.0, 0.0),
+        )
+    }
+
+    @Test
     fun `Dart transition fixture is parsed into the exact Media3 cue fields`() {
         val properties = Properties()
         val stream = javaClass.classLoader!!

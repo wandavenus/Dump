@@ -1,5 +1,7 @@
 package dev.wndavenz.music.automix
 
+import kotlin.math.floor
+
 /** Maps Dart's AutoMix strategy codes to the fade policy consumed by Media3. */
 internal object AutomixTransitionPolicy {
     const val CROSSFADE = 0
@@ -78,6 +80,53 @@ internal object AutomixTransitionPolicy {
         val elapsed = elapsedMediaMs.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
         return (elapsed / fadeDurationMs.toDouble()).coerceIn(0.0, 1.0).toFloat()
     }
+
+    /** Largest early shift the phrase snap may apply, in beats. */
+    const val PHRASE_SNAP_MAX_BEATS = 4.0
+
+    /**
+     * Snap a requested fade start back onto the largest musical boundary that
+     * stays within [PHRASE_SNAP_MAX_BEATS] beats: the 64-, 32-, 16- and
+     * 4-beat grids (phase-referenced to the analyzed phrase phase) first, then
+     * the single-beat grid with the legacy one-beat tolerance. Snapping only
+     * ever moves the start earlier — the same direction the beat-level snap
+     * already used — so the fade never eats into the configured overlap.
+     * Returns [idealStartMs] unchanged when no phase is reliable.
+     */
+    fun phraseAlignedStartMs(
+        idealStartMs: Long,
+        beatMs: Double,
+        beatOffsetMs: Double?,
+        downbeatOffsetMs: Double?,
+    ): Long {
+        if (!beatMs.isFinite() || beatMs <= 0.0) return idealStartMs
+        val ideal = idealStartMs.coerceAtLeast(0L).toDouble()
+        val maxShift = beatMs * PHRASE_SNAP_MAX_BEATS
+
+        fun snap(period: Double, phaseRaw: Double, tolerance: Double): Long? {
+            if (!period.isFinite() || period <= 0.0 || !phaseRaw.isFinite()) {
+                return null
+            }
+            val phase = ((phaseRaw % period) + period) % period
+            val boundary = phase + floor((ideal - phase) / period) * period
+            if (boundary < 0.0 || ideal - boundary > tolerance) return null
+            return boundary.toLong()
+        }
+
+        val downbeat = downbeatOffsetMs?.takeIf { it.isFinite() }
+        if (downbeat != null) {
+            for (beats in PHRASE_BEATS) {
+                snap(beatMs * beats, downbeat, maxShift)?.let { return it }
+            }
+        }
+        val beatPhase = beatOffsetMs?.takeIf { it.isFinite() }
+        if (beatPhase != null) {
+            snap(beatMs, beatPhase, beatMs * 1.05)?.let { return it }
+        }
+        return idealStartMs
+    }
+
+    private val PHRASE_BEATS = intArrayOf(64, 32, 16, 4)
 
     /** Monotonic-clock gate for periodic phase-lock measurements. */
     fun shouldSamplePhaseLock(nowMs: Long, lastSampleMs: Long, intervalMs: Long): Boolean =
