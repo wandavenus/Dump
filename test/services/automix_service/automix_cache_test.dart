@@ -66,7 +66,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 12,
+            'version': 13,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -77,6 +77,9 @@ void main() {
               'tbpm': 126.0,
               'tbo': 245123.0,
               'tdbo': 236400.5,
+              'sbpm': 126.5,
+              'ebpm': 127.5,
+              'tsta': 0.77,
               'dc': 30000.0,
               'tbkc': 232000.0,
               'dur': 240.0,
@@ -107,6 +110,9 @@ void main() {
         expect(features.tailBpm, 126.0);
         expect(features.tailBeatOffsetMs, 245123.0);
         expect(features.tailDownbeatOffsetMs, 236400.5);
+        expect(features.startBpm, 126.5);
+        expect(features.endBpm, 127.5);
+        expect(features.tempoStability, 0.77);
         expect(features.dropCueMs, 30000.0);
         expect(features.tailBreakdownCueMs, 232000.0);
         expect(features.durationSeconds, 240.0);
@@ -190,7 +196,7 @@ void main() {
         await prefs.setString(
           'automix_45',
           jsonEncode(<String, dynamic>{
-            'version': 12,
+            'version': 13,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 45,

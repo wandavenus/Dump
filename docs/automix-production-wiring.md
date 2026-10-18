@@ -5,12 +5,12 @@ This document records the production path verified during the follow-up audit fo
 ## 1. Analysis path and ABI
 
 1. Android `AutomixAnalysisBridge` decodes bounded head / middle / tail PCM windows through `AutomixPcmDownsampler`: a 2-pole Butterworth biquad low-pass runs at the source rate with cutoff $f_c = 0.45 \\times f_{output}$ before decimation. Stereo normally uses an L/R average, but falls back to the stronger channel when the mid signal is below 25% of the stronger channel to avoid near-total phase cancellation. It calls `AutomixNative.nativeAnalyze` for BPM/key/structure metadata and `nativeAnalyzeChords` for two-second chroma-template chord windows at a one-second hop.
-2. JNI (`automix_jni.cpp`) forwards the 21-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`, including explicit `tailBpmConfidence` (index 20).
+2. JNI (`automix_jni.cpp`) forwards the 24-value result contract from `nar_automix_analyze` in `native_audio_runtime/src/automix_analyzer.c`, including explicit `tailBpmConfidence` (index 20) and the tempo-curve slots: first/last quarter BPM (indices 21/22) and quarter-window stability (index 23). Stability is the mean octave-folded agreement of the four quarter-window tempo estimates with the whole-window estimate; consumers fold the quarter BPMs into the track BPM's octave at merge time.
 3. Kotlin maps the output slots to MethodChannel fields. The Dart parser `automixSegmentFeaturesFromAnalysisMap` validates types, finiteness, confidence ranges, key codes and cue offsets rather than silently dropping new fields.
-4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure, breakdown, and `tailBpmConfidence` metadata are kept distinct from head metadata.
-5. `AutomixService` persists these features using cache schema v12. Older entries are deliberately cache misses so legacy metadata cannot silently replace newly required fields.
+4. `automixMergeSegments` aggregates valid windows and converts window-relative cue positions to file-absolute milliseconds. Vocal likelihood uses confidence-weighted aggregation; tail-only structure, breakdown, and `tailBpmConfidence` metadata are kept distinct from head metadata; the head window supplies `startBpm` and, only when the tail window was actually analyzed, `endBpm` supplies the exit pulse.
+5. `AutomixService` persists these features using cache schema v13. Older entries are deliberately cache misses so legacy metadata cannot silently replace newly required fields.
 
-The ABI tests enforce the exact 21-value analyzer output, invalid/undersized input behavior, valid confidence ranges, the structure-region enum range, and strict silence/noise expectations. Vocal likelihood is a **spectral proxy**, not voice isolation: it is confidence-gated and tonal/broadband-noise edge cases are tested.
+The ABI tests enforce the exact 24-value analyzer output, invalid/undersized input behavior, valid confidence ranges, the structure-region enum range, the tempo-curve slot contract, and strict silence/noise expectations. Vocal likelihood is a **spectral proxy**, not voice isolation: it is confidence-gated and tonal/broadband-noise edge cases are tested.
 
 ## 2. Queue planning
 

@@ -98,6 +98,9 @@ class NativeAutomixAnalysis {
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.tailBpmConfidence = 0,
+    this.startBpm,
+    this.endBpm,
+    this.tempoStability,
   });
 
   final double? bpm;
@@ -121,6 +124,12 @@ class NativeAutomixAnalysis {
   final double vocalLikelihood;
   final double vocalConfidence;
   final double tailBpmConfidence;
+
+  /// Tempo-curve hints: first/last quarter BPM and 0..1 quarter-window
+  /// stability relative to the whole-window tempo estimate.
+  final double? startBpm;
+  final double? endBpm;
+  final double? tempoStability;
 }
 
 typedef NativeAutomixPcm = Float32List;

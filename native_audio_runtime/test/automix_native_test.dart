@@ -20,11 +20,16 @@ void main() {
       expect(result!.rmsDb, closeTo(-9.03, 1.0));
       expect(result.analyzedSeconds, closeTo(2.0, 1e-9));
       expect(result.onsetRate, greaterThanOrEqualTo(0));
-      // The analyzer ABI has 20 output slots. The FFI facade must pass the
+      // The analyzer ABI has 24 output slots. The FFI facade must pass the
       // full count or native rejects the call before writing any analysis.
       expect(result.bpmConfidence, inInclusiveRange(0.0, 1.0));
       expect(result.keyConfidence, inInclusiveRange(0.0, 1.0));
       expect(result.isMinor, isA<bool>());
+      // A 2-second clip is too short for the quarter-window tempo curve, so
+      // the extra slots must report unknown instead of zero-filled values.
+      expect(result.startBpm, isNull);
+      expect(result.endBpm, isNull);
+      expect(result.tempoStability, isNull);
     });
 
     test('rejects too-short input', () {

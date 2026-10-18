@@ -134,7 +134,7 @@ object AutomixAnalysis {
         ) ?: return null
         // Preserve the original analyzer ABI contract before doing extra work,
         // including when an older or mismatched native library is loaded.
-        if (analysis.size < 21) return null
+        if (analysis.size < 24) return null
 
         // The chord pass runs on the same bounded background analysis worker;
         // it is deliberately separate from the realtime playback callback.
@@ -183,6 +183,12 @@ object AutomixAnalysis {
         val bpm = optional(0)
         val bpmConfidence = analysis[1]
         val tailBpmConfidence = analysis.getOrNull(20)?.takeIf { it.isFinite() } ?: 0.0
+        // Tempo-curve slots: NaN when the quarter-window estimate did not
+        // reach publishing confidence, or for stability when it is unmeasurable.
+        val startBpm = optional(21)
+        val endBpm = optional(22)
+        val tempoStability = analysis.getOrNull(23)
+            ?.takeIf { it.isFinite() && it in 0.0..1.0 }
         val alternateBpm = optional(2)
         val beatOffsetMs = optional(3)
         val tonic = analysis[4].toInt()
@@ -219,6 +225,9 @@ object AutomixAnalysis {
             "vocalLikelihood" to analysis[18],
             "vocalConfidence" to analysis[19],
             "tailBpmConfidence" to tailBpmConfidence,
+            "startBpm" to startBpm,
+            "endBpm" to endBpm,
+            "tempoStability" to tempoStability,
             "chordProgression" to chordProgression,
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.

@@ -27,6 +27,11 @@ static void assert_analysis_confidence_contract(
          output[16] <= NAR_AUTOMIX_STRUCTURE_STABLE_HIGH);
   // This window's tail-tempo confidence is its own tempo confidence.
   assert(output[20] == output[1]);
+  // Tempo-curve slots use NaN for "not measurable"; when present they must be
+  // positive BPMs and a [0,1] stability.
+  assert(isnan(output[21]) || output[21] > 0.0);
+  assert(isnan(output[22]) || output[22] > 0.0);
+  assert(isnan(output[23]) || (output[23] >= 0.0 && output[23] <= 1.0));
 }
 
 static void test_analyzer_rms(void) {
@@ -593,6 +598,56 @@ static void test_chord_vocabulary_expansion(void) {
   free(pcm);
 }
 
+static void test_analyzer_tempo_curve(void) {
+  // Short percussive clicks give the ODF a clean autocorrelation peak.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 8;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+
+  const double steady_bpm = 128.0;
+  const int32_t steady_period =
+      (int32_t)(sample_rate * 60.0 / steady_bpm + 0.5);
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double value = 0.05 * sin(2.0 * pi * 220.0 * t);
+    const int32_t phase = i % steady_period;
+    if (phase < 32) {
+      value += 0.4 * (1.0 - (double)phase / 32.0) * sin(2.0 * pi * 900.0 * t);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[0] > 120.0 && output[0] < 136.0);
+  assert(output[21] > 120.0 && output[21] < 136.0);
+  assert(output[22] > 120.0 && output[22] < 136.0);
+  assert(output[23] > 0.6);
+
+  // First half at 128 BPM, second half at 96 BPM: the end-quarter estimate
+  // must follow the drift and stability must drop below the steady case.
+  const double slow_bpm = 96.0;
+  const int32_t slow_period = (int32_t)(sample_rate * 60.0 / slow_bpm + 0.5);
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double value = 0.05 * sin(2.0 * pi * 220.0 * t);
+    const int32_t period = i < count / 2 ? steady_period : slow_period;
+    const int32_t phase = i % period;
+    if (phase < 32) {
+      value += 0.4 * (1.0 - (double)phase / 32.0) * sin(2.0 * pi * 900.0 * t);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[21] > 120.0 && output[21] < 136.0);
+  assert(output[22] > 88.0 && output[22] < 104.0);
+  assert(output[23] < 0.4);
+  free(pcm);
+}
+
 static void test_phase_lock_factor(void) {
   // Incoming is a quarter beat ahead at 120 BPM; it must slow down by the cap.
   float factor = nar_automix_phase_lock_factor(
@@ -884,17 +939,24 @@ static void test_ffi_contract_and_bounds(void) {
   float pcm[44100] = {0};
   double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
 
-  // Undersized buffer must return 0; 20 is one value short of the ABI.
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, 20) == 0);
+  // Undersized buffer must return 0; 23 is one value short of the ABI.
+  assert(nar_automix_analyze(pcm, count, sample_rate, output, 23) == 0);
   // Null inputs must return 0
-  assert(nar_automix_analyze(NULL, count, sample_rate, output, 21) == 0);
-  assert(nar_automix_analyze(pcm, count, 0, output, 21) == 0);
-  assert(nar_automix_analyze(pcm, 100, sample_rate, output, 21) == 0);
+  assert(nar_automix_analyze(NULL, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
+  assert(nar_automix_analyze(pcm, count, 0, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
+  assert(nar_automix_analyze(pcm, 100, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 0);
 
   // Exact-sized buffer returns 1
-  assert(nar_automix_analyze(pcm, count, sample_rate, output, 21) == 1);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
   assert(isfinite(output[20]));
   assert(output[20] >= 0.0 && output[20] <= 1.0);
+  // 2 s of silence is below the minimum frame count for quarter-window
+  // estimates, so the tempo-curve slots must stay unknown.
+  assert(isnan(output[21]) && isnan(output[22]) && isnan(output[23]));
 
   // Planner bounds checks
   int64_t ids[2] = {1, 2};
@@ -1390,6 +1452,7 @@ int main(void) {
   test_planner_adaptive_energy_arc_lifts_loud_mids();
   test_chord_progression_analysis();
   test_analyzer_hpcp_key_detection();
+  test_analyzer_tempo_curve();
   test_chord_vocabulary_expansion();
   test_phase_lock_factor();
   test_phrase_lock();

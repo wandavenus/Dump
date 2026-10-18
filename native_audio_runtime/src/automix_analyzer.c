@@ -239,6 +239,14 @@ static void hpcp_add_frame(const float* magnitude, int32_t bin_count,
   }
 }
 
+static double folded_tempo_error(double a, double b) {
+  if (!isfinite(a) || !isfinite(b) || a <= 0.0 || b <= 0.0) return 1.0;
+  double error = fabs(log2_double(a / b));
+  error -= floor(error);
+  if (error > 0.5) error = 1.0 - error;
+  return error;
+}
+
 static TempoEstimate estimate_tempo(const float* odf, int32_t count,
                                    int32_t working_rate, double fps) {
   TempoEstimate result = {NAN, 0.0, 0};
@@ -591,6 +599,32 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     if (tempo.confidence >= 0.20) {
       output[3] = estimate_beat_phase_ms(odf, frame_count, sample_rate,
                                         tempo.bpm);
+    }
+  }
+  // 1. Tempo curve: quarter-window estimates describe how the pulse evolves
+  // across the file. The head/tail quarters publish their local estimate when
+  // it is confident enough; stability reports the mean octave-folded agreement
+  // with the whole-window estimate so drifting or half-time-flipping tracks
+  // score lower and consumers can avoid aggressive varispeed on them. Each
+  // quarter needs at least 1.5 s of frames for the local autocorrelation to be
+  // meaningful.
+  const int32_t curve_min_frames = 4 * (int32_t)round(1.5 * fps);
+  if (tempo.valid && frame_count >= curve_min_frames) {
+    const int32_t quarter = frame_count / 4;
+    double error_sum = 0.0;
+    int32_t error_count = 0;
+    for (int32_t index = 0; index < 4; ++index) {
+      const TempoEstimate local = estimate_tempo(
+          odf + (size_t)index * quarter, quarter, sample_rate, fps);
+      if (!local.valid || local.confidence < 0.35) continue;
+      error_sum += folded_tempo_error(local.bpm, tempo.bpm);
+      error_count++;
+      if (index == 0) output[21] = local.bpm;
+      if (index == 3) output[22] = local.bpm;
+    }
+    if (error_count > 0) {
+      const double mean_error = error_sum / error_count;
+      output[23] = fmin(1.0, fmax(0.0, 1.0 - mean_error / 0.05));
     }
   }
   int32_t tonic = -1;

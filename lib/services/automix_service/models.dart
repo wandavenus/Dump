@@ -110,6 +110,9 @@ class AutomixSegmentFeatures {
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.tailBpmConfidence = 0,
+    this.startBpm,
+    this.endBpm,
+    this.tempoStability,
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -151,6 +154,15 @@ class AutomixSegmentFeatures {
 
   final double tailBpmConfidence;
 
+  /// Tempo-curve hints for this window: the first and last quarter's tempo
+  /// estimate when it matched the window's whole-window tempo family. Null
+  /// means the estimate was not confident enough or octave-disagreeing.
+  final double? startBpm;
+  final double? endBpm;
+
+  /// 0..1 mean quarter-window agreement with the whole-window tempo estimate.
+  final double? tempoStability;
+
   final int? camelotNumber;
   final bool? camelotMinor;
   final double keyConfidence;
@@ -184,9 +196,19 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     return value != null && value >= 0 && value <= 1 ? value : 0;
   }
 
-  double? nonNegativeValue(String key) {
+  final double? nonNegativeValue(String key) {
     final value = finiteValue(key);
     return value != null && value >= 0 ? value : null;
+  }
+
+  double? positiveBpm(String key) {
+    final value = finiteValue(key);
+    return value != null && value > 0 ? value : null;
+  }
+
+  double? unitOrNull(String key) {
+    final value = finiteValue(key);
+    return value != null && value >= 0 && value <= 1 ? value : null;
   }
 
   int structureValue(String key) {
@@ -251,6 +273,9 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     vocalLikelihood: unitValue('vocalLikelihood'),
     vocalConfidence: unitValue('vocalConfidence'),
     tailBpmConfidence: unitValue('tailBpmConfidence'),
+    startBpm: positiveBpm('startBpm'),
+    endBpm: positiveBpm('endBpm'),
+    tempoStability: unitOrNull('tempoStability'),
     camelotNumber: hasConfidentKey ? camelotNumber : null,
     camelotMinor: hasConfidentKey ? parsedCamelotMinor : null,
     keyConfidence: hasConfidentKey ? rawKeyConfidence : 0,
@@ -280,6 +305,9 @@ class AutomixTrackFeatures {
     this.onsetRate,
     this.tailBpm,
     this.tailBpmConfidence = 0,
+    this.startBpm,
+    this.endBpm,
+    this.tempoStability,
     this.tailBeatOffsetMs,
     this.downbeatOffsetMs,
     this.tailDownbeatOffsetMs,
@@ -375,6 +403,13 @@ class AutomixTrackFeatures {
   final double tailBpmConfidence;
   final double? tailBeatOffsetMs;
 
+  /// Tempo curve across the analyzed windows: outward pulse at the head and
+  /// tail (folded into [bpm]'s octave) plus the mean window stability. Null
+  /// when no window produced a confident, tempo-family-matching estimate.
+  final double? startBpm;
+  final double? endBpm;
+  final double? tempoStability;
+
   /// 0..1 energy of the first/last analyzed window relative to the loudest
   /// window of the same track — the coarse "structure" signal used to pick the
   /// fade length and curve.
@@ -427,6 +462,9 @@ class AutomixTrackFeatures {
     if (tailBpm != null) 'tbpm': tailBpm,
     if (tailBpmConfidence > 0) 'tbc': tailBpmConfidence,
     if (tailBeatOffsetMs != null) 'tbo': tailBeatOffsetMs,
+    if (startBpm != null) 'sbpm': startBpm,
+    if (endBpm != null) 'ebpm': endBpm,
+    if (tempoStability != null) 'tsta': tempoStability,
     if (introRmsDb != null) 'irms': introRmsDb,
     if (outroRmsDb != null) 'orms': outroRmsDb,
     if (introEnergy != null) 'ie': introEnergy,
@@ -471,6 +509,9 @@ class AutomixTrackFeatures {
       tailBpm: (map['tbpm'] as num?)?.toDouble(),
       tailBpmConfidence: (map['tbc'] as num?)?.toDouble() ?? 0,
       tailBeatOffsetMs: (map['tbo'] as num?)?.toDouble(),
+      startBpm: (map['sbpm'] as num?)?.toDouble(),
+      endBpm: (map['ebpm'] as num?)?.toDouble(),
+      tempoStability: (map['tsta'] as num?)?.toDouble(),
       introRmsDb: (map['irms'] as num?)?.toDouble(),
       outroRmsDb: (map['orms'] as num?)?.toDouble(),
       introEnergy: (map['ie'] as num?)?.toDouble(),
