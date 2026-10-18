@@ -483,9 +483,10 @@ static void test_chord_progression_analysis(void) {
   assert(rows >= 2 && rows <= 4);
   assert(chords[0] >= 0.0);
   assert(chords[1] == 0.0);  // C pitch class remains the leading root.
-  // FFT-bin leakage can make a pure triad look like an added seventh, so
-  // assert the supported quality range instead of requiring one exact label.
-  assert(chords[2] >= 0.0 && chords[2] <= 7.0);
+  // FFT-bin leakage and HPCP harmonic folding can add harmonic extensions to a
+  // pure triad (E's third harmonic is B, i.e. a major-7 colour), so assert the
+  // supported quality range instead of requiring one exact label.
+  assert(chords[2] >= 0.0 && chords[2] <= 11.0);
   assert(isfinite(chords[3]) && chords[3] >= 0.08 && chords[3] <= 1.0);
 
   // Invalid inputs must fail safely; short windows do not invent a chord.
@@ -501,6 +502,95 @@ static void test_chord_progression_analysis(void) {
       silence, sample_rate * 2, sample_rate, chords, 4);
   assert(silent_rows == 1);
   assert(chords[1] == -1.0 && chords[2] == -1.0 && chords[3] == 0.0);
+}
+
+static void render_tones(float* pcm, int32_t count, int32_t sample_rate,
+                         const double* frequencies, const double* amplitudes,
+                         int32_t tone_count) {
+  const double pi = 3.14159265358979323846;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double value = 0.0;
+    for (int32_t tone = 0; tone < tone_count; ++tone) {
+      value += amplitudes[tone] * sin(2.0 * pi * frequencies[tone] * t);
+    }
+    pcm[i] = (float)value;
+  }
+}
+
+static void test_analyzer_hpcp_key_detection(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 4;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+
+  const double equal_tones[4] = {0.2, 0.2, 0.2, 0.2};
+  const double c_major_triad[3] = {261.6256, 329.6276, 391.9954};
+  render_tones(pcm, count, sample_rate, c_major_triad, equal_tones, 3);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[4] == 0.0);  // C
+  assert(output[5] == 0.0);  // major
+  assert(output[6] > 0.2);
+
+  const double a_minor_triad[3] = {220.0, 261.6256, 329.6276};
+  render_tones(pcm, count, sample_rate, a_minor_triad, equal_tones, 3);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[4] == 9.0);  // A
+  assert(output[5] == 1.0);  // minor
+  assert(output[6] > 0.5);
+
+  // A triad detuned +35 cents must stay on the same key: the HPCP tolerance
+  // window keeps the energy on the intended class instead of bleeding across
+  // the halfway point between classes the way plain bin interpolation does.
+  const double detune = 1.02043;  // 2^(35/1200)
+  const double c_major_sharp[3] = {
+      261.6256 * detune, 329.6276 * detune, 391.9954 * detune};
+  render_tones(pcm, count, sample_rate, c_major_sharp, equal_tones, 3);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[4] == 0.0);
+  assert(output[5] == 0.0);
+  free(pcm);
+}
+
+static void test_chord_vocabulary_expansion(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 4;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double equal_tones[4] = {0.2, 0.2, 0.2, 0.2};
+  const double bass_lead[4] = {0.3, 0.18, 0.18, 0.18};
+  double chords[16] = {0};
+
+  // G dominant 7 (G B D F) exercises quality id 4.
+  const double g_dom_7[4] = {196.0, 246.9417, 293.6648, 349.2282};
+  render_tones(pcm, count, sample_rate, g_dom_7, equal_tones, 4);
+  assert(nar_automix_analyze_chords(pcm, count, sample_rate, chords, 16) >= 1);
+  assert(chords[1] == 7.0 && chords[2] == 4.0);
+  assert(chords[3] > 0.4);
+
+  // D minor 7 (D F A C) exercises quality id 6.
+  const double d_min_7[4] = {146.8324, 174.6141, 220.0, 261.6256};
+  render_tones(pcm, count, sample_rate, d_min_7, equal_tones, 4);
+  assert(nar_automix_analyze_chords(pcm, count, sample_rate, chords, 16) >= 1);
+  assert(chords[1] == 2.0 && chords[2] == 6.0);
+
+  // B half-diminished 7 (B D F A) exercises quality id 9.
+  const double b_half_dim[4] = {246.9417, 293.6648, 349.2282, 440.0};
+  render_tones(pcm, count, sample_rate, b_half_dim, equal_tones, 4);
+  assert(nar_automix_analyze_chords(pcm, count, sample_rate, chords, 16) >= 1);
+  assert(chords[1] == 11.0 && chords[2] == 9.0);
+
+  // C suspended 2 with a doubled bass root disambiguates the Csus2/Gsus4
+  // pitch-class set in favour of quality id 8.
+  const double c_sus2_root[4] = {130.8128, 261.6256, 293.6648, 391.9954};
+  render_tones(pcm, count, sample_rate, c_sus2_root, bass_lead, 4);
+  assert(nar_automix_analyze_chords(pcm, count, sample_rate, chords, 16) >= 1);
+  assert(chords[1] == 0.0 && chords[2] == 8.0);
+  free(pcm);
 }
 
 static void test_phase_lock_factor(void) {
@@ -1299,6 +1389,8 @@ int main(void) {
   test_planner_relocation_polish_improves_local_optimum();
   test_planner_adaptive_energy_arc_lifts_loud_mids();
   test_chord_progression_analysis();
+  test_analyzer_hpcp_key_detection();
+  test_chord_vocabulary_expansion();
   test_phase_lock_factor();
   test_phrase_lock();
   test_edge_cases_silence_and_noise();

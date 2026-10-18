@@ -244,6 +244,19 @@ void main() {
               'confidence': 0.99,
             },
             <String, Object>{
+              'startMs': 4400,
+              'rootPitchClass': 11,
+              'quality': 'm7b5',
+              'label': 'Bm7b5',
+              'confidence': 0.77,
+            },
+            <String, Object>{
+              'startMs': 4800,
+              'rootPitchClass': 5,
+              'quality': 'sus2',
+              'confidence': 0.66,
+            },
+            <String, Object>{
               'startMs': 5000,
               'rootPitchClass': 9,
               'quality': 'min',
@@ -255,11 +268,12 @@ void main() {
         fallbackSeconds: 120,
       );
 
-      expect(segment.chordProgression, hasLength(2));
+      expect(segment.chordProgression, hasLength(4));
       expect(segment.chordProgression.first.label, 'Cmaj');
-      expect(segment.chordProgression.last.root, 'G');
-      expect(segment.chordProgression.last.label, 'Gmin');
-      expect(segment.chordProgression.last.confidence, 0.83);
+      expect(segment.chordProgression[1].label, 'Gmin');
+      expect(segment.chordProgression[1].confidence, 0.83);
+      expect(segment.chordProgression[2].label, 'Bm7b5');
+      expect(segment.chordProgression[3].label, 'Fsus2');
     });
 
     test('uses neutral fallbacks for malformed field types', () {

@@ -43,8 +43,11 @@ class AutomixChordEvent {
 const List<String> _automixPitchNames = <String>[
   'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
 ];
+// Must mirror the chordQualities table in AutomixAnalysisBridge.kt, which
+// mirrors the quality ids produced by nar_automix_analyze_chords.
 const Set<String> _automixChordQualities = <String>{
   'maj', 'min', 'dim', 'aug', '7', 'maj7', 'min7', 'sus4',
+  'sus2', 'm7b5', 'dim7', 'aug7',
 };
 
 /// Parses native or cached chord rows defensively. Malformed/low-confidence

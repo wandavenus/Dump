@@ -144,7 +144,12 @@ object AutomixAnalysis {
             null // Fail open if this process loaded an older native library.
         }
         val pitchNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-        val chordQualities = arrayOf("maj", "min", "dim", "aug", "7", "maj7", "min7", "sus4")
+        // Quality id order must match nar_automix_analyze_chords and the
+        // _automixChordQualities set in lib/services/automix_service/models.dart.
+        val chordQualities = arrayOf(
+            "maj", "min", "dim", "aug", "7", "maj7", "min7", "sus4",
+            "sus2", "m7b5", "dim7", "aug7",
+        )
         val chordProgression = if (chordValues != null && chordValues.size % 4 == 0) {
             (0 until chordValues.size step 4).mapNotNull { index ->
                 val startMs = chordValues[index]
