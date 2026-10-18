@@ -1360,6 +1360,17 @@ class AutomixService {
       return -1;
     }
 
+
+    if (automixActive.value) {
+      // This one-shot entry does not retain a snapshot of the live native
+      // targets, so it must not overwrite a transition owned by an active run.
+      LogService.verbose(
+        'Automix',
+        'startAutomix ignored: an AutoMix session is already active',
+      );
+      return -1;
+    }
+
     if (kIsWeb || playlist.length < 3) {
       // Informational only: the bounded plan below still applies to a tiny
       // list; it simply has very little to reorder.
@@ -1369,6 +1380,7 @@ class AutomixService {
       );
     }
 
+    var sideEffectsStarted = false;
     try {
       // Rotate from the selected song, then run the same bounded window used by
       // automatic replanning. Tracks beyond the window retain their cyclic source
@@ -1415,14 +1427,10 @@ class AutomixService {
           : (settings.value.crossfadeBeats * 60.0 / firstBpm)
                 .clamp(2.0, 16.0)
                 .toDouble();
-      // The whole playlist is already sequenced: record it as the live plan so
-      // the automatic pipeline refreshes deck targets instead of sequencing the
-      // same queue a second time, and ship only the near deck targets (native
-      // reads them per song id anyway).
-      _plannedTail = sequenced
-          .map((song) => song.id)
-          .skip(1)
-          .toList(growable: false);
+      // Side effects begin here. If a later channel operation throws while this
+      // generation still owns the session, the catch path clears the partial
+      // transition and restores the user's crossfade.
+      sideEffectsStarted = true;
       await _engageCrossfade(fadeSeconds);
       if (!_isAutoMixGenerationCurrent(generation)) return -1;
       final targets = automixImmediateTransitionTargets(
@@ -1436,26 +1444,34 @@ class AutomixService {
         targets: targets,
       );
       if (!_isAutoMixGenerationCurrent(generation)) return -1;
-      // Remember what native holds so the automatic pipeline refreshes deck
-      // targets instead of re-pushing the identical plan (which would rebuild
-      // the standby decoder for nothing).
+      await AudioService.playSongAt(
+        playlist: sequenced,
+        index: 0,
+        autoplay: true,
+      );
+      if (!_isAutoMixGenerationCurrent(generation)) return -1;
+      // Commit the queue plan cache only after the playback handoff completes.
+      _plannedTail = sequenced
+          .map((song) => song.id)
+          .skip(1)
+          .toList(growable: false);
       _lastNativeSignature = _nativePlanSignature(
         sequencedFeatures.first.songId,
         fadeSeconds,
         targets,
       );
       _replanRetryCount = 0;
-      await AudioService.playSongAt(
-        playlist: sequenced,
-        index: 0,
-        autoplay: true,
-      );
       return sequenced.length;
     } on Object catch (e, st) {
-      // A throwing native planner or channel failure must not escape to the
-      // caller as an unhandled error or leave a half-applied plan behind.
       LogService.warn('Automix', 'startAutomix failed: $e');
       LogService.verbose('Automix', st.toString());
+      // Do not let a failed native setup leave crossfade or transition targets
+      // half-applied. A newer generation (disable, Bit-Perfect, or queue switch)
+      // owns its own cleanup and must never be undone by this stale operation.
+      if (sideEffectsStarted && _automixGeneration == generation) {
+        final rollbackGeneration = ++_automixGeneration;
+        await _disableAutomix(rollbackGeneration);
+      }
       return -1;
     }
   }
