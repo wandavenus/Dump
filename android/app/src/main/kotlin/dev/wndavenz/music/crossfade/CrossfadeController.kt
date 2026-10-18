@@ -7,6 +7,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.wndavenz.music.automix.AutomixGainEnvelope
+import dev.wndavenz.music.automix.AutomixGridMerge
 import dev.wndavenz.music.automix.AutomixPhaseLock
 import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
@@ -149,6 +150,9 @@ class CrossfadeController(
          */
         const val PHASE_LOCK_INTERVAL_MS = 64L
         const val LIVE_BEAT_MIN_CONFIDENCE = 0.30f
+
+        /** Minimum live downbeat confidence before it can drive phrase lock. */
+        const val LIVE_DOWNBEAT_MIN_CONFIDENCE = 0.30f
 
         /** Most high band the outgoing tail filter may remove (-12 dB). */
         const val MAX_TAIL_FILTER = 0.75f
@@ -870,19 +874,33 @@ class CrossfadeController(
                         )
                     ) {
                         lastPhaseLockAt = now
-                        val oldLive = getAutoMixLiveBeatStateForPlayer(oldPlayer)
-                            ?.takeIf { it.confidence >= LIVE_BEAT_MIN_CONFIDENCE }
-                        val newLive = getAutoMixLiveBeatStateForPlayer(newPlayer)
-                            ?.takeIf { it.confidence >= LIVE_BEAT_MIN_CONFIDENCE }
-                        val useLivePhase = oldLive != null && newLive != null
-                        val oldBpm = if (useLivePhase) oldLive!!.bpm else getAutoMixBpmForPlayer(oldPlayer)
-                        val oldOffset = if (useLivePhase) 0L else getAutoMixBeatOffsetMsForPlayer(oldPlayer)
-                        val newBpm = if (useLivePhase) newLive!!.bpm else getAutoMixBpmForPlayer(newPlayer)
-                        val newOffset = if (useLivePhase) 0L else getAutoMixBeatOffsetMsForPlayer(newPlayer)
-                        if (oldBpm != null && oldOffset != null &&
-                            newBpm != null && newOffset != null &&
-                            oldBpm > 0f && newBpm > 0f
-                        ) {
+                        // Merge the offline analyzer grid and the live tracker
+                        // estimate per deck: agreeing tempos blend by weight,
+                        // phases prefer the live measurement when both sources
+                        // agree and the heavier source when they do not.
+                        val oldGrid = AutomixGridMerge.mergeDeck(
+                            live = getAutoMixLiveBeatStateForPlayer(oldPlayer),
+                            liveBeatMinConfidence = LIVE_BEAT_MIN_CONFIDENCE,
+                            liveDownbeatMinConfidence = LIVE_DOWNBEAT_MIN_CONFIDENCE,
+                            offlineBpm = getAutoMixBpmForPlayer(oldPlayer),
+                            offlinePositionMs = oldPlayer.currentPosition.toDouble(),
+                            offlineBeatOffsetMs =
+                                getAutoMixBeatOffsetMsForPlayer(oldPlayer)?.toDouble(),
+                            offlineDownbeatOffsetMs =
+                                getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)?.toDouble(),
+                        )
+                        val newGrid = AutomixGridMerge.mergeDeck(
+                            live = getAutoMixLiveBeatStateForPlayer(newPlayer),
+                            liveBeatMinConfidence = LIVE_BEAT_MIN_CONFIDENCE,
+                            liveDownbeatMinConfidence = LIVE_DOWNBEAT_MIN_CONFIDENCE,
+                            offlineBpm = getAutoMixBpmForPlayer(newPlayer),
+                            offlinePositionMs = newPlayer.currentPosition.toDouble(),
+                            offlineBeatOffsetMs =
+                                getAutoMixBeatOffsetMsForPlayer(newPlayer)?.toDouble(),
+                            offlineDownbeatOffsetMs =
+                                getAutoMixDownbeatOffsetMsForPlayer(newPlayer)?.toDouble(),
+                        )
+                        if (oldGrid != null && newGrid != null) {
                             // Convert the remaining outgoing source-media horizon to wall
                             // time, then into incoming source-media time. Read both applied
                             // speeds every sample so speed changes during a blend are tracked.
@@ -897,23 +915,22 @@ class CrossfadeController(
                             ).toDouble()
                             val remainingMediaMs =
                                 (remainingOutgoingMediaMs / outgoingSpeed) * incomingSpeed
-                            val oldDownbeat = if (useLivePhase) null
-                                else getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)
-                            val newDownbeat = if (useLivePhase) null
-                                else getAutoMixDownbeatOffsetMsForPlayer(newPlayer)
+                            val oldDownbeatPosition = oldGrid.downbeatPositionMs
+                            val newDownbeatPosition = newGrid.downbeatPositionMs
 
-                            // Prefer bar/phrase alignment when both tracks have
-                            // confident downbeat grids. Fall back to the existing
-                            // beat-level correction whenever either grid is absent.
+                            // Prefer bar/phrase alignment when both decks have a
+                            // confident downbeat grid — live downbeats included.
+                            // Fall back to the beat-level correction whenever
+                            // either grid is absent.
                             val phraseFactor =
-                                if (oldDownbeat != null && newDownbeat != null) {
+                                if (oldDownbeatPosition != null && newDownbeatPosition != null) {
                                     AutomixPhaseLock.phraseFactorFor(
-                                        outgoingPositionMs = oldPlayer.currentPosition.toDouble(),
-                                        outgoingDownbeatOffsetMs = oldDownbeat.toDouble(),
-                                        outgoingBpm = oldBpm.toDouble(),
-                                        incomingPositionMs = newPlayer.currentPosition.toDouble(),
-                                        incomingDownbeatOffsetMs = newDownbeat.toDouble(),
-                                        incomingBpm = newBpm.toDouble(),
+                                        outgoingPositionMs = oldDownbeatPosition,
+                                        outgoingDownbeatOffsetMs = oldGrid.downbeatOffsetMs,
+                                        outgoingBpm = oldGrid.bpm,
+                                        incomingPositionMs = newDownbeatPosition,
+                                        incomingDownbeatOffsetMs = newGrid.downbeatOffsetMs,
+                                        incomingBpm = newGrid.bpm,
                                         remainingMs = remainingMediaMs,
                                         beatsPerPhrase = 16,
                                     )
@@ -921,14 +938,12 @@ class CrossfadeController(
                                     null
                                 }
                             val tempoFactor = phraseFactor ?: AutomixPhaseLock.factorFor(
-                                outgoingPositionMs = if (useLivePhase) oldLive!!.phaseElapsedMs
-                                    else oldPlayer.currentPosition.toDouble(),
-                                outgoingPhaseOffsetMs = if (useLivePhase) 0.0 else oldOffset.toDouble(),
-                                outgoingBpm = oldBpm.toDouble(),
-                                incomingPositionMs = if (useLivePhase) newLive!!.phaseElapsedMs
-                                    else newPlayer.currentPosition.toDouble(),
-                                incomingPhaseOffsetMs = if (useLivePhase) 0.0 else newOffset.toDouble(),
-                                incomingBpm = newBpm.toDouble(),
+                                outgoingPositionMs = oldGrid.beatPositionMs,
+                                outgoingPhaseOffsetMs = oldGrid.beatOffsetMs,
+                                outgoingBpm = oldGrid.bpm,
+                                incomingPositionMs = newGrid.beatPositionMs,
+                                incomingPhaseOffsetMs = newGrid.beatOffsetMs,
+                                incomingBpm = newGrid.bpm,
                                 remainingMs = remainingMediaMs,
                             )
                             if (tempoFactor != null) {
