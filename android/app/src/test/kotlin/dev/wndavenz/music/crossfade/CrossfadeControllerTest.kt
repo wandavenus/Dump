@@ -556,6 +556,25 @@ class CrossfadeControllerTest {
         assertFalse("stale cue must not cut the current track early", ctrl.crossfadeInProgress)
     }
 
+    @Test fun `F11 outgoing EOS completes crossfade and runs queue restoration callback`() {
+        val ctrl = makeControllerWithImmediateTrigger()
+        ctrl.maybeCrossfadeOut()
+        assertTrue(ctrl.crossfadeInProgress)
+        assertEquals(1, pendingHandlerTasks.size)
+
+        // Simulate the outgoing track ending a little before the last fade tick.
+        whenever(mockActivePlayer.playbackState).thenReturn(Player.STATE_ENDED)
+        whenever(mockActivePlayer.isPlaying).thenReturn(false)
+        testClockMs += 16L
+
+        pendingHandlerTasks.removeFirst().run()
+
+        assertFalse("EOS must not leave the crossfade stuck", ctrl.crossfadeInProgress)
+        assertEquals("completion callback restores the full native queue", 1, crossfadeCompleteCalls)
+        verify(mockActivePlayer).stop()
+        verify(mockActivePlayer).clearMediaItems()
+    }
+
     @Test fun `F08 cancel after beginCrossfade resets all flags`() {
         val ctrl = makeControllerWithImmediateTrigger()
         ctrl.maybeCrossfadeOut()

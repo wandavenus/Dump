@@ -709,21 +709,30 @@ class CrossfadeController(
                 }
 
                 val nowForProgress = monotonicClockMs()
-                // A wall-clock tick is not proof that media advanced. Freeze the
-                // envelope while either deck is paused/buffering, and discard that
-                // interval so recovery cannot cause a large catch-up jump.
-                val bothDecksAdvancing = oldPlayer.isPlaying && newPlayer.isPlaying
-                val wallDeltaMs = if (bothDecksAdvancing && nowForProgress >= lastFadeTickAtMs) {
-                    nowForProgress - lastFadeTickAtMs
+                // If the outgoing deck reaches EOS before the last fade tick,
+                // it can no longer contribute audio. Finish the handoff instead
+                // of freezing the fade forever on oldPlayer.isPlaying == false;
+                // otherwise onCrossfadeComplete() never restores the full queue.
+                val outgoingEnded = oldPlayer.playbackState == Player.STATE_ENDED
+                if (outgoingEnded) {
+                    elapsedMediaMs = effectiveDurationMs.toDouble()
                 } else {
-                    0L
+                    // A wall-clock tick is not proof that media advanced. Freeze the
+                    // envelope while either deck is paused/buffering, and discard that
+                    // interval so recovery cannot cause a large catch-up jump.
+                    val bothDecksAdvancing = oldPlayer.isPlaying && newPlayer.isPlaying
+                    val wallDeltaMs = if (bothDecksAdvancing && nowForProgress >= lastFadeTickAtMs) {
+                        nowForProgress - lastFadeTickAtMs
+                    } else {
+                        0L
+                    }
+                    elapsedMediaMs = AutomixTransitionPolicy.advanceMediaTimeline(
+                        elapsedMediaMs,
+                        wallDeltaMs,
+                        getMediaPlaybackSpeedForPlayer(oldPlayer),
+                    )
                 }
                 if (nowForProgress >= lastFadeTickAtMs) lastFadeTickAtMs = nowForProgress
-                elapsedMediaMs = AutomixTransitionPolicy.advanceMediaTimeline(
-                    elapsedMediaMs,
-                    wallDeltaMs,
-                    getMediaPlaybackSpeedForPlayer(oldPlayer),
-                )
                 val t = AutomixTransitionPolicy.mediaTimelineProgress(
                     elapsedMediaMs,
                     effectiveDurationMs,
