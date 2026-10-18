@@ -211,6 +211,222 @@ static void test_planner_penalizes_energy_seam(void) {
 }
 
 
+static void test_planner_prefers_calm_structural_seam(void) {
+  const int64_t ids[] = {1, 2, 3};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+  // Track 0 exits on a drop. Track 1 enters on a drop as well and has the
+  // smaller song id; track 2 enters on a buildup. Only the structural seam
+  // term separates them, so the planner must hand over into track 2.
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_TAIL_STRUCTURE_REGION] =
+      (double)NAR_AUTOMIX_STRUCTURE_DROP;
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_TAIL_STRUCTURE_CONFIDENCE] = 0.9;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_STRUCTURE_REGION] =
+      (double)NAR_AUTOMIX_STRUCTURE_DROP;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_STRUCTURE_CONFIDENCE] = 0.9;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_STRUCTURE_REGION] =
+      (double)NAR_AUTOMIX_STRUCTURE_BUILDUP;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_STRUCTURE_CONFIDENCE] = 0.9;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 2);
+  assert(order[2] == 1);
+}
+
+static void test_planner_ignores_unconfident_structure(void) {
+  const int64_t ids[] = {1, 2, 3};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+  // Same shape as the confident-seam test, but every structure label is below
+  // the 0.5 confidence gate: the term must stay neutral and the smaller song
+  // id (track 1) keeps the tie.
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_TAIL_STRUCTURE_REGION] =
+      (double)NAR_AUTOMIX_STRUCTURE_DROP;
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_TAIL_STRUCTURE_CONFIDENCE] = 0.3;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_STRUCTURE_REGION] =
+      (double)NAR_AUTOMIX_STRUCTURE_DROP;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_STRUCTURE_CONFIDENCE] = 0.3;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_STRUCTURE_REGION] =
+      (double)NAR_AUTOMIX_STRUCTURE_BUILDUP;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_STRUCTURE_CONFIDENCE] = 0.3;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 1);
+  assert(order[2] == 2);
+}
+
+static void test_planner_spreads_repeated_artists(void) {
+  // Tracks 0 and 2 share artist X, tracks 1 and 3 share artist Y; every
+  // transition costs the same, so only the artist cooldown can break the
+  // id-ordered tie. Without the cooldown the planner would chain
+  // X, Y, X (id 3), Y (id 4); with it, the X at distance 2 yields to the
+  // unlabeled Z and the repeat lands four positions after the first X.
+  const int64_t ids[] = {1, 2, 3, 4};
+  const int32_t artists[] = {7, 8, 7, 9};
+  double features[4 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[4 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 4 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 4; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+
+  int32_t order[4];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 4, 0, 0.06, 16,
+                              1, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 1);
+  assert(order[2] == 3);
+  assert(order[3] == 2);
+}
+
+static void test_planner_relocation_polish_improves_local_optimum(void) {
+  // Frozen fixture (xorshift seed 2) where the greedy chain plus the bounded
+  // swap scan is a local optimum that single-track relocation moves escape.
+  // The swap-only baseline scores 0.2661114 on this fixture; relocation and
+  // short reversals bring it under the asserted bound. The fixture embeds the
+  // probe generator so the regression stays reproducible without recordings.
+  unsigned long long state = 2ull * 2654435761ull + 1ull;
+  int64_t ids[30];
+  int32_t artists[30];
+  double features[30 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[30 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 30 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 30; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    ids[i] = i + 1;
+    artists[i] = (i * 3) % 11 + 1;
+    state ^= state << 13;
+    state ^= state >> 7;
+    state ^= state << 17;
+    row[NAR_AUTOMIX_BPM] = 70.0 + (double)(state % 900ull) / 10.0;
+    if (i % 6 == 0) row[NAR_AUTOMIX_BPM] = NAN;
+    if (i % 4 == 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_ALTERNATE_BPM] =
+          100.0 + (double)(state % 400ull) / 10.0;
+    }
+    state ^= state << 13;
+    state ^= state >> 7;
+    state ^= state << 17;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] =
+        (double)(state % 100000ull) / 100000.0 * 0.9 + 0.1;
+    state ^= state << 13;
+    state ^= state >> 7;
+    state ^= state << 17;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] =
+        (double)(state % 100000ull) / 100000.0 * 0.8 + 0.2;
+    if (i % 3 != 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_RMS_DB] =
+          -30.0 + (double)(state % 100000ull) / 100000.0 * 18.0;
+    }
+    state ^= state << 13;
+    state ^= state >> 7;
+    state ^= state << 17;
+    row[NAR_AUTOMIX_LOUDNESS_LUFS] =
+        -26.0 + (double)(state % 100000ull) / 100000.0 * 16.0;
+    if (i % 5 == 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_CENTROID_HZ] =
+          400.0 + (double)(state % 100000ull) / 100000.0 * 3600.0;
+    }
+    if (i % 4 == 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_ONSET_RATE] =
+          0.5 + (double)(state % 100000ull) / 100000.0 * 5.5;
+    }
+    if (i % 3 == 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_TAIL_BPM] =
+          65.0 + (double)(state % 100000ull) / 100000.0 * 90.0;
+    }
+    if (i % 4 == 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_INTRO_ENERGY] =
+          (double)(state % 100000ull) / 100000.0;
+    }
+    if (i % 5 == 0) {
+      state ^= state << 13;
+      state ^= state >> 7;
+      state ^= state << 17;
+      row[NAR_AUTOMIX_OUTRO_ENERGY] =
+          (double)(state % 100000ull) / 100000.0;
+    }
+    keys[i * 2] = (i * 5) % 12 + 1;
+    keys[i * 2 + 1] = i % 2;
+  }
+
+  int32_t order[30];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 30, 0, 0.06, 24, 1,
+                              0, 3, order, metrics, 2) == 1);
+  assert(order[0] == 3);
+  int32_t seen[30] = {0};
+  for (int i = 0; i < 30; ++i) {
+    assert(order[i] >= 0 && order[i] < 30);
+    assert(!seen[order[i]]);
+    seen[order[i]] = 1;
+  }
+  // Swap-only polisher scores 0.26611141739099742 here; the relocation and
+  // reversal scans must reach a strictly better plan.
+  assert(metrics[1] < 0.2640);
+}
+
 static void test_chord_progression_analysis(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 4;
@@ -868,7 +1084,78 @@ static void test_live_tracker_reset_is_slot_local_during_processing(void) {
   free(pcm);
 }
 
+static unsigned long long tracker_probe_state = 88172645463325252ull;
+
+static unsigned long long tracker_probe_rand(void) {
+  tracker_probe_state ^= tracker_probe_state << 13;
+  tracker_probe_state ^= tracker_probe_state >> 7;
+  tracker_probe_state ^= tracker_probe_state << 17;
+  return tracker_probe_state;
+}
+
+static void test_live_tracker_phase_follows_beat_grid(void) {
+  // 120 BPM click train over a quiet bed, plus pseudo-random loud low-frequency
+  // accents that never align with the beat grid. The loudest single onset in
+  // the final period belongs to the accent at 11.7 s, so a phase picker that
+  // trusts the last period's maximum reports ~290 ms; the grid phase that
+  // aligns the whole history correctly reports the click grid (~490 ms).
+  const double pi = 3.14159265358979323846;
+  const int32_t sample_rate = 48000;
+  const int32_t chunk_frames = 512;
+  const int32_t total_frames = sample_rate * 12;
+  int32_t spike_starts[128];
+  int32_t spike_count = 0;
+  int32_t position = 4800;
+  tracker_probe_state = 88172645463325252ull;
+  while (position < 11 * 48000 && spike_count < 120) {
+    spike_starts[spike_count++] = position;
+    position += 17000 + (int32_t)(tracker_probe_rand() % 20000ull);
+  }
+  spike_starts[spike_count++] = 561600;
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  float pcm[512 * 2];
+  int32_t produced = 0;
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t n = (int64_t)produced + i;
+      const double t = (double)n / sample_rate;
+      double value = 0.01 * sin(2.0 * pi * 300.0 * t);
+      const int64_t click_phase = n % 24000;
+      if (click_phase < 48) {
+        value += 0.7 * (1.0 - (double)click_phase / 48.0) *
+            sin(2.0 * pi * 800.0 * t);
+      }
+      for (int32_t s = 0; s < spike_count; ++s) {
+        const int64_t offset = n - spike_starts[s];
+        if (offset >= 0 && offset < 480) {
+          value += 0.3 * (1.0 - (double)offset / 480.0) *
+              sin(2.0 * pi * 100.0 * t);
+        }
+      }
+      pcm[i * 2] = (float)value;
+      pcm[i * 2 + 1] = (float)value;
+    }
+    assert(nar_automix_live_tracker_process(pcm, frames, 2, sample_rate, 0) ==
+           1);
+    produced += frames;
+  }
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {-1.0, -1.0, -1.0};
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[0] > 100.0 && state[0] < 140.0);
+  // The published phase must sit on the click grid (one period is 500 ms), not
+  // on the accent that landed 290 ms before the end of the stream.
+  assert(state[1] > 450.0 && state[1] < 500.0);
+  assert(state[2] > 0.0);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 int main(void) {
+  test_live_tracker_phase_follows_beat_grid();
   test_live_tracker_requires_explicit_enable();
   test_live_tracker_disable_clears_live_state();
   test_live_tracker_reset_is_slot_local_during_processing();
@@ -883,6 +1170,10 @@ int main(void) {
   test_planner_keeps_start_and_permutation();
   test_planner_scores_tempo_at_seam();
   test_planner_penalizes_energy_seam();
+  test_planner_prefers_calm_structural_seam();
+  test_planner_ignores_unconfident_structure();
+  test_planner_spreads_repeated_artists();
+  test_planner_relocation_polish_improves_local_optimum();
   test_chord_progression_analysis();
   test_phase_lock_factor();
   test_phrase_lock();

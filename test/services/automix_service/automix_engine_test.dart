@@ -775,6 +775,134 @@ void main() {
       expect(native.order, reference.order);
     });
 
+    test('prefers a calm structural seam over a repeated peak', () {
+      // Track 0 exits on a drop. Track 1 enters on a drop as well and has the
+      // smaller song id; track 2 enters on a buildup. Only the structural
+      // seam term separates them, so the planner must hand over into track 2.
+      final tracks = [
+        _f(
+          1,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+          tailStructureRegion: 3,
+          tailStructureConfidence: 0.9,
+        ),
+        _f(
+          2,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+          structureRegion: 3,
+          structureConfidence: 0.9,
+        ),
+        _f(
+          3,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+          structureRegion: 2,
+          structureConfidence: 0.9,
+        ),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 2, 1]);
+      expect(native.order, reference.order);
+    });
+
+    test('ignores unconfident structure labels at the seam', () {
+      // Same shape as the confident-seam fixture, but every structure label is
+      // below the 0.5 confidence gate: the term must stay neutral and the
+      // smaller song id (track 1) keeps the tie.
+      final tracks = [
+        _f(
+          1,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+          tailStructureRegion: 3,
+          tailStructureConfidence: 0.3,
+        ),
+        _f(
+          2,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+          structureRegion: 3,
+          structureConfidence: 0.3,
+        ),
+        _f(
+          3,
+          bpm: 120,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+          structureRegion: 2,
+          structureConfidence: 0.3,
+        ),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 1, 2]);
+      expect(native.order, reference.order);
+    });
+
+    test('spreads a repeated artist past the cooldown window', () {
+      // Every transition costs the same, so only the artist cooldown can break
+      // the id-ordered tie. Without it the planner would chain X, Y, X (song
+      // id 3), Z; with it the X at distance 2 yields to the unlabeled Z and
+      // the repeat lands outside the cooldown window.
+      final tracks = [
+        _f(1, bpm: 120, camelot: 8, minor: true, rms: -12, artist: 'X'),
+        _f(2, bpm: 120, camelot: 8, minor: true, rms: -12, artist: 'Y'),
+        _f(3, bpm: 120, camelot: 8, minor: true, rms: -12, artist: 'X'),
+        _f(4, bpm: 120, camelot: 8, minor: true, rms: -12, artist: 'Z'),
+      ];
+      const settings = AutomixSettings(
+        profile: AutomixProfile.dj,
+        avoidArtistRepeat: true,
+      );
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 1, 3, 2]);
+      expect(native.order, reference.order);
+    });
+
     test('keeps native/reference parity when mix-seam features are present', () {
       final tracks = [
         for (var i = 0; i < 30; i++)
@@ -789,6 +917,10 @@ void main() {
             rms: -24 + (i % 12).toDouble(),
             bpmConf: (i % 10) / 10,
             keyConf: (i % 8) / 8,
+            structureRegion: i % 3 == 0 ? 0 : (i % 5) + 1,
+            structureConfidence: i % 4 == 0 ? 0 : 0.6 + (i % 3) * 0.1,
+            tailStructureRegion: i % 5 == 0 ? 0 : (i % 5) + 1,
+            tailStructureConfidence: 0.7,
           ),
       ];
       for (final profile in AutomixProfile.values) {

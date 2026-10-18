@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define NAR_AUTOMIX_FEATURE_COUNT 16
+#define NAR_AUTOMIX_FEATURE_COUNT 20
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
 #define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 21
 
@@ -42,6 +42,14 @@ enum NarAutomixFeatureIndex {
   NAR_AUTOMIX_ANALYZED_FRACTION = 13,
   NAR_AUTOMIX_VOCAL_LIKELIHOOD = 14,
   NAR_AUTOMIX_VOCAL_CONFIDENCE = 15,
+  // Section structure at the mix seam: the outgoing track's tail region and
+  // the incoming track's head region, each with its own confidence. The
+  // region fields carry the enum NarAutomixStructureRegion value as a double
+  // and are NAN when the window was not analyzed or had no confident label.
+  NAR_AUTOMIX_STRUCTURE_REGION = 16,
+  NAR_AUTOMIX_STRUCTURE_CONFIDENCE = 17,
+  NAR_AUTOMIX_TAIL_STRUCTURE_REGION = 18,
+  NAR_AUTOMIX_TAIL_STRUCTURE_CONFIDENCE = 19,
 };
 
 // Key fields per track: [Camelot number (0 means unknown), mode
