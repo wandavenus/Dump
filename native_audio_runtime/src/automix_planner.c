@@ -235,12 +235,70 @@ static double energy_target(double position, int32_t profile) {
   return 0.60;
 }
 
+// Set-adaptive energy arc: the profile arc is projected onto the measured
+// p20..p80 range of the *normalized* set energies. A library whose tracks sit
+// mostly at the quiet or loud end then gets a target curve that spans the
+// range the set can actually deliver instead of a fixed absolute shape, while
+// the fixed profile target stays blended in for continuity. Sets with fewer
+// than four tracks or a narrow measured range keep the fixed target only.
+typedef struct {
+  double low;
+  double high;
+  int32_t adaptive;
+} EnergyArc;
+
+static void build_energy_arc(const double* energies, int32_t count,
+                             EnergyArc* arc) {
+  arc->low = 0.0;
+  arc->high = 1.0;
+  arc->adaptive = 0;
+  if (count < 4) return;
+  double* sorted = (double*)malloc((size_t)count * sizeof(double));
+  if (sorted == NULL) return;
+  memcpy(sorted, energies, (size_t)count * sizeof(double));
+  qsort(sorted, (size_t)count, sizeof(double), compare_double);
+  const double low = percentile_sorted(sorted, count, 0.20);
+  const double high = percentile_sorted(sorted, count, 0.80);
+  free(sorted);
+  if (high - low < 0.10) return;
+  arc->low = low;
+  arc->high = high;
+  arc->adaptive = 1;
+}
+
+// Smooth 0..1 arc shape over the normalized plan position. The underlying
+// tent peaks at `peak` and falls to zero at both ends; the smoothstep removes
+// the corner at the peak. `base` lifts the ends for flatter profiles.
+static double arc_shape(double position, int32_t profile) {
+  double peak = 0.6;
+  double base = 0.0;
+  if (profile == PROFILE_ENERGY) {
+    peak = 0.5;
+  } else if (profile == PROFILE_HARMONIC) {
+    base = 0.35;
+  }
+  const double p = clamp01(position);
+  const double t = clamp01(p < peak ? p / peak : (1.0 - p) / (1.0 - peak));
+  const double smooth = t * t * (3.0 - 2.0 * t);
+  return base + (1.0 - base) * smooth;
+}
+
+static double energy_target_arc(double position, int32_t profile,
+                                const EnergyArc* arc) {
+  const double fixed = energy_target(position, profile);
+  if (arc == NULL || !arc->adaptive) return fixed;
+  const double adaptive =
+      arc->low + (arc->high - arc->low) * arc_shape(position, profile);
+  return clamp01(0.5 * fixed + 0.5 * adaptive);
+}
+
 static double transition_cost(int32_t a, int32_t b, int32_t step_index,
                               int32_t total_steps, const int64_t* song_ids,
                               const int32_t* artist_groups,
                               const double* rows, const int32_t* keys,
-                              const double* energies, int32_t profile,
-                              double tolerance, int32_t avoid_artist_repeat,
+                              const double* energies, const EnergyArc* arc,
+                              int32_t profile, double tolerance,
+                              int32_t avoid_artist_repeat,
                               int32_t harmonic_filter) {
   const double head_bpm_a = feature(rows, a, NAR_AUTOMIX_BPM);
   const double bpm_b = feature(rows, b, NAR_AUTOMIX_BPM);
@@ -312,7 +370,7 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
     }
   }
   double energy = 0.30 * fabs(delta) +
-      0.55 * fabs(energies[b] - energy_target(position, profile)) +
+      0.55 * fabs(energies[b] - energy_target_arc(position, profile, arc)) +
       0.30 * seam + 0.25 * structure;
   if (profile == PROFILE_ENERGY) {
     if (position < 0.55 && delta < -0.05) energy += 0.8 * -delta;
@@ -456,11 +514,12 @@ static int32_t pick_next(int32_t current, int32_t step_index,
                          const TempoSlot* slots, const int64_t* song_ids,
                          const int32_t* artist_groups, const double* rows,
                          const int32_t* keys, const double* energies,
-                         int32_t profile, double tolerance,
-                         int32_t avoid_artist_repeat, int32_t harmonic_filter,
-                         double median_bpm, uint8_t* candidates,
-                         ScoredCandidate* scored, uint8_t* next_candidates,
-                         const int32_t* plan, int32_t plan_count) {
+                         const EnergyArc* arc, int32_t profile,
+                         double tolerance, int32_t avoid_artist_repeat,
+                         int32_t harmonic_filter, double median_bpm,
+                         uint8_t* candidates, ScoredCandidate* scored,
+                         uint8_t* next_candidates, const int32_t* plan,
+                         int32_t plan_count) {
   candidate_pool(current, slots, total_steps, played, -1, song_ids, rows,
                  median_bpm, candidates);
   int32_t scored_count = 0;
@@ -469,8 +528,8 @@ static int32_t pick_next(int32_t current, int32_t step_index,
     scored[scored_count++] = (ScoredCandidate){
         i,
         transition_cost(current, i, step_index, total_steps, song_ids,
-                        artist_groups, rows, keys, energies, profile, tolerance,
-                        avoid_artist_repeat, harmonic_filter) +
+                        artist_groups, rows, keys, energies, arc, profile,
+                        tolerance, avoid_artist_repeat, harmonic_filter) +
             artist_cooldown_cost(plan, plan_count, artist_groups, artist_groups[i],
                                  avoid_artist_repeat),
         song_ids[i]};
@@ -482,7 +541,7 @@ static int32_t pick_next(int32_t current, int32_t step_index,
       if (played[candidate]) continue;
       const double cost =
           transition_cost(current, candidate, step_index, total_steps,
-                          song_ids, artist_groups, rows, keys, energies,
+                          song_ids, artist_groups, rows, keys, energies, arc,
                           profile, tolerance, avoid_artist_repeat,
                           harmonic_filter) +
           artist_cooldown_cost(plan, plan_count, artist_groups,
@@ -513,7 +572,7 @@ static int32_t pick_next(int32_t current, int32_t step_index,
       // the path built so far when `next` actually follows it.
       const double cost = transition_cost(
           candidate, next, step_index + 1, total_steps, song_ids,
-          artist_groups, rows, keys, energies, profile, tolerance,
+          artist_groups, rows, keys, energies, arc, profile, tolerance,
           avoid_artist_repeat, harmonic_filter) +
           artist_cooldown_cost(plan, plan_count + 1, artist_groups,
                                artist_groups[next], avoid_artist_repeat);
@@ -531,14 +590,15 @@ static int32_t pick_next(int32_t current, int32_t step_index,
 static double path_cost(const int32_t* plan, int32_t count,
                         const int64_t* song_ids, const int32_t* artist_groups,
                         const double* rows, const int32_t* keys,
-                        const double* energies, int32_t profile,
-                        double tolerance, int32_t avoid_artist_repeat,
-                        int32_t harmonic_filter) {
+                        const double* energies, const EnergyArc* arc,
+                        int32_t profile, double tolerance,
+                        int32_t avoid_artist_repeat, int32_t harmonic_filter) {
   double sum = 0.0;
   for (int32_t i = 0; i + 1 < count; ++i) {
     sum += transition_cost(
         plan[i], plan[i + 1], i + 1, count, song_ids, artist_groups, rows,
-        keys, energies, profile, tolerance, avoid_artist_repeat, harmonic_filter);
+        keys, energies, arc, profile, tolerance, avoid_artist_repeat,
+        harmonic_filter);
   }
   return sum;
 }
@@ -547,11 +607,11 @@ static double link_cost(const int32_t* plan, int32_t from, int32_t to,
                         int32_t count, const int64_t* song_ids,
                         const int32_t* artist_groups, const double* rows,
                         const int32_t* keys, const double* energies,
-                        int32_t profile, double tolerance,
+                        const EnergyArc* arc, int32_t profile, double tolerance,
                         int32_t avoid_artist_repeat, int32_t harmonic_filter) {
   return transition_cost(
       plan[from], plan[to], to, count, song_ids, artist_groups, rows, keys,
-      energies, profile, tolerance, avoid_artist_repeat, harmonic_filter);
+      energies, arc, profile, tolerance, avoid_artist_repeat, harmonic_filter);
 }
 
 // Sum of the path links (p-1, p) for p in [first_link, last_link]. Used by
@@ -562,12 +622,13 @@ static double window_cost(const int32_t* plan, int32_t first_link,
                           const int64_t* song_ids,
                           const int32_t* artist_groups, const double* rows,
                           const int32_t* keys, const double* energies,
-                          int32_t profile, double tolerance,
-                          int32_t avoid_artist_repeat, int32_t harmonic_filter) {
+                          const EnergyArc* arc, int32_t profile,
+                          double tolerance, int32_t avoid_artist_repeat,
+                          int32_t harmonic_filter) {
   double sum = 0.0;
   for (int32_t p = first_link; p <= last_link; ++p) {
     sum += link_cost(plan, p - 1, p, count, song_ids, artist_groups, rows, keys,
-                     energies, profile, tolerance, avoid_artist_repeat,
+                     energies, arc, profile, tolerance, avoid_artist_repeat,
                      harmonic_filter);
   }
   return sum;
@@ -591,26 +652,27 @@ static double local_cost(const int32_t* plan, int32_t i, int32_t j,
                          int32_t count, const int64_t* song_ids,
                          const int32_t* artist_groups, const double* rows,
                          const int32_t* keys, const double* energies,
-                         int32_t profile, double tolerance,
-                         int32_t avoid_artist_repeat, int32_t harmonic_filter) {
+                         const EnergyArc* arc, int32_t profile,
+                         double tolerance, int32_t avoid_artist_repeat,
+                         int32_t harmonic_filter) {
   double sum = 0.0;
   if (i > 0) {
     sum += link_cost(plan, i - 1, i, count, song_ids, artist_groups, rows,
-                     keys, energies, profile, tolerance, avoid_artist_repeat,
-                     harmonic_filter);
+                     keys, energies, arc, profile, tolerance,
+                     avoid_artist_repeat, harmonic_filter);
   }
   sum += link_cost(plan, i, i + 1, count, song_ids, artist_groups, rows, keys,
-                   energies, profile, tolerance, avoid_artist_repeat,
+                   energies, arc, profile, tolerance, avoid_artist_repeat,
                    harmonic_filter);
   if (j != i + 1) {
     sum += link_cost(plan, j - 1, j, count, song_ids, artist_groups, rows,
-                     keys, energies, profile, tolerance, avoid_artist_repeat,
-                     harmonic_filter);
+                     keys, energies, arc, profile, tolerance,
+                     avoid_artist_repeat, harmonic_filter);
   }
   if (j + 1 < count) {
     sum += link_cost(plan, j, j + 1, count, song_ids, artist_groups, rows,
-                     keys, energies, profile, tolerance, avoid_artist_repeat,
-                     harmonic_filter);
+                     keys, energies, arc, profile, tolerance,
+                     avoid_artist_repeat, harmonic_filter);
   }
   return sum;
 }
@@ -679,6 +741,8 @@ int32_t nar_automix_plan_set(
   }
 
   normalize_energy(features, track_count, energies);
+  EnergyArc arc;
+  build_energy_arc(energies, track_count, &arc);
   double* known_tempos = (double*)malloc((size_t)track_count * sizeof(double));
   if (known_tempos == NULL) {
     free(energies); free(slots); free(played); free(candidates);
@@ -711,7 +775,7 @@ int32_t nar_automix_plan_set(
   while (plan_count < track_count) {
     int32_t next = pick_next(
         current, plan_count, track_count, played, slots, song_ids,
-        artist_groups, features, keys, energies, profile, bpm_tolerance,
+        artist_groups, features, keys, energies, &arc, profile, bpm_tolerance,
         avoid_artist_repeat, harmonic_filter, median_bpm, candidates, scored,
         next_candidates, output_order, plan_count);
     if (next < 0 || next >= track_count || played[next]) {
@@ -750,7 +814,7 @@ int32_t nar_automix_plan_set(
         ++evaluations;
         const double before = local_cost(
             output_order, i, j, track_count, song_ids, artist_groups, features,
-            keys, energies, profile, bpm_tolerance, avoid_artist_repeat,
+            keys, energies, &arc, profile, bpm_tolerance, avoid_artist_repeat,
             harmonic_filter);
         const int32_t original_i = output_order[i];
         const int32_t original_j = output_order[j];
@@ -758,7 +822,7 @@ int32_t nar_automix_plan_set(
         output_order[j] = original_i;
         const double after = local_cost(
             output_order, i, j, track_count, song_ids, artist_groups, features,
-            keys, energies, profile, bpm_tolerance, avoid_artist_repeat,
+            keys, energies, &arc, profile, bpm_tolerance, avoid_artist_repeat,
             harmonic_filter);
         if (after < before - 1e-9) {
           improved = 1;
@@ -792,12 +856,12 @@ int32_t nar_automix_plan_set(
                 hi + 1 < track_count - 1 ? hi + 1 : track_count - 1;
             const double before = window_cost(
                 output_order, lo, last_link, track_count, song_ids,
-                artist_groups, features, keys, energies, profile,
+                artist_groups, features, keys, energies, &arc, profile,
                 bpm_tolerance, avoid_artist_repeat, harmonic_filter);
             move_element(output_order, i, to);
             const double after = window_cost(
                 output_order, lo, last_link, track_count, song_ids,
-                artist_groups, features, keys, energies, profile,
+                artist_groups, features, keys, energies, &arc, profile,
                 bpm_tolerance, avoid_artist_repeat, harmonic_filter);
             if (after < before - 1e-9) {
               improved = 1;
@@ -823,7 +887,7 @@ int32_t nar_automix_plan_set(
               j + 1 < track_count - 1 ? j + 1 : track_count - 1;
           const double before = window_cost(
               output_order, i, last_link, track_count, song_ids, artist_groups,
-              features, keys, energies, profile, bpm_tolerance,
+              features, keys, energies, &arc, profile, bpm_tolerance,
               avoid_artist_repeat, harmonic_filter);
           for (int32_t left = i, right = j; left < right; ++left, --right) {
             const int32_t value = output_order[left];
@@ -832,7 +896,7 @@ int32_t nar_automix_plan_set(
           }
           const double after = window_cost(
               output_order, i, last_link, track_count, song_ids, artist_groups,
-              features, keys, energies, profile, bpm_tolerance,
+              features, keys, energies, &arc, profile, bpm_tolerance,
               avoid_artist_repeat, harmonic_filter);
           if (after < before - 1e-9) {
             improved = 1;
@@ -854,8 +918,8 @@ int32_t nar_automix_plan_set(
       output_order, track_count, features, crossfade_beats);
   output_metrics[1] = path_cost(
       output_order, track_count, song_ids, artist_groups, features, keys,
-      energies, profile, bpm_tolerance, avoid_artist_repeat, harmonic_filter) /
-      (track_count - 1);
+      energies, &arc, profile, bpm_tolerance, avoid_artist_repeat,
+      harmonic_filter) / (track_count - 1);
 
   free(energies); free(slots); free(played); free(candidates);
   free(next_candidates); free(scored);

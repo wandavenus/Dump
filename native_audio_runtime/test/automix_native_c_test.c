@@ -427,6 +427,40 @@ static void test_planner_relocation_polish_improves_local_optimum(void) {
   assert(metrics[1] < 0.2640);
 }
 
+static void test_planner_adaptive_energy_arc_lifts_loud_mids(void) {
+  // Seven equal-tempo tracks whose energies span the adjustable range: five
+  // sit at the quiet end, two at the loud end. With the fixed DJ target
+  // (0.25 + 0.5p) the planner simply chains ascending energies; the
+  // set-adaptive arc pulls the two loud tracks toward the measured arc peak
+  // in the middle of the set instead of leaving them at the end.
+  const double rms[7] = {-26, -25, -24, -22, -20, -4, -3};
+  int64_t ids[7];
+  int32_t artists[7];
+  int32_t keys[7 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  double features[7 * NAR_AUTOMIX_FEATURE_COUNT];
+  for (int i = 0; i < 7 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 7; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    ids[i] = i + 1;
+    artists[i] = 0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = rms[i];
+  }
+
+  int32_t order[7];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 7, 0, 0.06, 16, 1,
+                              0, 0, order, metrics, 2) == 1);
+  // Frozen probe result with the adaptive arc; a build without the arc
+  // (disabled in build_energy_arc) yields the ascending 0..6 chain instead.
+  const int32_t expected[7] = {0, 1, 2, 5, 6, 4, 3};
+  for (int i = 0; i < 7; ++i) assert(order[i] == expected[i]);
+}
+
 static void test_chord_progression_analysis(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 4;
@@ -1174,6 +1208,7 @@ int main(void) {
   test_planner_ignores_unconfident_structure();
   test_planner_spreads_repeated_artists();
   test_planner_relocation_polish_improves_local_optimum();
+  test_planner_adaptive_energy_arc_lifts_loud_mids();
   test_chord_progression_analysis();
   test_phase_lock_factor();
   test_phrase_lock();
