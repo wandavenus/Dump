@@ -4,6 +4,9 @@
 #include "automix_live_tracker.h"
 
 #include <assert.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#include <time.h>
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -730,9 +733,83 @@ static void test_live_tracker_disable_clears_live_state(void) {
   assert(nar_automix_live_tracker_set_enabled(0) == 1);
 }
 
+typedef struct {
+  const float* pcm;
+  int32_t frame_count;
+  atomic_int started;
+  int32_t result;
+} LiveTrackerConcurrentProcess;
+
+static void* process_live_tracker_slot_zero(void* opaque) {
+  LiveTrackerConcurrentProcess* work = (LiveTrackerConcurrentProcess*)opaque;
+  // Signal immediately before entering process(). The test then resets the
+  // other slot while this intentionally long callback is in flight.
+  atomic_store_explicit(&work->started, 1, memory_order_release);
+  work->result = nar_automix_live_tracker_process(
+      work->pcm, work->frame_count, 2, 48000, 0);
+  return NULL;
+}
+
+static void test_live_tracker_reset_is_slot_local_during_processing(void) {
+  const int32_t sample_rate = 48000;
+  // A single large callback makes the reset overlap the processing epoch
+  // without adding test-only hooks to the production native library.
+  const int32_t frame_count = sample_rate * 30;
+  const size_t sample_count = (size_t)frame_count * 2u;
+  float* pcm = (float*)malloc(sample_count * sizeof(float));
+  assert(pcm != NULL);
+
+  for (int32_t frame = 0; frame < frame_count; ++frame) {
+    const int64_t phase = (int64_t)frame % 24000;
+    const float value = phase < 48
+        ? (float)(0.9 * (1.0 - (double)phase / 48.0))
+        : 0.0f;
+    pcm[frame * 2] = value;
+    pcm[frame * 2 + 1] = value;
+  }
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  assert(nar_automix_live_tracker_reset(0) == 1);
+  assert(nar_automix_live_tracker_reset(1) == 1);
+
+  LiveTrackerConcurrentProcess work = {
+      .pcm = pcm,
+      .frame_count = frame_count,
+      .started = ATOMIC_VAR_INIT(0),
+      .result = 0,
+  };
+  pthread_t worker;
+  assert(pthread_create(&worker, NULL, process_live_tracker_slot_zero, &work) == 0);
+  while (atomic_load_explicit(&work.started, memory_order_acquire) == 0) {
+    // Wait for the worker to enter its callback path.
+  }
+
+  const struct timespec pause = {.tv_sec = 0, .tv_nsec = 1000000L};
+  (void)nanosleep(&pause, NULL);
+  assert(nar_automix_live_tracker_reset(1) == 1);
+  assert(pthread_join(worker, NULL) == 0);
+  assert(work.result == 1);
+
+  double slot_zero[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0.0, 0.0, 0.0};
+  double slot_one[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {-1.0, -1.0, -1.0};
+  assert(nar_automix_live_tracker_get(
+      0, slot_zero, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(slot_zero[0] > 100.0 && slot_zero[0] < 140.0);
+  assert(slot_zero[2] > 0.0);
+  assert(nar_automix_live_tracker_get(
+      1, slot_one, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+    assert(slot_one[i] == 0.0);
+  }
+
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+  free(pcm);
+}
+
 int main(void) {
   test_live_tracker_requires_explicit_enable();
   test_live_tracker_disable_clears_live_state();
+  test_live_tracker_reset_is_slot_local_during_processing();
   test_tone_processor_unity_bands_preserve_fade_target();
   test_tone_processor_nonfinite_intermediates_are_sanitized();
   test_tone_processor_various_frame_counts();
