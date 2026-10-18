@@ -14,6 +14,14 @@
 #define BPM_PRIOR_LOG2_WIDTH 0.55
 #define CHROMA_MIN_FREQ 55.0
 #define CHROMA_MAX_FREQ 5000.0
+// Harmonic pitch class profile tuning: fold each spectral peak's harmonics
+// (weighted 1/h) onto the nearest pitch classes with a raised-cosine window,
+// so detuned material stays on the correct class instead of bleeding across
+// the halfway point between classes. Peaks must reach this fraction of the
+// frame's strongest magnitude to contribute.
+#define HPCP_HARMONICS 4
+#define HPCP_TOLERANCE_SEMITONES 0.5
+#define HPCP_PEAK_FLOOR 0.05
 #define LN10 2.30258509299404568402
 #define PI 3.14159265358979323846
 
@@ -137,7 +145,7 @@ static const double kKsMinor[12] = {
     6.33, 2.68, 3.52, 5.38, 2.60, 3.53,
     2.54, 4.75, 3.98, 2.69, 3.34, 3.17};
 
-static int estimate_key(const float* chroma, int32_t* tonic, int32_t* is_minor,
+static int estimate_key(const double* chroma, int32_t* tonic, int32_t* is_minor,
                         double* confidence) {
   double total = 0.0;
   double normalized[12];
@@ -177,6 +185,58 @@ static int estimate_key(const float* chroma, int32_t* tonic, int32_t* is_minor,
 
 static double lag_score(const double* scores, int32_t lag, int32_t max_lag) {
   return lag >= 1 && lag <= max_lag ? scores[lag] : 0.0;
+}
+
+// Shared chroma front end for key detection and the chord classifier. Every
+// local spectral peak (log-magnitude refined for precise frequency) folds its
+// first HPCP_HARMONICS harmonics onto pitch classes. The raised-cosine window
+// spans +/- HPCP_TOLERANCE_SEMITONES, so a globally detuned recording keeps
+// its energy on the intended class while the harmonic fold reinforces the
+// fundamental class that the observed harmonics already imply.
+static void hpcp_add_frame(const float* magnitude, int32_t bin_count,
+                           double sample_rate, int32_t fft_size,
+                           double* hpcp) {
+  double frame_max = 0.0;
+  for (int32_t bin = 1; bin + 1 < bin_count; ++bin) {
+    if ((double)magnitude[bin] > frame_max) frame_max = magnitude[bin];
+  }
+  if (frame_max <= 1e-9) return;
+  const double floor_magnitude = frame_max * HPCP_PEAK_FLOOR;
+
+  for (int32_t bin = 2; bin + 1 < bin_count; ++bin) {
+    const double center = magnitude[bin];
+    if (center < floor_magnitude ||
+        center < magnitude[bin - 1] || center < magnitude[bin + 1]) {
+      continue;
+    }
+    // Parabolic peak refinement on log magnitudes estimates the true peak
+    // position within the bin.
+    const double left = log((double)magnitude[bin - 1] + 1e-12);
+    const double middle = log(center + 1e-12);
+    const double right = log((double)magnitude[bin + 1] + 1e-12);
+    const double denominator = left - 2.0 * middle + right;
+    double offset = denominator < -1e-12
+        ? 0.5 * (left - right) / denominator : 0.0;
+    if (!isfinite(offset) || offset < -1.0) offset = -1.0;
+    if (offset > 1.0) offset = 1.0;
+    const double frequency = ((double)bin + offset) * sample_rate / fft_size;
+    if (frequency < CHROMA_MIN_FREQ) continue;
+
+    for (int32_t harmonic = 1; harmonic <= HPCP_HARMONICS; ++harmonic) {
+      const double harmonic_frequency = frequency * harmonic;
+      if (harmonic_frequency > CHROMA_MAX_FREQ) break;
+      if (harmonic_frequency < CHROMA_MIN_FREQ) continue;
+      const double pitch =
+          12.0 * log2_double(harmonic_frequency / 440.0) + 69.0;
+      const double nearest = round(pitch);
+      const double deviation = pitch - nearest;
+      if (fabs(deviation) > HPCP_TOLERANCE_SEMITONES) continue;
+      const double window = cos(
+          (PI / 2.0) * deviation / HPCP_TOLERANCE_SEMITONES);
+      const int pitch_class = ((int32_t)nearest % 12 + 12) % 12;
+      hpcp[pitch_class] += center * window * window / (double)harmonic;
+    }
+  }
 }
 
 static TempoEstimate estimate_tempo(const float* odf, int32_t count,
@@ -404,6 +464,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       (float*)malloc((size_t)frame_count * sizeof(float));
   float* twiddle_real = (float*)malloc(FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc(FFT_BINS * sizeof(float));
+  float* frame_magnitudes = (float*)malloc(FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
       previous_log_magnitude == NULL || odf == NULL || rms_values == NULL ||
@@ -411,12 +472,13 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       vocal_band_ratio_values == NULL ||
       vocal_band_concentration_values == NULL ||
       vocal_band_flatness_values == NULL || twiddle_real == NULL ||
-      twiddle_imaginary == NULL || bit_reverse == NULL) {
+      twiddle_imaginary == NULL || frame_magnitudes == NULL ||
+      bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
     free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
     free(vocal_band_ratio_values); free(vocal_band_concentration_values);
     free(vocal_band_flatness_values); free(twiddle_real);
-    free(twiddle_imaginary); free(bit_reverse);
+    free(twiddle_imaginary); free(frame_magnitudes); free(bit_reverse);
     return 0;
   }
 
@@ -435,7 +497,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   int32_t vocal_band_ratio_count = 0;
   int32_t vocal_band_concentration_count = 0;
   int32_t vocal_band_flatness_count = 0;
-  float chroma[12] = {0};
+  double hpcp[12] = {0.0};
   const double working_rate = sample_rate;
   for (int32_t frame = 0; frame < frame_count; ++frame) {
     const float* input = mono + (size_t)frame * HOP_SIZE;
@@ -473,6 +535,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       const float magnitude = sqrtf(real[bin] * real[bin] +
                                     imaginary[bin] * imaginary[bin]);
       const float log_magnitude = logf(magnitude + 1.0f);
+      frame_magnitudes[bin] = magnitude;
       total_spectral_magnitude += magnitude;
       const double frequency = bin * working_rate / FFT_SIZE;
       if (frequency >= 300.0 && frequency <= 3500.0) {
@@ -492,16 +555,9 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       if (frequency >= CHROMA_MIN_FREQ && frequency <= CHROMA_MAX_FREQ) {
         weight_sum += magnitude;
         frequency_sum += magnitude * frequency;
-        if (bin > 0 && magnitude >= 1e-6f) {
-          const double pitch = 12.0 * log2_double(frequency / 440.0) + 69.0;
-          const int lower = (int)floor(pitch);
-          const int pitch_class = ((lower % 12) + 12) % 12;
-          const double fraction = fmin(1.0, fmax(0.0, pitch - lower));
-          chroma[pitch_class] += (float)(magnitude * (1.0 - fraction));
-          chroma[(pitch_class + 1) % 12] += (float)(magnitude * fraction);
-        }
       }
     }
+    hpcp_add_frame(frame_magnitudes, FFT_BINS, working_rate, FFT_SIZE, hpcp);
     odf[frame] = flux;
     if (weight_sum > 1e-9) {
       centroid_values[centroid_count++] = (float)(frequency_sum / weight_sum);
@@ -540,7 +596,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   int32_t tonic = -1;
   int32_t is_minor = 0;
   double key_confidence = 0.0;
-  if (estimate_key(chroma, &tonic, &is_minor, &key_confidence)) {
+  if (estimate_key(hpcp, &tonic, &is_minor, &key_confidence)) {
     output[4] = tonic;
     output[5] = is_minor;
     output[6] = key_confidence;
@@ -816,7 +872,8 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
   free(vocal_band_ratio_values); free(vocal_band_concentration_values);
   free(vocal_band_flatness_values);
-  free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
+  free(twiddle_real); free(twiddle_imaginary); free(frame_magnitudes);
+  free(bit_reverse);
   return 1;
 }
 
@@ -824,7 +881,9 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
 // ── Time-local chord progression ────────────────────────────────────────────
 // Each row is [window_start_ms, root_pitch_class, quality_id, confidence].
 // quality_id: 0 major, 1 minor, 2 diminished, 3 augmented, 4 dominant 7,
-//             5 major 7, 6 minor 7, 7 suspended 4. Unknown chords use -1/-1/0.
+//             5 major 7, 6 minor 7, 7 suspended 4, 8 suspended 2,
+//             9 half-diminished 7, 10 diminished 7, 11 augmented 7.
+// Unknown chords use -1/-1/0.
 // Two-second windows with a one-second hop. Call only from background analysis.
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     const float* mono, int32_t sample_count, int32_t sample_rate,
@@ -847,11 +906,14 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
   float* imaginary = (float*)malloc((size_t)FFT_SIZE * sizeof(float));
   float* twiddle_real = (float*)malloc((size_t)FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc((size_t)FFT_BINS * sizeof(float));
+  float* frame_magnitudes = (float*)malloc((size_t)FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc((size_t)FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
-      twiddle_real == NULL || twiddle_imaginary == NULL || bit_reverse == NULL) {
+      twiddle_real == NULL || twiddle_imaginary == NULL ||
+      frame_magnitudes == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary);
-    free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
+    free(twiddle_real); free(twiddle_imaginary);
+    free(frame_magnitudes); free(bit_reverse);
     return -1;
   }
 
@@ -865,15 +927,17 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     twiddle_imaginary[i] = (float)sin(angle);
   }
 
-  static const int8_t kChordIntervals[8][4] = {
+  static const int8_t kChordIntervals[12][4] = {
       {0, 4, 7, -1}, {0, 3, 7, -1}, {0, 3, 6, -1}, {0, 4, 8, -1},
-      {0, 4, 7, 10}, {0, 4, 7, 11}, {0, 3, 7, 10}, {0, 5, 7, -1}};
-  static const int8_t kChordToneCount[8] = {3, 3, 3, 3, 4, 4, 4, 3};
+      {0, 4, 7, 10}, {0, 4, 7, 11}, {0, 3, 7, 10}, {0, 5, 7, -1},
+      {0, 2, 7, -1}, {0, 3, 6, 10}, {0, 3, 6, 9}, {0, 4, 8, 10}};
+  static const int8_t kChordToneCount[12] = {
+      3, 3, 3, 3, 4, 4, 4, 3, 3, 4, 4, 4};
 
   int32_t rows_written = 0;
   for (int32_t segment = 0; segment < segment_count; ++segment) {
     const int32_t start = segment * sample_rate;
-    double chroma[12] = {0.0};
+    double hpcp[12] = {0.0};
     double total_magnitude = 0.0;
     int32_t frame_count = 0;
 
@@ -887,19 +951,17 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
       }
       radix2_fft(real, imaginary, twiddle_real, twiddle_imaginary,
                  bit_reverse);
-      for (int32_t bin = 1; bin < FFT_BINS; ++bin) {
-        const double frequency = (double)bin * sample_rate / FFT_SIZE;
-        if (frequency < CHROMA_MIN_FREQ || frequency > CHROMA_MAX_FREQ) continue;
+      for (int32_t bin = 0; bin < FFT_BINS; ++bin) {
         const double magnitude = hypot((double)real[bin], (double)imaginary[bin]);
-        if (!isfinite(magnitude) || magnitude <= 1e-8) continue;
-        const double pitch = 12.0 * log2_double(frequency / 440.0) + 69.0;
-        const int lower = (int)floor(pitch);
-        const int pc = ((lower % 12) + 12) % 12;
-        const double fraction = fmin(1.0, fmax(0.0, pitch - lower));
-        chroma[pc] += magnitude * (1.0 - fraction);
-        chroma[(pc + 1) % 12] += magnitude * fraction;
-        total_magnitude += magnitude;
+        const double finite_magnitude =
+            isfinite(magnitude) && magnitude > 0.0 ? magnitude : 0.0;
+        frame_magnitudes[bin] = (float)finite_magnitude;
+        const double frequency = (double)bin * sample_rate / FFT_SIZE;
+        if (frequency >= CHROMA_MIN_FREQ && frequency <= CHROMA_MAX_FREQ) {
+          total_magnitude += finite_magnitude;
+        }
       }
+      hpcp_add_frame(frame_magnitudes, FFT_BINS, sample_rate, FFT_SIZE, hpcp);
       frame_count++;
     }
 
@@ -909,11 +971,11 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     double second_score = -DBL_MAX;
     double normalized[12] = {0.0};
     double chroma_total = 0.0;
-    for (int note = 0; note < 12; ++note) chroma_total += chroma[note];
+    for (int note = 0; note < 12; ++note) chroma_total += hpcp[note];
     if (chroma_total > 1e-9 && frame_count > 0 && total_magnitude > 1e-7) {
-      for (int note = 0; note < 12; ++note) normalized[note] = chroma[note] / chroma_total;
+      for (int note = 0; note < 12; ++note) normalized[note] = hpcp[note] / chroma_total;
       for (int root = 0; root < 12; ++root) {
-        for (int quality = 0; quality < 8; ++quality) {
+        for (int quality = 0; quality < 12; ++quality) {
           double in_chord = 0.0;
           for (int tone = 0; tone < kChordToneCount[quality]; ++tone) {
             const int pc = (root + kChordIntervals[quality][tone]) % 12;
@@ -955,6 +1017,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
   }
 
   free(hann); free(real); free(imaginary);
-  free(twiddle_real); free(twiddle_imaginary); free(bit_reverse);
+  free(twiddle_real); free(twiddle_imaginary); free(frame_magnitudes);
+  free(bit_reverse);
   return rows_written;
 }

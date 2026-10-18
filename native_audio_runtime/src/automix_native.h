@@ -86,6 +86,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
 
 // Analyzes time-local chord progression into rows of four doubles:
 // [window_start_ms, root_pitch_class (or -1), quality_id (or -1), confidence].
+// Quality ids: 0 major, 1 minor, 2 diminished, 3 augmented, 4 dominant 7,
+// 5 major 7, 6 minor 7, 7 suspended 4, 8 suspended 2, 9 half-diminished 7,
+// 10 diminished 7, 11 augmented 7. Unknown chords use -1/-1/0.
 // Returns rows written, 0 when the window is too short, or -1 for invalid input.
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     const float* mono, int32_t sample_count, int32_t sample_rate,
