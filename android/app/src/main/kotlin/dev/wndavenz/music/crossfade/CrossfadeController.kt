@@ -13,7 +13,6 @@ import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.effects.AutomixLiveBeatState
 import kotlin.math.PI
-import kotlin.math.floor
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -241,16 +240,22 @@ class CrossfadeController(
         val beatOffset = if (beatMs != null) {
             getAutoMixBeatOffsetMsForPlayer(p)?.toDouble()
         } else null
-        val beatAlignedStart = if (beatMs != null && beatOffset != null && beatMs > 0.0) {
-            val phase = ((beatOffset % beatMs) + beatMs) % beatMs
-            // Start on the beat at/before the requested fade start. Starting on
-            // the next beat would leave less than the configured fade duration
-            // before EOS, even though the fade itself still ran for crossMs.
-            val previousBeat = phase + floor((idealStart - phase) / beatMs) * beatMs
-            val aligned = if (previousBeat >= 0.0 &&
-                idealStart - previousBeat <= beatMs * 1.05
-            ) previousBeat.toLong() else idealStart
-            aligned.coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
+        // The analyzed phrase phase (16-beat grid) upgrades the fade start
+        // from single-beat to bar/phrase boundaries when it is available.
+        val downbeatOffset = if (beatMs != null) {
+            getAutoMixDownbeatOffsetMsForPlayer(p)?.toDouble()
+        } else null
+        val beatAlignedStart = if (beatMs != null && beatMs > 0.0 &&
+            (beatOffset != null || downbeatOffset != null)
+        ) {
+            // Prefer the largest phrase boundary (64/32/16/4 beats) that stays
+            // within the snap tolerance, then the legacy single-beat snap.
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                idealStartMs = idealStart,
+                beatMs = beatMs,
+                beatOffsetMs = beatOffset,
+                downbeatOffsetMs = downbeatOffset,
+            ).coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
         } else {
             idealStart
         }
