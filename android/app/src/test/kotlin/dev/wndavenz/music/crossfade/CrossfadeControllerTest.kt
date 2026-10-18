@@ -55,8 +55,13 @@ class CrossfadeControllerTest {
     private var emitAllCalls          = 0
     private var refreshNotifCalls     = 0
     private var crossfadeStartingCalls = 0
+    private var crossfadeCancelledCalls = 0
     private var testClockMs = 1_000L
     private val pendingHandlerTasks = ArrayDeque<Runnable>()
+
+    // Mutable so a test can simulate an external takeover (user picking another
+    // track) while a fade is in flight.
+    private var activePlayerState: ExoPlayer? = null
 
     private val testQueue = listOf(
         mapOf("title" to "Track A", "uri" to "file:///a.mp3"),
@@ -74,7 +79,7 @@ class CrossfadeControllerTest {
         automixEnabled: Boolean = false,
         transitionStartMs: Long? = null,
     ): CrossfadeController {
-        var activePlayerState = activePlayer
+        activePlayerState = activePlayer
         return CrossfadeController(
             handler              = mockHandler,
             getActivePlayer      = { activePlayerState },
@@ -95,6 +100,7 @@ class CrossfadeControllerTest {
             emitAll              = { emitAllCalls++ },
             refreshNotification  = { refreshNotifCalls++ },
             onCrossfadeStarting  = { crossfadeStartingCalls++ },
+            onCrossfadeCancelled = { crossfadeCancelledCalls++ },
             monotonicClockMs     = { testClockMs },
         )
     }
@@ -121,9 +127,10 @@ class CrossfadeControllerTest {
             null
         }.whenever(mockHandler).removeCallbacks(any<Runnable>())
 
-        setActivePlayerCalls   = 0; switchSessionCalls     = 0
-        crossfadeCompleteCalls = 0; emitAllCalls           = 0
-        refreshNotifCalls      = 0; crossfadeStartingCalls = 0
+        setActivePlayerCalls    = 0; switchSessionCalls      = 0
+        crossfadeCompleteCalls  = 0; emitAllCalls            = 0
+        refreshNotifCalls       = 0; crossfadeStartingCalls  = 0
+        crossfadeCancelledCalls = 0
 
         // Sensible defaults for active player
         whenever(mockActivePlayer.duration).thenReturn(180_000L)
@@ -307,6 +314,61 @@ class CrossfadeControllerTest {
         ctrl.cancel(resetVolume = false)
         assertFalse(ctrl.crossfadeInProgress)
         assertTrue("cancel left scheduled fade ticks behind", pendingHandlerTasks.isEmpty())
+    }
+
+    // NEW-3 fix: an external takeover (e.g. the user picks another track) makes
+    // a live fade tick observe a changed active player and take the abort path.
+    // The abort must behave like a cancel: restore the takeover deck's volume,
+    // drop the preloaded index that belonged to the aborted promotion, repair
+    // the promoted one-item timeline, and notify the service (which drains any
+    // deferred AutoMix transition instead of leaving it pending forever).
+
+    @Test fun `C11 abort mid-fade is a full cancel (volume, preload, queue, callback)`() {
+        var rebuilds = 0
+        val ctrl = makeControllerWithImmediateTrigger(
+            rebuildPromotedQueue = { rebuilds++ },
+            volumeBeforeDuck = 0.9f,
+        )
+        ctrl.maybeCrossfadeOut()
+        assertTrue(ctrl.crossfadeInProgress)
+
+        // First tick is clean; its successor will observe the takeover.
+        pendingHandlerTasks.removeLast().run()
+        assertTrue("fade tick did not schedule its successor", pendingHandlerTasks.isNotEmpty())
+
+        val external: ExoPlayer = mock()
+        activePlayerState = external
+        testClockMs += 1_000L
+        pendingHandlerTasks.removeLast().run()
+
+        assertFalse(ctrl.crossfadeInProgress)
+        assertFalse(ctrl.promotionTriggered)
+        assertNull(ctrl.promotionOwner)
+        verify(external).volume = 0.9f
+        verify(mockPreloadManager).resetPreloadedIndex()
+        assertEquals(1, rebuilds)
+        assertEquals(1, crossfadeCancelledCalls)
+    }
+
+    @Test fun `C12 fade completion lands on full volume without cancellation`() {
+        val ctrl = makeControllerWithImmediateTrigger()
+        ctrl.maybeCrossfadeOut()
+        assertTrue(ctrl.crossfadeInProgress)
+
+        var ticks = 0
+        while (crossfadeCompleteCalls == 0 && ticks < 500) {
+            assertTrue("fade stalled with no scheduled tick", pendingHandlerTasks.isNotEmpty())
+            testClockMs += 16L
+            pendingHandlerTasks.removeLast().run()
+            ticks++
+        }
+
+        assertEquals(1, crossfadeCompleteCalls)
+        assertFalse(ctrl.crossfadeInProgress)
+        assertEquals(0, crossfadeCancelledCalls)
+        val incomingVolumes = argumentCaptor<Float>()
+        verify(mockStandbyPlayer, atLeastOnce()).volume = incomingVolumes.capture()
+        assertEquals(1f, incomingVolumes.lastValue, 0.001f)
     }
 
     // ═════════════════════════════════════════════════════════════════════════

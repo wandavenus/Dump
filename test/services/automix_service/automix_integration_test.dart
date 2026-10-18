@@ -123,5 +123,28 @@ void main() {
         AudioEffectsService.bitPerfectMode.value = false;
       }
     });
+
+    test('Bit-Perfect mode rejects explicit library analysis before decoding', () async {
+      AutomixService.automixEnabled.value = false;
+      AutomixService.resetInMemoryState();
+      SharedPreferences.setMockInitialValues({});
+      await AutomixService.loadSettings();
+
+      AudioEffectsService.bitPerfectMode.value = true;
+      // A batch must not even be announced while Pure Playback owns the
+      // decoder: the progress readout stays exactly as the caller left it.
+      AutomixService.analysisProgress.value =
+          const AutomixAnalysisProgress(total: 7);
+      try {
+        await AutomixService.analyzeLibrary(const []);
+
+        expect(AutomixService.analysisProgress.value.total, 7);
+        expect(AutomixService.analysisProgress.value.running, isFalse);
+      } finally {
+        AudioEffectsService.bitPerfectMode.value = false;
+        AutomixService.analysisProgress.value = const AutomixAnalysisProgress();
+        AutomixService.resetInMemoryState();
+      }
+    });
   });
 }

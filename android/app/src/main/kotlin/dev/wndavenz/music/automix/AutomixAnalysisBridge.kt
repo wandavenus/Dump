@@ -57,10 +57,19 @@ object AutomixAnalysis {
         startSeconds: Double,
         maxSeconds: Double,
     ): Map<String, Any?>? {
+        // NaN never compares true, so coerceIn/coerceAtLeast would pass it
+        // through: the decode window would silently start at 0 while the chord
+        // timestamps became NaN. Sanitize both bounds once, up front.
+        val safeMaxSeconds =
+            if (maxSeconds.isFinite()) maxSeconds else MAX_ANALYZE_SECONDS.toDouble()
         val windowSeconds =
-            maxSeconds.coerceIn(MIN_WINDOW_SECONDS, MAX_WINDOW_SECONDS).toInt()
-        val startUs =
-            (startSeconds.coerceAtLeast(0.0) * 1_000_000.0).toLong()
+            safeMaxSeconds.coerceIn(MIN_WINDOW_SECONDS, MAX_WINDOW_SECONDS).toInt()
+        val safeStartSeconds = if (startSeconds.isFinite() && startSeconds > 0.0) {
+            startSeconds
+        } else {
+            0.0
+        }
+        val startUs = (safeStartSeconds * 1_000_000.0).toLong()
         var fileSeconds = 0.0
         var sampleRate = 0
         var channels = 0
@@ -150,7 +159,7 @@ object AutomixAnalysis {
                     quality !in chordQualities.indices || !confidence.isFinite() ||
                     confidence !in 0.0..1.0 || confidence < 0.08
                 ) null else mapOf(
-                    "startMs" to (startSeconds.coerceAtLeast(0.0) * 1000.0 + startMs),
+                    "startMs" to (safeStartSeconds * 1000.0 + startMs),
                     "rootPitchClass" to root,
                     "root" to pitchNames[root],
                     "quality" to chordQualities[quality],
@@ -208,7 +217,9 @@ object AutomixAnalysis {
             "chordProgression" to chordProgression,
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.
-            "segmentStartSeconds" to startSeconds.coerceAtLeast(0.0),
+            // Use the sanitized value so the reported offset always matches the
+            // position the decoder actually started from.
+            "segmentStartSeconds" to safeStartSeconds,
             "segmentSeconds" to analysis[10],
             "fileSeconds" to fileSeconds,
         )

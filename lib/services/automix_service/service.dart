@@ -188,21 +188,30 @@ class AutomixService {
     if (AudioEffectsService.bitPerfectMode.value) {
       // Bit-Perfect changes the playback engine synchronously. Stop queued
       // analysis/sweep work now rather than waiting for a playback-state event.
+      // Bumping the generation invalidates any in-flight prepare/analysis pass
+      // so it cannot re-engage AutoMix or republish deck targets after the
+      // switch to the clean player.
+      _automixGeneration++;
       _replanRequested = false;
       _replanTimer?.cancel();
       _replanTimer = null;
       _stopAutoAnalyzePipeline();
       _stopLibrarySweep();
+      // The clean player cannot consume AutoMix transitions, so the session is
+      // not active until Bit-Perfect is switched off and planning resumes.
+      automixActive.value = false;
       return;
     }
     if (!automixEnabled.value) return;
 
     // Resume planning against the current queue; deck targets and the cached
-    // whole-tail order may be stale after switching playback engines.
+    // whole-tail order may be stale after switching playback engines. The retry
+    // budget restarts too: Bit-Perfect may have interrupted it mid-backoff.
     _lastAutoQueueIdentity = null;
     _lastNativeSignature = null;
     _plannedTail = null;
     _planBasisStale = false;
+    _replanRetryCount = 0;
     _replanRequested = true;
     _onPlaybackStateForAutoMix();
     _scheduleLibrarySweep(const Duration(seconds: 20));
@@ -267,7 +276,8 @@ class AutomixService {
       }
       final tailIds = _tailIdsOf(state, queue);
       final identity = _autoMixQueueIdentity(state, queue, tailIds);
-      if (_lastAutoQueueIdentity != identity) {
+      final queueChanged = _lastAutoQueueIdentity != identity;
+      if (queueChanged) {
         _lastAutoQueueIdentity = identity;
         // Every change refreshes the deck targets for the pair about to mix, so
         // native always holds the next few transitions' cues. Only a real queue
@@ -284,11 +294,18 @@ class AutomixService {
       // 1. Give the tracks about to be mixed their offline analysis before
       //    planning against them. Bounded and resumable, so a large library
       //    fills progressively instead of blocking the first transition.
-      final analyzed = await _autoAnalyzeUpcomingTracks(
-        queue,
-        state.currentIndex,
-        identity,
-      );
+      //
+      // The 200 ms position tick must not bypass the resume pacing: while a
+      // resume timer is armed it alone owns the next analysis pass. Only a real
+      // queue change may ask for analysis immediately.
+      final resumePending = _analyzeTimer?.isActive ?? false;
+      final analyzed = resumePending && !queueChanged
+          ? false
+          : await _autoAnalyzeUpcomingTracks(
+              queue,
+              state.currentIndex,
+              identity,
+            );
       if (analyzed) _planBasisStale = true;
 
       // 2. (Re)plan when the queue moved, when fresh DSP data landed, or after
@@ -296,6 +313,11 @@ class AutomixService {
       if (!_replanRequested && !analyzed) return;
       _replanRequested = false;
       await _prepareUpcomingTracks(queue, state.currentIndex);
+    } on Object catch (e, st) {
+      // This pass is launched unawaited from a ValueNotifier listener; an
+      // unexpected failure must never escape as an unhandled async error.
+      LogService.warn('Automix', 'automatic queue check failed: $e');
+      LogService.verbose('Automix', st.toString());
     } finally {
       _autoMixCheckRunning = false;
       final retryScheduled = _replanTimer?.isActive ?? false;
@@ -730,13 +752,18 @@ class AutomixService {
     bool needsAnalysis(LocalSong song) => _needsDspAnalysis(song);
 
     final analysisState = AudioService.playbackState.value;
+    // Bounded to the decks about to be mixed. Sweeping the whole queue tail
+    // here turned every position tick into a queue-wide stat pass and let the
+    // pipeline decode the entire library at maximum speed; far tracks are the
+    // idle library sweep's job and only enter this window as playback advances.
     final candidateWindow = <LocalSong>[
-      ...automixUpcomingTracks<LocalSong>(
-        queue,
-        currentIndex,
-        shuffleEnabled: analysisState.shuffleEnabled,
-        nextTrackIndex: analysisState.nextTrackIndex,
-      ),
+      if (analysisState.shuffleEnabled)
+        ...automixUpcomingTracks<LocalSong>(
+          queue,
+          currentIndex,
+          shuffleEnabled: analysisState.shuffleEnabled,
+          nextTrackIndex: analysisState.nextTrackIndex,
+        ),
       ...automixPlanWindow<LocalSong>(queue, currentIndex, _analysisLookahead).skip(1),
     ];
     final candidates = <LocalSong>[];
@@ -811,15 +838,17 @@ class AutomixService {
     if (!state.isPlaying || state.currentSong == null) return;
     final queue = state.currentPlaylist;
     if (state.currentIndex < 0 || state.currentIndex >= queue.length) return;
-    // Same priority order as the pass itself: upcoming tracks first, the
-    // playing file last (mirrors _autoAnalyzeUpcomingTracks).
+    // Same priority order and the same bounded window as the pass itself
+    // (mirrors _autoAnalyzeUpcomingTracks). A whole-tail scan here re-armed the
+    // timer forever for far tracks the playback pipeline no longer decodes.
     final pendingWindow = <LocalSong>[
-      ...automixUpcomingTracks<LocalSong>(
-        queue,
-        state.currentIndex,
-        shuffleEnabled: state.shuffleEnabled,
-        nextTrackIndex: state.nextTrackIndex,
-      ),
+      if (state.shuffleEnabled)
+        ...automixUpcomingTracks<LocalSong>(
+          queue,
+          state.currentIndex,
+          shuffleEnabled: state.shuffleEnabled,
+          nextTrackIndex: state.nextTrackIndex,
+        ),
       ...automixPlanWindow<LocalSong>(queue, state.currentIndex, _analysisLookahead).skip(1),
       queue[state.currentIndex],
     ];
@@ -1321,84 +1350,114 @@ class AutomixService {
       );
       return -1;
     }
+    if (_autoMixPreparing || _autoMixCheckRunning) {
+      // A concurrent automatic pass owns planning right now; racing it could
+      // publish a second queue and strand the native deck targets.
+      LogService.verbose(
+        'Automix',
+        'startAutomix ignored: a plan pass is already running',
+      );
+      return -1;
+    }
 
     if (kIsWeb || playlist.length < 3) {
-      // A straight shuffle of a tiny list beats a plan computed from nothing.
+      // Informational only: the bounded plan below still applies to a tiny
+      // list; it simply has very little to reorder.
       LogService.verbose(
         'Automix',
         'startAutomix: not enough tracks (or web) — plain fallback',
       );
     }
 
-    // Rotate from the selected song, then run the same bounded window used by
-    // automatic replanning. Tracks beyond the window retain their cyclic source
-    // order and are never decoded or scored during this initial start.
-    final rotatedPlaylist = automixRotateQueueFrom(playlist, startIndex);
-    final planningWindow = automixPlanWindow<LocalSong>(
-      rotatedPlaylist,
-      0,
-      _planHorizonCap,
-    );
-    // Keep expensive per-track fallback work bounded as well: only the
-    // near decks get full feature resolution; farther tracks use cached DSP or
-    // neutral metadata until the background library sweep reaches them.
-    final features = await _featuresForPlan(planningWindow);
-    if (!_isAutoMixGenerationCurrent(generation)) return -1;
-    final planMetrics = AutomixEngine.planSet(
-      tracks: features,
-      settings: settings.value,
-      startIndex: 0,
-    );
-    final plan = planMetrics.order;
-    if (plan.isEmpty || plan.length != planningWindow.length || plan.first != 0) {
-      return -1;
-    }
+    try {
+      // Rotate from the selected song, then run the same bounded window used by
+      // automatic replanning. Tracks beyond the window retain their cyclic source
+      // order and are never decoded or scored during this initial start.
+      final rotatedPlaylist = automixRotateQueueFrom(playlist, startIndex);
+      final planningWindow = automixPlanWindow<LocalSong>(
+        rotatedPlaylist,
+        0,
+        _planHorizonCap,
+      );
+      // Keep expensive per-track fallback work bounded as well: only the
+      // near decks get full feature resolution; farther tracks use cached DSP or
+      // neutral metadata until the background library sweep reaches them.
+      final features = await _featuresForPlan(planningWindow);
+      if (!_isAutoMixGenerationCurrent(generation)) return -1;
+      final planMetrics = AutomixEngine.planSet(
+        tracks: features,
+        settings: settings.value,
+        startIndex: 0,
+      );
+      final plan = planMetrics.order;
+      if (plan.isEmpty ||
+          plan.length != planningWindow.length ||
+          plan.first != 0) {
+        return -1;
+      }
 
-    final sequenced = <LocalSong>[
-      for (final idx in plan) planningWindow[idx],
-      ...rotatedPlaylist.skip(planningWindow.length),
-    ];
+      final sequenced = <LocalSong>[
+        for (final idx in plan) planningWindow[idx],
+        ...rotatedPlaylist.skip(planningWindow.length),
+      ];
 
-    LogService.log(
-      'Automix',
-      'Plan (${settings.value.profile.name}, ${sequenced.length} tracks, '
-          'crossfade ${planMetrics.crossfadeSeconds.toStringAsFixed(1)}s, '
-          'cost ${planMetrics.averageCost.toStringAsFixed(3)})',
-    );
+      LogService.log(
+        'Automix',
+        'Plan (${settings.value.profile.name}, ${sequenced.length} tracks, '
+            'crossfade ${planMetrics.crossfadeSeconds.toStringAsFixed(1)}s, '
+            'cost ${planMetrics.averageCost.toStringAsFixed(3)})',
+      );
 
-    final sequencedFeatures = [for (final index in plan) features[index]];
-    final firstBpm = _usableBpm(sequencedFeatures.first);
-    final fadeSeconds = firstBpm == null
-        ? planMetrics.crossfadeSeconds
-        : (settings.value.crossfadeBeats * 60.0 / firstBpm)
-              .clamp(2.0, 16.0)
-              .toDouble();
-    // The whole playlist is already sequenced: record it as the live plan so the
-    // automatic pipeline refreshes deck targets instead of sequencing the same
-    // queue a second time, and ship only the near deck targets (native reads
-    // them per song id anyway).
-    _plannedTail = sequenced
-        .map((song) => song.id)
-        .skip(1)
-        .toList(growable: false);
-    await _engageCrossfade(fadeSeconds);
-    if (!_isAutoMixGenerationCurrent(generation)) return -1;
-    await AudioService.setAutomixTransition(
-      enabled: true,
-      targets: automixImmediateTransitionTargets(
+      final sequencedFeatures = [for (final index in plan) features[index]];
+      final firstBpm = _usableBpm(sequencedFeatures.first);
+      final fadeSeconds = firstBpm == null
+          ? planMetrics.crossfadeSeconds
+          : (settings.value.crossfadeBeats * 60.0 / firstBpm)
+                .clamp(2.0, 16.0)
+                .toDouble();
+      // The whole playlist is already sequenced: record it as the live plan so
+      // the automatic pipeline refreshes deck targets instead of sequencing the
+      // same queue a second time, and ship only the near deck targets (native
+      // reads them per song id anyway).
+      _plannedTail = sequenced
+          .map((song) => song.id)
+          .skip(1)
+          .toList(growable: false);
+      await _engageCrossfade(fadeSeconds);
+      if (!_isAutoMixGenerationCurrent(generation)) return -1;
+      final targets = automixImmediateTransitionTargets(
         _buildNativeTargets(
           sequencedFeatures.first,
           sequencedFeatures.skip(1).take(_targetHorizon).toList(growable: false),
         ),
-      ),
-    );
-    if (!_isAutoMixGenerationCurrent(generation)) return -1;
-    await AudioService.playSongAt(
-      playlist: sequenced,
-      index: 0,
-      autoplay: true,
-    );
-    return sequenced.length;
+      );
+      await AudioService.setAutomixTransition(
+        enabled: true,
+        targets: targets,
+      );
+      if (!_isAutoMixGenerationCurrent(generation)) return -1;
+      // Remember what native holds so the automatic pipeline refreshes deck
+      // targets instead of re-pushing the identical plan (which would rebuild
+      // the standby decoder for nothing).
+      _lastNativeSignature = _nativePlanSignature(
+        sequencedFeatures.first.songId,
+        fadeSeconds,
+        targets,
+      );
+      _replanRetryCount = 0;
+      await AudioService.playSongAt(
+        playlist: sequenced,
+        index: 0,
+        autoplay: true,
+      );
+      return sequenced.length;
+    } on Object catch (e, st) {
+      // A throwing native planner or channel failure must not escape to the
+      // caller as an unhandled error or leave a half-applied plan behind.
+      LogService.warn('Automix', 'startAutomix failed: $e');
+      LogService.verbose('Automix', st.toString());
+      return -1;
+    }
   }
 
   /// Restores the user's crossfade and drops the "engaged" flag.
@@ -1780,6 +1839,15 @@ class AutomixService {
   /// disk heavy); the caller is responsible for gathering the [List<LocalSong>].
   static Future<void> analyzeLibrary(List<LocalSong> songs) async {
     await loadSettings();
+    // Bit-Perfect owns the playback engine and the decoder; a user-initiated
+    // library scan must not compete with it (same class as the idle sweep).
+    if (AudioEffectsService.bitPerfectMode.value) {
+      LogService.verbose(
+        'Automix',
+        'library analysis skipped: Bit-Perfect mode is active',
+      );
+      return;
+    }
     if (_analysisFuture != null) return; // already running
     _analysisCancelled = false;
 
@@ -1792,7 +1860,9 @@ class AutomixService {
       var done = 0;
       var failed = 0;
       for (final song in songs) {
-        if (_analysisCancelled) {
+        // Stop between songs when the mode turns on mid-scan; the in-flight
+        // decode completes but the next song is never fetched.
+        if (_analysisCancelled || AudioEffectsService.bitPerfectMode.value) {
           analysisProgress.value = analysisProgress.value.copyWith(
             running: false,
             cancelled: true,
@@ -1999,7 +2069,11 @@ class AutomixService {
       if (!_autoAnalyzeRunning && analysisProgress.value.running) {
         analysisProgress.value = const AutomixAnalysisProgress();
       }
-      _scheduleLibrarySweep();
+      // Do not clobber a shorter arm that was scheduled while this pass was
+      // running (e.g. the 20 s resume armed when Bit-Perfect was switched off).
+      if (!(_sweepTimer?.isActive ?? false)) {
+        _scheduleLibrarySweep();
+      }
     }
   }
 
@@ -2031,6 +2105,14 @@ class AutomixService {
     _replanTimer = null;
     _analyzeTimer?.cancel();
     _analyzeTimer = null;
+    // Reset the in-flight guards too; an orphaned future from a previous test
+    // must not suppress every later pass (its own finally is a safe no-op).
+    // _analysisFuture is intentionally left alone: nulling it while a batch is
+    // still decoding could let a second analyzeLibrary start concurrently.
+    _autoMixCheckRunning = false;
+    _autoMixPreparing = false;
+    _autoAnalyzeRunning = false;
+    _sweepRunning = false;
     _stopLibrarySweep();
     _settingsLoadFuture = null;
   }
