@@ -685,6 +685,10 @@ class Media3PlaybackService : MediaSessionService() {
             // applied on top of the planner's multiplier, which stays the single
             // source of truth for each deck.
             setAutoMixTempoNudge = { p, factor -> applyAutomixTempoNudge(p, factor) },
+            getAutoMixTempoMultiplierForPlayer = { p ->
+                if (!automixTransitionEnabled) 1f
+                else automixSongIdOf(p)?.let { automixTempoMultiplierBySongId[it] } ?: 1f
+            },
             // Outgoing-tail high-band gain (1 = transparent, 0 = high band gone).
             setAutoMixTailFilter = { p, gain -> applyAutomixTailFilter(p, gain) },
             // Set the equal-power curve on both physical DSP slots. The native
