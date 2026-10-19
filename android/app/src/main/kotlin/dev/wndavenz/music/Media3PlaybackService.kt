@@ -688,6 +688,10 @@ class Media3PlaybackService : MediaSessionService() {
             // applied on top of the planner's multiplier, which stays the single
             // source of truth for each deck.
             setAutoMixTempoNudge = { p, factor -> applyAutomixTempoNudge(p, factor) },
+            resetAutoMixTempoMultiplier = { p ->
+                val slot = playerSlotOf(p)
+                if (slot >= 0) stretchManager.setAutoMixTempoMultiplier(slot, 1f)
+            },
             getAutoMixTempoMultiplierForPlayer = { p ->
                 if (!automixTransitionEnabled) 1f
                 else automixSongIdOf(p)?.let { automixTempoMultiplierBySongId[it] } ?: 1f
