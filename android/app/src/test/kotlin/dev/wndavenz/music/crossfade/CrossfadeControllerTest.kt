@@ -56,6 +56,7 @@ class CrossfadeControllerTest {
     private var refreshNotifCalls     = 0
     private var crossfadeStartingCalls = 0
     private var crossfadeCancelledCalls = 0
+    private val resetAutoMixTempoMultiplierPlayers = mutableListOf<ExoPlayer>()
     private var testClockMs = 1_000L
     private val pendingHandlerTasks = ArrayDeque<Runnable>()
 
@@ -101,6 +102,7 @@ class CrossfadeControllerTest {
             refreshNotification  = { refreshNotifCalls++ },
             onCrossfadeStarting  = { crossfadeStartingCalls++ },
             onCrossfadeCancelled = { crossfadeCancelledCalls++ },
+            resetAutoMixTempoMultiplier = { resetAutoMixTempoMultiplierPlayers.add(it) },
             monotonicClockMs     = { testClockMs },
         )
     }
@@ -131,6 +133,7 @@ class CrossfadeControllerTest {
         crossfadeCompleteCalls  = 0; emitAllCalls            = 0
         refreshNotifCalls       = 0; crossfadeStartingCalls  = 0
         crossfadeCancelledCalls = 0
+        resetAutoMixTempoMultiplierPlayers.clear()
 
         // Sensible defaults for active player
         whenever(mockActivePlayer.duration).thenReturn(180_000L)
@@ -348,6 +351,8 @@ class CrossfadeControllerTest {
         verify(mockPreloadManager).resetPreloadedIndex()
         assertEquals(1, rebuilds)
         assertEquals(1, crossfadeCancelledCalls)
+        assertTrue("abort resets promoted deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockStandbyPlayer))
+        assertTrue("abort resets outgoing deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockActivePlayer))
     }
 
     @Test fun `C12 fade completion lands on full volume without cancellation`() {
@@ -366,9 +371,19 @@ class CrossfadeControllerTest {
         assertEquals(1, crossfadeCompleteCalls)
         assertFalse(ctrl.crossfadeInProgress)
         assertEquals(0, crossfadeCancelledCalls)
+        assertTrue("completion resets promoted deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockStandbyPlayer))
+        assertTrue("completion resets outgoing deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockActivePlayer))
         val incomingVolumes = argumentCaptor<Float>()
         verify(mockStandbyPlayer, atLeastOnce()).volume = incomingVolumes.capture()
         assertEquals(1f, incomingVolumes.lastValue, 0.001f)
+    }
+
+    @Test fun `C13 cancel mid-fade resets AutoMix tempo on both decks`() {
+        val ctrl = makeControllerWithImmediateTrigger()
+        ctrl.maybeCrossfadeOut()
+        ctrl.cancel(resetVolume = false)
+        assertTrue("cancel resets promoted deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockStandbyPlayer))
+        assertTrue("cancel resets outgoing deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockActivePlayer))
     }
 
     // ═════════════════════════════════════════════════════════════════════════
