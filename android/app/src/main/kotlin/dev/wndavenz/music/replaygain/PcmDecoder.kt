@@ -5,6 +5,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import java.io.File
 import java.nio.ByteOrder
+import kotlin.math.ceil
 
 /**
  * Offline PCM decode loop (MediaExtractor + MediaCodec), decoupled from any
@@ -13,6 +14,24 @@ import java.nio.ByteOrder
  * to do in Kotlin has been removed; PCM is now streamed straight into a
  * libebur128-backed [EburTrackSession] via [feed].
  */
+/**
+ * Number of interleaved PCM frames that precede a requested media timestamp.
+ * The result is clamped to the current decoded buffer; callers keep trimming
+ * subsequent buffers until the requested timestamp is reached.
+ */
+internal fun pcmFramesToTrim(
+    targetUs: Long,
+    bufferStartUs: Long,
+    sampleRate: Int,
+    frameCount: Int,
+): Int {
+    if (sampleRate <= 0 || frameCount <= 0 || targetUs <= bufferStartUs) return 0
+    val deltaUs = targetUs.toDouble() - bufferStartUs.toDouble()
+    val frames = ceil(deltaUs * sampleRate / 1_000_000.0)
+    if (!frames.isFinite() || frames >= frameCount.toDouble()) return frameCount
+    return frames.toInt().coerceAtLeast(0)
+}
+
 object PcmDecoder {
 
     /** Format info needed to size an [EburTrackSession] before decoding starts. */
@@ -40,6 +59,7 @@ object PcmDecoder {
         feed: (buf: ShortArray, frameCount: Int) -> Boolean,
         onProgress: (Float) -> Unit,
         startUs: Long = 0L,
+        trimBeforeUs: Long? = null,
     ): Boolean {
         val file = File(path)
         if (!file.exists()) return false
@@ -112,6 +132,7 @@ object PcmDecoder {
         val info = MediaCodec.BufferInfo()
         var eos = false
         var aborted = false
+        var pendingTrimBeforeUs = trimBeforeUs
         // N-3: reuse one grow-only ShortArray for all output buffers instead
         // of allocating a fresh one per chunk. MediaCodec output-buffer sizes
         // are essentially constant for a given track/codec, so after the
@@ -152,9 +173,45 @@ object PcmDecoder {
                         if (remaining > 0) {
                             if (chunk.size < remaining) chunk = ShortArray(remaining)
                             sb.get(chunk, 0, remaining)
-                            val frameCount = remaining / channels
-                            if (frameCount > 0 && !feed(chunk, frameCount)) {
-                                aborted = true
+                            var frameCount = remaining / channels
+                            if (frameCount > 0) {
+                                val trimTargetUs = pendingTrimBeforeUs
+                                if (trimTargetUs != null) {
+                                    val framesToTrim = pcmFramesToTrim(
+                                        targetUs = trimTargetUs,
+                                        bufferStartUs = info.presentationTimeUs,
+                                        sampleRate = sampleRate,
+                                        frameCount = frameCount,
+                                    )
+                                    if (framesToTrim >= frameCount) {
+                                        val bufferEndUs = info.presentationTimeUs +
+                                            frameCount.toLong() * 1_000_000L / sampleRate
+                                        // A whole buffer before the requested timestamp
+                                        // is discarded. Keep trimming until a decoded
+                                        // sample at/after the target is reached.
+                                        if (bufferEndUs > trimTargetUs) {
+                                            pendingTrimBeforeUs = null
+                                        }
+                                        frameCount = 0
+                                    } else if (framesToTrim > 0) {
+                                        val keptFrames = frameCount - framesToTrim
+                                        System.arraycopy(
+                                            chunk,
+                                            framesToTrim * channels,
+                                            chunk,
+                                            0,
+                                            keptFrames * channels,
+                                        )
+                                        frameCount = keptFrames
+                                        pendingTrimBeforeUs = null
+                                    } else {
+                                        // The decoder has reached or passed the target.
+                                        pendingTrimBeforeUs = null
+                                    }
+                                }
+                                if (frameCount > 0 && !feed(chunk, frameCount)) {
+                                    aborted = true
+                                }
                             }
                         }
                     }
