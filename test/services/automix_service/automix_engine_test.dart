@@ -1523,6 +1523,33 @@ void main() {
       expect(cue.fadeSeconds, lessThan(45.0));
     });
 
+    test('early exit lead blends dense tail and sparse intro density', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          outro: 0.90,
+          durationSeconds: 240,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          intro: 0.35,
+          dropCueMs: 32000,
+          dropConfidence: 0.9,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      // (60 * 2 + 35) / 3 = 51.666... seconds before EOF.
+      expect(cue.transitionStartMs, closeTo(188333.33, 0.1));
+    });
+
     test('uncertain incoming drop keeps the conventional near-end transition', () {
       final cue = automixTransitionCue(
         outgoing: track(
@@ -1902,6 +1929,109 @@ void main() {
           _f(2, camelot: 3, minor: false),
         ),
         0.0,
+      );
+    });
+  });
+
+  group('automixEarlyHandoverLeadSeconds', () {
+    test('neutral metadata keeps the historical 45 second lead', () {
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: null,
+          introEnergy: null,
+        ),
+        45.0,
+      );
+    });
+
+    test('outgoing density maps continuously into the 35-60 second window', () {
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: 0.20,
+          introEnergy: null,
+        ),
+        35.0,
+      );
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: 0.6125,
+          introEnergy: null,
+        ),
+        closeTo(52.5, 1e-9),
+      );
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: 0.90,
+          introEnergy: null,
+        ),
+        60.0,
+      );
+    });
+
+    test('a sparse incoming intro pulls the handover later', () {
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: null,
+          introEnergy: 0.35,
+        ),
+        35.0,
+      );
+      // Dense tail (weight 2) plus sparse intro (weight 1): (120 + 35) / 3.
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: 0.90,
+          introEnergy: 0.35,
+        ),
+        closeTo(51.6666667, 1e-6),
+      );
+      // A dense intro leaves the outgoing density signal untouched.
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: 0.90,
+          introEnergy: 0.80,
+        ),
+        60.0,
+      );
+    });
+
+    test('confident tail structure adds its own lead signal', () {
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: null,
+          introEnergy: null,
+          tailStructureRegion: 3,
+          tailStructureConfidence: 0.65,
+        ),
+        60.0,
+      );
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: null,
+          introEnergy: null,
+          tailStructureRegion: 1,
+          tailStructureConfidence: 0.75,
+        ),
+        35.0,
+      );
+      // Weak structure confidence is ignored.
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: null,
+          introEnergy: null,
+          tailStructureRegion: 3,
+          tailStructureConfidence: 0.64,
+        ),
+        45.0,
+      );
+      // DROP (60) combined with a sparse intro (35): (60 + 35) / 2.
+      expect(
+        automixEarlyHandoverLeadSeconds(
+          outroEnergy: null,
+          introEnergy: 0.35,
+          tailStructureRegion: 3,
+          tailStructureConfidence: 0.65,
+        ),
+        closeTo(47.5, 1e-9),
       );
     });
   });

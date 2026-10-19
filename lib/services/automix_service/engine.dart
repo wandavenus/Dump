@@ -773,6 +773,58 @@ double? automixChordProgressionCost(
   );
 }
 
+/// Adaptive lead time, in seconds, for an early handover.
+///
+/// Blends three signals into the documented 35–60 second window:
+/// outgoing tail density (weight 2), a sparse incoming intro (weight 1), and
+/// a confident tail structure cue (weight 1). Neutral metadata returns the
+/// historical 45 second lead. This is the lead before EOF, not the fade
+/// duration; Media3 still phrase-aligns the resulting start on the outgoing
+/// grid.
+double automixEarlyHandoverLeadSeconds({
+  required double? outroEnergy,
+  required double? introEnergy,
+  int tailStructureRegion = 0,
+  double tailStructureConfidence = 0,
+}) {
+  const minLead = 35.0;
+  const neutralLead = 45.0;
+  const maxLead = 60.0;
+  var weighted = 0.0;
+  var weight = 0.0;
+
+  if (outroEnergy != null && outroEnergy.isFinite) {
+    final density = outroEnergy.clamp(0.0, 1.0).toDouble();
+    final lead = density <= 0.525
+        ? minLead +
+            ((density - 0.35) / 0.175).clamp(0.0, 1.0) * (neutralLead - minLead)
+        : neutralLead +
+            ((density - 0.525) / 0.175).clamp(0.0, 1.0) * (maxLead - neutralLead);
+    weighted += lead * 2.0;
+    weight += 2.0;
+  }
+
+  // A sparse intro can carry a later handover; a dense intro stays neutral.
+  if (introEnergy != null && introEnergy.isFinite && introEnergy < 0.50) {
+    final sparse = ((0.50 - introEnergy) / 0.15).clamp(0.0, 1.0);
+    weighted += neutralLead - 10.0 * sparse;
+    weight += 1.0;
+  }
+
+  // Region 3 is DROP, region 1 is LOW_ACTIVITY. The confidence gates match
+  // denseTail/sparseTail in the strategy selection above.
+  if (tailStructureRegion == 3 && tailStructureConfidence >= 0.65) {
+    weighted += maxLead;
+    weight += 1.0;
+  } else if (tailStructureRegion == 1 && tailStructureConfidence >= 0.75) {
+    weighted += minLead;
+    weight += 1.0;
+  }
+
+  if (weight == 0.0) return neutralLead;
+  return (weighted / weight).clamp(minLead, maxLead).toDouble();
+}
+
 AutomixTransitionCue automixTransitionCue({
   required AutomixTrackFeatures outgoing,
   required AutomixTrackFeatures incoming,
@@ -941,12 +993,13 @@ AutomixTransitionCue automixTransitionCue({
         breakdownLeadSeconds >= 30 &&
         breakdownLeadSeconds <= 65) {
       leadSeconds = breakdownLeadSeconds;
-    } else if (denseTail) {
-      leadSeconds = 60.0;
-    } else if (sparseTail || sparseIntro) {
-      leadSeconds = 35.0;
     } else {
-      leadSeconds = 45.0;
+      leadSeconds = automixEarlyHandoverLeadSeconds(
+        outroEnergy: outgoing.outroEnergy,
+        introEnergy: incoming.introEnergy,
+        tailStructureRegion: outgoing.tailStructureRegion,
+        tailStructureConfidence: outgoing.tailStructureConfidence,
+      );
     }
     final candidateStartMs = durationMs - leadSeconds * 1000.0;
     // Keep at least five seconds of outgoing audio beyond the fade duration,
