@@ -991,7 +991,7 @@ class AutomixService {
   // v14: add the quarter energy profile and derived intro/outro slopes.
   // v15: use cepstral periodicity and stereo center-channel evidence in the
   //     native vocal proxy.
-  static const int _analysisSchemaVersion = 15;
+  static const int _analysisSchemaVersion = 16;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1149,8 +1149,13 @@ class AutomixService {
     tailBpm: features.tailBpm,
     tailBpmConfidence: features.tailBpmConfidence,
     startBpm: features.startBpm,
+    startBpmConfidence: features.startBpmConfidence,
     endBpm: features.endBpm,
+    endBpmConfidence: features.endBpmConfidence,
+    introBeatOffsetMs: features.introBeatOffsetMs,
     tempoStability: features.tempoStability,
+    introTempoStability: features.introTempoStability,
+    outroTempoStability: features.outroTempoStability,
     introSlope: features.introSlope,
     outroSlope: features.outroSlope,
     tailBeatOffsetMs: features.tailBeatOffsetMs,
