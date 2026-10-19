@@ -1431,9 +1431,8 @@ double _transitionCost({
   _EnergyArc arc = _EnergyArc.disabled,
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
-  // A transition lives in the outgoing track's tail and the incoming track's
-  // head, so score tempo compatibility at that seam: prefer the outgoing exit
-  // (tail) tempo when the exit window produced one, else its head estimate.
+  // Score the tempo at the actual seam. A tail BPM is eligible only when
+  // its own confidence passes the shared 0.35 gate; otherwise use head BPM.
   final referenceBpm = automixExitBpm(a);
   final outgoingTempoConfidence = automixExitBpmConfidence(a);
   final measuredTempo = automixTempoCost(
