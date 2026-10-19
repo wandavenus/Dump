@@ -1371,7 +1371,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.';
 
   @override
-  String get automixTitle => 'AutoMix';
+  String get automixTitle => 'AutoMix (beta)';
 
   @override
   String get automixDescription =>
