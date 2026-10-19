@@ -80,6 +80,7 @@ object AutomixAnalysis {
         val decoded = PcmDecoder.decode(
             path = path,
             startUs = startUs,
+            trimBeforeUs = startUs,
             onFormat = { fmt ->
                 sampleRate = fmt.sampleRate
                 channels = fmt.channels
