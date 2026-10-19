@@ -6,7 +6,7 @@ import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
 const int _analysisOutputCount = 28;
-const int _featureCount = 23;
+const int _featureCount = 27;
 
 /// Synchronous FFI facade over the AutoMix native C core.
 class NativeAutomix {
@@ -72,6 +72,10 @@ class NativeAutomix {
           track.introSlope,
           track.outroSlope,
           track.tailBpmConfidence,
+          track.startBpm,
+          track.startBpmConfidence,
+          track.introTempoStability,
+          track.outroTempoStability,
         ];
         for (var field = 0; field < values.length; field++) {
           features[i * _featureCount + field] = values[field] ?? double.nan;
