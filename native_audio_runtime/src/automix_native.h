@@ -69,7 +69,7 @@ enum NarAutomixFeatureIndex {
 // Key fields per track: [Camelot number (0 means unknown), mode
 // (-1 unknown, 0 major, 1 minor)].
 //
-// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 28):
+// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 32):
 //  0: BPM (NaN when unknown)
 //  1: BPM confidence (0..1)
 //  2: Alternate BPM (NaN when unknown)
