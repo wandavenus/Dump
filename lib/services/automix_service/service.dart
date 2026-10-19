@@ -1656,7 +1656,7 @@ class AutomixService {
   static double _windowSecondsForDuration(double durationSeconds) {
     if (durationSeconds > _segmentSeconds &&
         durationSeconds < _segmentSeconds * 2) {
-      return math.max(1.0, (durationSeconds / 2).floorToDouble());
+      return math.max(1.0, (durationSeconds / 2).floorToDouble()).toDouble();
     }
     return _segmentSeconds;
   }
