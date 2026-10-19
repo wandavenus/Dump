@@ -203,7 +203,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     return value != null && value >= 0 && value <= 1 ? value : 0;
   }
 
-  final double? nonNegativeValue(String key) {
+  double? nonNegativeValue(String key) {
     final value = finiteValue(key);
     return value != null && value >= 0 ? value : null;
   }
