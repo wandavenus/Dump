@@ -193,3 +193,14 @@ Review lanjutan terhadap patch yang sudah berada di `main` menindaklanjuti empat
 - **Metadata laporan:** header dan status working-tree lama diperbarui; source revision dan CI dinyatakan eksplisit.
 
 `startAutomix` sekarang menggunakan `playSongAt(rethrowOnError: true)`. Pada jalur itu, kegagalan handoff dipropagasikan setelah state Dart dipulihkan dan pemulihan antrean/playhead native dicoba. Pemulihan native tetap best-effort bila bridge/service sedang gagal; keberhasilan suara end-to-end tetap perlu diverifikasi melalui playback perangkat nyata.
+
+
+## 10. Follow-up 19 Oktober 2026 — jalur analisis & edge tempo
+
+- **Edge-tempo benar-benar dipakai:** analyzer menerbitkan confidence dan beat phase yang dihitung dengan BPM lokal awal/akhir; merge/cache membawa datanya; planner native C dan referensi Dart menilai tempo outgoing dari tail dan incoming dari intro. BPM lokal tidak dipasangkan dengan fase whole-window yang berbeda clock.
+- **Stability gate:** stability jendela awal/akhir ikut membobot skor tempo. Bila stability terukur di bawah 0.65, playback tidak memaksakan tempo pull; pasangan tetap menggunakan crossfade normal. Metadata stabilitas yang tidak tersedia tetap memakai fallback lama.
+- **Window analysis:** lagu berdurasi di atas 120 dan di bawah 240 detik memakai head/tail window lebih pendek agar hampir seluruh isi dua window tidak dianalisis dua kali. Lagu yang lebih panjang tetap memakai bounded head/tail dan midpoint untuk file yang sangat panjang.
+- **Seek alignment:** PCM sebelum timestamp target dibuang pada frame sample yang benar. Bounded analysis gagal secara eksplisit jika seek presisi gagal, alih-alih decode dari awal sambil tetap mengklaim timestamp tail.
+- **ABI/cache/tests:** analyzer ABI diperpanjang dari 28 ke 32 value; planner feature row dari 23 ke 27 slot; cache schema dinaikkan ke v16. Ada regresi untuk edge BPM/phase, stability gate, window sizing, serta frame trim PCM. Workflow CI sekarang mencakup perubahan Kotlin bridge/decoder dan tes terkait.
+
+**Verifikasi remote:** AutoMix engine suite lulus pada revisi d3745cf; dua tes cache yang masih merah berasal dari fixture yang belum menaikkan versi cache (15 → 16), lalu fixture tersebut diperbarui pada 3c9668f. Dispatch CI untuk revisi selanjutnya masih berjalan/antrean ketika catatan ini disusun. Keberhasilan workflow Dump sendiri menandakan dispatch berhasil, bukan bukti suite Noisegraph selesai lulus. Uji audio hasil render pada perangkat fisik tetap belum dilakukan.
