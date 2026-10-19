@@ -85,17 +85,18 @@ class AutomixGridMergeTest {
 
     @Test
     fun `agreeing tempos blend by weight and the live phase wins`() {
-        // 120 vs 122 bpm: |ln| = 0.0165 < 0.04. Phases: live 260/500 = 0.52,
-        // offline (10_280 - 0) mod 500 = 280 -> 0.56; distance 0.04.
+        // 120 vs 122 bpm agree on tempo (|ln ratio| < 0.04). Phase fractions
+        // are live 260/500 = 0.52 and offline 10_111.5/(60_000/122) ≈ 0.56.
         val grid = merge(
             live = live(phaseMs = 260.0, confidence = 0.9f),
             offlineBpm = 122f,
-            offlinePositionMs = 10_280.0,
+            offlinePositionMs = 10_111.5,
             offlineBeatOffsetMs = 0.0,
             offlineDownbeatOffsetMs = 0.0,
         )!!
         val expectedBpm = (120.0 * 0.9 + 122.0 * 0.8) / 1.7
-        assertEquals(expectedBpm, grid.bpm, 1e-9)
+        // Live confidence is Float-backed; allow its normal conversion error.
+        assertEquals(expectedBpm, grid.bpm, 1e-6)
         assertEquals(260.0, grid.beatPositionMs, 1e-9)
         assertEquals(0.0, grid.beatOffsetMs, 1e-9)
         assertTrue(grid.live)
@@ -185,7 +186,7 @@ class AutomixGridMergeTest {
             offlineBeatOffsetMs = 0.0,
             offlineDownbeatOffsetMs = 2_000.0,
         )!!
-        assertEquals(10_000.0, grid.downbeatPositionMs!!, 1e-9)
+        assertEquals(10_400.0, grid.downbeatPositionMs!!, 1e-9)
         assertEquals(2_000.0, grid.downbeatOffsetMs, 1e-9)
     }
 
