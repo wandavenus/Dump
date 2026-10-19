@@ -302,9 +302,8 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
                               int32_t harmonic_filter) {
   const double head_bpm_a = feature(rows, a, NAR_AUTOMIX_BPM);
   const double bpm_b = feature(rows, b, NAR_AUTOMIX_BPM);
-  // A transition lives in the outgoing track's tail and the incoming track's
-  // head, so score tempo compatibility at that seam: prefer the outgoing exit
-  // (tail) tempo when the exit window produced one, else its head estimate.
+  // Score tempo at the actual seam. A tail BPM is eligible only when its
+  // own confidence passes the shared 0.35 gate; otherwise use the head BPM.
   const double tail_bpm_a = feature(rows, a, NAR_AUTOMIX_TAIL_BPM);
   const double tail_confidence_a =
       feature(rows, a, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
