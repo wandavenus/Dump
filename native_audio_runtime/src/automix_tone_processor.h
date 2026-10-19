@@ -27,6 +27,12 @@ typedef struct NarAutomixToneState {
   float current_fade_gain;                              // offset 92
   int32_t configured;                                   // offset 96
   float current_mid_gain;                               // offset 100
+  // True-peak limiter state. Appended after the NEON-visible fields; the
+  // assembly never reads beyond offset 100.
+  float true_peak_gain;                                 // offset 104
+  float true_peak_release_alpha;                        // offset 108
+  float true_peak_history[NAR_AUTOMIX_TONE_MAX_CHANNELS][4];  // offset 112
+  int32_t true_peak_primed;                             // offset 240
 } NarAutomixToneState;
 
 // Configure/reset are lifecycle calls; never call configure concurrently with
@@ -42,6 +48,11 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_high_gain(
     int32_t stream_slot, float gain);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_fade_gain(
     int32_t stream_slot, float gain);
+// Enables the per-deck true-peak limiter for the given ceiling (0 < ceiling
+// <= 1). A ceiling <= 0 or a non-finite value disables it and leaves the
+// stream bit-transparent. Disabled by default.
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_true_peak_limit(
+    int32_t stream_slot, float ceiling);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
     float progress, float gamma, float outgoing_trim, float incoming_trim,
     float* outgoing_gain, float* incoming_gain);

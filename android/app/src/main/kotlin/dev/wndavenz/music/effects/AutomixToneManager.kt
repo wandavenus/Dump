@@ -47,6 +47,9 @@ class AutomixToneAudioProcessor(
         private external fun nativeSetFadeGain(streamSlot: Int, gain: Float): Int
 
         @JvmStatic
+        private external fun nativeSetTruePeakLimit(streamSlot: Int, ceiling: Float): Int
+
+        @JvmStatic
         private external fun nativeSetCrossfadeGains(
             outgoingSlot: Int,
             incomingSlot: Int,
@@ -71,6 +74,15 @@ class AutomixToneAudioProcessor(
             if (!NativeDspAudioProcessor.isLibraryAvailable) return false
             return try {
                 nativeSetFadeGain(streamSlot, normalizeGain(gain)) == 1
+            } catch (_: LinkageError) {
+                false
+            }
+        }
+
+        internal fun setNativeTruePeakLimit(streamSlot: Int, ceiling: Float): Boolean {
+            if (!NativeDspAudioProcessor.isLibraryAvailable) return false
+            return try {
+                nativeSetTruePeakLimit(streamSlot, normalizeTruePeakCeiling(ceiling)) == 1
             } catch (_: LinkageError) {
                 false
             }
@@ -101,6 +113,9 @@ class AutomixToneAudioProcessor(
 
         private fun normalizeGain(gain: Float): Float =
             if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
+
+        private fun normalizeTruePeakCeiling(ceiling: Float): Float =
+            if (ceiling.isFinite() && ceiling > 0f) ceiling.coerceIn(0.05f, 1f) else 0f
     }
 
     @Volatile
@@ -124,6 +139,13 @@ class AutomixToneAudioProcessor(
     fun setHighGain(gain: Float) {
         if (NativeDspAudioProcessor.isLibraryAvailable) {
             nativeSetHighGain(streamSlot, normalizeGain(gain))
+        }
+    }
+
+    /** True-peak ceiling for this deck; 0 disables the limiter. */
+    fun setTruePeakLimit(ceiling: Float) {
+        if (NativeDspAudioProcessor.isLibraryAvailable) {
+            nativeSetTruePeakLimit(streamSlot, normalizeTruePeakCeiling(ceiling))
         }
     }
 
@@ -211,6 +233,7 @@ class AutomixToneManager {
     private val targetGains = mutableMapOf<Int, Float>()
     private val targetMidGains = mutableMapOf<Int, Float>()
     private val targetHighGains = mutableMapOf<Int, Float>()
+    private val targetTruePeakCeilings = mutableMapOf<Int, Float>()
     private val lock = Any()
 
     fun createProcessor(streamSlot: Int): AutomixToneAudioProcessor {
@@ -218,15 +241,18 @@ class AutomixToneManager {
         val target: Float
         val midTarget: Float
         val highTarget: Float
+        val truePeakTarget: Float
         synchronized(lock) {
             processors[streamSlot] = processor
             target = targetGains[streamSlot] ?: 1f
             midTarget = targetMidGains[streamSlot] ?: 1f
             highTarget = targetHighGains[streamSlot] ?: 1f
+            truePeakTarget = targetTruePeakCeilings[streamSlot] ?: 0f
         }
         processor.setBassGain(target)
         processor.setMidGain(midTarget)
         processor.setHighGain(highTarget)
+        processor.setTruePeakLimit(truePeakTarget)
         return processor
     }
 
@@ -236,10 +262,14 @@ class AutomixToneManager {
             val slot = processors.entries.firstOrNull { it.value === processor }?.key
             if (slot != null) {
                 processors.remove(slot)
+                targetTruePeakCeilings.remove(slot)
                 removedSlot = slot
             }
         }
-        removedSlot?.let { AutomixToneAudioProcessor.setNativeFadeGain(it, 1f) }
+        removedSlot?.let {
+            AutomixToneAudioProcessor.setNativeFadeGain(it, 1f)
+            AutomixToneAudioProcessor.setNativeTruePeakLimit(it, 0f)
+        }
     }
 
     fun setBassGain(streamSlot: Int, gain: Float) {
@@ -272,6 +302,31 @@ class AutomixToneManager {
             processor = processors[streamSlot]
         }
         processor?.setHighGain(normalized)
+    }
+
+    /**
+     * Per-deck true-peak ceiling. A ceiling <= 0 disables the limiter and keeps
+     * the deck bit-transparent outside an AutoMix overlap.
+     */
+    fun setTruePeakLimit(streamSlot: Int, ceiling: Float) {
+        val normalized =
+            if (ceiling.isFinite() && ceiling > 0f) ceiling.coerceIn(0.05f, 1f) else 0f
+        val processor: AutomixToneAudioProcessor?
+        synchronized(lock) {
+            if (normalized > 0f) {
+                targetTruePeakCeilings[streamSlot] = normalized
+            } else {
+                targetTruePeakCeilings.remove(streamSlot)
+            }
+            processor = processors[streamSlot]
+        }
+        if (processor != null) {
+            processor.setTruePeakLimit(normalized)
+        } else {
+            // Apply directly even before the Media3 processor exists; the
+            // native target is per stream slot and survives configure().
+            AutomixToneAudioProcessor.setNativeTruePeakLimit(streamSlot, normalized)
+        }
     }
 
     /** Sets both decks' equal-power transfer targets in the native tone stage. */
@@ -310,6 +365,7 @@ class AutomixToneManager {
             targetGains.clear()
             targetMidGains.clear()
             targetHighGains.clear()
+            targetTruePeakCeilings.clear()
             for ((slot, _) in snapshot) {
                 targetGains[slot] = 1f
                 targetMidGains[slot] = 1f
@@ -320,6 +376,7 @@ class AutomixToneManager {
             processor.setBassGain(1f)
             processor.setMidGain(1f)
             processor.setHighGain(1f)
+            processor.setTruePeakLimit(0f)
             setFadeGain(slot, 1f)
         }
     }

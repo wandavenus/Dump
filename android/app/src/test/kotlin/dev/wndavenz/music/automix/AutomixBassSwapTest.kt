@@ -1,7 +1,6 @@
 package dev.wndavenz.music.automix
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -114,7 +113,6 @@ class AutomixBassSwapTest {
             beatMs = 4_000.0,
             beatOffsetMs = 0.0,
         )!!
-        assertNotNull(window)
         // 35 % of 4 s is 1 400 ms; a 4 s beat would put the boundary at 4 000 ms,
         // which leaves no room for the transfer, so the soft floor is used.
         assertEquals(1_400.0, window.startMs, 0.001)

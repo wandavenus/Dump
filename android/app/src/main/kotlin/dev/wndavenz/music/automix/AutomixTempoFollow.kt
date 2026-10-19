@@ -27,7 +27,9 @@ internal object AutomixTempoFollow {
     private const val MAX_BPM = 250f
     private const val STRETCH_MIN = 0.92
     private const val STRETCH_MAX = 1.08
-    private const val MIN_APPLIED_DELTA = 0.002f
+    // Matches the controller's apply epsilon: smaller corrections would be
+    // re-posted every tick without changing the target.
+    private const val MIN_APPLIED_DELTA = 0.001f
 
     /**
      * Returns the relative factor to apply on top of the planner's multiplier,
@@ -59,7 +61,7 @@ internal object AutomixTempoFollow {
         if (offlineRatio <= 0.0) return null
 
         val correction = maxCorrection
-            .takeIf { it.isFinite() && it > 0f }
+            .takeIf { it.isFinite() && it >= 0f }
             ?.coerceAtMost(0.04f)
             ?: MAX_CORRECTION
         // The relative correction is capped, and the resulting absolute
