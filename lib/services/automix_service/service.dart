@@ -1650,6 +1650,17 @@ class AutomixService {
   /// across their whole duration instead of only at the edges.
   static const double _veryLongFileSeconds = 480.0;
 
+  /// Keep two windows disjoint on tracks shorter than twice the normal window.
+  /// Otherwise a 121-second track would analyze almost the same two minutes
+  /// twice and overweight duplicated content during feature merging.
+  static double _windowSecondsForDuration(double durationSeconds) {
+    if (durationSeconds > _segmentSeconds &&
+        durationSeconds < _segmentSeconds * 2) {
+      return math.max(1.0, (durationSeconds / 2).floorToDouble());
+    }
+    return _segmentSeconds;
+  }
+
   /// Decodes one bounded window of [path] and returns its features plus the
   /// decoded file length. Returns null when the file cannot be analyzed
   /// (decoder failure, busy scanner).
@@ -1702,45 +1713,74 @@ class AutomixService {
   static Future<(List<AutomixSegmentFeatures>, double, bool)> _analyzeSegments(
     LocalSong song,
   ) async {
-    final head = await _analyzeWindow(song.path, 0, _segmentSeconds);
-    if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
-    final segments = <AutomixSegmentFeatures>[head.$1];
-    final reportedDuration = head.$2;
     final mediaDuration = song.duration.inMilliseconds / 1000.0;
-    var fileSeconds = 0.0;
-    if (reportedDuration.isFinite && reportedDuration > 0) {
-      fileSeconds = reportedDuration;
-    } else if (mediaDuration.isFinite && mediaDuration > 0) {
-      fileSeconds = mediaDuration;
+    var windowSeconds = mediaDuration.isFinite && mediaDuration > 0
+        ? _windowSecondsForDuration(mediaDuration)
+        : _segmentSeconds;
+    var head = await _analyzeWindow(song.path, 0, windowSeconds);
+    if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
+
+    double resolvedDuration((AutomixSegmentFeatures, double) result) {
+      final reported = result.$2;
+      if (reported.isFinite && reported > 0) return reported;
+      if (mediaDuration.isFinite && mediaDuration > 0) return mediaDuration;
+      return 0.0;
     }
 
-    // Anything shorter than one window is already covered completely.
+    var fileSeconds = resolvedDuration(head);
     if (fileSeconds <= 0) {
-      // Without a known duration we cannot prove that the head window covers
-      // the file. Keep its useful features, but do not publish it as an exit
-      // grid; a later launch can retry with fresh decoder metadata.
-      return (segments, fileSeconds, false);
+      // Without a known duration we cannot prove that the head covers the
+      // whole file. Retain useful features but do not publish an exit grid.
+      return ([head.$1], fileSeconds, false);
     }
-    if (fileSeconds <= _segmentSeconds) {
+
+    // MediaStore duration can be absent or stale. Once the decoder reports its
+    // actual duration, correct the first window before choosing the tail so the
+    // committed windows never overlap. In the rare unknown-duration case this
+    // repeats the head analysis once with the correct bounded window.
+    final actualWindowSeconds = _windowSecondsForDuration(fileSeconds);
+    if (actualWindowSeconds != windowSeconds) {
+      windowSeconds = actualWindowSeconds;
+      head = await _analyzeWindow(song.path, 0, windowSeconds);
+      if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
+      fileSeconds = resolvedDuration(head);
+      if (fileSeconds <= 0) return ([head.$1], fileSeconds, false);
+      // Recalculate once more if decoder duration differs from the initial
+      // media estimate; window size remains bounded and must fit both halves.
+      windowSeconds = _windowSecondsForDuration(fileSeconds);
+    }
+
+    final segments = <AutomixSegmentFeatures>[head.$1];
+    if (fileSeconds <= windowSeconds) {
       return (segments, fileSeconds, true);
     }
 
     var tailAnalyzed = false;
-    final tailStart = fileSeconds - _segmentSeconds;
+    final tailStart = fileSeconds - windowSeconds;
     if (tailStart > 0) {
-      final tail = await _analyzeWindow(song.path, tailStart, _segmentSeconds);
+      final tail = await _analyzeWindow(
+        song.path,
+        tailStart,
+        windowSeconds,
+      );
       if (tail != null) {
         segments.add(tail.$1);
         tailAnalyzed = true;
       }
     }
+
     if (fileSeconds > _veryLongFileSeconds) {
-      final midStart = fileSeconds / 2 - _segmentSeconds / 2;
+      final midStart = fileSeconds / 2 - windowSeconds / 2;
       if (midStart > 0) {
-        final mid = await _analyzeWindow(song.path, midStart, _segmentSeconds);
+        final mid = await _analyzeWindow(
+          song.path,
+          midStart,
+          windowSeconds,
+        );
         if (mid != null) segments.add(mid.$1);
       }
     }
+
     segments.sort((a, b) => a.startSeconds.compareTo(b.startSeconds));
     return (segments, fileSeconds, tailAnalyzed);
   }
