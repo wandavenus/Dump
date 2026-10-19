@@ -383,10 +383,28 @@ AutomixTrackFeatures automixMergeSegments({
 
   double? startBpm;
   double? endBpm;
+  var startBpmConfidence = 0.0;
+  var endBpmConfidence = 0.0;
+  double? introBeatOffsetMs;
+  double? introTempoStability;
+  double? outroTempoStability;
   if (segments.isNotEmpty) {
-    startBpm = curveBpmOf(segments.first.startBpm);
+    final head = segments.first;
+    startBpm = curveBpmOf(head.startBpm);
+    startBpmConfidence = startBpm == null ? 0.0 : head.startBpmConfidence;
+    if (startBpm != null &&
+        startBpmConfidence >= 0.35 &&
+        head.startBeatOffsetMs != null &&
+        head.startBeatOffsetMs!.isFinite &&
+        head.startBeatOffsetMs! >= 0) {
+      introBeatOffsetMs = head.startBeatOffsetMs;
+    }
+    introTempoStability = head.tempoStability;
     if (tailSegmentAnalyzed) {
-      endBpm = curveBpmOf(segments.last.endBpm);
+      final tail = segments.last;
+      endBpm = curveBpmOf(tail.endBpm);
+      endBpmConfidence = endBpm == null ? 0.0 : tail.endBpmConfidence;
+      outroTempoStability = tail.tempoStability;
     }
   }
   var stabilityWeight = 0.0;
@@ -481,9 +499,23 @@ AutomixTrackFeatures automixMergeSegments({
       in tailSegmentAnalyzed
           ? segments.reversed
           : const <AutomixSegmentFeatures>[]) {
+    if (s.endBpm != null && s.endBpmConfidence >= 0.35) {
+      tailBpm = bpm == null
+          ? s.endBpm!
+          : automixFoldToOctave(s.endBpm!, bpm);
+      tailBpmConfidence = s.endBpmConfidence;
+      if (s.endBeatOffsetMs != null &&
+          s.endBeatOffsetMs!.isFinite &&
+          s.endBeatOffsetMs! >= 0) {
+        tailBeatOffsetMs =
+            s.startSeconds * 1000.0 + s.endBeatOffsetMs!;
+      }
+      // This phrase phase was estimated with whole-window tempo. Do not pair
+      // it with a local exit BPM.
+      break;
+    }
     if (s.bpm == null || s.bpmConfidence < 0.20) continue;
     tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
-    // Tail confidence is independent metadata; never promote head/window BPM confidence.
     final tailConfidence = s.tailBpmConfidence;
     tailBpmConfidence = tailConfidence.isFinite &&
             tailConfidence >= 0 &&
@@ -625,8 +657,13 @@ AutomixTrackFeatures automixMergeSegments({
     tailBpmConfidence: tailBpmConfidence,
     tailBeatOffsetMs: tailBeatOffsetMs,
     startBpm: startBpm,
+    startBpmConfidence: startBpmConfidence,
     endBpm: endBpm,
+    endBpmConfidence: endBpmConfidence,
+    introBeatOffsetMs: introBeatOffsetMs,
     tempoStability: tempoStability,
+    introTempoStability: introTempoStability,
+    outroTempoStability: outroTempoStability,
     introSlope: introSlope,
     outroSlope: outroSlope,
     introRmsDb: firstSegment?.rmsDb,
@@ -736,6 +773,63 @@ double automixExitBpmConfidence(AutomixTrackFeatures features) =>
     automixHasConfidentTailBpm(features)
         ? features.tailBpmConfidence
         : features.bpmConfidence;
+
+
+/// Minimum measured edge-tempo stability required for active tempo pull.
+/// Unknown stability keeps legacy behavior; a measured unstable curve uses a
+/// conventional crossfade instead of varispeed.
+const double automixTempoStabilityThreshold = 0.65;
+
+bool automixTempoStabilityAllowsPull(double? stability) =>
+    stability == null ||
+    !stability.isFinite ||
+    stability >= automixTempoStabilityThreshold;
+
+bool automixTempoCurveAllowsPair(
+  AutomixTrackFeatures outgoing,
+  AutomixTrackFeatures incoming,
+) =>
+    automixTempoStabilityAllowsPull(outgoing.outroTempoStability) &&
+    automixTempoStabilityAllowsPull(incoming.introTempoStability);
+
+bool automixHasConfidentIntroBpm(AutomixTrackFeatures features) {
+  final bpm = features.startBpm;
+  final confidence = features.startBpmConfidence;
+  return bpm != null &&
+      bpm.isFinite &&
+      bpm > 0 &&
+      confidence.isFinite &&
+      confidence >= 0.35 &&
+      confidence <= 1.0;
+}
+
+/// Tempo at which the incoming track actually begins, falling back to its
+/// whole-window estimate if the local intro estimate is not confident.
+double? automixEntryBpm(AutomixTrackFeatures features) =>
+    automixHasConfidentIntroBpm(features) ? features.startBpm : features.bpm;
+
+double automixEntryBpmConfidence(AutomixTrackFeatures features) =>
+    automixHasConfidentIntroBpm(features)
+        ? features.startBpmConfidence
+        : features.bpmConfidence;
+
+/// A local intro grid is usable only when BPM and phase came from the same
+/// quarter. Never combine local BPM with whole-window beat phase.
+bool automixHasConfidentIntroGrid(AutomixTrackFeatures features) =>
+    automixHasConfidentIntroBpm(features) &&
+    features.introBeatOffsetMs != null &&
+    features.introBeatOffsetMs!.isFinite &&
+    features.introBeatOffsetMs! >= 0;
+
+/// True when the outgoing grid uses the locally measured end-quarter tempo.
+/// Its whole-window phrase phase must not be paired with this local clock.
+bool automixHasConfidentLocalTailBpm(AutomixTrackFeatures features) =>
+    features.endBpm != null &&
+    features.endBpm!.isFinite &&
+    features.endBpm! > 0 &&
+    features.endBpmConfidence.isFinite &&
+    features.endBpmConfidence >= 0.35 &&
+    features.endBpmConfidence <= 1.0;
 
 /// A conservative cost for the outgoing tail chord → incoming intro chord.
 /// 0 is compatible and 1 is strongly clashing. Null means no confident pair.
@@ -1438,12 +1532,21 @@ double _transitionCost({
   final measuredTempo = automixTempoCost(
     referenceBpm,
     a.alternateBpm,
-    b.bpm,
+    automixEntryBpm(b),
     b.alternateBpm,
     tolerance,
   );
+  final entryTempoConfidence = automixEntryBpmConfidence(b);
+  final exitStabilityWeight = a.outroTempoStability == null
+      ? 1.0
+      : automixClamp01(a.outroTempoStability!);
+  final entryStabilityWeight = b.introTempoStability == null
+      ? 1.0
+      : automixClamp01(b.introTempoStability!);
   final tempoConfidence = automixClamp01(
-    (outgoingTempoConfidence + b.bpmConfidence) / 2,
+    (outgoingTempoConfidence * exitStabilityWeight +
+            entryTempoConfidence * entryStabilityWeight) /
+        2,
   );
   final tempo = automixConfidenceBlend(
     measuredTempo,
