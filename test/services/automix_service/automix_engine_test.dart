@@ -306,6 +306,45 @@ void main() {
       expect(invalidCurve.tempoStability, isNull);
     });
 
+    test('parses local edge-tempo confidence and matching beat phases', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'startBpm': 118.0,
+          'startBpmConfidence': 0.74,
+          'endBpm': 126.0,
+          'endBpmConfidence': 0.88,
+          'startBeatOffsetMs': 122.0,
+          'endBeatOffsetMs': 275.0,
+          'tempoStability': 0.81,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(segment.startBpm, 118.0);
+      expect(segment.startBpmConfidence, 0.74);
+      expect(segment.endBpm, 126.0);
+      expect(segment.endBpmConfidence, 0.88);
+      expect(segment.startBeatOffsetMs, 122.0);
+      expect(segment.endBeatOffsetMs, 275.0);
+
+      final invalid = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'startBpm': 118.0,
+          'startBpmConfidence': double.infinity,
+          'endBpm': 126.0,
+          'endBpmConfidence': -0.2,
+          'startBeatOffsetMs': -1.0,
+          'endBeatOffsetMs': double.nan,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(invalid.startBpmConfidence, 0);
+      expect(invalid.endBpmConfidence, 0);
+      expect(invalid.startBeatOffsetMs, isNull);
+      expect(invalid.endBeatOffsetMs, isNull);
+    });
+
     test('parses only complete finite quarter energy profiles', () {
       final complete = automixSegmentFeaturesFromAnalysisMap(
         <String, dynamic>{
