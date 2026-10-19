@@ -530,6 +530,40 @@ void main() {
     });
   });
 
+  group('AutoMix edge-tempo stability gate', () {
+    test('allows stable or unknown curves and rejects measured drift', () {
+      final stableOutgoing = AutomixTrackFeatures(
+        songId: 1,
+        bpm: 120,
+        bpmConfidence: 0.9,
+        tailBpm: 122,
+        tailBpmConfidence: 0.9,
+        outroTempoStability: 0.82,
+      );
+      final stableIncoming = AutomixTrackFeatures(
+        songId: 2,
+        bpm: 121,
+        bpmConfidence: 0.9,
+        startBpm: 121,
+        startBpmConfidence: 0.9,
+        introTempoStability: 0.65,
+      );
+      final unstableOutgoing = AutomixTrackFeatures(
+        songId: 3,
+        bpm: 120,
+        bpmConfidence: 0.9,
+        tailBpm: 96,
+        tailBpmConfidence: 0.9,
+        outroTempoStability: 0.42,
+      );
+
+      expect(automixTempoCurveAllowsPair(stableOutgoing, stableIncoming), isTrue);
+      expect(automixTempoCurveAllowsPair(unstableOutgoing, stableIncoming), isFalse);
+      expect(automixTempoStabilityAllowsPull(null), isTrue);
+      expect(automixTempoStabilityAllowsPull(0.649), isFalse);
+    });
+  });
+
   group('automixKeyToCamelot', () {
     test('canonical anchors', () {
       expect(automixKeyToCamelot(0, false), (8, false)); // C major = 8B
