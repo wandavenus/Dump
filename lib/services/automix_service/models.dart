@@ -111,7 +111,11 @@ class AutomixSegmentFeatures {
     this.vocalConfidence = 0,
     this.tailBpmConfidence = 0,
     this.startBpm,
+    this.startBpmConfidence = 0,
     this.endBpm,
+    this.endBpmConfidence = 0,
+    this.startBeatOffsetMs,
+    this.endBeatOffsetMs,
     this.tempoStability,
     this.energyQuarters = const <double>[],
     this.camelotNumber,
@@ -159,7 +163,14 @@ class AutomixSegmentFeatures {
   /// estimate when it matched the window's whole-window tempo family. Null
   /// means the estimate was not confident enough or octave-disagreeing.
   final double? startBpm;
+  final double startBpmConfidence;
   final double? endBpm;
+  final double endBpmConfidence;
+
+  /// Beat phase measured inside the corresponding edge quarter but expressed
+  /// relative to this analysis window and folded to that quarter's BPM.
+  final double? startBeatOffsetMs;
+  final double? endBeatOffsetMs;
 
   /// 0..1 mean quarter-window agreement with the whole-window tempo estimate.
   final double? tempoStability;
@@ -263,6 +274,8 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final seconds = finiteValue('segmentSeconds');
   final beatOffset = nonNegativeValue('beatOffsetMs');
   final downbeatOffset = nonNegativeValue('downbeatOffsetMs');
+  final startBpm = positiveBpm('startBpm');
+  final endBpm = positiveBpm('endBpm');
 
   return AutomixSegmentFeatures(
     startSeconds: start != null && start >= 0
@@ -293,8 +306,12 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     vocalLikelihood: unitValue('vocalLikelihood'),
     vocalConfidence: unitValue('vocalConfidence'),
     tailBpmConfidence: unitValue('tailBpmConfidence'),
-    startBpm: positiveBpm('startBpm'),
-    endBpm: positiveBpm('endBpm'),
+    startBpm: startBpm,
+    startBpmConfidence: startBpm == null ? 0 : unitValue('startBpmConfidence'),
+    endBpm: endBpm,
+    endBpmConfidence: endBpm == null ? 0 : unitValue('endBpmConfidence'),
+    startBeatOffsetMs: nonNegativeValue('startBeatOffsetMs'),
+    endBeatOffsetMs: nonNegativeValue('endBeatOffsetMs'),
     tempoStability: unitOrNull('tempoStability'),
     energyQuarters: energyQuartersValue(),
     camelotNumber: hasConfidentKey ? camelotNumber : null,
@@ -327,8 +344,13 @@ class AutomixTrackFeatures {
     this.tailBpm,
     this.tailBpmConfidence = 0,
     this.startBpm,
+    this.startBpmConfidence = 0,
     this.endBpm,
+    this.endBpmConfidence = 0,
+    this.introBeatOffsetMs,
     this.tempoStability,
+    this.introTempoStability,
+    this.outroTempoStability,
     this.introSlope,
     this.outroSlope,
     this.tailBeatOffsetMs,
@@ -430,8 +452,19 @@ class AutomixTrackFeatures {
   /// tail (folded into [bpm]'s octave) plus the mean window stability. Null
   /// when no window produced a confident, tempo-family-matching estimate.
   final double? startBpm;
+  final double startBpmConfidence;
   final double? endBpm;
+  final double endBpmConfidence;
+
+  /// Intro beat phase measured with the local start-quarter BPM.
+  final double? introBeatOffsetMs;
+
   final double? tempoStability;
+
+  /// Tempo stability for the exact edge used by a transition (rather than an
+  /// average that could hide an unstable intro or outro).
+  final double? introTempoStability;
+  final double? outroTempoStability;
 
   /// Coarse energy trend in dB per quarter window at the head (first two
   /// quarters) and exit (last two) of the track. Positive means building.
@@ -492,8 +525,13 @@ class AutomixTrackFeatures {
     if (tailBpmConfidence > 0) 'tbc': tailBpmConfidence,
     if (tailBeatOffsetMs != null) 'tbo': tailBeatOffsetMs,
     if (startBpm != null) 'sbpm': startBpm,
+    if (startBpmConfidence > 0) 'sbc': startBpmConfidence,
     if (endBpm != null) 'ebpm': endBpm,
+    if (endBpmConfidence > 0) 'ebc': endBpmConfidence,
+    if (introBeatOffsetMs != null) 'ibo': introBeatOffsetMs,
     if (tempoStability != null) 'tsta': tempoStability,
+    if (introTempoStability != null) 'ists': introTempoStability,
+    if (outroTempoStability != null) 'osts': outroTempoStability,
     if (introSlope != null) 'isl': introSlope,
     if (outroSlope != null) 'osl': outroSlope,
     if (introRmsDb != null) 'irms': introRmsDb,
@@ -541,8 +579,13 @@ class AutomixTrackFeatures {
       tailBpmConfidence: (map['tbc'] as num?)?.toDouble() ?? 0,
       tailBeatOffsetMs: (map['tbo'] as num?)?.toDouble(),
       startBpm: (map['sbpm'] as num?)?.toDouble(),
+      startBpmConfidence: (map['sbc'] as num?)?.toDouble() ?? 0,
       endBpm: (map['ebpm'] as num?)?.toDouble(),
+      endBpmConfidence: (map['ebc'] as num?)?.toDouble() ?? 0,
+      introBeatOffsetMs: (map['ibo'] as num?)?.toDouble(),
       tempoStability: (map['tsta'] as num?)?.toDouble(),
+      introTempoStability: (map['ists'] as num?)?.toDouble(),
+      outroTempoStability: (map['osts'] as num?)?.toDouble(),
       introSlope: (map['isl'] as num?)?.toDouble(),
       outroSlope: (map['osl'] as num?)?.toDouble(),
       introRmsDb: (map['irms'] as num?)?.toDouble(),
