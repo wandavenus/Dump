@@ -1372,7 +1372,7 @@ class AppLocalizationsId extends AppLocalizations {
       'Peningkatan khusus speaker dengan harmonik bass terkontrol, vokal lebih jelas, dan perlindungan adaptif terhadap suara tajam.';
 
   @override
-  String get automixTitle => 'AutoMix';
+  String get automixTitle => 'AutoMix (beta)';
 
   @override
   String get automixDescription =>
