@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define NAR_AUTOMIX_FEATURE_COUNT 23
+#define NAR_AUTOMIX_FEATURE_COUNT 27
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
 #define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 32
 
@@ -58,6 +58,12 @@ enum NarAutomixFeatureIndex {
   NAR_AUTOMIX_OUTRO_SLOPE = 21,
   // Confidence for NAR_AUTOMIX_TAIL_BPM; appended to preserve existing slots.
   NAR_AUTOMIX_TAIL_BPM_CONFIDENCE = 22,
+  // Local start-quarter tempo drives incoming-edge scoring; local end-quarter
+  // tempo is carried through NAR_AUTOMIX_TAIL_BPM when confidence-gated.
+  NAR_AUTOMIX_START_BPM = 23,
+  NAR_AUTOMIX_START_BPM_CONFIDENCE = 24,
+  NAR_AUTOMIX_INTRO_TEMPO_STABILITY = 25,
+  NAR_AUTOMIX_OUTRO_TEMPO_STABILITY = 26,
 };
 
 // Key fields per track: [Camelot number (0 means unknown), mode
