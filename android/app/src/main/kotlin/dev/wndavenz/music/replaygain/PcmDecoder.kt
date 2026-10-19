@@ -125,7 +125,16 @@ object PcmDecoder {
             try {
                 extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
             } catch (_: Exception) {
-                // Keep decoding from the beginning rather than failing the scan.
+                // A bounded AutoMix window must not silently fall back to
+                // decoding from 0: trimming toward a late tail would otherwise
+                // force a whole-file decode and could attach incorrect timing.
+                if (trimBeforeUs != null) {
+                    runCatching { codec.stop() }
+                    runCatching { codec.release() }
+                    runCatching { extractor.release() }
+                    return false
+                }
+                // Legacy whole-file scans can still proceed from the beginning.
             }
         }
 
