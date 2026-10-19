@@ -370,7 +370,9 @@ class AutomixService {
     final ordered = <AutomixTrackFeatures>[current, ...upcoming];
     final exitBpm = automixExitBpm(current);
     final exitConfidence = automixExitBpmConfidence(current);
-    final reference = _tempoInRange(exitBpm) && exitConfidence >= 0.35
+    final reference = _tempoInRange(exitBpm) &&
+            exitConfidence >= 0.35 &&
+            automixTempoStabilityAllowsPull(current.outroTempoStability)
         ? exitBpm
         : null;
 
@@ -379,36 +381,46 @@ class AutomixService {
       final features = ordered[i];
       final isOutgoing = i == 0;
       final useTailGrid = isOutgoing && automixHasConfidentTailBpm(features);
+      final useLocalTailGrid =
+          useTailGrid && automixHasConfidentLocalTailBpm(features);
+      final useLocalIntroGrid =
+          !isOutgoing && automixHasConfidentIntroGrid(features);
       final bpm = isOutgoing
           ? (useTailGrid ? features.tailBpm : features.bpm)
-          : features.bpm;
-      // Do not pair a fallback head BPM with the rejected tail's beat phase.
-      // When the tail grid is weak, use the head grid consistently instead.
+          : (useLocalIntroGrid ? features.startBpm : features.bpm);
+      // Local BPM estimates use phases measured in the same edge quarter.
+      // Their whole-window phrase phases are intentionally not forwarded.
       final beatOffsetMs = isOutgoing
           ? (useTailGrid ? features.tailBeatOffsetMs : features.beatOffsetMs)
-          : features.beatOffsetMs;
+          : (useLocalIntroGrid
+              ? features.introBeatOffsetMs
+              : features.beatOffsetMs);
       final downbeatOffsetMs = isOutgoing
           ? (useTailGrid
-              ? features.tailDownbeatOffsetMs
+              ? (useLocalTailGrid ? null : features.tailDownbeatOffsetMs)
               : features.downbeatOffsetMs)
-          : features.downbeatOffsetMs;
+          : (useLocalIntroGrid ? null : features.downbeatOffsetMs);
       final confidence = isOutgoing
           ? automixExitBpmConfidence(features)
-          : features.bpmConfidence;
+          : (useLocalIntroGrid
+              ? features.startBpmConfidence
+              : features.bpmConfidence);
       final confidentBpm = confidence >= 0.35 && _tempoInRange(bpm)
           ? bpm
           : null;
 
-      // The outgoing deck is never pulled (referenceBpm: null), it only
-      // publishes the grid the fade aligns to.
-      final match = automixTempoMatch(
-        referenceBpm: isOutgoing ? null : reference,
-        trackBpm: confidentBpm,
-        // Use the same user-configured tolerance as transition scoring and the
-        // native planner; a hard-coded default here could publish a grid for a
-        // pair the planner deliberately rejected.
-        tolerance: settings.value.bpmTolerancePercent / 100.0,
-      );
+      // Never tempo-pull a measured unstable intro/outro. Keep the edge grid
+      // for the outgoing deck, but omit the incoming grid so playback takes the
+      // normal crossfade path rather than phase-locking clocks that are drifting.
+      final pairAllowsTempoPull =
+          !isOutgoing && automixTempoCurveAllowsPair(current, features);
+      final match = !pairAllowsTempoPull
+          ? (false, 1.0)
+          : automixTempoMatch(
+              referenceBpm: reference,
+              trackBpm: confidentBpm,
+              tolerance: settings.value.bpmTolerancePercent / 100.0,
+            );
       final gridBpm = isOutgoing || match.$1 ? confidentBpm : null;
 
       final target = <String, Object?>{
