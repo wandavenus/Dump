@@ -711,16 +711,8 @@ class AutomixTransitionCue {
   final double incomingTrim;
 }
 
-/// Derives the fade length, transfer curve and level match for [outgoing] →
-/// [incoming].
-///
-/// Structure-aware: a dense outro gets a shorter, faster hand-over (less
-/// overlap of two busy sections) while a sparse outro gets a longer, gentler
-/// blend; a sparse intro tolerates extra overlap. Confidently incompatible
-/// tempos or keys shorten the fade automatically. Levels follow standard DJ
-/// practice: only the louder deck is attenuated, by at most 6 dB.
 /// Whether the exit BPM is trustworthy enough to steer planning/playback.
-/// Keep this gate in sync with the planner's 0.35 confidence threshold.
+/// Keep this gate in sync with the native planner's 0.35 confidence threshold.
 bool automixHasConfidentTailBpm(AutomixTrackFeatures features) {
   final bpm = features.tailBpm;
   final confidence = features.tailBpmConfidence;
@@ -846,6 +838,12 @@ double automixEarlyHandoverLeadSeconds({
   return (weighted / weight).clamp(minLead, maxLead).toDouble();
 }
 
+/// Derives the fade length, transfer curve and level match for [outgoing] →
+/// [incoming].
+///
+/// Structure-aware: dense outros favour a quicker handover; sparse outros and
+/// intros can support a longer blend. Confident tempo/key/chord mismatches can
+/// shorten the overlap automatically. The selected cue is consumed by Media3.
 AutomixTransitionCue automixTransitionCue({
   required AutomixTrackFeatures outgoing,
   required AutomixTrackFeatures incoming,
