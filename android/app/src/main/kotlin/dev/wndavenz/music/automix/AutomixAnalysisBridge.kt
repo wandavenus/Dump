@@ -242,6 +242,13 @@ object AutomixAnalysis {
             "startBpm" to startBpm,
             "endBpm" to endBpm,
             "tempoStability" to tempoStability,
+            // These fields were appended to the native ABI so local tempos are
+            // never paired with a phase measured at a different BPM. Optional
+            // reads preserve compatibility with older native libraries.
+            "startBpmConfidence" to optional(28),
+            "endBpmConfidence" to optional(29),
+            "startBeatOffsetMs" to optional(30),
+            "endBeatOffsetMs" to optional(31),
             "energyQuarters" to energyQuarters,
             "chordProgression" to chordProgression,
             // Window bookkeeping: the Dart side merges head/middle/tail windows
