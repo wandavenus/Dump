@@ -118,6 +118,10 @@ class NativeAutomixAnalysis {
     this.startBpm,
     this.endBpm,
     this.tempoStability,
+    this.startBpmConfidence,
+    this.endBpmConfidence,
+    this.startBeatOffsetMs,
+    this.endBeatOffsetMs,
     this.energyQuarters = const <double>[],
   });
 
@@ -148,6 +152,10 @@ class NativeAutomixAnalysis {
   final double? startBpm;
   final double? endBpm;
   final double? tempoStability;
+  final double? startBpmConfidence;
+  final double? endBpmConfidence;
+  final double? startBeatOffsetMs;
+  final double? endBeatOffsetMs;
 
   /// Median RMS dBFS of each quarter of the analyzed window, in time order.
   /// Empty when any slot was not finite (an incomplete profile is unusable).
