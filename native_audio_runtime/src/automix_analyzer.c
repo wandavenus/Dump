@@ -701,13 +701,37 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     double error_sum = 0.0;
     int32_t error_count = 0;
     for (int32_t index = 0; index < 4; ++index) {
+      const float* quarter_odf = odf + (size_t)index * quarter;
       const TempoEstimate local = estimate_tempo(
-          odf + (size_t)index * quarter, quarter, sample_rate, fps);
+          quarter_odf, quarter, sample_rate, fps);
       if (!local.valid || local.confidence < 0.35) continue;
       error_sum += folded_tempo_error(local.bpm, tempo.bpm);
       error_count++;
-      if (index == 0) output[21] = local.bpm;
-      if (index == 3) output[22] = local.bpm;
+
+      // Keep the locally measured beat phase paired with each edge BPM.
+      // The phase is folded to that local tempo's beat period and expressed
+      // relative to this PCM window, so a caller can safely use it after
+      // seeking to an outgoing tail or incoming intro.
+      if (index == 0 || index == 3) {
+        const double quarter_start_ms =
+            (double)index * quarter * HOP_SIZE * 1000.0 / working_rate;
+        const double phase = estimate_beat_phase_ms(
+            quarter_odf, quarter, sample_rate, local.bpm);
+        const double beat_period_ms = 60000.0 / local.bpm;
+        if (index == 0) {
+          output[21] = local.bpm;
+          output[28] = local.confidence;
+          if (isfinite(phase) && beat_period_ms > 0.0) {
+            output[30] = fmod(quarter_start_ms + phase, beat_period_ms);
+          }
+        } else {
+          output[22] = local.bpm;
+          output[29] = local.confidence;
+          if (isfinite(phase) && beat_period_ms > 0.0) {
+            output[31] = fmod(quarter_start_ms + phase, beat_period_ms);
+          }
+        }
+      }
     }
     if (error_count > 0) {
       const double mean_error = error_sum / error_count;
