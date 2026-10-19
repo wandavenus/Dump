@@ -29,6 +29,7 @@ AutomixTrackFeatures _f(
   double dropConfidence = 0,
   double tailBreakdownConfidence = 0,
   double? tailBpm,
+  double tailBpmConfidence = 0,
   double? introEnergy,
   double? outroEnergy,
   double? introSlope,
@@ -62,6 +63,7 @@ AutomixTrackFeatures _f(
     centroidHz: centroid,
     onsetRate: onset,
     tailBpm: tailBpm,
+    tailBpmConfidence: tailBpmConfidence,
     introEnergy: introEnergy,
     outroEnergy: outroEnergy,
     introSlope: introSlope,
@@ -794,7 +796,7 @@ void main() {
       // Track A's head sits at 100 BPM, but its tail (where the fade happens)
       // is 128 BPM. The naturally compatible incoming track heads at 128.
       final tracks = [
-        _f(1, bpm: 100, tailBpm: 128, camelot: 8, minor: true, rms: -12),
+        _f(1, bpm: 100, tailBpm: 128, tailBpmConfidence: 0.95, camelot: 8, minor: true, rms: -12),
         _f(2, bpm: 128, camelot: 8, minor: true, rms: -12),
         _f(3, bpm: 100, camelot: 8, minor: true, rms: -12),
       ];
@@ -814,6 +816,40 @@ void main() {
       // though the head-BPM-matched track (index 2) is what a head-only score
       // would pick.
       expect(native.order, [0, 1, 2]);
+      expect(native.order, reference.order);
+    });
+
+    test('ignores an untrusted tail BPM and uses the head BPM/confidence', () {
+      final tracks = [
+        _f(
+          1,
+          bpm: 100,
+          tailBpm: 128,
+          tailBpmConfidence: 0.1,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+        ),
+        _f(2, bpm: 128, camelot: 8, minor: true, rms: -12),
+        _f(3, bpm: 100, camelot: 8, minor: true, rms: -12),
+      ];
+
+      expect(automixExitBpm(tracks.first), 100);
+      expect(automixExitBpmConfidence(tracks.first), 0.9);
+
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 2, 1]);
       expect(native.order, reference.order);
     });
 
@@ -1402,6 +1438,7 @@ void main() {
     AutomixTrackFeatures track(
       int id, {
       double? lufs,
+      double? bpm,
       double? tailBpm,
       double? outro,
       double? intro,
@@ -1428,7 +1465,7 @@ void main() {
       List<AutomixChordEvent> chords = const <AutomixChordEvent>[],
     }) => AutomixTrackFeatures(
       songId: id,
-      bpm: tailBpm,
+      bpm: bpm ?? tailBpm,
       bpmConfidence: bpmConfidence,
       beatOffsetMs: beatOffsetMs,
       tailBpm: tailBpm,
@@ -1455,6 +1492,23 @@ void main() {
       vocalConfidence: vocalConfidence,
       chordProgression: chords,
     );
+
+    test('falls back to head BPM for fade duration when tail confidence is low', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          bpm: 100,
+          tailBpm: 128,
+          tailBpmConfidence: 0.1,
+        ),
+        incoming: track(2, bpm: 100),
+        settings: const AutomixSettings(),
+      );
+
+      // Default is 16 beats: 16 * 60 / 100 = 9.6 seconds. The rejected
+      // 128 BPM tail estimate must not shorten it to 7.5 seconds.
+      expect(cue.fadeSeconds, closeTo(9.6, 1e-9));
+    });
 
     test('shortens the fade for confident outgoing-to-incoming chord clashes', () {
       final cue = automixTransitionCue(
