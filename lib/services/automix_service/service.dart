@@ -1653,7 +1653,7 @@ class AutomixService {
   /// Keep two windows disjoint on tracks shorter than twice the normal window.
   /// Otherwise a 121-second track would analyze almost the same two minutes
   /// twice and overweight duplicated content during feature merging.
-  static double _windowSecondsForDuration(double durationSeconds) {
+  static double analysisWindowSecondsForDuration(double durationSeconds) {
     if (durationSeconds > _segmentSeconds &&
         durationSeconds < _segmentSeconds * 2) {
       return math.max(1.0, (durationSeconds / 2).floorToDouble()).toDouble();
@@ -1715,7 +1715,7 @@ class AutomixService {
   ) async {
     final mediaDuration = song.duration.inMilliseconds / 1000.0;
     var windowSeconds = mediaDuration.isFinite && mediaDuration > 0
-        ? _windowSecondsForDuration(mediaDuration)
+        ? analysisWindowSecondsForDuration(mediaDuration)
         : _segmentSeconds;
     var head = await _analyzeWindow(song.path, 0, windowSeconds);
     if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
@@ -1738,7 +1738,7 @@ class AutomixService {
     // actual duration, correct the first window before choosing the tail so the
     // committed windows never overlap. In the rare unknown-duration case this
     // repeats the head analysis once with the correct bounded window.
-    final actualWindowSeconds = _windowSecondsForDuration(fileSeconds);
+    final actualWindowSeconds = analysisWindowSecondsForDuration(fileSeconds);
     if (actualWindowSeconds != windowSeconds) {
       windowSeconds = actualWindowSeconds;
       head = await _analyzeWindow(song.path, 0, windowSeconds);
