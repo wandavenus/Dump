@@ -32,6 +32,14 @@ static void assert_analysis_confidence_contract(
   assert(isnan(output[21]) || output[21] > 0.0);
   assert(isnan(output[22]) || output[22] > 0.0);
   assert(isnan(output[23]) || (output[23] >= 0.0 && output[23] <= 1.0));
+  // Local tempo confidence and phase are optional when a quarter is too short
+  // or its onset grid is ambiguous.
+  assert(isnan(output[28]) ||
+         (output[28] >= 0.0 && output[28] <= 1.0));
+  assert(isnan(output[29]) ||
+         (output[29] >= 0.0 && output[29] <= 1.0));
+  assert(isnan(output[30]) || output[30] >= 0.0);
+  assert(isnan(output[31]) || output[31] >= 0.0);
   // Quarter RMS profile: always finite for a successful analysis and ordered
   // as four consecutive quarters of the same frame timeline.
   for (int index = 24; index <= 27; ++index) {
@@ -800,7 +808,7 @@ static void test_analyzer_energy_quarters(void) {
 static void test_analyzer_tempo_curve(void) {
   // Short percussive clicks give the ODF a clean autocorrelation peak.
   const int32_t sample_rate = 22050;
-  const int32_t count = sample_rate * 8;
+  const int32_t count = sample_rate * 32;
   float* pcm = (float*)malloc((size_t)count * sizeof(float));
   assert(pcm != NULL);
   const double pi = 3.14159265358979323846;
@@ -824,6 +832,12 @@ static void test_analyzer_tempo_curve(void) {
   assert(output[21] > 120.0 && output[21] < 136.0);
   assert(output[22] > 120.0 && output[22] < 136.0);
   assert(output[23] > 0.6);
+  assert(output[28] >= 0.35 && output[28] <= 1.0);
+  assert(output[29] >= 0.35 && output[29] <= 1.0);
+  assert(isfinite(output[30]) && output[30] >= 0.0 &&
+         output[30] < 60000.0 / output[21]);
+  assert(isfinite(output[31]) && output[31] >= 0.0 &&
+         output[31] < 60000.0 / output[22]);
 
   // First half at 128 BPM, second half at 96 BPM: the end-quarter estimate
   // must follow the drift and stability must drop below the steady case.
@@ -844,6 +858,12 @@ static void test_analyzer_tempo_curve(void) {
   assert(output[21] > 120.0 && output[21] < 136.0);
   assert(output[22] > 88.0 && output[22] < 104.0);
   assert(output[23] < 0.4);
+  assert(output[28] >= 0.35 && output[28] <= 1.0);
+  assert(output[29] >= 0.35 && output[29] <= 1.0);
+  assert(isfinite(output[30]) && output[30] >= 0.0 &&
+         output[30] < 60000.0 / output[21]);
+  assert(isfinite(output[31]) && output[31] >= 0.0 &&
+         output[31] < 60000.0 / output[22]);
   free(pcm);
 }
 
