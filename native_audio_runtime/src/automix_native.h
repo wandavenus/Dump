@@ -12,7 +12,7 @@ extern "C" {
 
 #define NAR_AUTOMIX_FEATURE_COUNT 23
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 28
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 32
 
 // Structural region classification labels.
 enum NarAutomixStructureRegion {
@@ -92,6 +92,12 @@ enum NarAutomixFeatureIndex {
 // 25: Second-quarter RMS dBFS
 // 26: Third-quarter RMS dBFS
 // 27: Fourth-quarter RMS dBFS
+// 28: Start-quarter BPM confidence (0..1; NaN if not estimated)
+// 29: End-quarter BPM confidence (0..1; NaN if not estimated)
+// 30: Start-quarter beat phase, relative to the window start and folded to
+//      the start-quarter beat period (NaN if phase is unavailable)
+// 31: End-quarter beat phase, relative to the window start and folded to
+//      the end-quarter beat period (NaN if phase is unavailable)
 // The quarter profile is a coarse energy trend (rising/falling intro and
 // outro). Consumers derive per-seam slopes from adjacent quarters; silence
 // floors at -120 dBFS, so the values stay finite whenever analysis succeeds.
