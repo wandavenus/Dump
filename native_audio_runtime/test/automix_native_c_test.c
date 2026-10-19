@@ -302,6 +302,47 @@ static void test_planner_scores_tempo_at_seam(void) {
   assert(order[2] == 2);
 }
 
+static void test_planner_uses_edge_local_intro_tempo(void) {
+  const int64_t ids[] = {1, 2, 3};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+
+  // Track 0 exits at 128 BPM. Track 1's whole-window BPM is 160, but its
+  // measured intro is 128; track 2 has a misleadingly matching whole-song BPM
+  // of 128 while its intro tempo is 170. The edge analysis must pick track 1.
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_BPM] = 100.0;
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_TAIL_BPM] = 128.0;
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_TAIL_BPM_CONFIDENCE] = 0.95;
+
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_BPM] = 160.0;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_START_BPM] = 128.0;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_START_BPM_CONFIDENCE] = 0.95;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_BPM] = 128.0;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_START_BPM] = 170.0;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT +
+           NAR_AUTOMIX_START_BPM_CONFIDENCE] = 0.95;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 1);
+  assert(order[2] == 2);
+}
+
 static void test_planner_penalizes_energy_seam(void) {
   const int64_t ids[] = {1, 2, 3};
   const int32_t artists[] = {1, 2, 3};
@@ -1887,6 +1928,7 @@ int main(void) {
   test_planner_vocal_conflict();
   test_planner_keeps_start_and_permutation();
   test_planner_scores_tempo_at_seam();
+  test_planner_uses_edge_local_intro_tempo();
   test_planner_falls_back_to_head_when_tail_tempo_is_untrusted();
   test_planner_penalizes_energy_seam();
   test_planner_prefers_calm_structural_seam();
