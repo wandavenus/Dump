@@ -180,6 +180,7 @@ void main() {
         'downbeatOffsetMs': double.parse(values['downbeatOffsetMs']!),
         'dropCueMs': double.parse(values['dropCueMs']!),
         'transitionStrategy': int.parse(values['transitionStrategy']!),
+        'pitchSemitonesOutgoing': double.parse(values['pitchSemitonesOutgoing']!),
         'fadeSeconds': double.parse(values['fadeSeconds']!),
         'transitionStartMs': double.parse(values['transitionStartMs']!),
         'fadeCurve': double.parse(values['fadeCurve']!),
@@ -201,6 +202,7 @@ void main() {
         'downbeatOffsetMs',
         'dropCueMs',
         'transitionStrategy',
+        'pitchSemitonesOutgoing',
         'fadeSeconds',
         'transitionStartMs',
         'fadeCurve',
@@ -210,6 +212,7 @@ void main() {
         expect(targets.last, contains(key), reason: 'Missing $key in Dart payload');
       }
       expect(targets.last['transitionStartMs'], 135000.0);
+      expect(targets.last['pitchSemitonesOutgoing'], -1.0);
       expect(targets.last['fadeSeconds'], 3.8);
     });
   });

@@ -449,6 +449,7 @@ class AutomixService {
         target['levelTrimOutgoing'] = cue.outgoingTrim;
         target['levelTrimIncoming'] = cue.incomingTrim;
         target['transitionStrategy'] = cue.strategy.code;
+        target['pitchSemitonesOutgoing'] = cue.outgoingPitchSemitones;
         target['bassOverlapGainOutgoing'] = cue.outgoingBassOverlapGain;
         target['bassOverlapGainIncoming'] = cue.incomingBassOverlapGain;
         target['midOverlapGainOutgoing'] = cue.outgoingMidOverlapGain;

@@ -672,6 +672,7 @@ class AutomixTransitionCue {
     required this.incomingMidOverlapGain,
     required this.outgoingHighOverlapGain,
     required this.incomingHighOverlapGain,
+    required this.outgoingPitchSemitones,
   });
 
   /// Strategy that controls the production fade behavior on Android.
@@ -685,6 +686,11 @@ class AutomixTransitionCue {
   final double incomingMidOverlapGain;
   final double outgoingHighOverlapGain;
   final double incomingHighOverlapGain;
+
+  /// Signed semitone shift applied to the OUTGOING deck only while the two
+  /// decks overlap, so a confident one-semitone key difference is smoothed
+  /// over without changing the incoming track. Zero means no shift.
+  final double outgoingPitchSemitones;
 
   /// Fade length in media-timeline seconds (opposite deck's tempo governs).
   final double fadeSeconds;
@@ -1036,6 +1042,8 @@ AutomixTransitionCue automixTransitionCue({
     incomingMidOverlapGain: incomingMidGain,
     outgoingHighOverlapGain: outgoingHighGain,
     incomingHighOverlapGain: incomingHighGain,
+    outgoingPitchSemitones:
+        automixOutgoingPitchSemitones(outgoing, incoming),
   );
 }
 
@@ -1077,6 +1085,46 @@ double automixCamelotCost(int? numA, bool? minorA, int? numB, bool? minorB) {
     3 => 0.6,
     _ => 1.0,
   };
+}
+
+/// Signed semitone shift in `[-1, 1]` to apply to [outgoing] during the
+/// overlap so its key matches [incoming], or 0 when no safe shift applies.
+///
+/// Camelot neighbours are a fifth apart (7 semitones), so a folded wheel
+/// distance of 5 is exactly a one-semitone pitch-class difference. The shift
+/// is limited to the outgoing deck: the incoming track keeps its recorded key.
+/// Cross-ring moves are relative major/minor pairs and are deliberately
+/// neutral, because a semitone shift preserves the mode.
+double automixOutgoingPitchSemitones(
+  AutomixTrackFeatures outgoing,
+  AutomixTrackFeatures incoming,
+) {
+  final outNumber = outgoing.camelotNumber;
+  final inNumber = incoming.camelotNumber;
+  final outMinor = outgoing.camelotMinor;
+  final inMinor = incoming.camelotMinor;
+  if (outNumber == null ||
+      inNumber == null ||
+      outMinor == null ||
+      inMinor == null ||
+      outMinor != inMinor ||
+      outgoing.keyConfidence < 0.55 ||
+      incoming.keyConfidence < 0.55) {
+    return 0.0;
+  }
+  var wheelDistance = (outNumber - inNumber).abs() % 12;
+  if (wheelDistance > 6) wheelDistance = 12 - wheelDistance;
+  if (wheelDistance != 5) return 0.0;
+
+  final table = outMinor ? automixCamelotMinorNum : automixCamelotMajorNum;
+  final outgoingPc = table.indexOf(outNumber);
+  final incomingPc = table.indexOf(inNumber);
+  if (outgoingPc < 0 || incomingPc < 0) return 0.0;
+  var shift = (incomingPc - outgoingPc) % 12;
+  if (shift > 6) shift -= 12;
+  // The wheel geometry guarantees ±1 for distance 5; keep the guard so a
+  // future table change can never turn this into a large automatic shift.
+  return shift.abs() == 1 ? shift.toDouble() : 0.0;
 }
 
 // ── Tempo cost ───────────────────────────────────────────────────────────────

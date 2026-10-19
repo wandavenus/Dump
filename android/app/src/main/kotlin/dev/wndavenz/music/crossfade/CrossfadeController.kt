@@ -123,6 +123,10 @@ class CrossfadeController(
     // Planner tempo multiplier published for a deck (1.0 = unchanged). Used to
     // keep the live tempo-follow correction inside the processor's stretch range.
     private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float = { 1f },
+    // Signed semitone shift for the OUTGOING deck during the overlap. 0 keeps
+    // the outgoing pitch untouched.
+    private val getAutoMixOutgoingPitchSemitonesForPlayer: (ExoPlayer) -> Float = { 0f },
+    private val setAutoMixPitchSemitones: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Per-deck true-peak ceiling for the AutoMix overlap: 0 disables the
     // limiter. Enabled only while the two decks overlap, never in normal
     // playback (the tone stage must stay bit-transparent there).
@@ -173,6 +177,13 @@ class CrossfadeController(
          * signal at the platform mixer to roughly the ceiling.
          */
         const val AUTOMIX_TRUE_PEAK_CEILING = 0.95f
+
+        /**
+         * Largest automatic key correction. A folded Camelot distance of 5 is
+         * exactly one semitone; keeping the cap here makes that invariant
+         * explicit for the pitch-stage wiring.
+         */
+        const val MAX_AUTOMIX_PITCH_SEMITONES = 1f
     }
 
     var crossfadeDurationSec: Float = 0f
@@ -382,6 +393,7 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
+            setAutoMixPitchSemitones(it, 0f)
             setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
@@ -390,6 +402,7 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
+            setAutoMixPitchSemitones(it, 0f)
             setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
@@ -529,6 +542,14 @@ class CrossfadeController(
         }
         setAutoMixTruePeakLimit(current, limiterCeiling)
         setAutoMixTruePeakLimit(standby, limiterCeiling)
+
+        // Optional one-semitone key match: shift only the outgoing deck for the
+        // duration of the blend. The incoming track keeps its recorded key.
+        val outgoingPitchSemitones = getAutoMixOutgoingPitchSemitonesForPlayer(standby)
+            .takeIf { it.isFinite() }
+            ?.coerceIn(-MAX_AUTOMIX_PITCH_SEMITONES, MAX_AUTOMIX_PITCH_SEMITONES)
+            ?: 0f
+        setAutoMixPitchSemitones(current, outgoingPitchSemitones)
 
         // Live BPM estimates may be available even for tracks that the planner
         // deliberately left unmatched. Only use phase lock when the published
@@ -761,6 +782,8 @@ class CrossfadeController(
                     setAutoMixMidGain(newPlayer, 1f)
                     setAutoMixMidGain(oldPlayer, 1f)
                     setAutoMixTempoNudge(newPlayer, 1f)
+                    setAutoMixPitchSemitones(newPlayer, 0f)
+                    setAutoMixPitchSemitones(oldPlayer, 0f)
                     setAutoMixTruePeakLimit(newPlayer, 0f)
                     setAutoMixTruePeakLimit(oldPlayer, 0f)
                     setAutoMixTailFilter(newPlayer, 1f)
@@ -820,6 +843,8 @@ class CrossfadeController(
                     // dry tone: a phase correction or a tail filter must never
                     // survive into the next track.
                     setAutoMixTempoNudge(newPlayer, 1f)
+                    setAutoMixPitchSemitones(newPlayer, 0f)
+                    setAutoMixPitchSemitones(oldPlayer, 0f)
                     setAutoMixTruePeakLimit(newPlayer, 0f)
                     setAutoMixTruePeakLimit(oldPlayer, 0f)
                     setAutoMixTailFilter(newPlayer, 1f)

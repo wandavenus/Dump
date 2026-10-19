@@ -183,6 +183,7 @@ class AutomixTransitionPolicyTest {
         assertEquals(1.20f, target.curveGamma!!, 0.001f)
         assertEquals(0.8f, target.outgoingTrim!!, 0.001f)
         assertEquals(0.9f, target.incomingTrim!!, 0.001f)
+        assertEquals(-1f, target.outgoingPitchSemitones, 0.001f)
     }
 
     @Test
@@ -190,4 +191,17 @@ class AutomixTransitionPolicyTest {
         assertNull(ParsedAutomixTransitionTarget.fromMap(mapOf("bpm" to 120.0)))
     }
 
+    @Test
+    fun `outgoing pitch shift defaults to zero and is clamped to one semitone`() {
+        val missing = ParsedAutomixTransitionTarget.fromMap(mapOf("id" to 1.0))!!
+        assertEquals(0f, missing.outgoingPitchSemitones, 0.001f)
+        val clamped = ParsedAutomixTransitionTarget.fromMap(
+            mapOf("id" to 1.0, "pitchSemitonesOutgoing" to 5.0),
+        )!!
+        assertEquals(1f, clamped.outgoingPitchSemitones, 0.001f)
+        val nan = ParsedAutomixTransitionTarget.fromMap(
+            mapOf("id" to 1.0, "pitchSemitonesOutgoing" to Double.NaN),
+        )!!
+        assertEquals(0f, nan.outgoingPitchSemitones, 0.001f)
+    }
 }

@@ -172,6 +172,7 @@ internal data class ParsedAutomixTransitionTarget(
     val curveGamma: Float?,
     val incomingTrim: Float?,
     val outgoingTrim: Float?,
+    val outgoingPitchSemitones: Float,
 ) {
     companion object {
         fun fromMap(target: Map<String, Any?>): ParsedAutomixTransitionTarget? {
@@ -212,6 +213,9 @@ internal data class ParsedAutomixTransitionTarget(
                     ?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
                 outgoingTrim = (target["levelTrimOutgoing"] as? Number)?.toFloat()
                     ?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
+                outgoingPitchSemitones =
+                    (target["pitchSemitonesOutgoing"] as? Number)?.toFloat()
+                        ?.takeIf { it.isFinite() }?.coerceIn(-1f, 1f) ?: 0f,
             )
         }
     }

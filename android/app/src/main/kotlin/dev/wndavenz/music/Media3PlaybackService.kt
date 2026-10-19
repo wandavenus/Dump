@@ -203,6 +203,9 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixCurveBySongId = mutableMapOf<Int, Float>()
     private val automixIncomingTrimBySongId = mutableMapOf<Int, Float>()
     private val automixOutgoingTrimBySongId = mutableMapOf<Int, Float>()
+    // Signed semitone shift for the outgoing deck, keyed by the incoming song
+    // id that owns the transition.
+    private val automixOutgoingPitchSemitonesBySongId = mutableMapOf<Int, Float>()
     private data class AutomixBandOverlapGains(
         val bassOutgoing: Float,
         val bassIncoming: Float,
@@ -688,6 +691,21 @@ class Media3PlaybackService : MediaSessionService() {
             getAutoMixTempoMultiplierForPlayer = { p ->
                 if (!automixTransitionEnabled) 1f
                 else automixSongIdOf(p)?.let { automixTempoMultiplierBySongId[it] } ?: 1f
+            },
+            // Key match for the outgoing deck: the cue is keyed by the incoming
+            // song id, so the standby player selects the shift applied to the
+            // currently playing deck.
+            getAutoMixOutgoingPitchSemitonesForPlayer = { p ->
+                if (!automixTransitionEnabled) 0f
+                else automixSongIdOf(p)?.let {
+                    automixOutgoingPitchSemitonesBySongId[it]
+                } ?: 0f
+            },
+            setAutoMixPitchSemitones = { p, semitones ->
+                val slot = playerSlotOf(p)
+                if (slot >= 0) {
+                    stretchManager.setAutoMixPitchSemitones(slot, semitones)
+                }
             },
             // Outgoing-tail high-band gain (1 = transparent, 0 = high band gone).
             setAutoMixTailFilter = { p, gain -> applyAutomixTailFilter(p, gain) },
@@ -2380,6 +2398,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixCurveBySongId.clear()
         automixIncomingTrimBySongId.clear()
         automixOutgoingTrimBySongId.clear()
+        automixOutgoingPitchSemitonesBySongId.clear()
         automixBandOverlapGainsByIncomingSongId.clear()
 
         if (transitionActive) {
@@ -2396,6 +2415,7 @@ class Media3PlaybackService : MediaSessionService() {
                 parsed.curveGamma?.let { automixCurveBySongId[id] = it }
                 parsed.incomingTrim?.let { automixIncomingTrimBySongId[id] = it }
                 parsed.outgoingTrim?.let { automixOutgoingTrimBySongId[id] = it }
+                automixOutgoingPitchSemitonesBySongId[id] = parsed.outgoingPitchSemitones
 
                 fun overlapGain(key: String, fallback: Float): Float =
                     ((target[key] as? Number)?.toFloat())
@@ -2429,6 +2449,8 @@ class Media3PlaybackService : MediaSessionService() {
         if (!transitionActive) {
             stretchManager.setAutoMixTempoMultiplier(0, 1f)
             stretchManager.setAutoMixTempoMultiplier(1, 1f)
+            stretchManager.setAutoMixPitchSemitones(0, 0f)
+            stretchManager.setAutoMixPitchSemitones(1, 0f)
         }
         automixToneManager.reset()
 
