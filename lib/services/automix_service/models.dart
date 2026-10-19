@@ -113,6 +113,7 @@ class AutomixSegmentFeatures {
     this.startBpm,
     this.endBpm,
     this.tempoStability,
+    this.energyQuarters = const <double>[],
     this.camelotNumber,
     this.camelotMinor,
     this.keyConfidence = 0,
@@ -163,6 +164,12 @@ class AutomixSegmentFeatures {
   /// 0..1 mean quarter-window agreement with the whole-window tempo estimate.
   final double? tempoStability;
 
+  /// Median RMS dBFS of each quarter of this analysis window, in time order.
+  /// Empty when the native library did not publish a complete profile. The
+  /// merge step turns adjacent quarters into the coarse intro/outro slopes
+  /// used by the transition planner.
+  final List<double> energyQuarters;
+
   final int? camelotNumber;
   final bool? camelotMinor;
   final double keyConfidence;
@@ -209,6 +216,19 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   double? unitOrNull(String key) {
     final value = finiteValue(key);
     return value != null && value >= 0 && value <= 1 ? value : null;
+  }
+
+  List<double> energyQuartersValue() {
+    final raw = map['energyQuarters'];
+    if (raw is! List || raw.length != 4) return const <double>[];
+    final values = <double>[];
+    for (final item in raw) {
+      if (item is! num) return const <double>[];
+      final value = item.toDouble();
+      if (!value.isFinite) return const <double>[];
+      values.add(value);
+    }
+    return List<double>.unmodifiable(values);
   }
 
   int structureValue(String key) {
@@ -276,6 +296,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     startBpm: positiveBpm('startBpm'),
     endBpm: positiveBpm('endBpm'),
     tempoStability: unitOrNull('tempoStability'),
+    energyQuarters: energyQuartersValue(),
     camelotNumber: hasConfidentKey ? camelotNumber : null,
     camelotMinor: hasConfidentKey ? parsedCamelotMinor : null,
     keyConfidence: hasConfidentKey ? rawKeyConfidence : 0,
@@ -308,6 +329,8 @@ class AutomixTrackFeatures {
     this.startBpm,
     this.endBpm,
     this.tempoStability,
+    this.introSlope,
+    this.outroSlope,
     this.tailBeatOffsetMs,
     this.downbeatOffsetMs,
     this.tailDownbeatOffsetMs,
@@ -410,6 +433,12 @@ class AutomixTrackFeatures {
   final double? endBpm;
   final double? tempoStability;
 
+  /// Coarse energy trend in dB per quarter window at the head (first two
+  /// quarters) and exit (last two) of the track. Positive means building.
+  /// Null when no complete quarter profile was analyzed for that edge.
+  final double? introSlope;
+  final double? outroSlope;
+
   /// 0..1 energy of the first/last analyzed window relative to the loudest
   /// window of the same track — the coarse "structure" signal used to pick the
   /// fade length and curve.
@@ -465,6 +494,8 @@ class AutomixTrackFeatures {
     if (startBpm != null) 'sbpm': startBpm,
     if (endBpm != null) 'ebpm': endBpm,
     if (tempoStability != null) 'tsta': tempoStability,
+    if (introSlope != null) 'isl': introSlope,
+    if (outroSlope != null) 'osl': outroSlope,
     if (introRmsDb != null) 'irms': introRmsDb,
     if (outroRmsDb != null) 'orms': outroRmsDb,
     if (introEnergy != null) 'ie': introEnergy,
@@ -512,6 +543,8 @@ class AutomixTrackFeatures {
       startBpm: (map['sbpm'] as num?)?.toDouble(),
       endBpm: (map['ebpm'] as num?)?.toDouble(),
       tempoStability: (map['tsta'] as num?)?.toDouble(),
+      introSlope: (map['isl'] as num?)?.toDouble(),
+      outroSlope: (map['osl'] as num?)?.toDouble(),
       introRmsDb: (map['irms'] as num?)?.toDouble(),
       outroRmsDb: (map['orms'] as num?)?.toDouble(),
       introEnergy: (map['ie'] as num?)?.toDouble(),

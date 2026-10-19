@@ -32,6 +32,12 @@ static void assert_analysis_confidence_contract(
   assert(isnan(output[21]) || output[21] > 0.0);
   assert(isnan(output[22]) || output[22] > 0.0);
   assert(isnan(output[23]) || (output[23] >= 0.0 && output[23] <= 1.0));
+  // Quarter RMS profile: always finite for a successful analysis and ordered
+  // as four consecutive quarters of the same frame timeline.
+  for (int index = 24; index <= 27; ++index) {
+    assert(isfinite(output[index]));
+    assert(output[index] <= 0.0 && output[index] >= -120.0);
+  }
 }
 
 static void test_analyzer_rms(void) {
@@ -246,6 +252,67 @@ static void test_planner_prefers_calm_structural_seam(void) {
       (double)NAR_AUTOMIX_STRUCTURE_BUILDUP;
   features[2 * NAR_AUTOMIX_FEATURE_COUNT +
            NAR_AUTOMIX_STRUCTURE_CONFIDENCE] = 0.9;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 2);
+  assert(order[2] == 1);
+}
+
+static void test_planner_prefers_continuing_momentum(void) {
+  // Track 0 exits while still building (+12 dB/quarter). Track 1 keeps
+  // building (+12), track 2 falls hard (-12) and has the smaller song id, so
+  // without the momentum term the id tie-break would pick track 2. The term
+  // must instead hand over into track 1.
+  const int64_t ids[] = {1, 3, 2};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+  features[0 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_OUTRO_SLOPE] = 12.0;
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_INTRO_SLOPE] = 12.0;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_INTRO_SLOPE] = -12.0;
+
+  int32_t order[3];
+  double metrics[2];
+  assert(nar_automix_plan_set(ids, artists, features, keys, 3, 0, 0.06, 16,
+                              0, 0, 0, order, metrics, 2) == 1);
+  assert(order[0] == 0);
+  assert(order[1] == 1);
+  assert(order[2] == 2);
+}
+
+static void test_planner_ignores_incomplete_momentum(void) {
+  // Same fixture but the outgoing tail slope is missing: the momentum term
+  // must stay neutral and the id tie-break picks the smaller song id again.
+  const int64_t ids[] = {1, 3, 2};
+  const int32_t artists[] = {1, 2, 3};
+  double features[3 * NAR_AUTOMIX_FEATURE_COUNT];
+  int32_t keys[3 * NAR_AUTOMIX_KEY_FIELD_COUNT];
+  for (int i = 0; i < 3 * NAR_AUTOMIX_FEATURE_COUNT; ++i) features[i] = NAN;
+  for (int i = 0; i < 3; ++i) {
+    double* row = features + i * NAR_AUTOMIX_FEATURE_COUNT;
+    row[NAR_AUTOMIX_BPM] = 120.0;
+    row[NAR_AUTOMIX_BPM_CONFIDENCE] = 0.99;
+    row[NAR_AUTOMIX_KEY_CONFIDENCE] = 0.9;
+    row[NAR_AUTOMIX_RMS_DB] = -12.0;
+    keys[i * 2] = 8;
+    keys[i * 2 + 1] = 1;
+  }
+  features[1 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_INTRO_SLOPE] = 12.0;
+  features[2 * NAR_AUTOMIX_FEATURE_COUNT + NAR_AUTOMIX_INTRO_SLOPE] = -12.0;
 
   int32_t order[3];
   double metrics[2];
@@ -595,6 +662,34 @@ static void test_chord_vocabulary_expansion(void) {
   render_tones(pcm, count, sample_rate, c_sus2_root, bass_lead, 4);
   assert(nar_automix_analyze_chords(pcm, count, sample_rate, chords, 16) >= 1);
   assert(chords[1] == 0.0 && chords[2] == 8.0);
+  free(pcm);
+}
+
+static void test_analyzer_energy_quarters(void) {
+  // 8 s tone: the first half at 0.5 amplitude, the second at 0.05. The four
+  // quarter medians must follow that step instead of reporting a flat profile.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 8;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  for (int32_t i = 0; i < count; ++i) {
+    const double amplitude = i < count / 2 ? 0.5 : 0.05;
+    pcm[i] = (float)(amplitude * sin(2.0 * pi * 220.0 * (double)i / sample_rate));
+  }
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(isfinite(output[24]) && isfinite(output[25]) &&
+         isfinite(output[26]) && isfinite(output[27]));
+  // 0.5 amplitude ≈ -9 dBFS; 0.05 ≈ -29 dBFS.
+  assert(output[24] > -12.0 && output[24] < -6.0);
+  assert(output[25] > -12.0 && output[25] < -6.0);
+  assert(output[26] > -32.0 && output[26] < -26.0);
+  assert(output[27] > -32.0 && output[27] < -26.0);
+  // The loud half must dominate its quiet counterpart by a clear margin.
+  assert(output[24] > output[26] + 14.0);
+  assert(output[25] > output[27] + 14.0);
   free(pcm);
 }
 
@@ -1446,6 +1541,8 @@ int main(void) {
   test_planner_scores_tempo_at_seam();
   test_planner_penalizes_energy_seam();
   test_planner_prefers_calm_structural_seam();
+  test_planner_prefers_continuing_momentum();
+  test_planner_ignores_incomplete_momentum();
   test_planner_ignores_unconfident_structure();
   test_planner_spreads_repeated_artists();
   test_planner_relocation_polish_improves_local_optimum();
@@ -1453,6 +1550,7 @@ int main(void) {
   test_chord_progression_analysis();
   test_analyzer_hpcp_key_detection();
   test_analyzer_tempo_curve();
+  test_analyzer_energy_quarters();
   test_chord_vocabulary_expansion();
   test_phase_lock_factor();
   test_phrase_lock();

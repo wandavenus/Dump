@@ -10,9 +10,9 @@
 extern "C" {
 #endif
 
-#define NAR_AUTOMIX_FEATURE_COUNT 20
+#define NAR_AUTOMIX_FEATURE_COUNT 22
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 24
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 28
 
 // Structural region classification labels.
 enum NarAutomixStructureRegion {
@@ -50,12 +50,18 @@ enum NarAutomixFeatureIndex {
   NAR_AUTOMIX_STRUCTURE_CONFIDENCE = 17,
   NAR_AUTOMIX_TAIL_STRUCTURE_REGION = 18,
   NAR_AUTOMIX_TAIL_STRUCTURE_CONFIDENCE = 19,
+  // Coarse energy trend at the mix seam, in dB per quarter window (the
+  // analyzer publishes per-quarter RMS medians; the caller differences the
+  // first two and last two quarters). Positive means the section is building.
+  // NAN when the window did not produce a complete quarter profile.
+  NAR_AUTOMIX_INTRO_SLOPE = 20,
+  NAR_AUTOMIX_OUTRO_SLOPE = 21,
 };
 
 // Key fields per track: [Camelot number (0 means unknown), mode
 // (-1 unknown, 0 major, 1 minor)].
 //
-// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 24):
+// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 28):
 //  0: BPM (NaN when unknown)
 //  1: BPM confidence (0..1)
 //  2: Alternate BPM (NaN when unknown)
@@ -80,6 +86,13 @@ enum NarAutomixFeatureIndex {
 // 21: Start-quarter BPM (NaN when unknown); first quarter's own tempo estimate
 // 22: End-quarter BPM (NaN when unknown); last quarter's own tempo estimate
 // 23: Tempo stability (0..1, NaN when unknown); mean octave-folded agreement of the quarter-window tempo estimates with the whole-window estimate
+// 24: First-quarter RMS dBFS (median of the quarter's frames)
+// 25: Second-quarter RMS dBFS
+// 26: Third-quarter RMS dBFS
+// 27: Fourth-quarter RMS dBFS
+// The quarter profile is a coarse energy trend (rising/falling intro and
+// outro). Consumers derive per-seam slopes from adjacent quarters; silence
+// floors at -120 dBFS, so the values stay finite whenever analysis succeeds.
 FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     const float* mono,
     int32_t sample_count,

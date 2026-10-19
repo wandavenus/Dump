@@ -642,6 +642,22 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   output[9] = estimate_onset_rate(odf, frame_count, fps);
   output[10] = (double)sample_count / working_rate;
 
+  // 1. Quarter energy profile: median RMS of each quarter on the same frame
+  // timeline as the structural cues. The planner derives intro/outro slopes
+  // from adjacent quarters to tell a building head from a cooling tail; the
+  // per-frame array keeps silent frames on the timeline (floored at -120 dBFS)
+  // so a mostly-silent quarter cannot masquerade as missing data.
+  const int32_t quarter_frames = frame_count / 4;
+  if (quarter_frames > 0) {
+    for (int32_t index = 0; index < 4; ++index) {
+      const int32_t begin = index * quarter_frames;
+      const int32_t end = index == 3 ? frame_count : begin + quarter_frames;
+      const float quarter_median =
+          median_float(rms_frame_values + begin, end - begin);
+      output[24 + index] = isfinite(quarter_median) ? quarter_median : NAN;
+    }
+  }
+
   // 1. Phrase-start phase (16-beat / four-bar loop) in milliseconds.
   // A bar downbeat alone cannot identify a phrase boundary. Evaluate all 16
   // beat positions as possible phrase starts and publish a phase only when

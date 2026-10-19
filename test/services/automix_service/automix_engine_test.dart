@@ -31,6 +31,8 @@ AutomixTrackFeatures _f(
   double? tailBpm,
   double? introEnergy,
   double? outroEnergy,
+  double? introSlope,
+  double? outroSlope,
 }) {
   return AutomixTrackFeatures(
     songId: id,
@@ -62,6 +64,8 @@ AutomixTrackFeatures _f(
     tailBpm: tailBpm,
     introEnergy: introEnergy,
     outroEnergy: outroEnergy,
+    introSlope: introSlope,
+    outroSlope: outroSlope,
   );
 }
 
@@ -86,6 +90,8 @@ void main() {
         dropConfidence: 0.7,
         tailBreakdownConfidence: 0.9,
         durationSeconds: 180.0,
+        introSlope: 5.0,
+        outroSlope: -4.0,
         chordProgression: const <AutomixChordEvent>[
           AutomixChordEvent(startMs: 0, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.92),
           AutomixChordEvent(startMs: 16000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.84),
@@ -107,6 +113,8 @@ void main() {
       expect(restored.dropConfidence, 0.7);
       expect(restored.tailBreakdownConfidence, 0.9);
       expect(restored.durationSeconds, 180.0);
+      expect(restored.introSlope, 5.0);
+      expect(restored.outroSlope, -4.0);
       expect(restored.chordProgression.map((c) => c.label), ['Cmaj', 'Gmaj']);
       expect(restored.chordProgression.last.startMs, 16000.0);
       expect(restored.chordProgression.last.confidence, 0.84);
@@ -294,6 +302,31 @@ void main() {
       expect(invalidCurve.startBpm, isNull);
       expect(invalidCurve.endBpm, isNull);
       expect(invalidCurve.tempoStability, isNull);
+    });
+
+    test('parses only complete finite quarter energy profiles', () {
+      final complete = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'energyQuarters': <double>[-24, -18, -12, -6],
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(complete.energyQuarters, [-24, -18, -12, -6]);
+
+      for (final raw in <Object?>[
+        <double>[-24, -18, -12],
+        <double>[-24, -18, -12, double.nan],
+        <Object>[-24, -18, -12, 'loud'],
+        'quarters',
+      ]) {
+        final segment = automixSegmentFeaturesFromAnalysisMap(
+          <String, dynamic>{'energyQuarters': raw},
+          fallbackStartSeconds: 0,
+          fallbackSeconds: 120,
+        );
+        expect(segment.energyQuarters, isEmpty, reason: 'raw=$raw');
+      }
     });
 
     test('uses neutral fallbacks for malformed field types', () {
@@ -858,6 +891,31 @@ void main() {
       expect(native.order, reference.order);
     });
 
+    test('continues a building outro into a building intro', () {
+      // Track 0 exits while still building (+12 dB/quarter). Track 1 keeps
+      // building (+12), track 2 falls hard (-12) and has the smaller song id,
+      // so without the momentum term the id tie-break would pick track 2.
+      final tracks = [
+        _f(1, bpm: 120, camelot: 8, minor: true, rms: -12, outroSlope: 12),
+        _f(3, bpm: 120, camelot: 8, minor: true, rms: -12, introSlope: 12),
+        _f(2, bpm: 120, camelot: 8, minor: true, rms: -12, introSlope: -12),
+      ];
+      const settings = AutomixSettings(profile: AutomixProfile.dj);
+      final native = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(native.order, [0, 1, 2]);
+      expect(native.order, reference.order);
+    });
+
     test('ignores unconfident structure labels at the seam', () {
       // Same shape as the confident-seam fixture, but every structure label is
       // below the 0.5 confidence gate: the term must stay neutral and the
@@ -1056,6 +1114,7 @@ void main() {
       double? startBpm,
       double? endBpm,
       double? tempoStability,
+      List<double> quarters = const <double>[],
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
@@ -1076,6 +1135,7 @@ void main() {
       startBpm: startBpm,
       endBpm: endBpm,
       tempoStability: tempoStability,
+      energyQuarters: quarters,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -1139,6 +1199,39 @@ void main() {
       expect(merged.startBpm, closeTo(120, 1));
       expect(merged.endBpm, isNull);
       expect(merged.tempoStability, isNull);
+    });
+
+    test('derives intro and outro energy slopes from quarter profiles', () {
+      final merged = automixMergeSegments(
+        songId: 10,
+        segments: [
+          seg(0, bpm: 120, conf: 0.9, quarters: const [-24, -18, -12, -6]),
+          seg(240, bpm: 120, conf: 0.9, quarters: const [-6, -12, -18, -24]),
+        ],
+      );
+      // Head builds (+6 dB per quarter); the exit window cools (-6).
+      expect(merged.introSlope, closeTo(6.0, 1e-9));
+      expect(merged.outroSlope, closeTo(-6.0, 1e-9));
+    });
+
+    test('leaves slopes null when the profile is incomplete or the tail failed',
+        () {
+      final noProfile = automixMergeSegments(
+        songId: 11,
+        segments: [seg(0, bpm: 120, conf: 0.9)],
+      );
+      expect(noProfile.introSlope, isNull);
+      expect(noProfile.outroSlope, isNull);
+
+      final missingTail = automixMergeSegments(
+        songId: 12,
+        segments: [
+          seg(0, bpm: 120, conf: 0.9, quarters: const [-24, -18, -12, -6]),
+        ],
+        tailSegmentAnalyzed: false,
+      );
+      expect(missingTail.introSlope, closeTo(6.0, 1e-9));
+      expect(missingTail.outroSlope, isNull);
     });
 
     test('does not substitute general BPM confidence for tail confidence', () {

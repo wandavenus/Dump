@@ -346,6 +346,21 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const double seam = (isfinite(outro_a) && isfinite(intro_b))
       ? fabs(outro_a - intro_b) * 0.5
       : 0.0;
+  // Energy momentum across the seam: the quarter profile of each window gives
+  // a dB-per-quarter slope. Cutting a still-rising tail is rough unless the
+  // incoming head keeps building, while a falling tail into any head reads as
+  // a natural valley (the level seam above already covers the drop). Missing
+  // or partial profiles stay neutral.
+  const double outro_slope_a = feature(rows, a, NAR_AUTOMIX_OUTRO_SLOPE);
+  const double intro_slope_b = feature(rows, b, NAR_AUTOMIX_INTRO_SLOPE);
+  double momentum = 0.0;
+  if (isfinite(outro_slope_a) && isfinite(intro_slope_b) &&
+      outro_slope_a > 1.0) {
+    const double interrupted = outro_slope_a - intro_slope_b;
+    if (interrupted > 0.0) {
+      momentum = fmin(0.30, interrupted / 24.0 * 0.30);
+    }
+  }
   // Section-shape compatibility across the seam, gated on both windows having
   // a confident region label. Missing or uncertain structure stays neutral.
   const double tail_region_raw =
@@ -371,7 +386,7 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   }
   double energy = 0.30 * fabs(delta) +
       0.55 * fabs(energies[b] - energy_target_arc(position, profile, arc)) +
-      0.30 * seam + 0.25 * structure;
+      0.30 * seam + 0.25 * structure + momentum;
   if (profile == PROFILE_ENERGY) {
     if (position < 0.55 && delta < -0.05) energy += 0.8 * -delta;
     else if (position >= 0.55 && delta > 0.05) energy += 0.8 * delta;

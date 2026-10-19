@@ -518,6 +518,29 @@ AutomixTrackFeatures automixMergeSegments({
       : inferredFileSeconds;
   final firstSegment = segments.isEmpty ? null : segments.first;
   final lastSegment = segments.isEmpty ? null : segments.last;
+
+  // ── Energy momentum at the edges: quarter profile → dB/quarter slope ─────
+  // The head window describes the intro, the exit window the outro. Only a
+  // complete four-quarter profile is usable; a missing profile (older native
+  // library or failed quarter) leaves the term neutral instead of inventing a
+  // trend. A missing tail decode must not promote the intro slope to the exit.
+  double? quarterSlope(
+    AutomixSegmentFeatures? segment,
+    int earlier,
+    int later,
+  ) {
+    final quarters = segment?.energyQuarters;
+    if (quarters == null || quarters.length != 4) return null;
+    final first = quarters[earlier];
+    final second = quarters[later];
+    if (!first.isFinite || !second.isFinite) return null;
+    return second - first;
+  }
+
+  final introSlope = quarterSlope(firstSegment, 0, 1);
+  final outroSlope = tailSegmentAnalyzed
+      ? quarterSlope(lastSegment, 2, 3)
+      : null;
   final localDropCue = firstSegment?.dropCueMs;
   final localBreakdownCue = tailSegmentAnalyzed
       ? lastSegment?.breakdownCueMs
@@ -604,6 +627,8 @@ AutomixTrackFeatures automixMergeSegments({
     startBpm: startBpm,
     endBpm: endBpm,
     tempoStability: tempoStability,
+    introSlope: introSlope,
+    outroSlope: outroSlope,
     introRmsDb: firstSegment?.rmsDb,
     outroRmsDb: tailSegmentAnalyzed ? lastSegment?.rmsDb : null,
     introEnergy: introEnergy,
@@ -1339,6 +1364,23 @@ double _transitionCost({
   final seam = outro != null && intro != null && outro.isFinite && intro.isFinite
       ? (outro - intro).abs() * 0.5
       : 0.0;
+  // Energy momentum across the seam: a still-rising tail is rough unless the
+  // incoming head keeps building, while a falling tail into any head reads as
+  // a natural valley (the level seam above already covers the drop). Mirrors
+  // the native momentum term.
+  final outroSlopeA = a.outroSlope;
+  final introSlopeB = b.introSlope;
+  var momentum = 0.0;
+  if (outroSlopeA != null &&
+      introSlopeB != null &&
+      outroSlopeA.isFinite &&
+      introSlopeB.isFinite &&
+      outroSlopeA > 1.0) {
+    final interrupted = outroSlopeA - introSlopeB;
+    if (interrupted > 0) {
+      momentum = math.min(0.30, interrupted / 24.0 * 0.30);
+    }
+  }
   // Section-shape compatibility across the seam, gated on both windows having
   // a confident region label. Missing or uncertain structure stays neutral.
   final tailRegion = a.tailStructureRegion;
@@ -1356,7 +1398,8 @@ double _transitionCost({
       0.30 * delta.abs() +
       0.55 * (eB - target).abs() +
       0.30 * seam +
-      0.25 * structure;
+      0.25 * structure +
+      momentum;
   if (settings.profile == AutomixProfile.energy) {
     final beforePeak = pos < 0.55;
     if (beforePeak && delta < -0.05) {
@@ -2073,6 +2116,8 @@ class AutomixEngine {
           structureConfidence: track.structureConfidence,
           tailStructureRegion: track.tailStructureRegion,
           tailStructureConfidence: track.tailStructureConfidence,
+          introSlope: track.introSlope,
+          outroSlope: track.outroSlope,
         ),
       );
     }

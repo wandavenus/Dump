@@ -134,7 +134,7 @@ object AutomixAnalysis {
         ) ?: return null
         // Preserve the original analyzer ABI contract before doing extra work,
         // including when an older or mismatched native library is loaded.
-        if (analysis.size < 24) return null
+        if (analysis.size < 28) return null
 
         // The chord pass runs on the same bounded background analysis worker;
         // it is deliberately separate from the realtime playback callback.
@@ -189,6 +189,13 @@ object AutomixAnalysis {
         val endBpm = optional(22)
         val tempoStability = analysis.getOrNull(23)
             ?.takeIf { it.isFinite() && it in 0.0..1.0 }
+        // Quarter RMS profile: a coarse within-window energy trend. Values are
+        // dBFS medians and stay finite for successful analysis, but an older
+        // native library could return zeros/NaN; only forward finite entries.
+        val energyQuarters = (24..27)
+            .map { analysis.getOrNull(it)?.takeIf { value -> value.isFinite() } }
+            .takeIf { values -> values.all { it != null } }
+            ?.map { it!! }
         val alternateBpm = optional(2)
         val beatOffsetMs = optional(3)
         val tonic = analysis[4].toInt()
@@ -228,6 +235,7 @@ object AutomixAnalysis {
             "startBpm" to startBpm,
             "endBpm" to endBpm,
             "tempoStability" to tempoStability,
+            "energyQuarters" to energyQuarters,
             "chordProgression" to chordProgression,
             // Window bookkeeping: the Dart side merges head/middle/tail windows
             // and needs to know each window's position and the file length.

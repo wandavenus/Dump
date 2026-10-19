@@ -28,6 +28,8 @@ class NativeAutomixTrack {
     this.structureConfidence = 0,
     this.tailStructureRegion = 0,
     this.tailStructureConfidence = 0,
+    this.introSlope,
+    this.outroSlope,
   });
 
   final int songId;
@@ -60,6 +62,11 @@ class NativeAutomixTrack {
   /// Section region of the analyzed exit (tail) window.
   final int tailStructureRegion;
   final double tailStructureConfidence;
+
+  /// Coarse energy trend in dB per quarter window at the head (first two
+  /// quarters) and exit (last two). Positive means building.
+  final double? introSlope;
+  final double? outroSlope;
 }
 
 class NativeAutomixPlan {
@@ -101,6 +108,7 @@ class NativeAutomixAnalysis {
     this.startBpm,
     this.endBpm,
     this.tempoStability,
+    this.energyQuarters = const <double>[],
   });
 
   final double? bpm;
@@ -130,6 +138,10 @@ class NativeAutomixAnalysis {
   final double? startBpm;
   final double? endBpm;
   final double? tempoStability;
+
+  /// Median RMS dBFS of each quarter of the analyzed window, in time order.
+  /// Empty when any slot was not finite (an incomplete profile is unusable).
+  final List<double> energyQuarters;
 }
 
 typedef NativeAutomixPcm = Float32List;
