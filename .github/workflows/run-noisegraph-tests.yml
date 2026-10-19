@@ -12,6 +12,10 @@ on:
       - "lib/services/automix_service.dart"
       - "lib/services/audio_service/**"
       - "test/services/automix_service/**"
+      - "android/app/src/main/kotlin/dev/wndavenz/music/automix/**"
+      - "android/app/src/main/kotlin/dev/wndavenz/music/replaygain/PcmDecoder.kt"
+      - "android/app/src/test/kotlin/dev/wndavenz/music/automix/**"
+      - "android/app/src/test/kotlin/dev/wndavenz/music/replaygain/**"
       - ".github/workflows/run-noisegraph-tests.yml"
   workflow_dispatch:
     inputs:
