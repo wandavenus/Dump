@@ -60,10 +60,12 @@ After planning, `AutomixService` computes a cue per incoming track in `automixTr
 Early handover scheduling is separate from fade duration. When the incoming track has a
 high-confidence drop cue and both tracks have confident beat grids, Dart supplies an
 outgoing-track `transitionStartMs`: a reliable breakdown 30–65 seconds from EOF when
-available, otherwise an adaptive 35–60 second lead based on outro/intro density. Native
-validates this against the actual media duration, beat-aligns the start, and keeps the
-actual fade at its independently planned duration. The standby seeks to the incoming
-drop minus the fade duration so the drop lands at the handover; a strong near-end
+available, otherwise an adaptive 35–60 second lead. The lead blends outgoing tail density
+(weight 2), a sparse incoming intro (weight 1), and a confident tail structure cue
+(region DROP or LOW_ACTIVITY, weight 1); neutral metadata keeps the historical 45 second
+lead. Native validates this against the actual media duration, beat-aligns the start, and
+keeps the actual fade at its independently planned duration. The standby seeks to the
+incoming drop minus the fade duration so the drop lands at the handover; a strong near-end
 breakdown or missing/uncertain cue preserves the conventional near-end fade.
 
 `_buildNativeTargets` sends those values through the `musicplayer/automix` MethodChannel. `Media3PlaybackService.applyAutomixTransitionNow` stores them by incoming song ID; `CrossfadeController` retrieves the cue for the standby deck. It validates early-handover cues using the same predicate as the standby drop-seek path and the actual outgoing Media3 duration. Fade progress integrates monotonic wall-clock deltas against the outgoing processor's applied speed on every tick, so it tracks speed changes during the blend and is not coupled to ExoPlayer's default `PlaybackParameters.speed`. The phase-lock sample gate uses an injectable monotonic-time function (production default: `SystemClock.uptimeMillis()`). Controller runnables and completion callbacks are serialized by the main-looper `Handler`; the implementation does not use or claim an `AtomicBoolean` completion guard. If the active player changes underneath a live fade (external takeover), the fade tick takes the abort path, which behaves like a cancel: the deck gains are reset, the takeover deck's volume is restored, the preloaded index is dropped, a promoted one-item timeline is rebuilt, and `onCrossfadeCancelled` is invoked so the service drains any deferred AutoMix target update. The Dart bridge sends only the active/outgoing and immediate incoming target: publishing farther queue entries is unnecessary for the current fade and could let a later repeated song ID overwrite the live pair's ID-keyed settings. If the immediate outgoing and incoming entries share the same song ID, AutoMix-specific targets are omitted for that pair and the conventional crossfade path is retained.
