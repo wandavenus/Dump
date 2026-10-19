@@ -74,17 +74,19 @@ void main() {
       final mismatch = automixTempoMatch(referenceBpm: 120, trackBpm: 150);
       expect(mismatch.$1, isFalse);
 
-      // 4. Untrusted tail beat grid (tailBpmConfidence < 0.35)
+      // 4. Untrusted tail beat grid (tailBpmConfidence < 0.35).
+      // The tail deliberately disagrees with the head. It must be ignored:
+      // the 120 BPM head matched to 122 BPM incoming stays a plain 8s fade.
       final untrustedTail = AutomixTrackFeatures(
         songId: 10,
         bpm: 120,
-        tailBpm: 120,
+        tailBpm: 150,
         bpmConfidence: 0.9,
         tailBpmConfidence: 0.1, // untrusted
       );
       final incoming = const AutomixTrackFeatures(
         songId: 11,
-        bpm: 150,
+        bpm: 122,
         bpmConfidence: 0.9,
       );
 
@@ -93,7 +95,8 @@ void main() {
         incoming: incoming,
         settings: const AutomixSettings(),
       );
-      // Untrusted tail falls back to plain crossfade
+      // The untrusted 150 BPM tail is ignored; trusted 120 -> 122 BPM
+      // compatibility leaves the default 16-beat crossfade unchanged.
       expect(cue.strategy, AutomixTransitionStrategy.crossfade);
       expect(cue.fadeSeconds, closeTo(8.0, 0.1));
     });
