@@ -94,6 +94,13 @@ void main() {
         durationSeconds: 180.0,
         introSlope: 5.0,
         outroSlope: -4.0,
+        startBpm: 122.0,
+        startBpmConfidence: 0.81,
+        endBpm: 126.0,
+        endBpmConfidence: 0.84,
+        introBeatOffsetMs: 188.0,
+        introTempoStability: 0.78,
+        outroTempoStability: 0.71,
         chordProgression: const <AutomixChordEvent>[
           AutomixChordEvent(startMs: 0, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.92),
           AutomixChordEvent(startMs: 16000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.84),
@@ -117,6 +124,13 @@ void main() {
       expect(restored.durationSeconds, 180.0);
       expect(restored.introSlope, 5.0);
       expect(restored.outroSlope, -4.0);
+      expect(restored.startBpm, 122.0);
+      expect(restored.startBpmConfidence, 0.81);
+      expect(restored.endBpm, 126.0);
+      expect(restored.endBpmConfidence, 0.84);
+      expect(restored.introBeatOffsetMs, 188.0);
+      expect(restored.introTempoStability, 0.78);
+      expect(restored.outroTempoStability, 0.71);
       expect(restored.chordProgression.map((c) => c.label), ['Cmaj', 'Gmaj']);
       expect(restored.chordProgression.last.startMs, 16000.0);
       expect(restored.chordProgression.last.confidence, 0.84);
