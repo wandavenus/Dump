@@ -691,6 +691,9 @@ class Media3PlaybackService : MediaSessionService() {
             resetAutoMixTempoMultiplier = { p ->
                 val slot = playerSlotOf(p)
                 if (slot >= 0) stretchManager.setAutoMixTempoMultiplier(slot, 1f)
+                // This deck is no longer incoming for the completed/cancelled pair;
+                // never let its old planner ratio be reused as the next fade base.
+                automixSongIdOf(p)?.let { automixTempoMultiplierBySongId[it] = 1f }
             },
             getAutoMixTempoMultiplierForPlayer = { p ->
                 if (!automixTransitionEnabled) 1f
