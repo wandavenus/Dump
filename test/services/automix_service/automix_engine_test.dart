@@ -72,6 +72,21 @@ AutomixTrackFeatures _f(
 }
 
 void main() {
+  group('AutoMix analysis window sizing', () {
+    test('short multi-window tracks use disjoint bounded halves', () {
+      for (final duration in <double>[120.1, 121, 180, 239.9]) {
+        final window =
+            AutomixService.analysisWindowSecondsForDuration(duration);
+        expect(window, lessThanOrEqualTo(120));
+        expect(window * 2, lessThanOrEqualTo(duration));
+      }
+      expect(AutomixService.analysisWindowSecondsForDuration(121), 60);
+      expect(AutomixService.analysisWindowSecondsForDuration(180), 90);
+      expect(AutomixService.analysisWindowSecondsForDuration(240), 120);
+      expect(AutomixService.analysisWindowSecondsForDuration(480), 120);
+    });
+  });
+
   group('AutomixTrackFeatures serialization', () {
     test('round trips phase/cue metadata and accepts older cache entries', () {
       final feature = AutomixTrackFeatures(
