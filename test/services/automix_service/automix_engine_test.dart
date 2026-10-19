@@ -1256,6 +1256,40 @@ void main() {
       expect(merged.bpmConfidence, greaterThan(0.3));
     });
 
+    test('uses edge-local BPM, confidence, and phase at the mix seam', () {
+      final merged = automixMergeSegments(
+        songId: 18,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.95,
+            startBpm: 118,
+            startBpmConfidence: 0.75,
+            startQuarterPhaseMs: 122,
+            tempoStability: 0.91,
+          ),
+          seg(
+            240,
+            bpm: 120,
+            conf: 0.9,
+            endBpm: 126,
+            endBpmConfidence: 0.88,
+            endQuarterPhaseMs: 275,
+            tempoStability: 0.84,
+          ),
+        ],
+      );
+
+      expect(automixEntryBpm(merged), 118.0);
+      expect(merged.introBeatOffsetMs, 122.0);
+      expect(automixExitBpm(merged), 126.0);
+      expect(merged.tailBpmConfidence, 0.88);
+      expect(merged.tailBeatOffsetMs, 240275.0);
+      expect(merged.introTempoStability, 0.91);
+      expect(merged.outroTempoStability, 0.84);
+    });
+
     test('folds the tempo curve into the track BPM octave', () {
       final merged = automixMergeSegments(
         songId: 8,
