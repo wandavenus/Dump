@@ -946,7 +946,7 @@ AutomixTransitionCue automixTransitionCue({
 }) {
   // The fade lives in the outgoing track's tail, so its exit tempo (falling
   // back to the head estimate) sets how many beats the blend spans.
-  final tempo = automixExitBpm(outgoing) ?? incoming.bpm;
+  final tempo = automixExitBpm(outgoing) ?? automixEntryBpm(incoming);
   var fadeSeconds = tempo == null || tempo <= 0
       ? fallbackFadeSeconds
       : settings.crossfadeBeats * 60.0 / tempo;
@@ -986,13 +986,16 @@ AutomixTransitionCue automixTransitionCue({
   }
 
   final exitTempo = automixExitBpm(outgoing);
-  final tempoMismatch = automixExitBpmConfidence(outgoing) >= 0.35 &&
-      incoming.bpmConfidence >= 0.35 &&
+  final incomingTempo = automixEntryBpm(incoming);
+  final incomingTempoConfidence = automixEntryBpmConfidence(incoming);
+  final tempoMismatch = automixTempoCurveAllowsPair(outgoing, incoming) &&
+      automixExitBpmConfidence(outgoing) >= 0.35 &&
+      incomingTempoConfidence >= 0.35 &&
       exitTempo != null &&
-      incoming.bpm != null &&
+      incomingTempo != null &&
       !automixTempoMatch(
         referenceBpm: exitTempo,
-        trackBpm: incoming.bpm,
+        trackBpm: incomingTempo,
         tolerance: settings.bpmTolerancePercent / 100.0,
       ).$1;
   final keyCost = automixCamelotCost(
