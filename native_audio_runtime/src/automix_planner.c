@@ -302,17 +302,26 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
                               int32_t harmonic_filter) {
   const double head_bpm_a = feature(rows, a, NAR_AUTOMIX_BPM);
   const double bpm_b = feature(rows, b, NAR_AUTOMIX_BPM);
-  // A transition lives in the outgoing track's tail and the incoming track's
-  // head, so score tempo compatibility at that seam: prefer the outgoing exit
-  // (tail) tempo when the exit window produced one, else its head estimate.
+  // Score tempo at the actual seam. A tail BPM is eligible only when its
+  // own confidence passes the shared 0.35 gate; otherwise use the head BPM.
   const double tail_bpm_a = feature(rows, a, NAR_AUTOMIX_TAIL_BPM);
-  const double bpm_a = (isfinite(tail_bpm_a) && tail_bpm_a > 0.0)
-      ? tail_bpm_a
-      : head_bpm_a;
+  const double tail_confidence_a =
+      feature(rows, a, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
+  const int use_tail_bpm =
+      isfinite(tail_bpm_a) && tail_bpm_a > 0.0 &&
+      isfinite(tail_confidence_a) && tail_confidence_a >= 0.35 &&
+      tail_confidence_a <= 1.0;
+  // Use tail BPM and tail confidence as one indivisible measurement. If the
+  // tail estimate is weak/missing, fall back to the head BPM and its confidence
+  // rather than accidentally trusting the tail using head-window confidence.
+  const double bpm_a = use_tail_bpm ? tail_bpm_a : head_bpm_a;
   const double measured_tempo = tempo_cost(
       bpm_a, feature(rows, a, NAR_AUTOMIX_ALTERNATE_BPM), bpm_b,
       feature(rows, b, NAR_AUTOMIX_ALTERNATE_BPM), tolerance);
-  const double confidence_a = feature(rows, a, NAR_AUTOMIX_BPM_CONFIDENCE);
+  const double head_confidence_a =
+      feature(rows, a, NAR_AUTOMIX_BPM_CONFIDENCE);
+  const double confidence_a = use_tail_bpm
+      ? tail_confidence_a : head_confidence_a;
   const double confidence_b = feature(rows, b, NAR_AUTOMIX_BPM_CONFIDENCE);
   const double tempo_confidence = clamp01(
       ((isfinite(confidence_a) ? confidence_a : 0.0) +

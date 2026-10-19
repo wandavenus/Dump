@@ -711,18 +711,31 @@ class AutomixTransitionCue {
   final double incomingTrim;
 }
 
-/// Derives the fade length, transfer curve and level match for [outgoing] →
-/// [incoming].
-///
-/// Structure-aware: a dense outro gets a shorter, faster hand-over (less
-/// overlap of two busy sections) while a sparse outro gets a longer, gentler
-/// blend; a sparse intro tolerates extra overlap. Confidently incompatible
-/// tempos or keys shorten the fade automatically. Levels follow standard DJ
-/// practice: only the louder deck is attenuated, by at most 6 dB.
-/// Tempo that governs a track's exit: its tail estimate when the tail window
-/// had one, else its head estimate.
+/// Whether the exit BPM is trustworthy enough to steer planning/playback.
+/// Keep this gate in sync with the native planner's 0.35 confidence threshold.
+bool automixHasConfidentTailBpm(AutomixTrackFeatures features) {
+  final bpm = features.tailBpm;
+  final confidence = features.tailBpmConfidence;
+  return bpm != null &&
+      bpm.isFinite &&
+      bpm > 0 &&
+      confidence.isFinite &&
+      confidence >= 0.35 &&
+      confidence <= 1.0;
+}
+
+/// Tempo that governs a track's exit. A weak/missing tail estimate falls back
+/// to the whole-track/head BPM instead of letting untrusted tail metadata steer
+/// sequencing or the fade duration.
 double? automixExitBpm(AutomixTrackFeatures features) =>
-    features.tailBpm ?? features.bpm;
+    automixHasConfidentTailBpm(features) ? features.tailBpm : features.bpm;
+
+/// Confidence corresponding to [automixExitBpm], never borrowed from the head
+/// when a confident tail BPM is the value actually being used.
+double automixExitBpmConfidence(AutomixTrackFeatures features) =>
+    automixHasConfidentTailBpm(features)
+        ? features.tailBpmConfidence
+        : features.bpmConfidence;
 
 /// A conservative cost for the outgoing tail chord → incoming intro chord.
 /// 0 is compatible and 1 is strongly clashing. Null means no confident pair.
@@ -825,6 +838,12 @@ double automixEarlyHandoverLeadSeconds({
   return (weighted / weight).clamp(minLead, maxLead).toDouble();
 }
 
+/// Derives the fade length, transfer curve and level match for [outgoing] →
+/// [incoming].
+///
+/// Structure-aware: dense outros favour a quicker handover; sparse outros and
+/// intros can support a longer blend. Confident tempo/key/chord mismatches can
+/// shorten the overlap automatically. The selected cue is consumed by Media3.
 AutomixTransitionCue automixTransitionCue({
   required AutomixTrackFeatures outgoing,
   required AutomixTrackFeatures incoming,
@@ -873,7 +892,7 @@ AutomixTransitionCue automixTransitionCue({
   }
 
   final exitTempo = automixExitBpm(outgoing);
-  final tempoMismatch = outgoing.tailBpmConfidence >= 0.35 &&
+  final tempoMismatch = automixExitBpmConfidence(outgoing) >= 0.35 &&
       incoming.bpmConfidence >= 0.35 &&
       exitTempo != null &&
       incoming.bpm != null &&
@@ -1412,12 +1431,10 @@ double _transitionCost({
   _EnergyArc arc = _EnergyArc.disabled,
 }) {
   final tolerance = settings.bpmTolerancePercent / 100.0;
-  // A transition lives in the outgoing track's tail and the incoming track's
-  // head, so score tempo compatibility at that seam: prefer the outgoing exit
-  // (tail) tempo when the exit window produced one, else its head estimate.
-  final referenceBpm = a.tailBpm != null && a.tailBpm! > 0
-      ? a.tailBpm
-      : a.bpm;
+  // Score the tempo at the actual seam. A tail BPM is eligible only when
+  // its own confidence passes the shared 0.35 gate; otherwise use head BPM.
+  final referenceBpm = automixExitBpm(a);
+  final outgoingTempoConfidence = automixExitBpmConfidence(a);
   final measuredTempo = automixTempoCost(
     referenceBpm,
     a.alternateBpm,
@@ -1426,7 +1443,7 @@ double _transitionCost({
     tolerance,
   );
   final tempoConfidence = automixClamp01(
-    (a.bpmConfidence + b.bpmConfidence) / 2,
+    (outgoingTempoConfidence + b.bpmConfidence) / 2,
   );
   final tempo = automixConfidenceBlend(
     measuredTempo,
@@ -2207,6 +2224,7 @@ class AutomixEngine {
           centroidHz: track.centroidHz,
           onsetRate: track.onsetRate,
           tailBpm: track.tailBpm,
+          tailBpmConfidence: track.tailBpmConfidence,
           tailBeatOffsetMs: track.tailBeatOffsetMs,
           introEnergy: track.introEnergy,
           outroEnergy: track.outroEnergy,

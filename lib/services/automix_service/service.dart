@@ -369,7 +369,8 @@ class AutomixService {
   ) {
     final ordered = <AutomixTrackFeatures>[current, ...upcoming];
     final exitBpm = automixExitBpm(current);
-    final reference = _tempoInRange(exitBpm) && current.tailBpmConfidence >= 0.35
+    final exitConfidence = automixExitBpmConfidence(current);
+    final reference = _tempoInRange(exitBpm) && exitConfidence >= 0.35
         ? exitBpm
         : null;
 
@@ -377,14 +378,23 @@ class AutomixService {
     for (var i = 0; i < ordered.length; i++) {
       final features = ordered[i];
       final isOutgoing = i == 0;
-      final bpm = isOutgoing ? exitBpm : features.bpm;
+      final useTailGrid = isOutgoing && automixHasConfidentTailBpm(features);
+      final bpm = isOutgoing
+          ? (useTailGrid ? features.tailBpm : features.bpm)
+          : features.bpm;
+      // Do not pair a fallback head BPM with the rejected tail's beat phase.
+      // When the tail grid is weak, use the head grid consistently instead.
       final beatOffsetMs = isOutgoing
-          ? features.tailBeatOffsetMs
+          ? (useTailGrid ? features.tailBeatOffsetMs : features.beatOffsetMs)
           : features.beatOffsetMs;
       final downbeatOffsetMs = isOutgoing
-          ? features.tailDownbeatOffsetMs
+          ? (useTailGrid
+              ? features.tailDownbeatOffsetMs
+              : features.downbeatOffsetMs)
           : features.downbeatOffsetMs;
-      final confidence = isOutgoing ? features.tailBpmConfidence : features.bpmConfidence;
+      final confidence = isOutgoing
+          ? automixExitBpmConfidence(features)
+          : features.bpmConfidence;
       final confidentBpm = confidence >= 0.35 && _tempoInRange(bpm)
           ? bpm
           : null;
