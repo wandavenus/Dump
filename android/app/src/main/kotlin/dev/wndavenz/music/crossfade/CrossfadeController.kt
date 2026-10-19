@@ -123,6 +123,10 @@ class CrossfadeController(
     // Planner tempo multiplier published for a deck (1.0 = unchanged). Used to
     // keep the live tempo-follow correction inside the processor's stretch range.
     private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float = { 1f },
+    // Per-deck true-peak ceiling for the AutoMix overlap: 0 disables the
+    // limiter. Enabled only while the two decks overlap, never in normal
+    // playback (the tone stage must stay bit-transparent there).
+    private val setAutoMixTruePeakLimit: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Gentle high-band filter-out on the outgoing deck's tail: 1.0 = transparent.
     private val setAutoMixTailFilter: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Native per-sample equal-power envelope; player.volume remains the master
@@ -162,6 +166,13 @@ class CrossfadeController(
 
         /** Most high band the outgoing tail filter may remove (-12 dB). */
         const val MAX_TAIL_FILTER = 0.75f
+
+        /**
+         * Per-deck ceiling used only during an AutoMix overlap. With the L1
+         * fade budget (outgoing + incoming <= 1) this also bounds the summed
+         * signal at the platform mixer to roughly the ceiling.
+         */
+        const val AUTOMIX_TRUE_PEAK_CEILING = 0.95f
     }
 
     var crossfadeDurationSec: Float = 0f
@@ -371,6 +382,7 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
+            setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
         }
@@ -378,6 +390,7 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
+            setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
         }
@@ -504,6 +517,18 @@ class CrossfadeController(
         setAutoMixFadeGain(current, 1f)
         setAutoMixFadeGain(standby, 1f)
         val nativeFadeAvailable = false
+
+        // True-peak limiting is a per-deck safety net for the AutoMix overlap.
+        // It is intentionally independent of nativeFadeAvailable (which stays
+        // false), and is disabled for ordinary crossfades so normal playback
+        // remains bit-transparent.
+        val limiterCeiling = if (isAutomixTransitionEnabled()) {
+            AUTOMIX_TRUE_PEAK_CEILING
+        } else {
+            0f
+        }
+        setAutoMixTruePeakLimit(current, limiterCeiling)
+        setAutoMixTruePeakLimit(standby, limiterCeiling)
 
         // Live BPM estimates may be available even for tracks that the planner
         // deliberately left unmatched. Only use phase lock when the published
@@ -736,6 +761,8 @@ class CrossfadeController(
                     setAutoMixMidGain(newPlayer, 1f)
                     setAutoMixMidGain(oldPlayer, 1f)
                     setAutoMixTempoNudge(newPlayer, 1f)
+                    setAutoMixTruePeakLimit(newPlayer, 0f)
+                    setAutoMixTruePeakLimit(oldPlayer, 0f)
                     setAutoMixTailFilter(newPlayer, 1f)
                     setAutoMixTailFilter(oldPlayer, 1f)
                     setAutoMixFadeGain(newPlayer, 1f)
@@ -793,6 +820,8 @@ class CrossfadeController(
                     // dry tone: a phase correction or a tail filter must never
                     // survive into the next track.
                     setAutoMixTempoNudge(newPlayer, 1f)
+                    setAutoMixTruePeakLimit(newPlayer, 0f)
+                    setAutoMixTruePeakLimit(oldPlayer, 0f)
                     setAutoMixTailFilter(newPlayer, 1f)
                     setAutoMixTailFilter(oldPlayer, 1f)
                     // ── Crossfade complete ─────────────────────────────────────
@@ -872,8 +901,8 @@ class CrossfadeController(
                 var outgoingBass = 1f
                 var incomingBass = 1f
                 if (applyBassSwap) {
-                    // One short transfer centred on a beat boundary instead of a
-                    // long linear ramp: keep the outgoing bass until the swap
+                    // One short transfer starting on a beat boundary instead of
+                    // a long linear ramp: keep the outgoing bass until the swap
                     // window, cross over inside it, then leave the low end to
                     // the incoming deck. Positions come from the outgoing
                     // source timeline so tempo changes cannot drift the swap.

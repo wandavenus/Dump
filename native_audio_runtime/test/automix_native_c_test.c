@@ -952,6 +952,229 @@ static void test_tone_filters_independent_streams(void) {
   free(dry);
 }
 
+// Mirrors the native 4x Lagrange estimator: history[0] is the current sample.
+static double true_peak_4x(const float* samples, int32_t frames,
+                           int32_t channels) {
+  static const float kCoeffs[3][4] = {
+      {0.6015625f, 0.6015625f, -0.2578125f, 0.0546875f},
+      {0.3125f, 0.9375f, -0.3125f, 0.0625f},
+      {0.1171875f, 1.0546875f, -0.2109375f, 0.0390625f},
+  };
+  double peak = 0.0;
+  for (int32_t channel = 0; channel < channels; ++channel) {
+    for (int32_t i = 0; i < frames; ++i) {
+      const float h0 = samples[(size_t)i * (size_t)channels + (size_t)channel];
+      const float h1 = i > 0
+          ? samples[(size_t)(i - 1) * (size_t)channels + (size_t)channel]
+          : h0;
+      const float h2 = i > 1
+          ? samples[(size_t)(i - 2) * (size_t)channels + (size_t)channel]
+          : h1;
+      const float h3 = i > 2
+          ? samples[(size_t)(i - 3) * (size_t)channels + (size_t)channel]
+          : h2;
+      const double magnitude = fabs((double)h0);
+      if (magnitude > peak) peak = magnitude;
+      for (int set = 0; set < 3; ++set) {
+        const double interpolated =
+            (double)kCoeffs[set][0] * h0 + (double)kCoeffs[set][1] * h1 +
+            (double)kCoeffs[set][2] * h2 + (double)kCoeffs[set][3] * h3;
+        if (fabs(interpolated) > peak) peak = fabs(interpolated);
+      }
+    }
+  }
+  return peak;
+}
+
+static void test_true_peak_limiter_is_transparent_by_default(void) {
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 2) == 1);
+
+  float pcm[] = {0.75f, -1.0f, 0.5f, -0.25f, 1.0f, -0.6f};
+  const float original[] = {0.75f, -1.0f, 0.5f, -0.25f, 1.0f, -0.6f};
+  assert(nar_automix_tone_process(pcm, 3, 2, 0) == 1);
+  for (size_t i = 0; i < sizeof(pcm) / sizeof(pcm[0]); ++i) {
+    assert(fabsf(pcm[i] - original[i]) < 1e-6f);
+  }
+}
+
+static void test_true_peak_limiter_respects_ceiling(void) {
+  const int32_t frames = 48000;
+  float pcm[48000];
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.95f) == 1);
+  for (int32_t i = 0; i < frames; ++i) pcm[i] = 1.0f;
+  assert(nar_automix_tone_process(pcm, frames, 1, 0) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(pcm[i] <= 0.95f + 1e-5f);
+  }
+  // The zero-initialized history makes the first frames look like a step, so
+  // the causal detector over-estimates briefly. After 10 release time
+  // constants (500 ms) the gain has settled back to the ceiling.
+  for (int32_t i = 24000; i < frames; ++i) {
+    assert(pcm[i] >= 0.95f - 1e-3f);
+  }
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+}
+
+static void test_true_peak_limiter_catches_intersample_peaks(void) {
+  const int32_t frames = 9600;
+  float pcm[9600];
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+  // Fs/4 with a 45-degree phase: samples are +-0.7071 but the analog peak is
+  // 1.0, so a sample-peak limiter alone would not engage.
+  for (int32_t i = 0; i < frames; ++i) {
+    pcm[i] = sinf(3.14159265358979323846f * 0.5f * (float)i +
+                  3.14159265358979323846f * 0.25f);
+  }
+  assert(true_peak_4x(pcm, frames, 1) > 1.05);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.80f) == 1);
+  assert(nar_automix_tone_process(pcm, frames, 1, 0) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(fabsf(pcm[i]) <= 0.8001f);
+  }
+  // Skip the first 512 frames: the causal detector needs a few samples to
+  // engage, so the onset transient is not part of the steady-state bound.
+  assert(true_peak_4x(pcm + 512, frames - 512, 1) <= 0.805);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+}
+
+static void test_true_peak_limiter_is_per_stream(void) {
+  const int32_t frames = 480;
+  float limited[480];
+  float reference[480];
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+  assert(nar_automix_tone_configure(1, 48000, 1) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.60f) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(1, 0.0f) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    limited[i] = 1.0f;
+    reference[i] = 1.0f;
+  }
+  assert(nar_automix_tone_process(limited, frames, 1, 0) == 1);
+  assert(nar_automix_tone_process(reference, frames, 1, 1) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(limited[i] <= 0.6001f);
+    assert(fabsf(reference[i] - 1.0f) < 1e-6f);
+  }
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+}
+
+static void test_true_peak_limiter_reset_preserves_target(void) {
+  const int32_t frames = 480;
+  float loud[480];
+  float quiet[480];
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.50f) == 1);
+  for (int32_t i = 0; i < frames; ++i) loud[i] = 1.0f;
+  assert(nar_automix_tone_process(loud, frames, 1, 0) == 1);
+  assert(loud[frames - 1] <= 0.5001f);
+
+  assert(nar_automix_tone_reset(0) == 1);
+  for (int32_t i = 0; i < frames; ++i) quiet[i] = 0.1f;
+  assert(nar_automix_tone_process(quiet, frames, 1, 0) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(fabsf(quiet[i] - 0.1f) < 1e-6f);
+  }
+
+  // The atomic target survives reset, so a loud block is limited again.
+  for (int32_t i = 0; i < frames; ++i) loud[i] = 1.0f;
+  assert(nar_automix_tone_process(loud, frames, 1, 0) == 1);
+  assert(loud[frames - 1] <= 0.5001f);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+}
+
+static void test_true_peak_limiter_block_boundaries_are_continuous(void) {
+  const int32_t frames = 1024;
+  float whole[1024];
+  float chunked[1024];
+  const int32_t chunk = 7;
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_bass_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(1, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+  assert(nar_automix_tone_configure(1, 48000, 1) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.80f) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(1, 0.80f) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    const float sample = 0.98f * sinf(
+        2.0f * 3.14159265358979323846f * 12000.0f * (float)i / 48000.0f);
+    whole[i] = sample;
+    chunked[i] = sample;
+  }
+  assert(nar_automix_tone_process(whole, frames, 1, 0) == 1);
+  for (int32_t offset = 0; offset < frames; offset += chunk) {
+    const int32_t count = (offset + chunk <= frames) ? chunk : frames - offset;
+    assert(nar_automix_tone_process(chunked + offset, count, 1, 1) == 1);
+  }
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(fabsf(whole[i] - chunked[i]) < 1e-6f);
+  }
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(1, 0.0f) == 1);
+}
+
+static void test_true_peak_limiter_rejects_invalid_input(void) {
+  assert(nar_automix_tone_set_true_peak_limit(-1, 0.9f) == 0);
+  assert(nar_automix_tone_set_true_peak_limit(2, 0.9f) == 0);
+
+  float pcm[8];
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+
+  // NaN and negative ceilings disable the limiter instead of silently
+  // clamping to full scale.
+  assert(nar_automix_tone_set_true_peak_limit(0, NAN) == 1);
+  for (int i = 0; i < 8; ++i) pcm[i] = 1.0f;
+  assert(nar_automix_tone_process(pcm, 8, 1, 0) == 1);
+  for (int i = 0; i < 8; ++i) assert(fabsf(pcm[i] - 1.0f) < 1e-6f);
+
+  assert(nar_automix_tone_set_true_peak_limit(0, -0.5f) == 1);
+  for (int i = 0; i < 8; ++i) pcm[i] = 1.0f;
+  assert(nar_automix_tone_process(pcm, 8, 1, 0) == 1);
+  for (int i = 0; i < 8; ++i) assert(fabsf(pcm[i] - 1.0f) < 1e-6f);
+
+  // A ceiling above 1 clamps to 1. A 0.5 signal stays well below both the
+  // clamp and the interpolator's step overshoot, so it must pass untouched.
+  assert(nar_automix_tone_set_true_peak_limit(0, 2.0f) == 1);
+  for (int i = 0; i < 8; ++i) pcm[i] = 0.5f;
+  assert(nar_automix_tone_process(pcm, 8, 1, 0) == 1);
+  for (int i = 0; i < 8; ++i) assert(fabsf(pcm[i] - 0.5f) < 1e-6f);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+}
+
 static void test_stereo_mid_gain(void) {
   // This uses the stereo path on ARM64 (NEON) and the scalar fallback
   // elsewhere, so the new mid control is covered in both implementations.
@@ -1559,6 +1782,13 @@ int main(void) {
   test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
+  test_true_peak_limiter_is_transparent_by_default();
+  test_true_peak_limiter_respects_ceiling();
+  test_true_peak_limiter_catches_intersample_peaks();
+  test_true_peak_limiter_is_per_stream();
+  test_true_peak_limiter_reset_preserves_target();
+  test_true_peak_limiter_block_boundaries_are_continuous();
+  test_true_peak_limiter_rejects_invalid_input();
   test_stereo_mid_gain();
   return 0;
 }

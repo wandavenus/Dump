@@ -25,12 +25,26 @@ _Static_assert(offsetof(NarAutomixToneState, current_fade_gain) == 92,
                "NEON fade gain offset changed");
 _Static_assert(offsetof(NarAutomixToneState, current_mid_gain) == 100,
                "NEON mid gain offset changed");
+_Static_assert(offsetof(NarAutomixToneState, true_peak_gain) == 104,
+               "true-peak gain offset changed");
+_Static_assert(offsetof(NarAutomixToneState, true_peak_release_alpha) == 108,
+               "true-peak release offset changed");
+_Static_assert(offsetof(NarAutomixToneState, true_peak_history) == 112,
+               "true-peak history offset changed");
+_Static_assert(offsetof(NarAutomixToneState, true_peak_primed) == 240,
+               "true-peak primed offset changed");
+_Static_assert(sizeof(NarAutomixToneState) == 244,
+               "true-peak state size changed");
 
 static NarAutomixToneState g_states[NAR_AUTOMIX_TONE_STREAM_COUNT];
 static _Atomic float g_target_bass[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 static _Atomic float g_target_mid[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 static _Atomic float g_target_high[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 static _Atomic float g_target_fade[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
+// Zero disables the limiter. Kept separate from the per-sample gain so normal
+// playback never pays for true-peak estimation.
+static _Atomic float g_target_true_peak[NAR_AUTOMIX_TONE_STREAM_COUNT] = {
+    0.0f, 0.0f};
 
 #if defined(__aarch64__)
 extern void nar_automix_tone_process_stereo_neon(
@@ -72,6 +86,10 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_configure(
       atomic_load_explicit(&g_target_high[stream_slot], memory_order_relaxed);
   state->current_fade_gain =
       atomic_load_explicit(&g_target_fade[stream_slot], memory_order_relaxed);
+  state->true_peak_gain = 1.0f;
+  state->true_peak_release_alpha =
+      1.0f - expf(-1.0f / ((float)sample_rate * 0.050f));
+  state->true_peak_primed = 0;
   state->sample_rate = sample_rate;
   state->channel_count = channel_count;
   state->configured = 1;
@@ -106,6 +124,20 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_fade_gain(
     int32_t stream_slot, float gain) {
   if (!valid_stream_slot(stream_slot)) return 0;
   atomic_store_explicit(&g_target_fade[stream_slot], clamp_gain(gain),
+                        memory_order_relaxed);
+  return 1;
+}
+
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_true_peak_limit(
+    int32_t stream_slot, float ceiling) {
+  if (!valid_stream_slot(stream_slot)) return 0;
+  // Non-finite or non-positive ceilings disable the limiter explicitly rather
+  // than falling back to a "safe" gain: normal playback must stay transparent.
+  float normalized = 0.0f;
+  if (isfinite(ceiling) && ceiling > 0.0f) {
+    normalized = fminf(fmaxf(ceiling, 0.05f), 1.0f);
+  }
+  atomic_store_explicit(&g_target_true_peak[stream_slot], normalized,
                         memory_order_relaxed);
   return 1;
 }
@@ -184,7 +216,79 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_reset(int32_t stream_slot) {
       atomic_load_explicit(&g_target_high[stream_slot], memory_order_relaxed);
   state->current_fade_gain =
       atomic_load_explicit(&g_target_fade[stream_slot], memory_order_relaxed);
+  memset(state->true_peak_history, 0, sizeof(state->true_peak_history));
+  state->true_peak_gain = 1.0f;
+  state->true_peak_primed = 0;
   return 1;
+}
+
+// Cubic Lagrange interpolation at 4x oversampling. history[0] is the current
+// sample and history[1..3] are the three previous input samples; the three
+// coefficient sets evaluate 25 %, 50 % and 75 % of the way from history[0]
+// back towards history[1]. Using the *input* samples keeps the detector
+// input-referred, so a gain reduction does not hide a still-loud source peak.
+static const float kTruePeakCoeffs[3][4] = {
+    {0.6015625f, 0.6015625f, -0.2578125f, 0.0546875f},
+    {0.3125f, 0.9375f, -0.3125f, 0.0625f},
+    {0.1171875f, 1.0546875f, -0.2109375f, 0.0390625f},
+};
+
+static float true_peak_frame(const float history[4]) {
+  float peak = fabsf(history[0]);
+  for (int set = 0; set < 3; ++set) {
+    const float* c = kTruePeakCoeffs[set];
+    const float interpolated = c[0] * history[0] + c[1] * history[1] +
+        c[2] * history[2] + c[3] * history[3];
+    const float magnitude = fabsf(interpolated);
+    if (magnitude > peak) peak = magnitude;
+  }
+  return peak;
+}
+
+// Per-deck safety limiter. The platform mixer is downstream and sums both
+// decks; the AutoMix L1 fade budget (outgoing + incoming <= 1) keeps that sum
+// bounded when each deck's true peak is bounded here. This is a causal
+// estimator with instant attack and a ~50 ms release, so the first transient
+// after enabling can still overshoot slightly; the sample clamp below keeps
+// the per-deck output inside the ceiling.
+static void apply_true_peak_limiter(
+    float* interleaved, int32_t frame_count, int32_t channel_count,
+    float ceiling, NarAutomixToneState* state) {
+  if (!state->true_peak_primed) {
+    memset(state->true_peak_history, 0, sizeof(state->true_peak_history));
+    state->true_peak_gain = 1.0f;
+    state->true_peak_primed = 1;
+  }
+  float gain = state->true_peak_gain;
+  const float release = state->true_peak_release_alpha;
+  for (int32_t frame = 0; frame < frame_count; ++frame) {
+    const size_t base = (size_t)frame * (size_t)channel_count;
+    float peak = 0.0f;
+    for (int32_t channel = 0; channel < channel_count; ++channel) {
+      float* history = state->true_peak_history[channel];
+      history[3] = history[2];
+      history[2] = history[1];
+      history[1] = history[0];
+      history[0] = interleaved[base + (size_t)channel];
+      const float frame_peak = true_peak_frame(history);
+      if (frame_peak > peak) peak = frame_peak;
+    }
+    const float desired = peak > ceiling ? ceiling / peak : 1.0f;
+    if (desired < gain) {
+      gain = desired;
+    } else {
+      gain += (desired - gain) * release;
+    }
+    if (gain < 0.0f) gain = 0.0f;
+    if (gain > 1.0f) gain = 1.0f;
+    for (int32_t channel = 0; channel < channel_count; ++channel) {
+      float sample = interleaved[base + (size_t)channel] * gain;
+      if (!isfinite(sample)) sample = 0.0f;
+      sample = fminf(ceiling, fmaxf(-ceiling, sample));
+      interleaved[base + (size_t)channel] = sample;
+    }
+  }
+  state->true_peak_gain = gain;
 }
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
@@ -206,58 +310,73 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
       atomic_load_explicit(&g_target_high[stream_slot], memory_order_relaxed);
   const float target_fade =
       atomic_load_explicit(&g_target_fade[stream_slot], memory_order_relaxed);
+  const float true_peak_ceiling =
+      atomic_load_explicit(&g_target_true_peak[stream_slot],
+                           memory_order_relaxed);
 
+  int processed_neon = 0;
 #if defined(__aarch64__)
   if (channel_count == 2) {
     nar_automix_tone_process_stereo_neon(
         interleaved, frame_count, state, target_bass, target_mid, target_high,
         target_fade);
-    return 1;
+    processed_neon = 1;
   }
 #endif
 
-  float current_bass = state->current_bass_gain;
-  float current_mid = state->current_mid_gain;
-  float current_high = state->current_high_gain;
-  float current_fade = state->current_fade_gain;
-  const float gain_alpha = state->gain_smoothing_alpha;
-  const float low_alpha = state->low_pass_alpha;
-  const float high_alpha = state->high_cut_alpha;
-  const float fade_step = (target_fade - current_fade) / (float)frame_count;
+  if (!processed_neon) {
+    float current_bass = state->current_bass_gain;
+    float current_mid = state->current_mid_gain;
+    float current_high = state->current_high_gain;
+    float current_fade = state->current_fade_gain;
+    const float gain_alpha = state->gain_smoothing_alpha;
+    const float low_alpha = state->low_pass_alpha;
+    const float high_alpha = state->high_cut_alpha;
+    const float fade_step = (target_fade - current_fade) / (float)frame_count;
 
-  for (int32_t frame = 0; frame < frame_count; ++frame) {
-    current_bass += (target_bass - current_bass) * gain_alpha;
-    current_mid += (target_mid - current_mid) * gain_alpha;
-    current_high += (target_high - current_high) * gain_alpha;
-    current_fade += fade_step;
-    for (int32_t channel = 0; channel < channel_count; ++channel) {
-      const size_t index = (size_t)frame * channel_count + channel;
-      float sample = interleaved[index];
-      if (!isfinite(sample)) sample = 0.0f;
-      const float low = state->low_pass_state[channel] +
-          low_alpha * (sample - state->low_pass_state[channel]);
-      state->low_pass_state[channel] = low;
+    for (int32_t frame = 0; frame < frame_count; ++frame) {
+      current_bass += (target_bass - current_bass) * gain_alpha;
+      current_mid += (target_mid - current_mid) * gain_alpha;
+      current_high += (target_high - current_high) * gain_alpha;
+      current_fade += fade_step;
+      for (int32_t channel = 0; channel < channel_count; ++channel) {
+        const size_t index = (size_t)frame * channel_count + channel;
+        float sample = interleaved[index];
+        if (!isfinite(sample)) sample = 0.0f;
+        const float low = state->low_pass_state[channel] +
+            low_alpha * (sample - state->low_pass_state[channel]);
+        state->low_pass_state[channel] = low;
 
-      const float high_low = state->high_cut_state[channel] +
-          high_alpha * (sample - state->high_cut_state[channel]);
-      state->high_cut_state[channel] = high_low;
+        const float high_low = state->high_cut_state[channel] +
+            high_alpha * (sample - state->high_cut_state[channel]);
+        state->high_cut_state[channel] = high_low;
 
-      const float high = sample - high_low;
-      const float mid = high_low - low;
+        const float high = sample - high_low;
+        const float mid = high_low - low;
 
-      const float output = low * current_bass + mid * current_mid + high * current_high;
-      const float faded = output * current_fade;
-      // Clamp each stream's final PCM sample before Android mixes the decks.
-      // This is a sample-peak ceiling, not a reconstructed true-peak limiter.
-      interleaved[index] = isfinite(faded)
-          ? fminf(1.0f, fmaxf(-1.0f, faded))
-          : 0.0f;
+        const float output = low * current_bass + mid * current_mid + high * current_high;
+        const float faded = output * current_fade;
+        // Sample-peak safety clamp before the optional true-peak post-pass.
+        interleaved[index] = isfinite(faded)
+            ? fminf(1.0f, fmaxf(-1.0f, faded))
+            : 0.0f;
+      }
     }
+
+    state->current_bass_gain = current_bass;
+    state->current_mid_gain = current_mid;
+    state->current_high_gain = current_high;
+    state->current_fade_gain = current_fade;
   }
 
-  state->current_bass_gain = current_bass;
-  state->current_mid_gain = current_mid;
-  state->current_high_gain = current_high;
-  state->current_fade_gain = current_fade;
+  if (true_peak_ceiling > 0.0f) {
+    apply_true_peak_limiter(interleaved, frame_count, channel_count,
+                            true_peak_ceiling, state);
+  } else if (state->true_peak_primed) {
+    // Drop back to a transparent, primed-from-scratch limiter state so a
+    // re-enable cannot reuse a stale gain or history from the previous fade.
+    state->true_peak_primed = 0;
+    state->true_peak_gain = 1.0f;
+  }
   return 1;
 }

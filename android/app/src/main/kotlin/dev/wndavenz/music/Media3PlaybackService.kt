@@ -714,6 +714,14 @@ class Media3PlaybackService : MediaSessionService() {
                     automixToneManager.setFadeGain(slot, gain)
                 }
             },
+            // Per-deck true-peak limiter, enabled only during an AutoMix
+            // overlap. 0 disables it and keeps the tone stage transparent.
+            setAutoMixTruePeakLimit = { player, ceiling ->
+                val slot = playerSlotOf(player)
+                if (slot >= 0 && ::automixToneManager.isInitialized) {
+                    automixToneManager.setTruePeakLimit(slot, ceiling)
+                }
+            },
             onCrossfadeCancelled = {
                 applyPendingAutomixTransition(preloadStandby = true)
             },
