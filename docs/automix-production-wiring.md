@@ -29,9 +29,9 @@ and crossfade if setup fails. The one-shot caller opts into `playSongAt(rethrowO
 handoff failures after restoring Dart state and attempting native queue/playhead/
 playback recovery. Existing callers keep the default log-and-return behavior.
 
-The native planner receives 22 feature values per track, plus key and artist-group arrays. Its transition cost currently uses:
+The native planner receives 23 feature values per track, plus key and artist-group arrays. Tail BPM and tail BPM confidence occupy separate feature slots; a tail estimate is used as the exit tempo only when its confidence is at least 0.35, otherwise both BPM and confidence fall back to the head estimate. Its transition cost currently uses:
 
-- confidence-weighted tempo compatibility and half/double-time variants, measured at the **mix seam**: the outgoing track's exit (tail) tempo when its tail window produced one, otherwise its head estimate, against the incoming track's head tempo;
+- confidence-weighted tempo compatibility and half/double-time variants, measured at the **mix seam**: the outgoing track's exit tempo when the tail BPM confidence is at least 0.35, otherwise its head estimate; the confidence paired with that tempo is always from the same analysis window;
 - estimated key compatibility on the Camelot wheel;
 - relative energy shaping across the planned set, plus an intro/outro **section-seam** term (`|outroEnergy_out − introEnergy_in|`) that discourages handing a loud outro into a quiet intro or the reverse when both windows were analyzed;
 - an energy **momentum** term from the quarter RMS profile: a still-rising outgoing tail (slope > 1 dB/quarter) that is not matched by an equally building incoming head adds up to 0.30, while a cooling tail stays neutral because the level seam already covers the drop; incomplete or older profiles stay neutral;
