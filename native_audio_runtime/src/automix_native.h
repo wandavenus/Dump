@@ -100,6 +100,18 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze(
     double* output,
     int32_t output_count);
 
+// Variant used by the Android stereo bridge. `center_ratio` is the source
+// mix's center-channel power divided by center-plus-side power, in [0,1].
+// Pass NAN when the source is mono or the ratio is unavailable; the analyzer
+// then falls back to the mono vocal estimate without center-channel evidence.
+FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_centered(
+    const float* mono,
+    int32_t sample_count,
+    int32_t sample_rate,
+    double center_ratio,
+    double* output,
+    int32_t output_count);
+
 // Analyzes time-local chord progression into rows of four doubles:
 // [window_start_ms, root_pitch_class (or -1), quality_id (or -1), confidence].
 // Quality ids: 0 major, 1 minor, 2 diminished, 3 augmented, 4 dominant 7,

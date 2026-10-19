@@ -66,6 +66,74 @@ static void test_analyzer_rms(void) {
   free(pcm);
 }
 
+static void render_formant_vocal_pcm(float* pcm, int32_t count,
+                                     int32_t sample_rate) {
+  const double pi = 3.141592653589793;
+  double amplitudes[25] = {0.0};
+  double weights[25] = {0.0};
+  for (int32_t harmonic = 1; harmonic <= 24; ++harmonic) {
+    const double frequency = 130.0 * harmonic;
+    const double formant =
+        exp(-pow((frequency - 800.0) / 500.0, 2.0)) +
+        0.7 * exp(-pow((frequency - 1800.0) / 700.0, 2.0));
+    amplitudes[harmonic] = 0.06 * formant;
+    weights[harmonic] = 2.0 * pi * frequency;
+  }
+  unsigned int seed = 0x51ED270Bu;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const double envelope = 0.55 + 0.45 * sin(2.0 * pi * 2.0 * t);
+    double value = 0.0;
+    for (int32_t harmonic = 1; harmonic <= 24; ++harmonic) {
+      value += amplitudes[harmonic] *
+          sin(weights[harmonic] * t) / sqrt((double)harmonic);
+    }
+    seed = seed * 1664525u + 1013904223u;
+    const double noise = ((double)(seed >> 8) / 16777216.0) * 2.0 - 1.0;
+    value += noise * 0.15;
+    pcm[i] = (float)(value * envelope);
+  }
+}
+
+static void test_analyzer_vocal_center_channel(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 6;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  render_formant_vocal_pcm(pcm, count, sample_rate);
+
+  double mono[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  double centered[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  double wide[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  double clamped[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  double no_center[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, mono,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(nar_automix_analyze_centered(pcm, count, sample_rate, 0.92, centered,
+                                      NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(nar_automix_analyze_centered(pcm, count, sample_rate, 0.05, wide,
+                                      NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(nar_automix_analyze_centered(pcm, count, sample_rate, 2.0, clamped,
+                                      NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(nar_automix_analyze_centered(pcm, count, sample_rate, NAN, no_center,
+                                      NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+
+  assert_analysis_confidence_contract(mono);
+  assert_analysis_confidence_contract(centered);
+  assert_analysis_confidence_contract(wide);
+  // The synth has a speech-band spectral shape but is not a real vocal.
+  assert(mono[19] >= 0.45);
+  // Mono input cannot use center-channel evidence and stays at the old cap.
+  assert(mono[19] <= 0.65 + 1e-9);
+  // A centered source should be more vocal-confident than a wide one.
+  assert(centered[19] > wide[19] + 0.05);
+  assert(centered[18] > wide[18] + 0.05);
+  assert(centered[19] <= 0.75 + 1e-9);
+  assert(fabs(clamped[19] - centered[19]) < 1e-12);
+  assert(fabs(no_center[19] - mono[19]) < 1e-12);
+  free(pcm);
+}
+
 static void test_analyzer_structural_cues(void) {
   const int32_t sample_rate = 22050;
   const int32_t seconds = 10;
@@ -1758,6 +1826,7 @@ int main(void) {
   test_crossfade_sample_peak_budget();
   test_ffi_contract_and_bounds();
   test_analyzer_rms();
+  test_analyzer_vocal_center_channel();
   test_analyzer_structural_cues();
   test_planner_vocal_conflict();
   test_planner_keeps_start_and_permutation();

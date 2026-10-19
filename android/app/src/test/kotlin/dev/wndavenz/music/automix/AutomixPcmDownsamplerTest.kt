@@ -1,5 +1,6 @@
 package dev.wndavenz.music.automix
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
@@ -54,6 +55,52 @@ class AutomixPcmDownsamplerTest {
     fun antiPhaseStereoDoesNotCollapseToSilence() {
         val rms = analyzeSineRms(1_000.0, stereoAntiPhase = true)
         assertTrue("anti-phase stereo was incorrectly cancelled: rms=$rms", rms > 0.20)
+    }
+
+    private fun centerRatioForStereo(mode: Int, channels: Int = 2): Double {
+        val sampleRate = 48_000
+        val frames = 4_800
+        val pcm = ShortArray(frames * channels)
+        for (frame in 0 until frames) {
+            val value = (sin(2.0 * PI * 1_000.0 * frame / sampleRate) * 12_000.0)
+                .toInt().toShort()
+            when (mode) {
+                0 -> {
+                    pcm[frame * channels] = value
+                    pcm[frame * channels + 1] = value
+                }
+                1 -> {
+                    pcm[frame * channels] = value
+                    pcm[frame * channels + 1] = (-value.toInt()).toShort()
+                }
+                2 -> {
+                    pcm[frame * channels] = value
+                    pcm[frame * channels + 1] = 0
+                }
+                else -> pcm[frame * channels] = value
+            }
+        }
+        val downsampler = AutomixPcmDownsampler(
+            sourceRateHz = sampleRate,
+            channels = channels,
+        )
+        for (frame in 0 until frames) {
+            downsampler.processFrame(pcm, frame)
+        }
+        return downsampler.centerChannelRatio
+    }
+
+    @Test
+    fun centerChannelRatioSeparatesCenteredAndWideStereo() {
+        val centered = centerRatioForStereo(mode = 0)
+        val antiPhase = centerRatioForStereo(mode = 1)
+        val oneSided = centerRatioForStereo(mode = 2)
+        val mono = centerRatioForStereo(mode = 3, channels = 1)
+
+        assertTrue("centered stereo should be center-dominant: $centered", centered > 0.99)
+        assertTrue("anti-phase stereo has no center: $antiPhase", antiPhase < 1e-6)
+        assertEquals("one-sided stereo should be half center power", 0.5, oneSided, 1e-9)
+        assertTrue("mono has no center/side split", mono.isNaN())
     }
 
     private fun analyzeMultichannelRms(

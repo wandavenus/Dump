@@ -128,10 +128,17 @@ object AutomixAnalysis {
         // Reuse one bounded PCM copy for both native passes. Long tracks can
         // produce several million samples, so avoid a second ~26 MB allocation.
         val monoPcm = collected.toFloatArray()
-        val analysis = AutomixNative.nativeAnalyze(
-            monoPcm,
-            analysisRate,
-        ) ?: return null
+        val centerRatio = downsampler?.centerChannelRatio ?: Double.NaN
+        val analysis = try {
+            AutomixNative.nativeAnalyzeCentered(
+                monoPcm,
+                analysisRate,
+                centerRatio,
+            )
+        } catch (_: LinkageError) {
+            // Fail open if this process loaded an older native library.
+            AutomixNative.nativeAnalyze(monoPcm, analysisRate)
+        } ?: return null
         // Preserve the original analyzer ABI contract before doing extra work,
         // including when an older or mismatched native library is loaded.
         if (analysis.size < 28) return null
