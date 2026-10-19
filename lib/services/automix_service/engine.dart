@@ -1532,20 +1532,25 @@ double _transitionCost({
   // its own confidence passes the shared 0.35 gate; otherwise use head BPM.
   final referenceBpm = automixExitBpm(a);
   final outgoingTempoConfidence = automixExitBpmConfidence(a);
+  final useLocalExitTempo = automixHasConfidentTailBpm(a);
+  final useLocalEntryTempo = automixHasConfidentIntroBpm(b);
   final measuredTempo = automixTempoCost(
     referenceBpm,
-    a.alternateBpm,
+    useLocalExitTempo ? null : a.alternateBpm,
     automixEntryBpm(b),
-    b.alternateBpm,
+    useLocalEntryTempo ? null : b.alternateBpm,
     tolerance,
   );
   final entryTempoConfidence = automixEntryBpmConfidence(b);
-  final exitStabilityWeight = a.outroTempoStability == null
+  final exitStability = a.outroTempoStability;
+  final entryStability = b.introTempoStability;
+  final exitStabilityWeight = exitStability == null || !exitStability.isFinite
       ? 1.0
-      : automixClamp01(a.outroTempoStability!);
-  final entryStabilityWeight = b.introTempoStability == null
+      : automixClamp01(exitStability);
+  final entryStabilityWeight =
+      entryStability == null || !entryStability.isFinite
       ? 1.0
-      : automixClamp01(b.introTempoStability!);
+      : automixClamp01(entryStability);
   final tempoConfidence = automixClamp01(
     (outgoingTempoConfidence * exitStabilityWeight +
             entryTempoConfidence * entryStabilityWeight) /
