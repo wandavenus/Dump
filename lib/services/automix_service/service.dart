@@ -977,7 +977,8 @@ class AutomixService {
   // v9: persist vocal confidence and intro/tail structural-region metadata.
   // v11: add tailBpmConfidence to segment and track features.
   // v13: add the tempo-curve fields (startBpm, endBpm, tempoStability).
-  static const int _analysisSchemaVersion = 13;
+  // v14: add the quarter energy profile and derived intro/outro slopes.
+  static const int _analysisSchemaVersion = 14;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};

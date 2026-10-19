@@ -5,8 +5,8 @@ import 'package:ffi/ffi.dart' as pkg_ffi;
 import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
-const int _analysisOutputCount = 24;
-const int _featureCount = 20;
+const int _analysisOutputCount = 28;
+const int _featureCount = 22;
 
 /// Synchronous FFI facade over the AutoMix native C core.
 class NativeAutomix {
@@ -69,6 +69,8 @@ class NativeAutomix {
               ? track.tailStructureRegion.toDouble()
               : null,
           track.tailStructureConfidence,
+          track.introSlope,
+          track.outroSlope,
         ];
         for (var field = 0; field < values.length; field++) {
           features[i * _featureCount + field] = values[field] ?? double.nan;
@@ -135,6 +137,9 @@ class NativeAutomix {
       double? nullable(int index) =>
           output[index].isFinite ? output[index] : null;
       final tonic = output[4].isFinite ? output[4].toInt() : -1;
+      final quarters = <double>[
+        for (var index = 24; index < 28; index++) output[index],
+      ];
       return NativeAutomixAnalysis(
         bpm: nullable(0),
         bpmConfidence: output[1],
@@ -160,6 +165,9 @@ class NativeAutomix {
         startBpm: nullable(21),
         endBpm: nullable(22),
         tempoStability: nullable(23),
+        energyQuarters: quarters.every((value) => value.isFinite)
+            ? quarters
+            : const <double>[],
       );
     } finally {
       pkg_ffi.calloc.free(samples);
