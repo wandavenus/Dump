@@ -1138,6 +1138,11 @@ class AutomixService {
     // DSP data is paired with fresh MediaStore title/artist metadata.
     tailBpm: features.tailBpm,
     tailBpmConfidence: features.tailBpmConfidence,
+    startBpm: features.startBpm,
+    endBpm: features.endBpm,
+    tempoStability: features.tempoStability,
+    introSlope: features.introSlope,
+    outroSlope: features.outroSlope,
     tailBeatOffsetMs: features.tailBeatOffsetMs,
     introRmsDb: features.introRmsDb,
     outroRmsDb: features.outroRmsDb,
