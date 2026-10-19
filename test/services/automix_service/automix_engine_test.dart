@@ -1813,6 +1813,9 @@ void main() {
         expect(clash.strategy, AutomixTransitionStrategy.shortHandover);
         expect(clash.fadeSeconds, 4.0);
         expect(clash.curveGamma, greaterThanOrEqualTo(1.20));
+        // 8B (C major) -> 1B (B major): the outgoing deck moves down one
+        // semitone during the overlap to match the incoming key.
+        expect(clash.outgoingPitchSemitones, -1.0);
 
         final uncertain = automixTransitionCue(
           outgoing: const AutomixTrackFeatures(
@@ -1836,8 +1839,71 @@ void main() {
         );
         expect(uncertain.fadeSeconds, 8.0);
         expect(uncertain.curveGamma, 1.0);
+        expect(uncertain.outgoingPitchSemitones, 0.0);
       },
     );
+  });
+
+  group('automixOutgoingPitchSemitones', () {
+    test('a folded wheel distance of five is a signed one-semitone move', () {
+      // 8B (C major) -> 3B (C# major) needs +1 semitone.
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: 8, minor: false),
+          _f(2, camelot: 3, minor: false),
+        ),
+        1.0,
+      );
+      // The reverse direction needs -1.
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: 3, minor: false),
+          _f(2, camelot: 8, minor: false),
+        ),
+        -1.0,
+      );
+      // 8A (A minor) -> 3A (A# minor) is the same relative move on ring A.
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: 8, minor: true),
+          _f(2, camelot: 3, minor: true),
+        ),
+        1.0,
+      );
+    });
+
+    test('other distances, modes and weak keys stay neutral', () {
+      // Adjacent Camelot numbers are a fifth; no automatic shift.
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: 8, minor: false),
+          _f(2, camelot: 9, minor: false),
+        ),
+        0.0,
+      );
+      // Relative major/minor is a mode change, not a semitone transpose.
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: 8, minor: false),
+          _f(2, camelot: 8, minor: true),
+        ),
+        0.0,
+      );
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: 8, minor: false, keyConf: 0.2),
+          _f(2, camelot: 3, minor: false, keyConf: 0.2),
+        ),
+        0.0,
+      );
+      expect(
+        automixOutgoingPitchSemitones(
+          _f(1, camelot: null, minor: false),
+          _f(2, camelot: 3, minor: false),
+        ),
+        0.0,
+      );
+    });
   });
 
   group('bounded planning window', () {

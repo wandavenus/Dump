@@ -37,6 +37,9 @@ class StretchManager {
     // only the incoming deck without touching the currently playing deck.
     private val processors = mutableMapOf<Int, SignalsmithStretchAudioProcessor>()
     private val autoMixMultipliers = mutableMapOf<Int, Float>()
+    // Additive AutoMix key shift per physical slot (0 = none). It is applied on
+    // top of the user's global pitch setting and only during an overlap.
+    private val autoMixPitchSemitones = mutableMapOf<Int, Float>()
     private val lock = Any()
 
     private var speedTarget: Float = 1f
@@ -49,19 +52,23 @@ class StretchManager {
 
     fun createProcessor(streamSlot: Int): SignalsmithStretchAudioProcessor {
         val p = SignalsmithStretchAudioProcessor()
-        p.setSpeed(speed)
-        p.setPitchSemitones(pitchSemitones)
         val multiplier: Float
+        val pitchOffset: Float
+        val basePitch: Float
         val count: Int
         synchronized(lock) {
             multiplier = autoMixMultipliers[streamSlot] ?: 1f
+            pitchOffset = autoMixPitchSemitones[streamSlot] ?: 0f
+            basePitch = pitchSemitones
             processors[streamSlot] = p
             count = processors.size
         }
+        p.setSpeed(speed)
+        p.setPitchSemitones(basePitch + pitchOffset)
         p.setAutoMixTempoMultiplier(multiplier)
         NativeLogger.emit(
             "info", "Stretch",
-            "[Stretch] processor created slot=$streamSlot hash=${System.identityHashCode(p)} count=$count speed=$speed autoMix=$multiplier pitch=${pitchSemitones}st",
+            "[Stretch] processor created slot=$streamSlot hash=${System.identityHashCode(p)} count=$count speed=$speed autoMix=$multiplier pitch=${basePitch + pitchOffset}st (base=$basePitch autoMixPitch=$pitchOffset)",
         )
         return p
     }
@@ -90,6 +97,31 @@ class StretchManager {
     }
 
     /**
+     * Adds a temporary per-deck pitch offset (semitones) on top of the user's
+     * global pitch setting. AutoMix uses ±1 semitone on the outgoing deck only;
+     * 0 clears the offset.
+     */
+    fun setAutoMixPitchSemitones(streamSlot: Int, semitones: Float) {
+        val normalized = if (semitones.isFinite()) semitones.coerceIn(-1f, 1f) else 0f
+        val processor: SignalsmithStretchAudioProcessor?
+        val basePitch: Float
+        synchronized(lock) {
+            if (normalized == 0f) {
+                autoMixPitchSemitones.remove(streamSlot)
+            } else {
+                autoMixPitchSemitones[streamSlot] = normalized
+            }
+            processor = processors[streamSlot]
+            basePitch = pitchSemitones
+        }
+        processor?.setPitchSemitones(basePitch + normalized)
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] AutoMix pitch slot=$streamSlot offset=${normalized}st base=${basePitch}st",
+        )
+    }
+
+    /**
      * Returns the speed currently applied by this deck's processing chain.
      * This is intentionally the processor's smoothed value, not only the target.
      */
@@ -113,7 +145,8 @@ class StretchManager {
             if (smoothingTimer != null) return
             smoothingTimer = Timer("StretchManager", /* isDaemon = */ true).apply {
                 scheduleAtFixedRate(0L, tickMs) {
-                    val snapshot: List<SignalsmithStretchAudioProcessor>
+                    val snapshot: List<Pair<Int, SignalsmithStretchAudioProcessor>>
+                    val pitchOffsets: Map<Int, Float>
                     val currentSpeed: Float
                     val currentPitch: Float
                     val targetSpeed: Float
@@ -123,7 +156,8 @@ class StretchManager {
                         speed = stepToward(speed, speedTarget, smoothingFactor)
                         pitchSemitones = stepToward(pitchSemitones, pitchTarget, smoothingFactor)
 
-                        snapshot = processors.values.toList()
+                        snapshot = processors.entries.map { it.key to it.value }
+                        pitchOffsets = autoMixPitchSemitones.toMap()
                         currentSpeed = speed
                         currentPitch = pitchSemitones
                         targetSpeed = speedTarget
@@ -137,9 +171,9 @@ class StretchManager {
                         }
                     }
 
-                    snapshot.forEach { p ->
+                    snapshot.forEach { (slot, p) ->
                         p.setSpeed(currentSpeed)
-                        p.setPitchSemitones(currentPitch)
+                        p.setPitchSemitones(currentPitch + (pitchOffsets[slot] ?: 0f))
                     }
 
                     NativeLogger.emit(
@@ -167,6 +201,7 @@ class StretchManager {
             smoothingTimer = null
             processors.clear()
             autoMixMultipliers.clear()
+            autoMixPitchSemitones.clear()
         }
         NativeLogger.emit("info", "Stretch", "[Stretch] releaseAll — all processors cleared count=0")
     }
