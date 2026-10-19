@@ -120,6 +120,8 @@ class CrossfadeController(
     // overlap. The factor is relative (1.0 = leave the planner's multiplier as
     // it is), so a correction can never accumulate across fades.
     private val setAutoMixTempoNudge: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    // Clears the planner tempo multiplier while preserving the user speed setting.
+    private val resetAutoMixTempoMultiplier: (ExoPlayer) -> Unit = { },
     // Planner tempo multiplier published for a deck (1.0 = unchanged). Used to
     // keep the live tempo-follow correction inside the processor's stretch range.
     private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float = { 1f },
@@ -393,6 +395,7 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
+            resetAutoMixTempoMultiplier(it)
             setAutoMixPitchSemitones(it, 0f)
             setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
@@ -402,6 +405,7 @@ class CrossfadeController(
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
             setAutoMixTempoNudge(it, 1f)
+            resetAutoMixTempoMultiplier(it)
             setAutoMixPitchSemitones(it, 0f)
             setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
@@ -782,6 +786,8 @@ class CrossfadeController(
                     setAutoMixMidGain(newPlayer, 1f)
                     setAutoMixMidGain(oldPlayer, 1f)
                     setAutoMixTempoNudge(newPlayer, 1f)
+                    resetAutoMixTempoMultiplier(newPlayer)
+                    resetAutoMixTempoMultiplier(oldPlayer)
                     setAutoMixPitchSemitones(newPlayer, 0f)
                     setAutoMixPitchSemitones(oldPlayer, 0f)
                     setAutoMixTruePeakLimit(newPlayer, 0f)
@@ -843,6 +849,8 @@ class CrossfadeController(
                     // dry tone: a phase correction or a tail filter must never
                     // survive into the next track.
                     setAutoMixTempoNudge(newPlayer, 1f)
+                    resetAutoMixTempoMultiplier(newPlayer)
+                    resetAutoMixTempoMultiplier(oldPlayer)
                     setAutoMixPitchSemitones(newPlayer, 0f)
                     setAutoMixPitchSemitones(oldPlayer, 0f)
                     setAutoMixTruePeakLimit(newPlayer, 0f)
