@@ -1747,7 +1747,7 @@ class AutomixService {
       if (fileSeconds <= 0) return ([head.$1], fileSeconds, false);
       // Recalculate once more if decoder duration differs from the initial
       // media estimate; window size remains bounded and must fit both halves.
-      windowSeconds = _windowSecondsForDuration(fileSeconds);
+      windowSeconds = analysisWindowSecondsForDuration(fileSeconds);
     }
 
     final segments = <AutomixSegmentFeatures>[head.$1];
