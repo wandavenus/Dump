@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define NAR_AUTOMIX_FEATURE_COUNT 22
+#define NAR_AUTOMIX_FEATURE_COUNT 23
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
 #define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 28
 
@@ -56,6 +56,8 @@ enum NarAutomixFeatureIndex {
   // NAN when the window did not produce a complete quarter profile.
   NAR_AUTOMIX_INTRO_SLOPE = 20,
   NAR_AUTOMIX_OUTRO_SLOPE = 21,
+  // Confidence for NAR_AUTOMIX_TAIL_BPM; appended to preserve existing slots.
+  NAR_AUTOMIX_TAIL_BPM_CONFIDENCE = 22,
 };
 
 // Key fields per track: [Camelot number (0 means unknown), mode
