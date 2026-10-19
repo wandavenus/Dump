@@ -24,6 +24,10 @@ class NativeAutomixTrack {
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.tailBpmConfidence = 0,
+    this.startBpm,
+    this.startBpmConfidence = 0,
+    this.introTempoStability,
+    this.outroTempoStability,
     this.structureRegion = 0,
     this.structureConfidence = 0,
     this.tailStructureRegion = 0,
@@ -53,6 +57,12 @@ class NativeAutomixTrack {
   final double vocalLikelihood;
   final double vocalConfidence;
   final double tailBpmConfidence;
+
+  /// Confident local tempo estimate of the intro edge.
+  final double? startBpm;
+  final double startBpmConfidence;
+  final double? introTempoStability;
+  final double? outroTempoStability;
 
   /// Section region of the analyzed head window
   /// (NarAutomixStructureRegion; 0 means unknown).
