@@ -6,14 +6,17 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import dev.wndavenz.music.automix.AutomixBassSwap
 import dev.wndavenz.music.automix.AutomixGainEnvelope
 import dev.wndavenz.music.automix.AutomixGridMerge
 import dev.wndavenz.music.automix.AutomixPhaseLock
+import dev.wndavenz.music.automix.AutomixTempoFollow
 import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.effects.AutomixLiveBeatState
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -117,6 +120,9 @@ class CrossfadeController(
     // overlap. The factor is relative (1.0 = leave the planner's multiplier as
     // it is), so a correction can never accumulate across fades.
     private val setAutoMixTempoNudge: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    // Planner tempo multiplier published for a deck (1.0 = unchanged). Used to
+    // keep the live tempo-follow correction inside the processor's stretch range.
+    private val getAutoMixTempoMultiplierForPlayer: (ExoPlayer) -> Float = { 1f },
     // Gentle high-band filter-out on the outgoing deck's tail: 1.0 = transparent.
     private val setAutoMixTailFilter: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Native per-sample equal-power envelope; player.volume remains the master
@@ -371,6 +377,7 @@ class CrossfadeController(
         promotionOwner?.let {
             setAutoMixBassGain(it, 1f)
             setAutoMixMidGain(it, 1f)
+            setAutoMixTempoNudge(it, 1f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
         }
@@ -603,6 +610,14 @@ class CrossfadeController(
         val applyBassSwap = isAutomixTransitionEnabled() &&
             getAutoMixBpmForPlayer(current) != null &&
             getAutoMixBpmForPlayer(standby) != null
+        // The swap is placed on the outgoing deck's analyzed beat grid. A
+        // missing offset only disables snapping; the swap still runs.
+        val outgoingBeatMs = getAutoMixBpmForPlayer(current)
+            ?.takeIf { it.isFinite() && it in 50f..250f }
+            ?.let { 60_000.0 / it }
+        val outgoingBeatOffsetMs = if (outgoingBeatMs != null) {
+            getAutoMixBeatOffsetMsForPlayer(current)?.toDouble()
+        } else null
         val bassOverlapGains = if (isAutomixTransitionEnabled()) {
             getAutoMixBassOverlapGainsForIncoming(standby)
         } else null
@@ -635,6 +650,8 @@ class CrossfadeController(
             bassOverlapGains,
             midOverlapGains,
             highOverlapGains,
+            outgoingBeatMs,
+            outgoingBeatOffsetMs,
         )
         }
 
@@ -659,6 +676,8 @@ class CrossfadeController(
     bassOverlapGains: Pair<Float, Float>?,
     midOverlapGains: Pair<Float, Float>?,
     highOverlapGains: Pair<Float, Float>?,
+    outgoingBeatMs: Double? = null,
+    outgoingBeatOffsetMs: Double? = null,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         // durationMs is source-media time. Integrate monotonic wall time using
@@ -680,6 +699,25 @@ class CrossfadeController(
         var step = 0
         var lastPhaseLockAt: Long? = null
         var nativeFadeActive = nativeFadeEnabled
+        // Beat-aligned bass swap: one short transfer on a musical boundary,
+        // positioned on the outgoing deck's source-media timeline.
+        val bassSwapWindow = if (applyBassSwap) {
+            AutomixBassSwap.window(
+                fadeStartPositionMs = sourcePositionAtStartMs.toDouble(),
+                fadeDurationMs = effectiveDurationMs.toDouble(),
+                beatMs = outgoingBeatMs,
+                beatOffsetMs = outgoingBeatOffsetMs,
+            )
+        } else null
+        // Live tempo-follow correction, applied relative to the planner's
+        // multiplier and ramped in over the first quarter of the fade. The
+        // live tracker measures decoded source PCM (it sits before Stretch in
+        // the chain), so the source-tempo ratio is directly comparable with
+        // the offline ratio the planner used. It is refreshed with the
+        // phase-lock sample; null keeps the static planner match.
+        var tempoFollowFactor: Float? = null
+        var lastPhaseNudge = 1f
+        var lastAppliedTempoNudge = 1f
 
         val runnable = object : Runnable {
             override fun run() {
@@ -834,12 +872,26 @@ class CrossfadeController(
                 var outgoingBass = 1f
                 var incomingBass = 1f
                 if (applyBassSwap) {
-                    // Keep outgoing bass until the blend is established, then
-                    // transfer the low band smoothly to the incoming deck.
-                    outgoingBass = if (t <= 0.45f) 1f
-                        else (1f - (t - 0.45f) / 0.55f).coerceIn(0f, 1f)
-                    incomingBass = if (t <= 0.40f) 0f
-                        else ((t - 0.40f) / 0.60f).coerceIn(0f, 1f)
+                    // One short transfer centred on a beat boundary instead of a
+                    // long linear ramp: keep the outgoing bass until the swap
+                    // window, cross over inside it, then leave the low end to
+                    // the incoming deck. Positions come from the outgoing
+                    // source timeline so tempo changes cannot drift the swap.
+                    val window = bassSwapWindow
+                    if (window != null) {
+                        val swapProgress = AutomixBassSwap.progress(
+                            window,
+                            sourcePositionAtStartMs + elapsedMediaMs,
+                        )
+                        val swap = AutomixBassSwap.gains(swapProgress)
+                        outgoingBass = swap.outgoing
+                        incomingBass = swap.incoming
+                    } else {
+                        outgoingBass = if (t <= 0.45f) 1f
+                            else (1f - (t - 0.45f) / 0.55f).coerceIn(0f, 1f)
+                        incomingBass = if (t <= 0.40f) 0f
+                            else ((t - 0.40f) / 0.60f).coerceIn(0f, 1f)
+                    }
                 }
                 if (bassOverlapGains != null) {
                     outgoingBass *= 1f - (1f - bassOverlapGains.first.coerceIn(0f, 1f)) * overlapEnvelope
@@ -874,6 +926,24 @@ class CrossfadeController(
                         )
                     ) {
                         lastPhaseLockAt = now
+                        // Live tempo-follow: the tracker measures decoded
+                        // source PCM (it sits before Stretch in the chain), so
+                        // its ratio is directly comparable with the offline
+                        // ratio the planner used. Both live estimates must be
+                        // confident; otherwise the static match stays.
+                        val outgoingLive = getAutoMixLiveBeatStateForPlayer(oldPlayer)
+                        val incomingLive = getAutoMixLiveBeatStateForPlayer(newPlayer)
+                        // Assign unconditionally: when confidence drops, the
+                        // correction returns to the static planner match.
+                        tempoFollowFactor = AutomixTempoFollow.relativeFactor(
+                            outgoingLiveBpm = outgoingLive?.bpm,
+                            outgoingLiveConfidence = outgoingLive?.confidence ?: 0f,
+                            incomingLiveBpm = incomingLive?.bpm,
+                            incomingLiveConfidence = incomingLive?.confidence ?: 0f,
+                            outgoingOfflineBpm = getAutoMixBpmForPlayer(oldPlayer),
+                            incomingOfflineBpm = getAutoMixBpmForPlayer(newPlayer),
+                            baseMultiplier = getAutoMixTempoMultiplierForPlayer(newPlayer),
+                        )
                         // Merge the offline analyzer grid and the live tracker
                         // estimate per deck: agreeing tempos blend by weight,
                         // phases prefer the live measurement when both sources
@@ -947,10 +1017,19 @@ class CrossfadeController(
                                 remainingMs = remainingMediaMs,
                             )
                             if (tempoFactor != null) {
-                                setAutoMixTempoNudge(newPlayer, tempoFactor)
+                                lastPhaseNudge = tempoFactor
                             }
                         }
                     }
+                }
+                // Apply the combined correction only when it changed by more
+                // than the processor's smoothing epsilon, so a 16 ms tick does
+                // not re-post the same target to the audio thread.
+                val followNow = AutomixTempoFollow.ramp(tempoFollowFactor, t)
+                val combinedNudge = followNow * lastPhaseNudge
+                if (abs(combinedNudge - lastAppliedTempoNudge) >= 0.001f) {
+                    setAutoMixTempoNudge(newPlayer, combinedNudge)
+                    lastAppliedTempoNudge = combinedNudge
                 }
                 // AutoMix shaping: transfer curve (gamma) and the level match
                 // between the decks. The louder deck's trim stays flat (it is
