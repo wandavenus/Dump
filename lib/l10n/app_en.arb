@@ -706,7 +706,7 @@
   "reverbDescription": "Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.",
   "acousticEngine": "Acoustic Engine",
   "acousticEngineDescription": "Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.",
-  "automixTitle": "AutoMix",
+  "automixTitle": "AutoMix (beta)",
   "automixDescription": "DJ-style transitions matched by tempo and key, fully offline.",
   "automixProfileLabel": "Mix profile",
   "automixProfileDj": "DJ",
