@@ -101,6 +101,77 @@ static void radix2_fft(float* real, float* imaginary,
   }
 }
 
+// Cepstral peak prominence: a periodicity cue that is less fooled by a single
+// strong partial than raw spectral concentration. The real cepstrum is the
+// inverse FFT of the log magnitude spectrum; a peak in the voice-pitch
+// quefrency range above the local trend indicates regularly spaced harmonics.
+static double cepstral_peak_prominence(
+    const float* magnitudes, float* cepstrum_real, float* cepstrum_imaginary,
+    const float* twiddle_real, const float* twiddle_imaginary,
+    const int32_t* bit_reverse, int32_t sample_rate) {
+  if (magnitudes == NULL || cepstrum_real == NULL ||
+      cepstrum_imaginary == NULL || twiddle_real == NULL ||
+      twiddle_imaginary == NULL || bit_reverse == NULL || sample_rate <= 0) {
+    return NAN;
+  }
+  for (int32_t i = 0; i < FFT_SIZE; ++i) {
+    cepstrum_real[i] = 0.0f;
+    cepstrum_imaginary[i] = 0.0f;
+  }
+  cepstrum_real[0] = logf(magnitudes[0] + 1e-9f);
+  for (int32_t bin = 1; bin < FFT_BINS; ++bin) {
+    const float value = logf(magnitudes[bin] + 1e-9f);
+    cepstrum_real[bin] = value;
+    cepstrum_real[FFT_SIZE - bin] = value;
+  }
+  // The analyzer fills bins [0, FFT_BINS); FFT_BINS itself is the Nyquist
+  // slot. Mirror the highest available bin instead of leaving a notch.
+  cepstrum_real[FFT_BINS] = logf(magnitudes[FFT_BINS - 1] + 1e-9f);
+  radix2_fft(cepstrum_real, cepstrum_imaginary, twiddle_real,
+             twiddle_imaginary, bit_reverse);
+
+  const int32_t q_min =
+      (int32_t)fmax(2.0, floor((double)sample_rate / 400.0));
+  const int32_t q_max = (int32_t)fmin(
+      (double)(FFT_SIZE / 2 - 1), ceil((double)sample_rate / 60.0));
+  if (q_max <= q_min + 4) return NAN;
+
+  const double scale = 1.0 / FFT_SIZE;
+  double sum_x = 0.0;
+  double sum_y = 0.0;
+  double sum_xx = 0.0;
+  double sum_xy = 0.0;
+  double peak_value = -DBL_MAX;
+  int32_t peak_index = q_min;
+  int32_t count = 0;
+  for (int32_t q = q_min; q <= q_max; ++q) {
+    const double value = (double)cepstrum_real[q] * scale;
+    if (value > peak_value) {
+      peak_value = value;
+      peak_index = q;
+    }
+    sum_x += q;
+    sum_y += value;
+    sum_xx += (double)q * q;
+    sum_xy += (double)q * value;
+    ++count;
+  }
+  const double denominator = count * sum_xx - sum_x * sum_x;
+  if (count < 8 || fabs(denominator) < 1e-12) return NAN;
+  const double slope = (count * sum_xy - sum_x * sum_y) / denominator;
+  const double intercept = (sum_y - slope * sum_x) / count;
+
+  double residual_sum = 0.0;
+  for (int32_t q = q_min; q <= q_max; ++q) {
+    const double value = (double)cepstrum_real[q] * scale;
+    const double residual = value - (intercept + slope * q);
+    residual_sum += residual * residual;
+  }
+  const double residual_sd = sqrt(residual_sum / count);
+  const double baseline = intercept + slope * peak_index;
+  return (peak_value - baseline) / fmax(residual_sd, 1e-9);
+}
+
 static int32_t reverse_bits(int32_t value, int32_t bit_count) {
   int32_t result = 0;
   for (int32_t bit = 0; bit < bit_count; ++bit) {
@@ -424,14 +495,16 @@ static double estimate_onset_rate(const float* odf, int32_t count, double fps) {
   return (double)peaks * fps / count;
 }
 
-int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
-                            int32_t sample_rate, double* output,
-                            int32_t output_count) {
+static int32_t analyze_impl(const float* mono, double center_ratio,
+                            int32_t sample_count, int32_t sample_rate,
+                            double* output, int32_t output_count) {
   if (mono == NULL || output == NULL ||
       output_count < NAR_AUTOMIX_ANALYSIS_VALUE_COUNT ||
       sample_rate <= 0 || sample_count < sample_rate) {
     return 0;
   }
+  const double center_channel_ratio = isfinite(center_ratio)
+      ? fmin(1.0, fmax(0.0, center_ratio)) : NAN;
   for (int i = 0; i < NAR_AUTOMIX_ANALYSIS_VALUE_COUNT; ++i) output[i] = NAN;
   output[1] = 0.0;
   output[4] = -1.0;
@@ -470,6 +543,9 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       (float*)malloc((size_t)frame_count * sizeof(float));
   float* vocal_band_flatness_values =
       (float*)malloc((size_t)frame_count * sizeof(float));
+  float* cpp_values = (float*)malloc((size_t)frame_count * sizeof(float));
+  float* cepstrum_real = (float*)malloc(FFT_SIZE * sizeof(float));
+  float* cepstrum_imaginary = (float*)malloc(FFT_SIZE * sizeof(float));
   float* twiddle_real = (float*)malloc(FFT_BINS * sizeof(float));
   float* twiddle_imaginary = (float*)malloc(FFT_BINS * sizeof(float));
   float* frame_magnitudes = (float*)malloc(FFT_BINS * sizeof(float));
@@ -479,14 +555,16 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       rms_frame_values == NULL || centroid_values == NULL ||
       vocal_band_ratio_values == NULL ||
       vocal_band_concentration_values == NULL ||
-      vocal_band_flatness_values == NULL || twiddle_real == NULL ||
-      twiddle_imaginary == NULL || frame_magnitudes == NULL ||
-      bit_reverse == NULL) {
+      vocal_band_flatness_values == NULL || cpp_values == NULL ||
+      cepstrum_real == NULL || cepstrum_imaginary == NULL ||
+      twiddle_real == NULL || twiddle_imaginary == NULL ||
+      frame_magnitudes == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
     free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
     free(vocal_band_ratio_values); free(vocal_band_concentration_values);
-    free(vocal_band_flatness_values); free(twiddle_real);
-    free(twiddle_imaginary); free(frame_magnitudes); free(bit_reverse);
+    free(vocal_band_flatness_values); free(cpp_values); free(cepstrum_real);
+    free(cepstrum_imaginary); free(twiddle_real); free(twiddle_imaginary);
+    free(frame_magnitudes); free(bit_reverse);
     return 0;
   }
 
@@ -505,6 +583,7 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   int32_t vocal_band_ratio_count = 0;
   int32_t vocal_band_concentration_count = 0;
   int32_t vocal_band_flatness_count = 0;
+  int32_t cpp_count = 0;
   double hpcp[12] = {0.0};
   const double working_rate = sample_rate;
   for (int32_t frame = 0; frame < frame_count; ++frame) {
@@ -566,6 +645,14 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
       }
     }
     hpcp_add_frame(frame_magnitudes, FFT_BINS, working_rate, FFT_SIZE, hpcp);
+    // The cepstrum needs a second FFT; every other frame is enough for a
+    // stable median and keeps the extra offline cost bounded.
+    if (rms > 1e-6 && (frame & 1) == 0) {
+      const double cpp = cepstral_peak_prominence(
+          frame_magnitudes, cepstrum_real, cepstrum_imaginary, twiddle_real,
+          twiddle_imaginary, bit_reverse, sample_rate);
+      if (isfinite(cpp)) cpp_values[cpp_count++] = (float)cpp;
+    }
     odf[frame] = flux;
     if (weight_sum > 1e-9) {
       centroid_values[centroid_count++] = (float)(frequency_sum / weight_sum);
@@ -867,10 +954,11 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
     output[16] = (double)region;
     output[17] = reg_conf;
 
-    // Vocal-likelihood proxy from a broad speech-band magnitude ratio and
-    // centroid stability. These spectral cues cannot isolate a singer from
-    // instruments, so confidence is intentionally capped and low-quality or
-    // ambiguous windows remain below the planner's confidence gate.
+    // Vocal-likelihood proxy from a broad speech-band magnitude ratio,
+    // centroid stability, cepstral periodicity, and (when the source is
+    // stereo) center-channel dominance. These cues cannot isolate a singer
+    // from instruments, so confidence stays capped and ambiguous windows
+    // remain below the planner's confidence gate.
     double vocal_like = 0.0;
     double vocal_conf = 0.0;
     const float vocal_band_ratio =
@@ -879,6 +967,13 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
         vocal_band_concentration_values, vocal_band_concentration_count);
     const float vocal_band_flatness = median_float(
         vocal_band_flatness_values, vocal_band_flatness_count);
+    const float cpp_median = median_float(cpp_values, cpp_count);
+    const double cpp_score = isfinite(cpp_median)
+        ? fmin(1.0, fmax(0.0, ((double)cpp_median - 3.0) / 4.0))
+        : 0.0;
+    const double center_channel_score = isfinite(center_channel_ratio)
+        ? fmin(1.0, fmax(0.0, (center_channel_ratio - 0.45) / 0.35))
+        : NAN;
     // A concentrated single tone and diffuse broadband noise are both poor
     // evidence for a vocal source; prefer structured, non-flat speech-band
     // spectra while acknowledging that instruments can still mimic speech.
@@ -905,14 +1000,21 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
           fmin(1.0, fmax(0.0, (vocal_band_ratio - 0.20) / 0.55));
       const double center_score =
           fmin(1.0, fmax(0.0, 1.0 - fabs(centroid_median - 1800.0) / 1800.0));
+      const double center_channel_term = isfinite(center_channel_score)
+          ? 0.12 * center_channel_score : 0.0;
+      const double confidence_cap = isfinite(center_channel_score)
+          ? 0.65 + 0.10 * center_channel_score : 0.65;
       vocal_like = fmin(1.0, fmax(0.0,
           0.35 * band_score + 0.20 * center_score +
-          0.20 * centroid_stability + 0.25 * vocal_richness));
-      // This remains a signal proxy, not a vocal separator. Only a broad,
-      // non-tonal speech-band spectrum can pass the planner confidence gate.
-      vocal_conf = fmin(0.65, fmax(0.0,
+          0.20 * centroid_stability + 0.25 * vocal_richness +
+          0.10 * cpp_score + center_channel_term));
+      // This remains a signal proxy, not a vocal separator. Center-channel
+      // evidence unlocks the upper confidence range; mono/wide windows stay at
+      // the previous 0.65 cap so a single ambiguous cue cannot dominate.
+      vocal_conf = fmin(confidence_cap, fmax(0.0,
           0.05 + 0.25 * band_score + 0.15 * center_score +
-          0.10 * centroid_stability + 0.30 * vocal_richness));
+          0.10 * centroid_stability + 0.30 * vocal_richness +
+          0.06 * cpp_score + center_channel_term));
     }
     output[18] = vocal_like;
     output[19] = vocal_conf;
@@ -921,10 +1023,25 @@ int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
   free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
   free(vocal_band_ratio_values); free(vocal_band_concentration_values);
-  free(vocal_band_flatness_values);
+  free(vocal_band_flatness_values); free(cpp_values); free(cepstrum_real);
+  free(cepstrum_imaginary);
   free(twiddle_real); free(twiddle_imaginary); free(frame_magnitudes);
   free(bit_reverse);
   return 1;
+}
+
+int32_t nar_automix_analyze(const float* mono, int32_t sample_count,
+                            int32_t sample_rate, double* output,
+                            int32_t output_count) {
+  return analyze_impl(mono, NAN, sample_count, sample_rate, output,
+                      output_count);
+}
+
+int32_t nar_automix_analyze_centered(const float* mono, int32_t sample_count,
+                                     int32_t sample_rate, double center_ratio,
+                                     double* output, int32_t output_count) {
+  return analyze_impl(mono, center_ratio, sample_count, sample_rate, output,
+                      output_count);
 }
 
 

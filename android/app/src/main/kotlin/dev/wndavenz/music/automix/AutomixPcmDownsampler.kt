@@ -13,6 +13,8 @@ import kotlin.math.sqrt
  * Filters at the source rate before decimation to suppress aliasing.
  * Stereo averages normally, but avoids near-total cancellation by selecting
  * the stronger channel when the mid signal is less than 25% of either side.
+ * It also accumulates center/side power so the native vocal proxy can use
+ * center-channel dominance as evidence without a second stereo downsample.
  */
 internal class AutomixPcmDownsampler(
     private val sourceRateHz: Int,
@@ -29,6 +31,22 @@ internal class AutomixPcmDownsampler(
         1.0 - exp(-1.0 / (sourceRateHz.coerceAtLeast(1) * 0.020))
     private var sum = 0.0
     private var count = 0
+    private var centerPower = 0.0
+    private var sidePower = 0.0
+
+    /**
+     * Center-channel power divided by center-plus-side power for stereo input.
+     * NAN for mono/multichannel sources or silent windows.
+     */
+    val centerChannelRatio: Double
+        get() {
+            val total = centerPower + sidePower
+            return if (channels == 2 && total > 1e-12) {
+                centerPower / total
+            } else {
+                Double.NaN
+            }
+        }
 
     init {
         require(sourceRateHz > 0) { "sourceRateHz must be positive" }
@@ -56,6 +74,9 @@ internal class AutomixPcmDownsampler(
                 val left = interleavedPcm16[base] / 32768.0
                 val right = interleavedPcm16[base + 1] / 32768.0
                 val mid = (left + right) * 0.5
+                val side = (left - right) * 0.5
+                centerPower += mid * mid
+                sidePower += side * side
                 val strongest = if (abs(left) >= abs(right)) left else right
                 if (abs(mid) < 0.25 * max(abs(left), abs(right))) strongest else mid
             }

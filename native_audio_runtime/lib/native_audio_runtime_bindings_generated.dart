@@ -36,6 +36,26 @@ external int nar_automix_analyze(
   int outputCount,
 );
 
+/// Run AutoMix feature extraction with a stereo center-channel ratio.
+@ffi.Native<
+  ffi.Int32 Function(
+    ffi.Pointer<ffi.Float>,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Double,
+    ffi.Pointer<ffi.Double>,
+    ffi.Int32,
+  )
+>()
+external int nar_automix_analyze_centered(
+  ffi.Pointer<ffi.Float> mono,
+  int sampleCount,
+  int sampleRate,
+  double centerRatio,
+  ffi.Pointer<ffi.Double> output,
+  int outputCount,
+);
+
 /// Plan a deterministic track order using flattened track features.
 @ffi.Native<
   ffi.Int32 Function(
