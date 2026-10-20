@@ -1782,6 +1782,36 @@ void main() {
       expect(cue.transitionStartMs, closeTo(188333.33, 0.1));
     });
 
+    test('early drop handover takes priority over a breakdown in the final 12 seconds', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          durationSeconds: 240,
+          tailBreakdownCueMs: 236000,
+          tailBreakdownConfidence: 0.9,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          dropCueMs: 32000,
+          dropConfidence: 0.9,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      // The near-EOF breakdown (4 s from EOF) must not mask a valid early drop
+      // handover (neutral lead = 45 s). Keep the normal 16-beat fade duration.
+      expect(cue.transitionStartMs, 195000.0);
+      expect(cue.strategy, AutomixTransitionStrategy.crossfade);
+      expect(cue.fadeSeconds, closeTo(8.0, 1e-9));
+    });
+
     test('uncertain incoming drop keeps the conventional near-end transition', () {
       final cue = automixTransitionCue(
         outgoing: track(
