@@ -318,6 +318,113 @@ static double folded_tempo_error(double a, double b) {
   return error;
 }
 
+static double refine_lag_peak(const double* scores, int32_t lag_min,
+                              int32_t lag_max, int32_t lag) {
+  if (scores == NULL || lag <= lag_min || lag >= lag_max) return 0.0;
+  const double left = scores[lag - 1];
+  const double center = scores[lag];
+  const double right = scores[lag + 1];
+  if (!isfinite(left) || !isfinite(center) || !isfinite(right) ||
+      center < left || center < right) {
+    return 0.0;
+  }
+  const double denominator = left - 2.0 * center + right;
+  if (!isfinite(denominator) || denominator >= -1e-18) return 0.0;
+  double offset = 0.5 * (left - right) / denominator;
+  if (!isfinite(offset)) return 0.0;
+  if (offset < -0.5) offset = -0.5;
+  if (offset > 0.5) offset = 0.5;
+  return offset;
+}
+
+// Integer-lag autocorrelation gets the tempo close, but its peak is quantized
+// to the FFT hop and is slightly biased by the window/pulse envelope. Refine
+// it by maximizing phase coherence of the onset peaks over a narrow period
+// search: when the period is right, every beat contributes to the same
+// complex phase, so the resultant vector is long. This is a classical
+// beat-tracking cue, not a learned model, and it gives the downstream phase
+// estimator a period that stays aligned across a 48 s window.
+static double onset_phase_coherence(const int32_t* indices,
+                                     const double* weights, int32_t count,
+                                     double period) {
+  if (indices == NULL || weights == NULL || count <= 0 ||
+      !isfinite(period) || period <= 0.0) {
+    return 0.0;
+  }
+  double real = 0.0;
+  double imaginary = 0.0;
+  double total = 0.0;
+  for (int32_t k = 0; k < count; ++k) {
+    const double angle = 2.0 * PI * (double)indices[k] / period;
+    real += weights[k] * cos(angle);
+    imaginary += weights[k] * sin(angle);
+    total += weights[k];
+  }
+  return total > 1e-12 ? hypot(real, imaginary) / total : 0.0;
+}
+
+static double refine_tempo_phase_coherence(const float* odf, int32_t count,
+                                           double fps, double initial_bpm) {
+  if (odf == NULL || count < 8 || !isfinite(fps) || fps <= 0.0 ||
+      !isfinite(initial_bpm) || initial_bpm <= 0.0) {
+    return initial_bpm;
+  }
+  const double center_period = fps * 60.0 / initial_bpm;
+  if (!isfinite(center_period) || center_period < 2.0) return initial_bpm;
+
+  double mean = 0.0;
+  for (int32_t i = 0; i < count; ++i) mean += odf[i];
+  mean /= count;
+  int32_t peak_count = 0;
+  for (int32_t i = 1; i < count - 1; ++i) {
+    if (odf[i] > odf[i - 1] && odf[i] >= odf[i + 1] && odf[i] > mean) {
+      ++peak_count;
+    }
+  }
+  if (peak_count < 8) return initial_bpm;
+
+  int32_t* indices = (int32_t*)malloc((size_t)peak_count * sizeof(int32_t));
+  double* weights = (double*)malloc((size_t)peak_count * sizeof(double));
+  if (indices == NULL || weights == NULL) {
+    free(indices);
+    free(weights);
+    return initial_bpm;
+  }
+  int32_t used = 0;
+  for (int32_t i = 1; i < count - 1 && used < peak_count; ++i) {
+    const double value = odf[i];
+    if (value > odf[i - 1] && value >= odf[i + 1] && value > mean) {
+      indices[used] = i;
+      weights[used] = value - mean;
+      ++used;
+    }
+  }
+
+  const double initial_coherence = onset_phase_coherence(
+      indices, weights, used, center_period);
+  const double search = 1.0;
+  const double step = 0.01;
+  const double begin = fmax(2.0, center_period - search);
+  const double end = center_period + search;
+  double best_period = center_period;
+  double best_coherence = -1.0;
+  for (double period = begin; period <= end + 1e-9; period += step) {
+    const double coherence = onset_phase_coherence(
+        indices, weights, used, period);
+    if (coherence > best_coherence) {
+      best_coherence = coherence;
+      best_period = period;
+    }
+  }
+  free(indices);
+  free(weights);
+  if (!isfinite(best_period) || best_coherence < 0.12 ||
+      best_coherence <= initial_coherence + 1e-4) {
+    return initial_bpm;
+  }
+  return 60.0 * fps / best_period;
+}
+
 static TempoEstimate estimate_tempo(const float* odf, int32_t count,
                                    int32_t working_rate, double fps) {
   TempoEstimate result = {NAN, 0.0, 0};
@@ -392,7 +499,20 @@ static TempoEstimate estimate_tempo(const float* odf, int32_t count,
     return result;
   }
 
-  const double bpm = 60.0 * fps / best_lag;
+  // Autocorrelation is sampled at integer lags, but the beat period is rarely
+  // an integer number of FFT hops. Fit a parabola through the three samples
+  // around the winning lag so 120 BPM is not forced to 117.4/123.0 BPM just
+  // because the ideal lag is 21.53 frames.
+  const double refined_lag =
+      (double)best_lag + refine_lag_peak(comb, lag_min, lag_max, best_lag);
+  double bpm = 60.0 * fps / refined_lag;
+  const double coherent_bpm = refine_tempo_phase_coherence(
+      odf, count, fps, bpm);
+  if (isfinite(coherent_bpm) && coherent_bpm > 0.0) {
+    bpm = coherent_bpm;
+    if (bpm < BPM_MIN) bpm = BPM_MIN;
+    if (bpm > BPM_MAX) bpm = BPM_MAX;
+  }
   const double mean_score = sum_score / (lag_max - lag_min + 1);
   const double spread = fmax(max_score - min_score, 1e-12);
   const double periodicity = fmax(0.0, scores[best_lag] / energy0 * count);
@@ -415,14 +535,19 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
     return NAN;
   }
   const double fps = (double)working_rate / HOP_SIZE;
-  const int32_t period = (int32_t)round(fps * 60.0 / bpm);
-  if (period < 2 || count < period * 4) return NAN;
+  const double beat_frames = fps * 60.0 / bpm;
+  if (!isfinite(beat_frames) || beat_frames < 2.0 ||
+      (double)count < beat_frames * 4.0) {
+    return NAN;
+  }
+  const int32_t bins = (int32_t)ceil(beat_frames);
+  if (bins < 2) return NAN;
 
   double mean = 0.0;
   for (int32_t i = 0; i < count; ++i) mean += odf[i];
   mean /= count;
-  double* scores = (double*)calloc((size_t)period, sizeof(double));
-  double* smoothed = (double*)calloc((size_t)period, sizeof(double));
+  double* scores = (double*)calloc((size_t)bins, sizeof(double));
+  double* smoothed = (double*)calloc((size_t)bins, sizeof(double));
   if (scores == NULL || smoothed == NULL) {
     free(scores);
     free(smoothed);
@@ -434,7 +559,18 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
     const double value = odf[i];
     if (value > odf[i - 1] && value >= odf[i + 1] && value > mean) {
       const double weight = value - mean;
-      scores[i % period] += weight;
+      // The beat period is fractional, so fold peaks modulo the real period
+      // and scatter each into the two nearest bins. The old integer-period
+      // histogram smeared a 127.3 BPM grid by more than a frame over 32 s and
+      // often collapsed the phase to NaN.
+      const double phase_frames = fmod((double)i, beat_frames);
+      const double bin_position = phase_frames / beat_frames * (double)bins;
+      int32_t bin = (int32_t)floor(bin_position);
+      if (bin < 0) bin = 0;
+      bin %= bins;
+      const double fraction = bin_position - floor(bin_position);
+      scores[bin] += weight * (1.0 - fraction);
+      scores[(bin + 1) % bins] += weight * fraction;
       peak_energy += weight;
       ++peak_count;
     }
@@ -445,16 +581,16 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
     return NAN;
   }
 
-  for (int32_t phase = 0; phase < period; ++phase) {
-    const int32_t previous = (phase - 1 + period) % period;
-    const int32_t next = (phase + 1) % period;
+  for (int32_t phase = 0; phase < bins; ++phase) {
+    const int32_t previous = (phase - 1 + bins) % bins;
+    const int32_t next = (phase + 1) % bins;
     smoothed[phase] = scores[previous] * 0.25 + scores[phase] * 0.5 +
                       scores[next] * 0.25;
   }
   int32_t best_phase = 0;
   double best_score = -DBL_MAX;
   double second_score = -DBL_MAX;
-  for (int32_t phase = 0; phase < period; ++phase) {
+  for (int32_t phase = 0; phase < bins; ++phase) {
     const double score = smoothed[phase];
     if (score > best_score) {
       second_score = best_score;
@@ -464,11 +600,27 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
       second_score = score;
     }
   }
-  const double average = peak_energy / period;
+  const double average = peak_energy / bins;
   double phase = NAN;
   if (best_score > 0.0 && best_score >= average * 1.03 &&
       !(second_score > 0.0 && best_score / second_score < 1.005)) {
-    phase = best_phase * (double)HOP_SIZE * 1000.0 / working_rate;
+    // Refine the winning bin to a fraction of a bin before converting back to
+    // frames. This removes the 23 ms hop quantization from the published
+    // phase while keeping the value folded into one beat period.
+    double refined_bin = (double)best_phase;
+    const double left = smoothed[(best_phase - 1 + bins) % bins];
+    const double right = smoothed[(best_phase + 1) % bins];
+    const double denominator = left - 2.0 * best_score + right;
+    if (isfinite(denominator) && denominator < -1e-18) {
+      double offset = 0.5 * (left - right) / denominator;
+      if (offset < -0.5) offset = -0.5;
+      if (offset > 0.5) offset = 0.5;
+      if (isfinite(offset)) refined_bin += offset;
+    }
+    double phase_frames = refined_bin * beat_frames / (double)bins;
+    phase_frames = fmod(phase_frames, beat_frames);
+    if (phase_frames < 0.0) phase_frames += beat_frames;
+    phase = phase_frames * (double)HOP_SIZE * 1000.0 / working_rate;
   }
   free(scores);
   free(smoothed);
@@ -1125,7 +1277,54 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
   static const int8_t kChordToneCount[12] = {
       3, 3, 3, 3, 4, 4, 4, 3, 3, 4, 4, 4};
 
-  int32_t rows_written = 0;
+  double* root_scores =
+      (double*)malloc((size_t)segment_count * 12 * sizeof(double));
+  int8_t* root_qualities =
+      (int8_t*)malloc((size_t)segment_count * 12 * sizeof(int8_t));
+  int16_t* back_pointer =
+      (int16_t*)malloc((size_t)segment_count * 12 * sizeof(int16_t));
+  double* previous = (double*)malloc(12 * sizeof(double));
+  double* current = (double*)malloc(12 * sizeof(double));
+  if (root_scores == NULL || root_qualities == NULL || back_pointer == NULL ||
+      previous == NULL || current == NULL) {
+    free(root_scores); free(root_qualities); free(back_pointer);
+    free(previous); free(current);
+    free(hann); free(real); free(imaginary);
+    free(twiddle_real); free(twiddle_imaginary); free(frame_magnitudes);
+    free(bit_reverse);
+    return -1;
+  }
+
+  static const int8_t kCircleOfFifths[12] =
+      {0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5};
+  double transition[12][12];
+  for (int from = 0; from < 12; ++from) {
+    int from_index = 0;
+    for (int i = 0; i < 12; ++i) {
+      if (kCircleOfFifths[i] == from) {
+        from_index = i;
+        break;
+      }
+    }
+    for (int to = 0; to < 12; ++to) {
+      int to_index = 0;
+      for (int i = 0; i < 12; ++i) {
+        if (kCircleOfFifths[i] == to) {
+          to_index = i;
+          break;
+        }
+      }
+      int distance = from_index - to_index;
+      if (distance < 0) distance = -distance;
+      if (distance > 6) distance = 12 - distance;
+      transition[from][to] = distance == 0 ? 0.0
+          : distance == 1 ? 0.004
+          : distance == 2 ? 0.008
+          : 0.012;
+    }
+  }
+
+  const int32_t expected_window_samples = sample_rate * 2;
   for (int32_t segment = 0; segment < segment_count; ++segment) {
     const int32_t start = segment * sample_rate;
     double hpcp[12] = {0.0};
@@ -1133,7 +1332,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     int32_t frame_count = 0;
 
     // 50% overlap gives enough spectral stability without an excessively dense STFT.
-    for (int32_t offset = 0; offset <= window_samples - FFT_SIZE;
+    for (int32_t offset = 0; offset <= expected_window_samples - FFT_SIZE;
          offset += 1024) {
       for (int32_t i = 0; i < FFT_SIZE; ++i) {
         const float sample = mono[start + offset + i];
@@ -1152,20 +1351,31 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
           total_magnitude += finite_magnitude;
         }
       }
-      hpcp_add_frame(frame_magnitudes, FFT_BINS, sample_rate, FFT_SIZE, hpcp);
+      double frame_chroma[12] = {0.0};
+      hpcp_add_frame(frame_magnitudes, FFT_BINS, sample_rate, FFT_SIZE,
+                     frame_chroma);
+      double frame_total = 0.0;
+      for (int note = 0; note < 12; ++note) frame_total += frame_chroma[note];
+      if (frame_total > 1e-12) {
+        for (int note = 0; note < 12; ++note) {
+          hpcp[note] += log1p(64.0 * frame_chroma[note] / frame_total);
+        }
+      }
       frame_count++;
     }
 
-    int best_root = -1;
-    int best_quality = -1;
-    double best_score = -DBL_MAX;
-    double second_score = -DBL_MAX;
     double normalized[12] = {0.0};
     double chroma_total = 0.0;
     for (int note = 0; note < 12; ++note) chroma_total += hpcp[note];
+    for (int root = 0; root < 12; ++root) {
+      root_scores[segment * 12 + root] = -1.0;
+      root_qualities[segment * 12 + root] = -1;
+    }
     if (chroma_total > 1e-9 && frame_count > 0 && total_magnitude > 1e-7) {
       for (int note = 0; note < 12; ++note) normalized[note] = hpcp[note] / chroma_total;
       for (int root = 0; root < 12; ++root) {
+        double best_quality_score = -DBL_MAX;
+        int best_quality = -1;
         for (int quality = 0; quality < 12; ++quality) {
           double in_chord = 0.0;
           for (int tone = 0; tone < kChordToneCount[quality]; ++tone) {
@@ -1173,15 +1383,93 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
             in_chord += normalized[pc];
           }
           const double score = 0.82 * in_chord + 0.18 * normalized[root];
-          if (score > best_score) {
-            second_score = best_score;
-            best_score = score;
-            best_root = root;
+          if (score > best_quality_score) {
+            best_quality_score = score;
             best_quality = quality;
-          } else if (score > second_score) {
-            second_score = score;
           }
         }
+        if (best_quality >= 0) {
+          root_scores[segment * 12 + root] = best_quality_score;
+          root_qualities[segment * 12 + root] = (int8_t)best_quality;
+        }
+      }
+    }
+  }
+
+  for (int root = 0; root < 12; ++root) {
+    previous[root] = root_scores[root];
+    back_pointer[root] = -1;
+  }
+  for (int32_t segment = 1; segment < segment_count; ++segment) {
+    for (int root = 0; root < 12; ++root) {
+      double best_previous = -DBL_MAX;
+      int best_previous_root = -1;
+      for (int prior = 0; prior < 12; ++prior) {
+        if (previous[prior] <= -0.5) continue;
+        const double candidate =
+            previous[prior] - transition[prior][root];
+        if (candidate > best_previous) {
+          best_previous = candidate;
+          best_previous_root = prior;
+        }
+      }
+      const double raw = root_scores[segment * 12 + root];
+      if (best_previous_root >= 0) {
+        current[root] = raw + best_previous;
+        back_pointer[segment * 12 + root] = (int16_t)best_previous_root;
+      } else {
+        current[root] = raw;
+        back_pointer[segment * 12 + root] = -1;
+      }
+    }
+    for (int root = 0; root < 12; ++root) previous[root] = current[root];
+  }
+
+  int32_t selected_root = -1;
+  double selected_path = -DBL_MAX;
+  for (int root = 0; root < 12; ++root) {
+    if (previous[root] > selected_path) {
+      selected_path = previous[root];
+      selected_root = root;
+    }
+  }
+  int32_t* selected_roots =
+      (int32_t*)malloc((size_t)segment_count * sizeof(int32_t));
+  if (selected_roots == NULL) {
+    free(root_scores); free(root_qualities); free(back_pointer);
+    free(previous); free(current);
+    free(hann); free(real); free(imaginary);
+    free(twiddle_real); free(twiddle_imaginary); free(frame_magnitudes);
+    free(bit_reverse);
+    return -1;
+  }
+  for (int32_t segment = 0; segment < segment_count; ++segment) {
+    selected_roots[segment] = -1;
+  }
+  int32_t trace_root = selected_root;
+  for (int32_t segment = segment_count - 1; segment >= 0; --segment) {
+    selected_roots[segment] = trace_root;
+    if (trace_root < 0) break;
+    const int16_t prior = back_pointer[segment * 12 + trace_root];
+    if (segment > 0 && prior < 0) break;
+    trace_root = prior;
+  }
+
+  int32_t rows_written = 0;
+  for (int32_t segment = 0; segment < segment_count; ++segment) {
+    const int32_t root = selected_roots[segment];
+    int best_root = -1;
+    double best_score = -DBL_MAX;
+    double second_score = -DBL_MAX;
+    int best_quality = -1;
+    if (root >= 0) {
+      best_root = root;
+      best_score = root_scores[segment * 12 + root];
+      best_quality = root_qualities[segment * 12 + root];
+      for (int other = 0; other < 12; ++other) {
+        if (other == root) continue;
+        const double score = root_scores[segment * 12 + other];
+        if (score > second_score) second_score = score;
       }
     }
 
@@ -1200,13 +1488,16 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     }
 
     output[rows_written * 4] =
-        (double)start * 1000.0 / (double)sample_rate;
+        (double)(segment * sample_rate) * 1000.0 / (double)sample_rate;
     output[rows_written * 4 + 1] = (double)best_root;
     output[rows_written * 4 + 2] = (double)best_quality;
     output[rows_written * 4 + 3] = fmin(1.0, fmax(0.0, confidence));
     rows_written++;
   }
 
+  free(selected_roots);
+  free(root_scores); free(root_qualities); free(back_pointer);
+  free(previous); free(current);
   free(hann); free(real); free(imaginary);
   free(twiddle_real); free(twiddle_imaginary); free(frame_magnitudes);
   free(bit_reverse);

@@ -1714,9 +1714,10 @@ class AutomixService {
   /// stopped at 300 s).
   static const double _segmentSeconds = 120.0;
 
-  /// Above this length a middle window is added, so long tracks are sampled
-  /// across their whole duration instead of only at the edges.
-  static const double _veryLongFileSeconds = 480.0;
+  /// Above this length additional middle/quarter windows are added, so long
+  /// tracks are sampled across their whole duration instead of only at the
+  /// edges. Short five-minute tracks already have useful head+tail coverage.
+  static const double _veryLongFileSeconds = 300.0;
 
   /// Keep two windows disjoint on tracks shorter than twice the normal window.
   /// Otherwise a 121-second track would analyze almost the same two minutes
@@ -1857,14 +1858,33 @@ class AutomixService {
     }
 
     if (fileSeconds > _veryLongFileSeconds) {
-      final midStart = fileSeconds / 2 - windowSeconds / 2;
-      if (midStart > 0) {
-        final mid = await _analyzeWindow(
+      Future<void> addCentered(double centerSeconds) async {
+        final start = (centerSeconds - windowSeconds / 2)
+            .clamp(0.0, math.max(0.0, fileSeconds - windowSeconds))
+            .toDouble();
+        // Never duplicate the head/tail decode or create a window that runs
+        // past EOF because of a stale container duration.
+        if (start < windowSeconds) return;
+        if (fileSeconds - (start + windowSeconds) < windowSeconds) return;
+        if (segments.any(
+          (segment) => (segment.startSeconds - start).abs() < windowSeconds,
+        )) {
+          return;
+        }
+        final middle = await _analyzeWindow(
           song.path,
-          midStart,
+          start,
           windowSeconds,
         );
-        if (mid != null) segments.add(mid.$1);
+        if (middle != null) segments.add(middle.$1);
+      }
+
+      if (fileSeconds > _veryLongFileSeconds * 2) {
+        await addCentered(fileSeconds / 4);
+        await addCentered(fileSeconds / 2);
+        await addCentered(fileSeconds * 3 / 4);
+      } else {
+        await addCentered(fileSeconds / 2);
       }
     }
 

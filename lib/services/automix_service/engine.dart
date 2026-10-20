@@ -320,6 +320,55 @@ List<AutomixChordEvent> automixMergeChordProgressions(
 }
 
 
+/// Edge-local section label derived from the two quarters nearest the mix
+/// seam. The native label is computed from a whole 120 s window, which can
+/// average a quiet intro with a loud drop; this directional label keeps the
+/// head and tail independent for the transition planner.
+({int region, double confidence})? _automixEdgeStructure(
+  AutomixSegmentFeatures segment, {
+  required bool head,
+}) {
+  final quarters = segment.energyQuarters;
+  if (quarters.length != 4) return null;
+  final first = head ? quarters[0] : quarters[2];
+  final second = head ? quarters[1] : quarters[3];
+  if (!first.isFinite || !second.isFinite) return null;
+  final meanDb = (first + second) / 2.0;
+  final slope = second - first;
+
+  final cue = head ? segment.dropCueMs : segment.breakdownCueMs;
+  final cueConfidence =
+      head ? segment.dropConfidence : segment.breakdownConfidence;
+  final cueNearEdge = cue != null &&
+      cue.isFinite &&
+      cue >= 0 &&
+      segment.seconds > 0 &&
+      (head ? cue <= 45000 : cue >= (segment.seconds - 60.0) * 1000.0);
+  if (cueNearEdge && cueConfidence >= 0.45) {
+    return (
+      region: head ? 3 : 4,
+      confidence: automixClamp01(0.55 + 0.30 * cueConfidence),
+    );
+  }
+
+  if (meanDb < -32.0) {
+    return (region: 1, confidence: 0.70);
+  }
+  if (slope > 1.5 && meanDb < -18.0) {
+    return (
+      region: 2,
+      confidence: automixClamp01(0.55 + slope / 12.0),
+    );
+  }
+  if (meanDb > -18.0 && slope.abs() <= 1.5) {
+    return (region: 5, confidence: 0.70);
+  }
+  if (meanDb > -22.0 && slope >= -1.5) {
+    return (region: 5, confidence: 0.55);
+  }
+  return (region: 1, confidence: 0.50);
+}
+
 /// Merges the analyzed windows of one file into per-track features.
 ///
 /// Long tracks are *sampled* rather than truncated: tempo is a
@@ -551,6 +600,12 @@ AutomixTrackFeatures automixMergeSegments({
       : inferredFileSeconds;
   final firstSegment = segments.isEmpty ? null : segments.first;
   final lastSegment = segments.isEmpty ? null : segments.last;
+  final headStructure = firstSegment == null
+      ? null
+      : _automixEdgeStructure(firstSegment, head: true);
+  final tailStructure = lastSegment == null
+      ? null
+      : _automixEdgeStructure(lastSegment, head: false);
 
   // ── Energy momentum at the edges: quarter profile → dB/quarter slope ─────
   // The head window describes the intro, the exit window the outro. Only a
@@ -636,13 +691,20 @@ AutomixTrackFeatures automixMergeSegments({
     tailBreakdownConfidence: tailSegmentAnalyzed
         ? (lastSegment?.breakdownConfidence ?? 0)
         : 0,
-    structureRegion: firstSegment?.structureRegion ?? 0,
-    structureConfidence: firstSegment?.structureConfidence ?? 0,
+    structureRegion:
+        headStructure?.region ?? firstSegment?.structureRegion ?? 0,
+    structureConfidence: headStructure != null
+        ? math.max(headStructure.confidence,
+            firstSegment?.structureConfidence ?? 0)
+        : (firstSegment?.structureConfidence ?? 0),
     tailStructureRegion: tailSegmentAnalyzed
-        ? (lastSegment?.structureRegion ?? 0)
+        ? (tailStructure?.region ?? lastSegment?.structureRegion ?? 0)
         : 0,
     tailStructureConfidence: tailSegmentAnalyzed
-        ? (lastSegment?.structureConfidence ?? 0)
+        ? (tailStructure != null
+            ? math.max(tailStructure.confidence,
+                lastSegment?.structureConfidence ?? 0)
+            : (lastSegment?.structureConfidence ?? 0))
         : 0,
     vocalLikelihood: vocalLikelihood,
     vocalConfidence: vocalConfidence,
@@ -1028,7 +1090,15 @@ AutomixTransitionCue automixTransitionCue({
       incomingDropMs <= 90000 &&
       incoming.dropConfidence >= 0.55;
   final outgoingGridBpm = outgoing.tailBpm;
-  final incomingGridBpm = incoming.bpm;
+  final incomingHasLocalGrid = automixHasConfidentIntroGrid(incoming);
+  final incomingGridBpm =
+      incomingHasLocalGrid ? incoming.startBpm : incoming.bpm;
+  final incomingGridOffsetMs = incomingHasLocalGrid
+      ? incoming.introBeatOffsetMs
+      : incoming.beatOffsetMs;
+  final incomingGridConfidence = incomingHasLocalGrid
+      ? incoming.startBpmConfidence
+      : incoming.bpmConfidence;
   final hasConfidentBeatPair =
       outgoingGridBpm != null &&
       outgoingGridBpm.isFinite &&
@@ -1042,10 +1112,10 @@ AutomixTransitionCue automixTransitionCue({
       incomingGridBpm.isFinite &&
       incomingGridBpm >= 50 &&
       incomingGridBpm <= 220 &&
-      incoming.bpmConfidence >= 0.35 &&
-      incoming.beatOffsetMs != null &&
-      incoming.beatOffsetMs!.isFinite &&
-      incoming.beatOffsetMs! >= 0 &&
+      incomingGridConfidence >= 0.35 &&
+      incomingGridOffsetMs != null &&
+      incomingGridOffsetMs.isFinite &&
+      incomingGridOffsetMs >= 0 &&
       automixTempoMatch(
         referenceBpm: outgoingGridBpm,
         trackBpm: incomingGridBpm,
@@ -1058,10 +1128,16 @@ AutomixTransitionCue automixTransitionCue({
       !tempoMismatch;
 
   final AutomixTransitionStrategy strategy;
-  if (!earlyHandoverEligible && cueLeadSeconds != null) {
-    strategy = AutomixTransitionStrategy.structureAligned;
+  if (earlyHandoverEligible) {
+    // The early drop path keeps the conventional fade duration while
+    // scheduling its own start below.
+    strategy = AutomixTransitionStrategy.crossfade;
   } else if (tempoMismatch || keyMismatch || chordMismatch) {
+    // A real harmonic/tempo clash must not be masked by a nominally aligned
+    // cue: a long overlap would expose the clash for longer.
     strategy = AutomixTransitionStrategy.shortHandover;
+  } else if (cueLeadSeconds != null) {
+    strategy = AutomixTransitionStrategy.structureAligned;
   } else if (denseTail) {
     strategy = AutomixTransitionStrategy.quickHandover;
   } else if (sparseTail || sparseIntro) {
@@ -1130,8 +1206,8 @@ AutomixTransitionCue automixTransitionCue({
   }
 
   // Derive conservative per-deck EQ targets from actual measured features.
-  // Unknown metadata keeps bands neutral, except the historical outgoing-tail
-  // filter fallback. These are overlap-only attenuations; neither deck is boosted.
+  // Unknown metadata keeps bands neutral. These are overlap-only
+  // attenuations; neither deck is boosted.
   final confidentVocalClash = outgoing.vocalConfidence >= 0.45 &&
       incoming.vocalConfidence >= 0.45 &&
       outgoing.vocalLikelihood >= 0.55 &&
@@ -1159,7 +1235,7 @@ AutomixTransitionCue automixTransitionCue({
     final brightness = automixClamp01((centroid - 900.0) / 2600.0);
     return (0.90 - 0.55 * brightness).clamp(0.32, 0.90).toDouble();
   }
-  final outgoingHighGain = highGain(outgoing, fallback: 0.25);
+  final outgoingHighGain = highGain(outgoing, fallback: 0.90);
   final incomingHighGain = incoming.centroidHz == null
       ? 1.0
       : (1.0 -
@@ -1365,18 +1441,29 @@ List<double> automixNormalizeEnergy(List<AutomixTrackFeatures> feats) {
     final onset = f.onsetRate; // onsets/sec, ~ 0.5..6
     if (rms != null) {
       final rmsN = automixClamp01((rms + 30.0) / 24.0);
-      final cenN = centroid == null
-          ? 0.5
-          : automixClamp01((centroid - 400.0) / 3600.0);
-      final onN = onset == null ? 0.5 : automixClamp01((onset - 0.5) / 5.5);
-      raws.add(0.5 * rmsN + 0.25 * cenN + 0.25 * onN);
+      var weighted = 0.5 * rmsN;
+      var weight = 0.5;
+      if (centroid != null) {
+        weighted += 0.25 * automixClamp01((centroid - 400.0) / 3600.0);
+        weight += 0.25;
+      }
+      if (onset != null) {
+        weighted += 0.25 * automixClamp01((onset - 0.5) / 5.5);
+        weight += 0.25;
+      }
+      raws.add(weighted / weight);
       continue;
     }
     final lufs = f.loudnessLufs; // ~ -24 (quiet) .. -6 (loud) LUFS
     if (lufs != null) {
       final lufsN = automixClamp01((lufs + 24.0) / 18.0);
-      final onN = onset == null ? 0.25 : automixClamp01((onset - 0.5) / 5.5);
-      raws.add(0.75 * lufsN + 0.25 * onN);
+      var weighted = 0.75 * lufsN;
+      var weight = 0.75;
+      if (onset != null) {
+        weighted += 0.25 * automixClamp01((onset - 0.5) / 5.5);
+        weight += 0.25;
+      }
+      raws.add(weighted / weight);
       continue;
     }
     raws.add(null);
@@ -1698,12 +1785,12 @@ class DartAutomixEngineReference {
   /// Improvement-pass budget for the swap polisher. Insertion (Or-opt) and
   /// reversal scans extend the neighborhood for sets at or above
   /// [_polishMinTracks] — the same size gate the greedy lookahead uses.
-  static const int _maxPasses = 6;
-  static const int _maxSwapBreach = 4;
-  static const int _maxEvalsPerPass = 4000;
-  static const int _maxInsertEvals = 2000;
-  static const int _maxReverseEvals = 1200;
-  static const int _polishMinTracks = 25;
+  static const int _maxPasses = 8;
+  static const int _maxSwapBreach = 6;
+  static const int _maxEvalsPerPass = 6000;
+  static const int _maxInsertEvals = 3000;
+  static const int _maxReverseEvals = 1800;
+  static const int _polishMinTracks = 12;
 
   /// A repeated artist inside this many recent positions is discouraged by
   /// the greedy pick. The immediately previous slot is already covered by the
@@ -1925,7 +2012,10 @@ class DartAutomixEngineReference {
   }) {
     final artist = candidate.artist.trim().toLowerCase();
     if (artist.isEmpty) return 0.0;
-    final base = settings.avoidArtistRepeat ? 0.35 : 0.15;
+    // Keep a cooldown repeat cheaper than an immediate same-artist variety
+    // penalty (0.55 * 0.15 = 0.0825), otherwise the optimizer would prefer
+    // two adjacent repeats over one repeat a few slots later.
+    final base = settings.avoidArtistRepeat ? 0.12 : 0.05;
     var penalty = 0.0;
     for (var back = 2; back <= _artistCooldown; back++) {
       final index = planCount - back;
@@ -1964,6 +2054,8 @@ class DartAutomixEngineReference {
       slotOf: slotOf,
       slotOrder: slotOrder,
       tracks: tracks,
+      energies: energies,
+      settings: settings,
       medianBpm: medianBpm,
     );
     final scored = <(int, double)>[];
@@ -2050,6 +2142,8 @@ class DartAutomixEngineReference {
         slotOf: slotOf,
         slotOrder: slotOrder,
         tracks: tracks,
+        energies: energies,
+        settings: settings,
         medianBpm: medianBpm,
         excludeIndex: cand,
       );
@@ -2085,25 +2179,29 @@ class DartAutomixEngineReference {
     return best;
   }
 
-  /// Bounded candidate set from local BPM order and half/double-time anchors.
-  /// Unknown-BPM tracks remain discoverable through the ordinary slot window.
+  /// Bounded candidate set from local BPM order, half/double-time anchors,
+  /// seam-local tempos and profile-aware key/energy buckets. Unknown-BPM
+  /// tracks get a small quota instead of relying entirely on their median
+  /// placeholder slot.
   static List<int> _candidatePool({
     required int current,
     required List<bool> played,
     required List<int> slotOf,
     required List<int> slotOrder,
     required List<AutomixTrackFeatures> tracks,
+    required List<double> energies,
+    required AutomixSettings settings,
     required double medianBpm,
     int? excludeIndex,
   }) {
     final n = tracks.length;
     final found = <int>{};
+    bool available(int candidate) =>
+        !played[candidate] && candidate != excludeIndex;
     void addSlot(int slot) {
       if (slot < 0 || slot >= n) return;
       final candidate = slotOrder[slot];
-      if (!played[candidate] && candidate != excludeIndex) {
-        found.add(candidate);
-      }
+      if (available(candidate)) found.add(candidate);
     }
 
     final slot = slotOf[current];
@@ -2113,10 +2211,10 @@ class DartAutomixEngineReference {
     }
 
     final track = tracks[current];
-    final bpm = track.bpm;
+    final bpm = automixExitBpm(track) ?? track.bpm;
+    final alternate = track.alternateBpm;
     if (bpm != null && bpm > 0) {
       final anchors = <double>{bpm, bpm / 2.0, bpm * 2.0};
-      final alternate = track.alternateBpm;
       if (alternate != null && alternate > 0) {
         anchors.add(alternate);
         anchors.add(alternate / 2.0);
@@ -2139,6 +2237,73 @@ class DartAutomixEngineReference {
           addSlot(insertion - 1 - reach);
         }
       }
+
+      // A candidate may have an unusual whole-window BPM but a perfectly
+      // matched local intro/exit tempo.
+      for (var i = 0; i < n; i++) {
+        if (!available(i) || found.contains(i)) continue;
+        final seam = automixHasConfidentIntroBpm(tracks[i])
+            ? tracks[i].startBpm
+            : automixHasConfidentTailBpm(tracks[i])
+                ? tracks[i].tailBpm
+                : null;
+        if (seam == null || !seam.isFinite || seam <= 0) continue;
+        if (automixTempoCost(bpm, alternate, seam, null, 0.08) <= 0.25) {
+          found.add(i);
+        }
+      }
+    }
+
+    // Unknown-tempo tracks get a deterministic quota.
+    var unknownAdded = 0;
+    for (var i = 0; i < n && unknownAdded < 2; i++) {
+      if (!available(i) || found.contains(i)) continue;
+      if (tracks[i].bpm != null) continue;
+      found.add(i);
+      unknownAdded++;
+    }
+
+    if (settings.profile == AutomixProfile.harmonic) {
+      for (var i = 0; i < n; i++) {
+        if (!available(i) || found.contains(i)) continue;
+        final cost = automixCamelotCost(
+          track.camelotNumber,
+          track.camelotMinor,
+          tracks[i].camelotNumber,
+          tracks[i].camelotMinor,
+        );
+        if (cost <= 0.45) found.add(i);
+      }
+    } else if (settings.profile == AutomixProfile.energy) {
+      for (var i = 0; i < n; i++) {
+        if (!available(i) || found.contains(i)) continue;
+        if ((energies[i] - energies[current]).abs() <= 0.18) {
+          found.add(i);
+        }
+      }
+    }
+
+    // Hard floor: fill up to eight by nearest slot tempo. Song-id ordering
+    // remains the deterministic tie-breaker in the final candidate sort.
+    final targetTempo = tracks[current].bpm ?? medianBpm;
+    while (found.length < 8) {
+      var best = -1;
+      var bestDistance = double.infinity;
+      for (var s = 0; s < n; s++) {
+        final candidate = slotOrder[s];
+        if (!available(candidate) || found.contains(candidate)) continue;
+        final tempo = tracks[candidate].bpm ?? medianBpm;
+        final distance = (tempo - targetTempo).abs();
+        if (distance < bestDistance ||
+            (distance == bestDistance &&
+                best >= 0 &&
+                tracks[candidate].songId < tracks[best].songId)) {
+          bestDistance = distance;
+          best = candidate;
+        }
+      }
+      if (best < 0) break;
+      found.add(best);
     }
 
     final result = found.toList();
@@ -2207,15 +2372,23 @@ class DartAutomixEngineReference {
     double link(int from, int to) {
       assert(0 <= from && from < n && 0 <= to && to < n);
       return _transitionCost(
-        a: tracks[plan[from]],
-        b: tracks[plan[to]],
-        eA: energies[plan[from]],
-        eB: energies[plan[to]],
-        stepIndex: to,
-        totalSteps: n,
-        settings: settings,
-        arc: arc,
-      );
+            a: tracks[plan[from]],
+            b: tracks[plan[to]],
+            eA: energies[plan[from]],
+            eB: energies[plan[to]],
+            stepIndex: to,
+            totalSteps: n,
+            settings: settings,
+            arc: arc,
+          ) +
+          0.05 *
+              _artistCooldownCost(
+                plan: plan,
+                planCount: to,
+                tracks: tracks,
+                candidate: tracks[plan[to]],
+                settings: settings,
+              );
     }
 
     var sum = 0.0;
@@ -2247,15 +2420,23 @@ class DartAutomixEngineReference {
     var sum = 0.0;
     for (var p = firstLink; p <= lastLink; p++) {
       sum += _transitionCost(
-        a: tracks[plan[p - 1]],
-        b: tracks[plan[p]],
-        eA: energies[plan[p - 1]],
-        eB: energies[plan[p]],
-        stepIndex: p,
-        totalSteps: plan.length,
-        settings: settings,
-        arc: arc,
-      );
+            a: tracks[plan[p - 1]],
+            b: tracks[plan[p]],
+            eA: energies[plan[p - 1]],
+            eB: energies[plan[p]],
+            stepIndex: p,
+            totalSteps: plan.length,
+            settings: settings,
+            arc: arc,
+          ) +
+          0.05 *
+              _artistCooldownCost(
+                plan: plan,
+                planCount: p,
+                tracks: tracks,
+                candidate: tracks[plan[p]],
+                settings: settings,
+              );
     }
     return sum;
   }
