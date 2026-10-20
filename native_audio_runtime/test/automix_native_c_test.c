@@ -1965,6 +1965,46 @@ static void test_live_tracker_fractional_downbeat_accuracy(void) {
   free(train.pcm);
 }
 
+static void test_live_tracker_145bpm_accented_downbeat(void) {
+  const int32_t sample_rate = 48000;
+  const double target_bpm = 145.0;
+  const double beat_period_ms = 60000.0 / target_bpm;
+  const double bar_period_ms = beat_period_ms * 4.0;
+
+  // Render a 6.0-second 145 BPM audio fixture with accented downbeats every 4 beats.
+  // At 145 BPM, nominal beat period at 100 fps is ~41.379 frames (~413.79 ms).
+  // At 6.0 s, the fixture's final beat is beat 3 of the bar, placing the true
+  // reference downbeat 3 beats back (~1451 ms elapsed).
+  FractionalClickTrain train = render_fractional_click_train(
+      target_bpm, 4, 6.0, 0.21, sample_rate);
+  assert(train.last_accent >= 0);
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&train, sample_rate, state);
+
+  const double reported_bpm = state[0];
+  const double expected_downbeat_ms =
+      click_train_elapsed_ms(&train, train.last_accent, sample_rate);
+  const double measured_downbeat_ms = state[3];
+
+  // Circular phase error relative to the 4-beat bar period
+  double phase_error = fabs(measured_downbeat_ms - expected_downbeat_ms);
+  phase_error = fmod(phase_error, bar_period_ms);
+  if (phase_error > bar_period_ms * 0.5) {
+    phase_error = bar_period_ms - phase_error;
+  }
+
+  // Verify BPM independently within 2% error
+  assert(fabs(reported_bpm - target_bpm) <= target_bpm * 0.02);
+  assert(state[2] > 0.2);
+
+  // Downbeat phase must match expected within 25 ms tolerance.
+  // The unmodified 145 BPM code reports a downbeat 1 beat early (~402.7 ms error).
+  assert(phase_error <= 25.0);
+  assert(state[4] > 0.20);
+
+  free(train.pcm);
+}
+
 static void test_live_tracker_resolves_half_tempo_lock(void) {
   // Sparse 145 BPM clicks make the two-beat autocorrelation lag score higher
   // than the one-beat lag at startup. With no prior estimate there is nothing
@@ -2147,6 +2187,7 @@ static void test_live_tracker_reports_activity_trend(void) {
 int main(void) {
   test_live_tracker_fractional_phase_accuracy();
   test_live_tracker_fractional_downbeat_accuracy();
+  test_live_tracker_145bpm_accented_downbeat();
   test_live_tracker_resolves_half_tempo_lock();
   test_live_tracker_keeps_low_tempo();
   test_live_tracker_phase_follows_beat_grid();

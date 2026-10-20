@@ -189,14 +189,14 @@ static double history_sample(const NarLiveTracker* tracker, double age) {
 
 static double onset_peak(
     const NarLiveTracker* tracker, double age, int32_t count) {
+  const int32_t center = (int32_t)llround(age);
   double peak = history_sample(tracker, age);
-  if (age >= 1.0) {
-    const double newer = history_sample(tracker, age - 1.0);
-    if (newer > peak) peak = newer;
-  }
-  if (age + 1.0 < (double)count) {
-    const double older = history_sample(tracker, age + 1.0);
-    if (older > peak) peak = older;
+  for (int32_t delta = -1; delta <= 1; ++delta) {
+    const int32_t frame_age = center + delta;
+    if (frame_age >= 0 && frame_age < count) {
+      const double value = (double)history_age(tracker, frame_age);
+      if (value > peak) peak = value;
+    }
   }
   return peak > 0.0 ? peak : 0.0;
 }
@@ -466,13 +466,15 @@ static void estimate_live_beat(int32_t slot) {
   double bar_scores[4] = {0.0, 0.0, 0.0, 0.0};
   for (int32_t position = 0; position < 4; ++position) {
     double sum = 0.0;
+    int32_t pulse_count = 0;
     int32_t pulse = 0;
     for (double age = best_phase_fractional; age < (double)count;
          age += phase_lag, ++pulse) {
       if (pulse % 4 != position) continue;
       sum += onset_peak(tracker, age, count);
+      pulse_count++;
     }
-    bar_scores[position] = sum;
+    bar_scores[position] = pulse_count > 0 ? sum / (double)pulse_count : 0.0;
   }
   int32_t best_bar = 0;
   double best_bar_score = -1.0;
