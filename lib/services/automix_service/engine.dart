@@ -1018,8 +1018,47 @@ AutomixTransitionCue automixTransitionCue({
           outgoing.tailStructureConfidence >= 0.75);
   final sparseIntro = intro != null && intro <= 0.35;
 
+  // Strong incoming-drop and beat-grid evidence takes priority over a
+  // breakdown cue that happens only in the final 12 seconds. Otherwise that
+  // near-EOF cue can repeatedly force transitions to wait until the song ends.
+  final incomingDropMs = incoming.dropCueMs;
+  final hasConfidentIncomingDrop = incomingDropMs != null &&
+      incomingDropMs.isFinite &&
+      incomingDropMs >= 8000 &&
+      incomingDropMs <= 90000 &&
+      incoming.dropConfidence >= 0.55;
+  final outgoingGridBpm = outgoing.tailBpm;
+  final incomingGridBpm = incoming.bpm;
+  final hasConfidentBeatPair =
+      outgoingGridBpm != null &&
+      outgoingGridBpm.isFinite &&
+      outgoingGridBpm >= 50 &&
+      outgoingGridBpm <= 220 &&
+      outgoing.tailBpmConfidence >= 0.35 &&
+      outgoing.tailBeatOffsetMs != null &&
+      outgoing.tailBeatOffsetMs!.isFinite &&
+      outgoing.tailBeatOffsetMs! >= 0 &&
+      incomingGridBpm != null &&
+      incomingGridBpm.isFinite &&
+      incomingGridBpm >= 50 &&
+      incomingGridBpm <= 220 &&
+      incoming.bpmConfidence >= 0.35 &&
+      incoming.beatOffsetMs != null &&
+      incoming.beatOffsetMs!.isFinite &&
+      incoming.beatOffsetMs! >= 0 &&
+      automixTempoMatch(
+        referenceBpm: outgoingGridBpm,
+        trackBpm: incomingGridBpm,
+      ).$1;
+  final earlyHandoverEligible = outgoing.durationSeconds >= 120 &&
+      durationMs.isFinite &&
+      durationMs > 0 &&
+      hasConfidentIncomingDrop &&
+      hasConfidentBeatPair &&
+      !tempoMismatch;
+
   final AutomixTransitionStrategy strategy;
-  if (cueLeadSeconds != null) {
+  if (!earlyHandoverEligible && cueLeadSeconds != null) {
     strategy = AutomixTransitionStrategy.structureAligned;
   } else if (tempoMismatch || keyMismatch || chordMismatch) {
     strategy = AutomixTransitionStrategy.shortHandover;
@@ -1054,48 +1093,11 @@ AutomixTransitionCue automixTransitionCue({
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
 
-  // Only schedule an early exit when the incoming drop is confidently detected
-  // and both decks have usable beat grids. Native can then seek the silent
-  // incoming deck to the beat immediately before its drop, instead of fading
-  // in from an arbitrary intro timestamp. Missing/weak cues retain the normal
-  // near-end transition.
+  // Schedule the early handover whenever the incoming drop and both beat grids
+  // are trustworthy. Near-EOF breakdown cues are handled above only when this
+  // stronger, independent early-handover path is unavailable.
   double? transitionStartMs;
-  final incomingDropMs = incoming.dropCueMs;
-  final hasConfidentIncomingDrop = incomingDropMs != null &&
-      incomingDropMs.isFinite &&
-      incomingDropMs >= 8000 &&
-      incomingDropMs <= 90000 &&
-      incoming.dropConfidence >= 0.55;
-  final outgoingGridBpm = outgoing.tailBpm;
-  final incomingGridBpm = incoming.bpm;
-  final hasConfidentBeatPair =
-      outgoingGridBpm != null &&
-      outgoingGridBpm.isFinite &&
-      outgoingGridBpm >= 50 &&
-      outgoingGridBpm <= 220 &&
-      outgoing.tailBpmConfidence >= 0.35 &&
-      outgoing.tailBeatOffsetMs != null &&
-      outgoing.tailBeatOffsetMs!.isFinite &&
-      outgoing.tailBeatOffsetMs! >= 0 &&
-      incomingGridBpm != null &&
-      incomingGridBpm.isFinite &&
-      incomingGridBpm >= 50 &&
-      incomingGridBpm <= 220 &&
-      incoming.bpmConfidence >= 0.35 &&
-      incoming.beatOffsetMs != null &&
-      incoming.beatOffsetMs!.isFinite &&
-      incoming.beatOffsetMs! >= 0 &&
-      automixTempoMatch(
-        referenceBpm: outgoingGridBpm,
-        trackBpm: incomingGridBpm,
-      ).$1;
-  if (outgoing.durationSeconds >= 120 &&
-      durationMs.isFinite &&
-      durationMs > 0 &&
-      hasConfidentIncomingDrop &&
-      hasConfidentBeatPair &&
-      !tempoMismatch &&
-      cueLeadSeconds == null) {
+  if (earlyHandoverEligible) {
     final breakdown = outgoing.tailBreakdownCueMs;
     final breakdownLeadSeconds =
         outgoing.tailBreakdownConfidence >= 0.45 &&
