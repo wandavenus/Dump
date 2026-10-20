@@ -1,6 +1,7 @@
 package dev.wndavenz.music.automix
 
 import dev.wndavenz.music.replaygain.PcmDecoder
+import kotlin.math.roundToInt
 
 /**
  * Thin glue between MainActivity's Automix channel and the DSP analysis.
@@ -63,7 +64,7 @@ object AutomixAnalysis {
         val safeMaxSeconds =
             if (maxSeconds.isFinite()) maxSeconds else MAX_ANALYZE_SECONDS.toDouble()
         val windowSeconds =
-            safeMaxSeconds.coerceIn(MIN_WINDOW_SECONDS, MAX_WINDOW_SECONDS).toInt()
+            safeMaxSeconds.coerceIn(MIN_WINDOW_SECONDS, MAX_WINDOW_SECONDS).roundToInt()
         val safeStartSeconds = if (startSeconds.isFinite() && startSeconds > 0.0) {
             startSeconds
         } else {
@@ -76,6 +77,11 @@ object AutomixAnalysis {
         var analysisRate = 0
         var downsampler: AutomixPcmDownsampler? = null
         var samples: FloatSampleBuffer? = null
+        var reachedEof = false
+        // Exact-size windows hit the cap on their final sample, so aborting at
+        // the cap would hide the EOF that follows it. Allow a short overrun
+        // (discarded, not stored) to observe end-of-stream, then abort.
+        var overrunSamples = 0
 
         val decoded = PcmDecoder.decode(
             path = path,
@@ -94,6 +100,7 @@ object AutomixAnalysis {
                         sourceRateHz = sampleRate,
                         channels = channels,
                         targetRateHz = TARGET_RATE_HZ,
+                        channelMask = fmt.channelMask,
                     )
                     analysisRate = downsampler!!.outputRateHz
                     samples = FloatSampleBuffer(analysisRate * windowSeconds)
@@ -106,14 +113,18 @@ object AutomixAnalysis {
                 val cap = analysisRate * windowSeconds
 
                 for (f in 0 until frameCount) {
-                    if (output.size >= cap) return@decode false
                     val mono = resampler.processFrame(buf, f) ?: continue
-                    output.append(mono)
-                    if (output.size >= cap) return@decode false
+                    if (output.size < cap) {
+                        output.append(mono)
+                    } else {
+                        overrunSamples++
+                        if (overrunSamples > analysisRate) return@decode false
+                    }
                 }
                 true
             },
             onProgress = { /* single-pass decode; progress not consumed */ },
+            onEos = { reachedEof = true },
         )
 
         // PcmDecoder.decode() returns false both for decode failures and our
@@ -259,6 +270,11 @@ object AutomixAnalysis {
             "segmentStartSeconds" to safeStartSeconds,
             "segmentSeconds" to analysis[10],
             "fileSeconds" to fileSeconds,
+            // True only when the decoder reached End-Of-Stream inside this
+            // window. A capped tail window can be full yet still stop before
+            // the real file end when container duration metadata is stale.
+            "reachedEof" to reachedEof,
+            "decodedSeconds" to collected.size.toDouble() / analysisRate,
         )
     }
 

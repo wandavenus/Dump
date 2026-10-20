@@ -1435,6 +1435,40 @@ void main() {
       expect(explicitTailConfidence.tailBpmConfidence, 0.65);
     });
 
+    test('does not promote a middle/head exit grid when the tail has no BPM',
+        () {
+      final merged = automixMergeSegments(
+        songId: 19,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.95,
+            endBpm: 121,
+            endBpmConfidence: 0.9,
+            endQuarterPhaseMs: 40,
+          ),
+          seg(
+            120,
+            bpm: 124,
+            conf: 0.9,
+            endBpm: 126,
+            endBpmConfidence: 0.9,
+            endQuarterPhaseMs: 80,
+          ),
+          // Tail window decoded, but it has no usable tempo estimate.
+          seg(240, conf: 0.9, rms: -18),
+        ],
+      );
+
+      expect(merged.endBpm, isNull);
+      expect(merged.endBpmConfidence, 0);
+      expect(merged.tailBpm, isNull);
+      expect(merged.tailBpmConfidence, 0);
+      expect(merged.tailBeatOffsetMs, isNull);
+      expect(merged.tailDownbeatOffsetMs, isNull);
+    });
+
     test('keeps alternate BPM from the highest-confidence tempo anchor', () {
       final merged = automixMergeSegments(
         songId: 4,

@@ -262,6 +262,11 @@ class AutomixToneManager {
             val slot = processors.entries.firstOrNull { it.value === processor }?.key
             if (slot != null) {
                 processors.remove(slot)
+                // Do not let a later createProcessor(slot) inherit the removed
+                // deck's EQ or limiter targets.
+                targetGains.remove(slot)
+                targetMidGains.remove(slot)
+                targetHighGains.remove(slot)
                 targetTruePeakCeilings.remove(slot)
                 removedSlot = slot
             }

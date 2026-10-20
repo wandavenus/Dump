@@ -35,7 +35,13 @@ internal fun pcmFramesToTrim(
 object PcmDecoder {
 
     /** Format info needed to size an [EburTrackSession] before decoding starts. */
-    data class TrackFormat(val sampleRate: Int, val channels: Int, val durationUs: Long)
+    data class TrackFormat(
+        val sampleRate: Int,
+        val channels: Int,
+        val durationUs: Long,
+        /** Android channel mask, 0 when the container does not declare one. */
+        val channelMask: Int = 0,
+    )
 
     /**
      * Decodes [path] and calls [feed] with each chunk of interleaved 16-bit
@@ -60,6 +66,8 @@ object PcmDecoder {
         onProgress: (Float) -> Unit,
         startUs: Long = 0L,
         trimBeforeUs: Long? = null,
+        /** Invoked once when the extractor/codec reaches End-Of-Stream. */
+        onEos: (() -> Unit)? = null,
     ): Boolean {
         val file = File(path)
         if (!file.exists()) return false
@@ -104,7 +112,10 @@ object PcmDecoder {
             return false
         }
         val durationUs = runCatching { format.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(-1L)
-        onFormat(TrackFormat(sampleRate, channels, durationUs))
+        val channelMask = runCatching {
+            format.getInteger(MediaFormat.KEY_CHANNEL_MASK)
+        }.getOrDefault(0)
+        onFormat(TrackFormat(sampleRate, channels, durationUs, channelMask))
 
         extractor.selectTrack(trackIndex)
 
@@ -140,6 +151,7 @@ object PcmDecoder {
 
         val info = MediaCodec.BufferInfo()
         var eos = false
+        var reachedEnd = false
         var aborted = false
         var pendingTrimBeforeUs = trimBeforeUs
         // N-3: reuse one grow-only ShortArray for all output buffers instead
@@ -158,6 +170,7 @@ object PcmDecoder {
                         if (n <= 0) {
                             codec.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             eos = true
+                            reachedEnd = true
                         } else {
                             val ts = extractor.sampleTime
                             codec.queueInputBuffer(inIdx, 0, n, ts, 0)
@@ -226,7 +239,10 @@ object PcmDecoder {
                     }
                     codec.releaseOutputBuffer(outIdx, false)
                 }
-                if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break
+                if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    reachedEnd = true
+                    break
+                }
             }
         } finally {
             runCatching { codec.stop() }
@@ -234,6 +250,9 @@ object PcmDecoder {
             runCatching { extractor.release() }
         }
 
+        if (reachedEnd) {
+            runCatching { onEos?.invoke() }
+        }
         onProgress(1.0f)
         return !aborted
     }
