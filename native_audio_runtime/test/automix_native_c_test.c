@@ -1965,6 +1965,37 @@ static void test_live_tracker_fractional_downbeat_accuracy(void) {
   free(train.pcm);
 }
 
+static void test_live_tracker_resolves_half_tempo_lock(void) {
+  // Sparse 145 BPM clicks make the two-beat autocorrelation lag score higher
+  // than the one-beat lag at startup. With no prior estimate there is nothing
+  // to fold the 72.4 BPM reading back up, so the tracker must resolve the
+  // octave from the observed onset spacing instead of publishing half-tempo.
+  const int32_t sample_rate = 48000;
+  FractionalClickTrain train = render_fractional_click_train(
+      145.0, 0, 7.0, 0.21, sample_rate);
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&train, sample_rate, state);
+  assert(fabs(state[0] - 145.0) <= 145.0 * 0.02);
+  assert(state[2] > 0.2);
+  free(train.pcm);
+}
+
+static void test_live_tracker_keeps_low_tempo(void) {
+  // The same octave check must not promote genuine 70-75 BPM pulse trains:
+  // their onsets are spaced at the full beat period, not half of it.
+  const int32_t sample_rate = 48000;
+  const double bpms[] = {70.0, 72.0, 75.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    FractionalClickTrain train = render_fractional_click_train(
+        bpms[i], 0, 7.0, 0.21, sample_rate);
+    double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+    run_live_tracker_click_train(&train, sample_rate, state);
+    assert(fabs(state[0] - bpms[i]) <= bpms[i] * 0.02);
+    assert(state[2] > 0.2);
+    free(train.pcm);
+  }
+}
+
 static void test_live_tracker_phase_follows_beat_grid(void) {
   // 120 BPM click train over a quiet bed, plus pseudo-random loud low-frequency
   // accents that never align with the beat grid. The loudest single onset in
@@ -2116,6 +2147,8 @@ static void test_live_tracker_reports_activity_trend(void) {
 int main(void) {
   test_live_tracker_fractional_phase_accuracy();
   test_live_tracker_fractional_downbeat_accuracy();
+  test_live_tracker_resolves_half_tempo_lock();
+  test_live_tracker_keeps_low_tempo();
   test_live_tracker_phase_follows_beat_grid();
   test_live_tracker_publishes_downbeat_phase();
   test_live_tracker_reports_activity_trend();
