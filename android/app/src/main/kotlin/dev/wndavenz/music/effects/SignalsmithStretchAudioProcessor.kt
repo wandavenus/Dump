@@ -76,6 +76,11 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var lastNativeFailureResult: Int? = null
     private var hasBufferedStretchState: Boolean = false
     private var prevWasBypass: Boolean = true
+    // Once the STFT engine has produced audio, stay on it until a flush/reset.
+    // Switching to raw bypass as soon as the smoothed rate reaches exactly 1.0
+    // splices a latency-bearing STFT tail against undelayed input, which is
+    // audible as a click at the end of an AutoMix tempo match.
+    private var stftEngaged: Boolean = false
 
     private var bypassRingBytes: ByteArray = ByteArray(0)
     private var bypassRingWritePos: Int = 0
@@ -172,6 +177,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         nativePitchSemitones = pitchSemitones
         nativeSetPitchSemitones(h, nativePitchSemitones)
         prevWasBypass = true
+        stftEngaged = false
         carryFrames = 0.0
         hasBufferedStretchState = false
 
@@ -272,7 +278,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             nativeSetPitchSemitones(h, currentPitch)
             nativePitchSemitones = currentPitch
         }
-        val isBypass = h == 0L || (currentSpeed == 1f && currentPitch == 0f)
+        val isBypass =
+            h == 0L || (!stftEngaged && currentSpeed == 1f && currentPitch == 0f)
 
         if (h != 0L) {
             if (!isBypass && prevWasBypass) {
@@ -292,6 +299,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             }
         }
         prevWasBypass = isBypass
+        if (!isBypass) stftEngaged = true
 
         if (isBypass) {
             totalInputFrames += inputFrames
@@ -340,6 +348,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             hasBufferedStretchState = false
             nativeReset(h)
             prevWasBypass = true
+            stftEngaged = false
             writeBypassRing(output, remaining)
             if (lastNativeFailureResult != result) {
                 NativeLogger.emit(
@@ -414,6 +423,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         totalOutputFrames = 0L
         clearBypassRing()
         prevWasBypass = true
+        stftEngaged = false
     }
 
     override fun onReset() {
@@ -435,5 +445,6 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         nativePitchSemitones = 0f
         clearBypassRing()
         prevWasBypass = true
+        stftEngaged = false
     }
 }

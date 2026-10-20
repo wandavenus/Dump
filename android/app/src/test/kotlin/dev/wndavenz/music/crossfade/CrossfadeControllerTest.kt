@@ -354,6 +354,9 @@ class CrossfadeControllerTest {
         verify(mockActivePlayer, atLeastOnce()).volume = 0.9f
         // Both non-active decks are stopped and removed from their timelines,
         // otherwise the aborted promotion keeps producing ghost audio.
+        // The aborted decks are silenced before their outputs are torn down.
+        verify(mockActivePlayer, atLeastOnce()).volume = 0f
+        verify(mockStandbyPlayer, atLeastOnce()).volume = 0f
         verify(mockActivePlayer).pause()
         verify(mockActivePlayer).stop()
         verify(mockActivePlayer).clearMediaItems()
@@ -412,6 +415,11 @@ class CrossfadeControllerTest {
         val incomingVolumes = argumentCaptor<Float>()
         verify(mockStandbyPlayer, atLeastOnce()).volume = incomingVolumes.capture()
         assertEquals(1f, incomingVolumes.lastValue, 0.001f)
+        // Completion silences the outgoing deck before pause/stop can discard
+        // a buffered tail at an audible fade-out gain.
+        val outgoingVolumes = argumentCaptor<Float>()
+        verify(mockActivePlayer, atLeastOnce()).volume = outgoingVolumes.capture()
+        assertEquals(0f, outgoingVolumes.lastValue, 0f)
     }
 
     @Test fun `C13 cancel mid-fade resets AutoMix tempo on both decks`() {
