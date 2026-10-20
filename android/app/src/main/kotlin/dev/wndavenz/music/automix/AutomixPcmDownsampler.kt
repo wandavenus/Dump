@@ -20,10 +20,18 @@ internal class AutomixPcmDownsampler(
     private val sourceRateHz: Int,
     private val channels: Int,
     targetRateHz: Int = 22_050,
+    channelMask: Int = 0,
 ) {
+    private companion object {
+        // Android AudioFormat.CHANNEL_OUT_LOW_FREQUENCY. Kept local so the
+        // pure-JVM unit tests do not depend on Android framework constants.
+        const val LOW_FREQUENCY_MASK = 0x20
+    }
+
     private val factor: Int
     val outputRateHz: Int
     private val lowPass: ButterworthLowPass
+    private val lfeChannels = BooleanArray(channels)
     // Smoothed channel energy avoids switching the fallback channel on individual PCM frames.
     private val channelPower = DoubleArray(channels)
     private val channelSamples = DoubleArray(channels)
@@ -58,6 +66,21 @@ internal class AutomixPcmDownsampler(
             sampleRateHz = sourceRateHz.toDouble(),
             cutoffHz = outputRateHz * 0.45,
         )
+        // Channel order follows the set bits of the Android channel mask.
+        // Leave lfeChannels all-false when the container omits a mask.
+        if (channels > 2 && channelMask != 0) {
+            var channelIndex = 0
+            var bit = 1
+            while (bit != 0 && channelIndex < channels) {
+                if (channelMask and bit != 0) {
+                    if (bit == LOW_FREQUENCY_MASK) {
+                        lfeChannels[channelIndex] = true
+                    }
+                    channelIndex++
+                }
+                bit = bit shl 1
+            }
+        }
     }
 
     /** Returns a downsampled mono sample only when the decimation interval completes. */
@@ -85,6 +108,15 @@ internal class AutomixPcmDownsampler(
                 var maxAbs = 0.0
                 var dominantSample = 0.0
                 for (ch in 0 until channels) {
+                    // LFE carries sub-bass effects, not musical tempo/key
+                    // information; including it would let a loud sub channel
+                    // dominate BPM/onset/key analysis. Exclude it when the
+                    // container's channel mask identifies it.
+                    if (lfeChannels[ch]) {
+                        channelSamples[ch] = 0.0
+                        channelPower[ch] = 0.0
+                        continue
+                    }
                     val sample = interleavedPcm16[base + ch] / 32768.0
                     channelSamples[ch] = sample
                     val absSample = abs(sample)

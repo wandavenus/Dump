@@ -1481,11 +1481,16 @@ class Media3PlaybackService : MediaSessionService() {
                     .setEnableFloatOutput(false)
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
-                    // Reverb → Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
-                    // the custom DSP/widening/reverb/stretch stages always see PCM_FLOAT
-                    // (transparent no-op if the decoder already emits float); ToInt16
-                    // converts back before Media3's own internal SilenceSkipping/Sonic
-                    // stage so nothing downstream has to reason about float input.
+                    // Reverb → Stretch (speed+pitch) → AutoMix tone/true-peak →
+                    // ToInt16 → SilenceSkip. ToFloat guarantees the custom DSP/
+                    // widening/reverb/stretch stages always see PCM_FLOAT
+                    // (transparent no-op if the decoder already emits float);
+                    // ToInt16 converts back before Media3's own internal
+                    // SilenceSkipping/Sonic stage so nothing downstream has to
+                    // reason about float input. The AutoMix tone stage (and its
+                    // per-deck true-peak limiter) runs AFTER Stretch so the
+                    // advertised ceiling also covers inter-sample peaks created
+                    // by pitch/time stretching.
                     // Stretch fully replaces Sonic here — DefaultAudioProcessorChain's own
                     // internal Sonic/TeeAudioProcessor still exists downstream but is a
                     // transparent no-op as long as PlaybackParameters.speed/pitch stay at
@@ -1500,7 +1505,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, automixToneProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, automixToneProc, toInt16Proc
                         )
                     )
                     .build()
@@ -2381,7 +2386,15 @@ class Media3PlaybackService : MediaSessionService() {
         targets: List<Map<String, Any?>>,
         preloadStandby: Boolean,
     ) {
-        val transitionActive = enabled && !bitPerfectModeOn
+        // AutoMix only makes sense for two distinct, ID-identified decks.
+        // Empty/same-ID target sets intentionally fall back to an ordinary
+        // crossfade; keep the limiter, live tracker, and cue maps disarmed.
+        val targetIds = targets.take(2).map { (it["id"] as? Number)?.toLong() }
+        val usableTargets = targetIds.size == 2 &&
+            targetIds[0] != null &&
+            targetIds[1] != null &&
+            targetIds[0] != targetIds[1]
+        val transitionActive = enabled && !bitPerfectModeOn && usableTargets
         automixTransitionEnabled = transitionActive
         // Live beat tracking only matters when a fade can actually run; mirror
         // the standby-preload gate so a zero crossfade duration does not keep

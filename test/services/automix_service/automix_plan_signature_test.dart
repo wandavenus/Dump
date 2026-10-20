@@ -159,6 +159,37 @@ void main() {
       );
     });
 
+    test('only two distinct ID-bearing targets are usable', () {
+      expect(automixHasUsableTransitionTargets(const []), isFalse);
+      expect(
+        automixHasUsableTransitionTargets(<Map<String, Object?>>[
+          <String, Object?>{'id': 101},
+        ]),
+        isFalse,
+      );
+      expect(
+        automixHasUsableTransitionTargets(<Map<String, Object?>>[
+          <String, Object?>{'id': 101},
+          <String, Object?>{'id': 101},
+        ]),
+        isFalse,
+      );
+      expect(
+        automixHasUsableTransitionTargets(<Map<String, Object?>>[
+          <String, Object?>{'bpm': 120.0},
+          <String, Object?>{'id': 202},
+        ]),
+        isFalse,
+      );
+      expect(
+        automixHasUsableTransitionTargets(<Map<String, Object?>>[
+          <String, Object?>{'id': 101},
+          <String, Object?>{'id': 202},
+        ]),
+        isTrue,
+      );
+    });
+
     test('shared Dart-to-Media3 transition fixture retains every cue field', () async {
       final values = <String, String>{};
       for (final line in await File(

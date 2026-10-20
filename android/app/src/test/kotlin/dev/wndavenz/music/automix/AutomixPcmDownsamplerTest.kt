@@ -107,6 +107,8 @@ class AutomixPcmDownsamplerTest {
         activeChannels: Set<Int>,
         invertedChannels: Set<Int> = emptySet(),
         frequencyHz: Double = 1_000.0,
+        lfeAmplitude: Int = 0,
+        channelMask: Int = 0,
     ): Double {
         val sampleRate = 48_000
         val frames = sampleRate
@@ -118,15 +120,42 @@ class AutomixPcmDownsamplerTest {
                 val sign = if (channel in invertedChannels) -1 else 1
                 pcm[frame * channels + channel] = (value * sign).toShort()
             }
+            if (lfeAmplitude > 0) {
+                pcm[frame * channels + 3] = (
+                    sin(2.0 * PI * 60.0 * frame / sampleRate) * lfeAmplitude
+                    ).toInt().toShort()
+            }
         }
 
-        val downsampler = AutomixPcmDownsampler(sourceRateHz = sampleRate, channels = channels)
+        val downsampler = AutomixPcmDownsampler(
+            sourceRateHz = sampleRate,
+            channels = channels,
+            channelMask = channelMask,
+        )
         val output = ArrayList<Float>()
         for (frame in 0 until frames) {
             downsampler.processFrame(pcm, frame)?.let(output::add)
         }
         val stable = output.drop(1_000)
         return sqrt(stable.sumOf { it.toDouble() * it.toDouble() } / stable.size)
+    }
+
+    @Test
+    fun lfeChannelIsExcludedWhenChannelMaskIdentifiesIt() {
+        val stereoOnly = analyzeMultichannelRms(activeChannels = setOf(0, 1))
+        val dominantLfe = analyzeMultichannelRms(
+            activeChannels = setOf(0, 1),
+            lfeAmplitude = 30_000,
+            // 5.1: FL | FR | FC | LFE | BL | BR.
+            channelMask = 0xFC,
+        )
+
+        assertEquals(
+            "LFE must not dominate the analysis downmix",
+            stereoOnly,
+            dominantLfe,
+            stereoOnly * 0.02,
+        )
     }
 
     @Test

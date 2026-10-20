@@ -495,10 +495,13 @@ AutomixTrackFeatures automixMergeSegments({
   var tailBpmConfidence = 0.0;
   double? tailBeatOffsetMs;
   double? tailDownbeatOffsetMs;
-  for (final s
-      in tailSegmentAnalyzed
-          ? segments.reversed
-          : const <AutomixSegmentFeatures>[]) {
+  // Only the last (tail) window may publish the exit grid. Falling back to
+  // middle/head windows here would attach a valid phase and confidence to a
+  // completely different part of the file when the tail tempo is unusable.
+  final exitWindow =
+      tailSegmentAnalyzed && segments.isNotEmpty ? segments.last : null;
+  if (exitWindow != null) {
+    final s = exitWindow;
     if (s.endBpm != null && s.endBpmConfidence >= 0.35) {
       tailBpm = bpm == null
           ? s.endBpm!
@@ -512,23 +515,21 @@ AutomixTrackFeatures automixMergeSegments({
       }
       // This phrase phase was estimated with whole-window tempo. Do not pair
       // it with a local exit BPM.
-      break;
+    } else if (s.bpm != null && s.bpmConfidence >= 0.20) {
+      tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
+      final tailConfidence = s.tailBpmConfidence;
+      tailBpmConfidence = tailConfidence.isFinite &&
+              tailConfidence >= 0 &&
+              tailConfidence <= 1
+          ? tailConfidence
+          : 0.0;
+      if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
+        tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
+      }
+      if (s.downbeatOffsetMs != null && s.bpmConfidence >= 0.25) {
+        tailDownbeatOffsetMs = s.startSeconds * 1000.0 + s.downbeatOffsetMs!;
+      }
     }
-    if (s.bpm == null || s.bpmConfidence < 0.20) continue;
-    tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
-    final tailConfidence = s.tailBpmConfidence;
-    tailBpmConfidence = tailConfidence.isFinite &&
-            tailConfidence >= 0 &&
-            tailConfidence <= 1
-        ? tailConfidence
-        : 0.0;
-    if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
-      tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
-    }
-    if (s.downbeatOffsetMs != null && s.bpmConfidence >= 0.25) {
-      tailDownbeatOffsetMs = s.startSeconds * 1000.0 + s.downbeatOffsetMs!;
-    }
-    break;
   }
 
   var analyzedSeconds = 0.0;

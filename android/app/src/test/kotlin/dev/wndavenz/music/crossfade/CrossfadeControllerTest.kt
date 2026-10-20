@@ -348,11 +348,47 @@ class CrossfadeControllerTest {
         assertFalse(ctrl.promotionTriggered)
         assertNull(ctrl.promotionOwner)
         verify(external).volume = 0.9f
+        // The promoted deck was left at a partial fade-in volume; the abort
+        // must restore it as part of the cancel cleanup.
+        verify(mockStandbyPlayer, atLeastOnce()).volume = 0.9f
+        verify(mockActivePlayer, atLeastOnce()).volume = 0.9f
+        // Both non-active decks are stopped and removed from their timelines,
+        // otherwise the aborted promotion keeps producing ghost audio.
+        verify(mockActivePlayer).pause()
+        verify(mockActivePlayer).stop()
+        verify(mockActivePlayer).clearMediaItems()
+        verify(mockStandbyPlayer).pause()
+        verify(mockStandbyPlayer).stop()
+        verify(mockStandbyPlayer).clearMediaItems()
         verify(mockPreloadManager).resetPreloadedIndex()
         assertEquals(1, rebuilds)
         assertEquals(1, crossfadeCancelledCalls)
         assertTrue("abort resets promoted deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockStandbyPlayer))
         assertTrue("abort resets outgoing deck AutoMix tempo", resetAutoMixTempoMultiplierPlayers.contains(mockActivePlayer))
+    }
+
+    @Test fun `C14 abort keeps the newly active outgoing deck and stops standby`() {
+        val ctrl = makeControllerWithImmediateTrigger(volumeBeforeDuck = 0.8f)
+        ctrl.maybeCrossfadeOut()
+        assertTrue(ctrl.crossfadeInProgress)
+
+        pendingHandlerTasks.removeLast().run()
+        assertTrue("fade tick did not schedule its successor", pendingHandlerTasks.isNotEmpty())
+
+        // External takeover selected the original outgoing deck again.
+        activePlayerState = mockActivePlayer
+        testClockMs += 1_000L
+        pendingHandlerTasks.removeLast().run()
+
+        assertFalse(ctrl.crossfadeInProgress)
+        verify(mockActivePlayer, atLeastOnce()).volume = 0.8f
+        verify(mockStandbyPlayer, atLeastOnce()).volume = 0.8f
+        verify(mockStandbyPlayer).pause()
+        verify(mockStandbyPlayer).stop()
+        verify(mockStandbyPlayer).clearMediaItems()
+        verify(mockActivePlayer, never()).pause()
+        verify(mockActivePlayer, never()).stop()
+        verify(mockActivePlayer, never()).clearMediaItems()
     }
 
     @Test fun `C12 fade completion lands on full volume without cancellation`() {

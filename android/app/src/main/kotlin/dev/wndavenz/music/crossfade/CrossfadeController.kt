@@ -781,6 +781,18 @@ class CrossfadeController(
                     prewarmTriggered      = false
                     promotionOwner        = null
                     crossfadeFadeRunnable = null
+                    // Stop both decks that no longer own playback. If the
+                    // takeover selected the outgoing deck again, keep that one
+                    // alive and stop only the promoted standby (and vice versa
+                    // for any external player). This prevents ghost/double
+                    // audio after an external takeover mid-fade.
+                    val activeDeck = getActivePlayer()
+                    for (deck in listOf(oldPlayer, newPlayer)) {
+                        if (deck === activeDeck) continue
+                        try { deck.pause() } catch (_: Exception) {}
+                        try { deck.stop() } catch (_: Exception) {}
+                        try { deck.clearMediaItems() } catch (_: Exception) {}
+                    }
                     setAutoMixBassGain(newPlayer, 1f)
                     setAutoMixBassGain(oldPlayer, 1f)
                     setAutoMixMidGain(newPlayer, 1f)
@@ -796,12 +808,16 @@ class CrossfadeController(
                     setAutoMixTailFilter(oldPlayer, 1f)
                     setAutoMixFadeGain(newPlayer, 1f)
                     setAutoMixFadeGain(oldPlayer, 1f)
-                    // A mid-fade abort is a cancel: restore the new active
-                    // deck's volume, drop the preloaded index that belonged to
+                    // A mid-fade abort is a cancel: restore BOTH deck volumes
+                    // (the promoted deck may have been left at a partial
+                    // fade-in value), drop the preloaded index that belonged to
                     // the aborted promotion, repair a promoted one-item
                     // timeline, and let the service drain any deferred AutoMix
                     // target update instead of leaving it pending forever.
-                    getActivePlayer()?.volume = getVolumeBeforeDuck().coerceIn(0f, 1f)
+                    val restoredVolume = getVolumeBeforeDuck().coerceIn(0f, 1f)
+                    oldPlayer.volume = restoredVolume
+                    newPlayer.volume = restoredVolume
+                    activeDeck?.volume = restoredVolume
                     preloadManager.resetPreloadedIndex()
                     rebuildPromotedQueue()
                     onCrossfadeCancelled()

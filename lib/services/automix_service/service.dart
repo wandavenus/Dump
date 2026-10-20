@@ -717,14 +717,43 @@ class AutomixService {
           fadeSeconds,
           targets,
         );
+        if (!automixHasUsableTransitionTargets(targets)) {
+          // Same-ID pairs and queues without a next track have no AutoMix cue.
+          // Keep the ordinary crossfade: disarm native, restore the user
+          // duration, and never arm the limiter/tracker for an empty plan.
+          if (signature != _lastNativeSignature) {
+            final cleared = await _clearAutoMixTransition(generation);
+            if (!_isAutoMixGenerationCurrent(generation)) return;
+            if (!cleared) {
+              _scheduleReplanRetry();
+              return;
+            }
+            _lastNativeSignature = signature;
+            LogService.log(
+              'Automix',
+              'No usable AutoMix pair; ordinary crossfade retained',
+            );
+          }
+          _replanRetryCount = 0;
+          return;
+        }
         if (signature == _lastNativeSignature) {
           // Native already holds this exact deck plan (only the far end of the
           // window changed) — re-pushing it would rebuild the standby decoder.
           _replanRetryCount = 0;
           return;
         }
-        await _engageCrossfade(fadeSeconds);
+        final engaged = await _engageCrossfade(fadeSeconds);
         if (!_isAutoMixGenerationCurrent(generation)) return;
+        if (!engaged) {
+          // Never tell native to arm targets whose crossfade engagement
+          // failed: Native would enable AutoMix DSP/tracking while Dart still
+          // reports an inactive session.
+          await _clearAutoMixTransition(generation);
+          if (!_isAutoMixGenerationCurrent(generation)) return;
+          _scheduleReplanRetry();
+          return;
+        }
         await AudioService.setAutomixTransition(
           enabled: true,
           targets: targets,
@@ -1464,18 +1493,28 @@ class AutomixService {
           : (settings.value.crossfadeBeats * 60.0 / firstBpm)
                 .clamp(2.0, 16.0)
                 .toDouble();
-      // Side effects begin here. If a later channel operation throws while this
-      // generation still owns the session, the catch path clears the partial
-      // transition and restores the user's crossfade.
-      sideEffectsStarted = true;
-      await _engageCrossfade(fadeSeconds);
-      if (!_isAutoMixGenerationCurrent(generation)) return -1;
       final targets = automixImmediateTransitionTargets(
         _buildNativeTargets(
           sequencedFeatures.first,
           sequencedFeatures.skip(1).take(_targetHorizon).toList(growable: false),
         ),
       );
+      if (!automixHasUsableTransitionTargets(targets)) {
+        // Same-ID or single-track queues cannot arm AutoMix. Leave the current
+        // playback and crossfade untouched instead of starting a session with
+        // no usable cue.
+        await _clearAutoMixTransition(generation);
+        return -1;
+      }
+      // Side effects begin here. If a later channel operation throws while this
+      // generation still owns the session, the catch path clears the partial
+      // transition and restores the user's crossfade.
+      sideEffectsStarted = true;
+      if (!await _engageCrossfade(fadeSeconds)) {
+        await _clearAutoMixTransition(generation);
+        return -1;
+      }
+      if (!_isAutoMixGenerationCurrent(generation)) return -1;
       await AudioService.setAutomixTransition(
         enabled: true,
         targets: targets,
@@ -1545,7 +1584,31 @@ class AutomixService {
     await _restoreCrossfade();
   }
 
-  static Future<void> _engageCrossfade(double seconds) async {
+  /// Disarms AutoMix in native and restores the user's crossfade without
+  /// touching [automixEnabled]. Used for empty/same-ID plans and failed
+  /// engagements before the native transition is armed.
+  static Future<bool> _clearAutoMixTransition(int generation) async {
+    if (!_isAutoMixGenerationCurrent(generation)) return false;
+    automixActive.value = false;
+    _lastNativeSignature = null;
+    var cleared = true;
+    try {
+      await AudioService.setAutomixTransition(
+        enabled: false,
+        targets: const <Map<String, Object?>>[],
+      );
+    } on Object catch (e) {
+      cleared = false;
+      LogService.warn('Automix', 'native transition disarm failed: $e');
+    }
+    if (!_isAutoMixGenerationCurrent(generation)) return false;
+    final restored = await _restoreCrossfade();
+    return cleared && restored;
+  }
+
+  /// Returns true only when the user's crossfade was actually replaced and
+  /// AutoMix is engaged. Callers must clear native targets on false.
+  static Future<bool> _engageCrossfade(double seconds) async {
     final generation = _automixGeneration;
     try {
       final current = AudioEffectsService.crossfadeDuration.value;
@@ -1556,21 +1619,24 @@ class AutomixService {
         // disableAutomix always returns to the user's real preference.
         _savedCrossfade ??= current.toDouble();
         final prefs = await SharedPreferences.getInstance();
-        if (!_isAutoMixGenerationCurrent(generation)) return;
+        if (!_isAutoMixGenerationCurrent(generation)) return false;
         await prefs.setDouble('automixSavedCrossfade', _savedCrossfade!);
-        if (!_isAutoMixGenerationCurrent(generation)) return;
+        if (!_isAutoMixGenerationCurrent(generation)) return false;
         await AudioEffectsService.setCrossfade(seconds);
-        if (!_isAutoMixGenerationCurrent(generation)) return;
+        if (!_isAutoMixGenerationCurrent(generation)) return false;
       }
       automixActive.value = true;
+      return true;
     } on Object catch (e) {
+      automixActive.value = false;
       LogService.warn('Automix', 'crossfade engage failed: $e');
+      return false;
     }
   }
 
-  static Future<void> _restoreCrossfade() async {
+  static Future<bool> _restoreCrossfade() async {
     final saved = _savedCrossfade;
-    if (saved == null) return;
+    if (saved == null) return true;
     try {
       final prefs = await SharedPreferences.getInstance();
       if (AudioEffectsService.bitPerfectMode.value) {
@@ -1588,9 +1654,11 @@ class AutomixService {
       }
       await prefs.remove('automixSavedCrossfade');
       _savedCrossfade = null;
+      return true;
     } on Object catch (e) {
       // Retain the in-memory value so a later disable/recovery can retry.
       LogService.warn('Automix', 'crossfade restore failed: $e');
+      return false;
     }
   }
 
@@ -1661,10 +1729,11 @@ class AutomixService {
     return _segmentSeconds;
   }
 
-  /// Decodes one bounded window of [path] and returns its features plus the
-  /// decoded file length. Returns null when the file cannot be analyzed
-  /// (decoder failure, busy scanner).
-  static Future<(AutomixSegmentFeatures, double)?> _analyzeWindow(
+  /// Decodes one bounded window of [path] and returns its features, the
+  /// decoded file length, and whether the decoder reached actual EOF inside
+  /// this window. Returns null when the file cannot be analyzed (decoder
+  /// failure, busy scanner).
+  static Future<(AutomixSegmentFeatures, double, bool)?> _analyzeWindow(
     String path,
     double startSeconds,
     double maxSeconds,
@@ -1700,7 +1769,10 @@ class AutomixService {
             rawFileSeconds > 0
         ? rawFileSeconds
         : 0.0;
-    return (segment, fileSeconds);
+    // Older native bridges do not report reachedEof. Treat that as unknown,
+    // not as proof that this window reached the real end of the file.
+    final reachedEof = res['reachedEof'] == true;
+    return (segment, fileSeconds, reachedEof);
   }
 
   /// Head / middle / tail windows covering the whole file, ordered by position.
@@ -1720,7 +1792,7 @@ class AutomixService {
     var head = await _analyzeWindow(song.path, 0, windowSeconds);
     if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
 
-    double resolvedDuration((AutomixSegmentFeatures, double) result) {
+    double resolvedDuration((AutomixSegmentFeatures, double, bool) result) {
       final reported = result.$2;
       if (reported.isFinite && reported > 0) return reported;
       if (mediaDuration.isFinite && mediaDuration > 0) return mediaDuration;
@@ -1736,23 +1808,22 @@ class AutomixService {
 
     // MediaStore duration can be absent or stale. Once the decoder reports its
     // actual duration, correct the first window before choosing the tail so the
-    // committed windows never overlap. In the rare unknown-duration case this
-    // repeats the head analysis once with the correct bounded window.
-    final actualWindowSeconds = analysisWindowSecondsForDuration(fileSeconds);
-    if (actualWindowSeconds != windowSeconds) {
+    // committed windows never overlap. Repeat until the window size is stable
+    // (bounded) so a decoder that reports a different duration on each open
+    // cannot leave the stored head from an older window size.
+    for (var attempt = 1; attempt < 3; attempt++) {
+      final actualWindowSeconds = analysisWindowSecondsForDuration(fileSeconds);
+      if (actualWindowSeconds == windowSeconds) break;
       windowSeconds = actualWindowSeconds;
       head = await _analyzeWindow(song.path, 0, windowSeconds);
       if (head == null) return (const <AutomixSegmentFeatures>[], 0.0, false);
       fileSeconds = resolvedDuration(head);
       if (fileSeconds <= 0) return ([head.$1], fileSeconds, false);
-      // Recalculate once more if decoder duration differs from the initial
-      // media estimate; window size remains bounded and must fit both halves.
-      windowSeconds = analysisWindowSecondsForDuration(fileSeconds);
     }
 
     final segments = <AutomixSegmentFeatures>[head.$1];
     if (fileSeconds <= windowSeconds) {
-      return (segments, fileSeconds, true);
+      return (segments, fileSeconds, head.$3);
     }
 
     var tailAnalyzed = false;
@@ -1765,7 +1836,16 @@ class AutomixService {
       );
       if (tail != null) {
         segments.add(tail.$1);
-        tailAnalyzed = true;
+        // A full tail buffer alone does not prove this is the real EOF when
+        // container duration is stale. Only publish the exit grid when the
+        // decoder actually reached End-Of-Stream inside this window.
+        tailAnalyzed = tail.$3;
+        if (!tailAnalyzed) {
+          LogService.verbose(
+            'Automix',
+            'tail window did not reach EOF for ${song.id}; keeping it partial',
+          );
+        }
       }
     }
 
