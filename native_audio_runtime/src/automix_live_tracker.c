@@ -236,6 +236,45 @@ static double normalized_correlation(
   return denominator > 1e-12 ? numerator / denominator : 0.0;
 }
 
+// Sparse onset trains can make the two-beat autocorrelation lag outscore the
+// one-beat lag: the integer lag grid and the finite-window normalization both
+// favor the longer lag when clicks alternate between frame phases. Measure the
+// typical spacing of strong onsets near half the winning period; a real pulse
+// at the winning period (e.g. a 70-75 BPM track) has no onsets at that spacing.
+static double onset_interval_near_half_period(
+    const NarLiveTracker* tracker, int32_t count, double period) {
+  if (count < 8 || !isfinite(period) || period < 4.0) return 0.0;
+  const double half = 0.5 * period;
+  const double low = 0.75 * half;
+  const double high = 1.25 * half;
+  double max_onset = 0.0;
+  for (int32_t age = 0; age < count; ++age) {
+    const double value = history_age(tracker, age);
+    if (value > max_onset) max_onset = value;
+  }
+  if (max_onset < 1e-3) return 0.0;
+  const double threshold = 0.5 * max_onset;
+  int32_t previous = -1;
+  int32_t intervals = 0;
+  double interval_sum = 0.0;
+  for (int32_t age = count - 2; age >= 1; --age) {
+    const double value = history_age(tracker, age);
+    if (value < threshold) continue;
+    if (value <= history_age(tracker, age - 1) ||
+        value < history_age(tracker, age + 1)) continue;
+    if (previous >= 0) {
+      const int32_t interval = previous - age;
+      if ((double)interval >= low && (double)interval <= high) {
+        interval_sum += (double)interval;
+        ++intervals;
+      }
+    }
+    previous = age;
+  }
+  if (intervals < 3) return 0.0;
+  return interval_sum / (double)intervals;
+}
+
 static void estimate_live_beat(int32_t slot) {
   NarLiveTracker* tracker = &g_tracker[slot];
   const int32_t count = tracker->history_count;
@@ -326,6 +365,27 @@ static void estimate_live_beat(int32_t slot) {
     refined_lag = (double)best_lag;
   }
   double candidate_bpm = 60.0 * frames_per_second / refined_lag;
+  // A sparse onset train can win at twice its true beat lag, especially at
+  // startup before a prior exists. If strong onsets repeat near half that lag
+  // and the half-lag correlation is substantial, the winning peak is the
+  // half-tempo octave: restore the faster pulse before the prior locks it in.
+  const double half_onset_interval =
+      onset_interval_near_half_period(tracker, count, refined_lag);
+  if (half_onset_interval > 0.0 && candidate_bpm * 2.0 <= LIVE_MAX_BPM) {
+    const int32_t half_lag = (int32_t)llround(0.5 * refined_lag);
+    double half_score = 0.0;
+    for (int32_t lag = half_lag - 1; lag <= half_lag + 1; ++lag) {
+      if (lag >= min_lag && lag <= max_lag && lag < count / 2 &&
+          scores[lag] > half_score) {
+        half_score = scores[lag];
+      }
+    }
+    const double interval_error =
+        fabs(log(half_onset_interval / (0.5 * refined_lag)));
+    if (half_score >= 0.5 * best_score && interval_error <= 0.12) {
+      candidate_bpm *= 2.0;
+    }
+  }
   if (tracker->bpm >= LIVE_MIN_BPM && tracker->bpm <= LIVE_MAX_BPM &&
       tracker->confidence >= 0.20) {
     const double octave_candidates[] = {
