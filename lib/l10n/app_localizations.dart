@@ -383,7 +383,7 @@ abstract class AppLocalizations {
   /// No description provided for @stereoWidening.
   ///
   /// In en, this message translates to:
-  /// **'Stereo Widening'**
+  /// **'Spatial Audio'**
   String get stereoWidening;
 
   /// No description provided for @loudnessNormalization.
@@ -827,7 +827,7 @@ abstract class AppLocalizations {
   /// No description provided for @equalizerBitPerfect.
   ///
   /// In en, this message translates to:
-  /// **'Pure Audio'**
+  /// **'Pure Playback'**
   String get equalizerBitPerfect;
 
   /// No description provided for @playbackSpeed.
@@ -2603,7 +2603,7 @@ abstract class AppLocalizations {
   /// No description provided for @automixTitle.
   ///
   /// In en, this message translates to:
-  /// **'AutoMix'**
+  /// **'AutoMix (beta)'**
   String get automixTitle;
 
   /// No description provided for @automixDescription.
