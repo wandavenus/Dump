@@ -174,6 +174,19 @@ static float level_age(const NarLiveTracker* tracker, int32_t age) {
   return tracker->level_history[index];
 }
 
+// Fractional-frame onset lookup used by sub-frame phase refinement. Linear
+// interpolation is enough: the envelope is already a smoothed frame RMS.
+static double history_sample(const NarLiveTracker* tracker, double age) {
+  if (age <= 0.0) return (double)history_age(tracker, 0);
+  const int32_t base = (int32_t)age;
+  const double fraction = age - (double)base;
+  if (fraction <= 0.0) return (double)history_age(tracker, base);
+  const double lower = (double)history_age(tracker, base);
+  if (base + 1 >= tracker->history_count) return lower;
+  const double upper = (double)history_age(tracker, base + 1);
+  return lower * (1.0 - fraction) + upper * fraction;
+}
+
 // Coarse section cue: compare the mean frame RMS of the most recent quarter of
 // the history window with the quarter before it. Frame RMS (unlike onset flux)
 // is not dominated by a single level jump, so a build-up reads as a sustained
@@ -280,7 +293,25 @@ static void estimate_live_beat(int32_t slot) {
   }
   if (second_score == -DBL_MAX) second_score = 0.0;
 
-  double candidate_bpm = 60.0 * frames_per_second / best_lag;
+  // Parabolic sub-frame refinement of the autocorrelation peak removes the
+  // integer-lag quantization (at 100 fps the raw grid is 0.6 BPM at 120 BPM).
+  double refined_lag = (double)best_lag;
+  if (best_lag > min_lag && best_lag + 1 <= max_lag &&
+      best_lag + 1 < count / 2) {
+    const double left = scores[best_lag - 1];
+    const double right = scores[best_lag + 1];
+    const double denominator = left - 2.0 * best_score + right;
+    if (fabs(denominator) > 1e-12) {
+      double delta = 0.5 * (left - right) / denominator;
+      if (delta > 1.0) delta = 1.0;
+      if (delta < -1.0) delta = -1.0;
+      refined_lag = (double)best_lag + delta;
+    }
+  }
+  if (!isfinite(refined_lag) || refined_lag <= 0.0) {
+    refined_lag = (double)best_lag;
+  }
+  double candidate_bpm = 60.0 * frames_per_second / refined_lag;
   if (tracker->bpm >= LIVE_MIN_BPM && tracker->bpm <= LIVE_MAX_BPM &&
       tracker->confidence >= 0.20) {
     const double octave_candidates[] = {
@@ -329,7 +360,33 @@ static void estimate_live_beat(int32_t slot) {
       best_phase = phase;
     }
   }
-  tracker->phase_elapsed_ms = (double)best_phase * tracker->frame_samples *
+  // Sub-frame phase: linear interpolation of the onset history around the
+  // integer grid covers the between-frame latency left by the frame clock.
+  double best_phase_fractional = (double)best_phase;
+  if (best_lag > 1) {
+    const double lo = fmax(0.0, (double)best_phase - 0.5);
+    const double hi = fmin((double)best_lag - 0.001, (double)best_phase + 0.5);
+    for (double phase = lo; phase <= hi; phase += 0.05) {
+      double sum = 0.0;
+      for (double age = phase; age < (double)count; age += (double)best_lag) {
+        double aligned = history_sample(tracker, age);
+        if (age >= 1.0) {
+          const double newer = history_sample(tracker, age - 1.0);
+          if (newer > aligned) aligned = newer;
+        }
+        if (age + 1.0 < (double)count) {
+          const double older = history_sample(tracker, age + 1.0);
+          if (older > aligned) aligned = older;
+        }
+        if (aligned > 0.0) sum += aligned;
+      }
+      if (sum > best_grid) {
+        best_grid = sum;
+        best_phase_fractional = phase;
+      }
+    }
+  }
+  tracker->phase_elapsed_ms = best_phase_fractional * tracker->frame_samples *
       1000.0 / tracker->sample_rate;
   tracker->phase_at_estimate_ms = tracker->phase_elapsed_ms;
   const double margin = fmax(0.0, best_score - second_score);
@@ -346,7 +403,7 @@ static void estimate_live_beat(int32_t slot) {
   // accented on-beat kick identifies which recent pulse is the downbeat.
   const double frames_to_ms =
       (double)tracker->frame_samples * 1000.0 / tracker->sample_rate;
-  const double bar_period_ms = (double)best_lag * 4.0 * frames_to_ms;
+  const double bar_period_ms = refined_lag * 4.0 * frames_to_ms;
   double bar_scores[4] = {0.0, 0.0, 0.0, 0.0};
   for (int32_t position = 0; position < 4; ++position) {
     double sum = 0.0;

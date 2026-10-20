@@ -11,12 +11,12 @@ enum { PROFILE_DJ = 0, PROFILE_HARMONIC = 1, PROFILE_ENERGY = 2 };
 // (the same size gate the greedy lookahead uses); smaller sets are already
 // covered exhaustively by the bounded swap scan.
 enum {
-  NAR_PLAN_MAX_PASSES = 6,
-  NAR_PLAN_MAX_SWAP_EVALS = 4000,
-  NAR_PLAN_MAX_INSERT_EVALS = 2000,
-  NAR_PLAN_MAX_REVERSE_EVALS = 1200,
-  NAR_PLAN_MAX_BREACH = 4,
-  NAR_PLAN_POLISH_MIN_TRACKS = 25,
+  NAR_PLAN_MAX_PASSES = 8,
+  NAR_PLAN_MAX_SWAP_EVALS = 6000,
+  NAR_PLAN_MAX_INSERT_EVALS = 3000,
+  NAR_PLAN_MAX_REVERSE_EVALS = 1800,
+  NAR_PLAN_MAX_BREACH = 6,
+  NAR_PLAN_POLISH_MIN_TRACKS = 12,
   // A repeated artist inside this many recent positions is discouraged by the
   // greedy pick. The immediately previous slot is already covered by the
   // variety term inside transition_cost, so the cooldown starts one back.
@@ -193,17 +193,25 @@ static void normalize_energy(const double* rows, int32_t count,
     const double lufs = feature(rows, i, NAR_AUTOMIX_LOUDNESS_LUFS);
     double value = NAN;
     if (isfinite(rms)) {
-      const double rms_n = clamp01((rms + 30.0) / 24.0);
-      const double centroid_n = isfinite(centroid)
-          ? clamp01((centroid - 400.0) / 3600.0) : 0.5;
-      const double onset_n = isfinite(onset)
-          ? clamp01((onset - 0.5) / 5.5) : 0.5;
-      value = 0.5 * rms_n + 0.25 * centroid_n + 0.25 * onset_n;
+      double weighted = 0.5 * clamp01((rms + 30.0) / 24.0);
+      double weight = 0.5;
+      if (isfinite(centroid)) {
+        weighted += 0.25 * clamp01((centroid - 400.0) / 3600.0);
+        weight += 0.25;
+      }
+      if (isfinite(onset)) {
+        weighted += 0.25 * clamp01((onset - 0.5) / 5.5);
+        weight += 0.25;
+      }
+      value = weighted / weight;
     } else if (isfinite(lufs)) {
-      const double lufs_n = clamp01((lufs + 24.0) / 18.0);
-      const double onset_n = isfinite(onset)
-          ? clamp01((onset - 0.5) / 5.5) : 0.25;
-      value = 0.75 * lufs_n + 0.25 * onset_n;
+      double weighted = 0.75 * clamp01((lufs + 24.0) / 18.0);
+      double weight = 0.75;
+      if (isfinite(onset)) {
+        weighted += 0.25 * clamp01((onset - 0.5) / 5.5);
+        weight += 0.25;
+      }
+      value = weighted / weight;
     }
     raw[i] = value;
     if (isfinite(value)) present[present_count++] = value;
@@ -476,11 +484,36 @@ static void add_candidate_slot(int32_t slot, const TempoSlot* slots,
   if (!played[index] && index != exclude_index) candidates[index] = 1;
 }
 
+static int32_t candidate_count(const uint8_t* candidates, int32_t count) {
+  int32_t total = 0;
+  for (int32_t i = 0; i < count; ++i) total += candidates[i] != 0;
+  return total;
+}
+
+static double candidate_seam_tempo(const double* rows, int32_t index) {
+  const double start = feature(rows, index, NAR_AUTOMIX_START_BPM);
+  const double start_confidence =
+      feature(rows, index, NAR_AUTOMIX_START_BPM_CONFIDENCE);
+  if (isfinite(start) && start > 0.0 && isfinite(start_confidence) &&
+      start_confidence >= 0.35 && start_confidence <= 1.0) {
+    return start;
+  }
+  const double end = feature(rows, index, NAR_AUTOMIX_TAIL_BPM);
+  const double end_confidence =
+      feature(rows, index, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
+  if (isfinite(end) && end > 0.0 && isfinite(end_confidence) &&
+      end_confidence >= 0.35 && end_confidence <= 1.0) {
+    return end;
+  }
+  return NAN;
+}
+
 static void candidate_pool(int32_t current, const TempoSlot* slots,
                            int32_t count, const uint8_t* played,
                            int32_t exclude_index, const int64_t* song_ids,
-                           const double* rows, double median_bpm,
-                           uint8_t* candidates) {
+                           const double* rows, const int32_t* keys,
+                           const double* energies, int32_t profile,
+                           double median_bpm, uint8_t* candidates) {
   memset(candidates, 0, (size_t)count);
   int32_t slot = 0;
   while (slot < count && slots[slot].index != current) ++slot;
@@ -492,11 +525,17 @@ static void candidate_pool(int32_t current, const TempoSlot* slots,
   }
 
   const double bpm = feature(rows, current, NAR_AUTOMIX_BPM);
-  if (isfinite(bpm) && bpm > 0.0) {
-    double anchors[6] = {bpm, bpm / 2.0, bpm * 2.0,
-                         NAN, NAN, NAN};
+  const double tail_bpm = feature(rows, current, NAR_AUTOMIX_TAIL_BPM);
+  const double tail_confidence =
+      feature(rows, current, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
+  const double exit_bpm = isfinite(tail_bpm) && tail_bpm > 0.0 &&
+          isfinite(tail_confidence) && tail_confidence >= 0.35
+      ? tail_bpm : bpm;
+  const double alternate = feature(rows, current, NAR_AUTOMIX_ALTERNATE_BPM);
+  if (isfinite(exit_bpm) && exit_bpm > 0.0) {
+    double anchors[7] = {exit_bpm, exit_bpm / 2.0, exit_bpm * 2.0,
+                         NAN, NAN, NAN, NAN};
     int32_t anchor_count = 3;
-    const double alternate = feature(rows, current, NAR_AUTOMIX_ALTERNATE_BPM);
     if (isfinite(alternate) && alternate > 0.0) {
       anchors[anchor_count++] = alternate;
       anchors[anchor_count++] = alternate / 2.0;
@@ -513,8 +552,78 @@ static void candidate_pool(int32_t current, const TempoSlot* slots,
                            exclude_index, candidates);
       }
     }
+
+    // A candidate may have an unusual whole-window BPM but a perfectly
+    // matched local intro/exit tempo. Add those seam-aware candidates instead
+    // of trusting the single median BPM slot.
+    for (int32_t i = 0; i < count; ++i) {
+      if (played[i] || i == exclude_index || candidates[i]) continue;
+      const double seam = candidate_seam_tempo(rows, i);
+      if (!isfinite(seam) || seam <= 0.0) continue;
+      if (tempo_cost(exit_bpm, alternate, seam, NAN, 0.08) <= 0.25) {
+        candidates[i] = 1;
+      }
+    }
   }
-  (void)song_ids;
+
+  // Unknown-tempo tracks are still usable: they are placed at the median for
+  // the slot search, but a small deterministic quota keeps them from being
+  // silently excluded when the current tempo sits far from that median.
+  int32_t unknown_added = 0;
+  for (int32_t i = 0; i < count && unknown_added < 2; ++i) {
+    if (played[i] || i == exclude_index || candidates[i]) continue;
+    const double candidate_bpm = feature(rows, i, NAR_AUTOMIX_BPM);
+    if (isfinite(candidate_bpm)) continue;
+    candidates[i] = 1;
+    ++unknown_added;
+  }
+
+  // Profile-aware diversity: harmonic sets need an occasional key-compatible
+  // candidate outside the tempo window; energy sets need a near-level bridge.
+  // These are additive candidates, not replacements for the tempo window.
+  if (profile == PROFILE_HARMONIC) {
+    const int32_t number = key_field(keys, current, 0);
+    const int32_t mode = key_field(keys, current, 1);
+    for (int32_t i = 0; i < count; ++i) {
+      if (played[i] || i == exclude_index || candidates[i]) continue;
+      const int32_t candidate_number = key_field(keys, i, 0);
+      const int32_t candidate_mode = key_field(keys, i, 1);
+      if (number <= 0 || candidate_number <= 0) continue;
+      if (camelot_cost(number, mode, candidate_number, candidate_mode) <= 0.45) {
+        candidates[i] = 1;
+      }
+    }
+  } else if (profile == PROFILE_ENERGY) {
+    const double current_energy = energies[current];
+    for (int32_t i = 0; i < count; ++i) {
+      if (played[i] || i == exclude_index || candidates[i]) continue;
+      if (fabs(energies[i] - current_energy) <= 0.18) candidates[i] = 1;
+    }
+  }
+
+  // Hard floor: never let a pathological tempo distribution starve the
+  // search. Fill up to eight candidates by nearest slot distance, preserving
+  // deterministic song-id tie ordering from the sorted slot list.
+  while (candidate_count(candidates, count) < 8) {
+    int32_t best = -1;
+    double best_distance = INFINITY;
+    const double target = slots[slot].tempo;
+    for (int32_t s = 0; s < count; ++s) {
+      const int32_t index = slots[s].index;
+      if (played[index] || index == exclude_index || candidates[index]) {
+        continue;
+      }
+      const double distance = fabs(slots[s].tempo - target);
+      if (distance < best_distance ||
+          (distance == best_distance && best >= 0 &&
+           slots[s].song_id < slots[best].song_id)) {
+        best_distance = distance;
+        best = s;
+      }
+    }
+    if (best < 0) break;
+    candidates[slots[best].index] = 1;
+  }
   (void)median_bpm;
 }
 
@@ -544,7 +653,10 @@ static double artist_cooldown_cost(const int32_t* plan, int32_t plan_count,
                                    int32_t candidate_group,
                                    int32_t avoid_artist_repeat) {
   if (candidate_group <= 0) return 0.0;
-  const double base = avoid_artist_repeat ? 0.35 : 0.15;
+  // Keep a cooldown repeat cheaper than an immediate same-artist variety
+  // penalty (0.55 * 0.15 = 0.0825), otherwise the optimizer would prefer two
+  // adjacent repeats over one repeat a few slots later.
+  const double base = avoid_artist_repeat ? 0.12 : 0.05;
   double penalty = 0.0;
   for (int32_t back = 2; back <= NAR_PLAN_ARTIST_COOLDOWN; ++back) {
     const int32_t index = plan_count - back;
@@ -570,7 +682,7 @@ static int32_t pick_next(int32_t current, int32_t step_index,
                          uint8_t* next_candidates, const int32_t* plan,
                          int32_t plan_count) {
   candidate_pool(current, slots, total_steps, played, -1, song_ids, rows,
-                 median_bpm, candidates);
+                 keys, energies, profile, median_bpm, candidates);
   int32_t scored_count = 0;
   for (int32_t i = 0; i < total_steps; ++i) {
     if (!candidates[i]) continue;
@@ -614,7 +726,8 @@ static int32_t pick_next(int32_t current, int32_t step_index,
     double score = scored[k].cost;
     double min_next = INFINITY;
     candidate_pool(candidate, slots, total_steps, played, candidate,
-                   song_ids, rows, median_bpm, next_candidates);
+                   song_ids, rows, keys, energies, profile, median_bpm,
+                   next_candidates);
     for (int32_t next = 0; next < total_steps; ++next) {
       if (!next_candidates[next] || played[next] || next == current) continue;
       // plan_count + 1 because the candidate will occupy one more slot than
@@ -658,9 +771,17 @@ static double link_cost(const int32_t* plan, int32_t from, int32_t to,
                         const int32_t* keys, const double* energies,
                         const EnergyArc* arc, int32_t profile, double tolerance,
                         int32_t avoid_artist_repeat, int32_t harmonic_filter) {
+  // `to` is also the number of slots before this candidate, exactly what the
+  // cooldown helper needs to inspect the recent artist window. Adding it here
+  // makes path/local-search costs agree with the greedy pick, instead of
+  // applying the cooldown only while building the initial sequence.
   return transition_cost(
-      plan[from], plan[to], to, count, song_ids, artist_groups, rows, keys,
-      energies, arc, profile, tolerance, avoid_artist_repeat, harmonic_filter);
+             plan[from], plan[to], to, count, song_ids, artist_groups, rows,
+             keys, energies, arc, profile, tolerance, avoid_artist_repeat,
+             harmonic_filter) +
+      0.05 * artist_cooldown_cost(plan, to, artist_groups,
+                                  artist_groups[plan[to]],
+                                  avoid_artist_repeat);
 }
 
 // Sum of the path links (p-1, p) for p in [first_link, last_link]. Used by

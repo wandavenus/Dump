@@ -1305,6 +1305,60 @@ void main() {
       expect(merged.bpmConfidence, greaterThan(0.3));
     });
 
+    test('derives head/tail structure from seam-local energy quarters', () {
+      final merged = automixMergeSegments(
+        songId: 19,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.9,
+            quarters: const <double>[-40, -40, -10, -8],
+          ),
+          seg(
+            240,
+            bpm: 120,
+            conf: 0.9,
+            quarters: const <double>[-9, -8, -10, -8],
+          ),
+        ],
+      );
+      expect(merged.structureRegion, 1);
+      expect(merged.structureConfidence, greaterThanOrEqualTo(0.5));
+      expect(merged.tailStructureRegion, 5);
+      expect(merged.tailStructureConfidence, greaterThanOrEqualTo(0.5));
+    });
+
+    test('seam-local section cues override whole-window structure', () {
+      final merged = automixMergeSegments(
+        songId: 20,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.9,
+            dropCueMs: 20000,
+            dropConfidence: 0.9,
+            structureRegion: 1,
+            structureConfidence: 0.9,
+            quarters: const <double>[-40, -40, -10, -8],
+          ),
+          seg(
+            240,
+            bpm: 120,
+            conf: 0.9,
+            breakdownCueMs: 100000,
+            breakdownConfidence: 0.9,
+            structureRegion: 5,
+            structureConfidence: 0.9,
+            quarters: const <double>[-9, -8, -10, -8],
+          ),
+        ],
+      );
+      expect(merged.structureRegion, 3);
+      expect(merged.tailStructureRegion, 4);
+    });
+
     test('uses edge-local BPM, confidence, and phase at the mix seam', () {
       final merged = automixMergeSegments(
         songId: 18,
