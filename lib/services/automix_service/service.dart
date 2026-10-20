@@ -1821,9 +1821,16 @@ class AutomixService {
       if (fileSeconds <= 0) return ([head.$1], fileSeconds, false);
     }
 
-    final segments = <AutomixSegmentFeatures>[head.$1];
+    // Reassignment inside the retry loop prevents Dart from retaining the
+    // earlier null promotion after the loop. Revalidate before reading the
+    // resolved head so a failed analysis never reaches tuple access.
+    final resolvedHead = head;
+    if (resolvedHead == null) {
+      return (const <AutomixSegmentFeatures>[], 0.0, false);
+    }
+    final segments = <AutomixSegmentFeatures>[resolvedHead.$1];
     if (fileSeconds <= windowSeconds) {
-      return (segments, fileSeconds, head.$3);
+      return (segments, fileSeconds, resolvedHead.$3);
     }
 
     var tailAnalyzed = false;
