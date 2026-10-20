@@ -424,6 +424,7 @@ class CrossfadeController(
                 "CrossfadeController.cancel(): mid-fade cancel resetVolume=$resetVolume",
                 getActivePlayer())
             promotionOwner?.let { old ->
+                old.volume = 0f
                 try { old.pause()           } catch (_: Exception) {}
                 try { old.stop()            } catch (_: Exception) {}
                 try { old.clearMediaItems() } catch (_: Exception) {}
@@ -789,6 +790,7 @@ class CrossfadeController(
                     val activeDeck = getActivePlayer()
                     for (deck in listOf(oldPlayer, newPlayer)) {
                         if (deck === activeDeck) continue
+                        deck.volume = 0f
                         try { deck.pause() } catch (_: Exception) {}
                         try { deck.stop() } catch (_: Exception) {}
                         try { deck.clearMediaItems() } catch (_: Exception) {}
@@ -882,6 +884,11 @@ class CrossfadeController(
                     setActiveQueueIndex(nextIndex) 
                     setAutoMixFadeGain(newPlayer, 1f)
                     newPlayer.volume = targetVol
+                    // Silence the outgoing deck before tearing its output down.
+                    // The last fade tick is already near zero, but a buffered
+                    // tail must not reach the mixer at a non-zero volume when
+                    // pause/stop discards it.
+                    oldPlayer.volume = 0f
 
                     // Stop and release the old player's audio resources
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: oldPlayer.pause() START", oldPlayer)
@@ -905,6 +912,12 @@ class CrossfadeController(
                     switchSessionPlayer(newPlayer)
                     CrossfadeTimelineLogger.stamp(
                         "runEqualPowerFade: ActivePlayerProxy.switchTo(newPlayer) DONE [2nd call]", newPlayer)
+                    // The proxy may migrate the wrapped player's volume when the
+                    // active player actually changes. Promotion normally already
+                    // happened in beginCrossfade (so this is a no-op), but keep
+                    // the promoted deck at the requested level in case this call
+                    // had to perform the switch after the outgoing deck was muted.
+                    newPlayer.volume = targetVol
                    
                     crossfadeInProgress   = false
                     promotionTriggered    = false

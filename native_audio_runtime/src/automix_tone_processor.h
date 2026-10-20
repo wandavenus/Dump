@@ -33,6 +33,12 @@ typedef struct NarAutomixToneState {
   float true_peak_release_alpha;                        // offset 108
   float true_peak_history[NAR_AUTOMIX_TONE_MAX_CHANNELS][4];  // offset 112
   int32_t true_peak_primed;                             // offset 240
+  // Disabling the limiter must not step the clamp from the active ceiling to
+  // full scale in one sample. These fields ramp the effective ceiling back to
+  // 1.0 and keep limiting until the release gain has settled.
+  float true_peak_ceiling;                              // offset 244
+  int32_t true_peak_release_frames;                     // offset 248
+  float true_peak_release_step;                         // offset 252
 } NarAutomixToneState;
 
 // Configure/reset are lifecycle calls; never call configure concurrently with
@@ -49,8 +55,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_high_gain(
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_fade_gain(
     int32_t stream_slot, float gain);
 // Enables the per-deck true-peak limiter for the given ceiling (0 < ceiling
-// <= 1). A ceiling <= 0 or a non-finite value disables it and leaves the
-// stream bit-transparent. Disabled by default.
+// <= 1). A ceiling <= 0 or a non-finite value starts a short release and then
+// leaves the stream bit-transparent. Disabled by default.
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_true_peak_limit(
     int32_t stream_slot, float ceiling);
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(

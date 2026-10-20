@@ -1190,6 +1190,41 @@ static void test_true_peak_limiter_respects_ceiling(void) {
   assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
 }
 
+static void test_true_peak_limiter_disable_releases_smoothly(void) {
+  const int32_t frames = 48000;
+  float pcm[48000];
+  assert(nar_automix_tone_set_bass_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_high_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_configure(0, 48000, 1) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.95f) == 1);
+  for (int32_t i = 0; i < frames; ++i) pcm[i] = 1.0f;
+  assert(nar_automix_tone_process(pcm, frames, 1, 0) == 1);
+  const float before_disable = pcm[frames - 1];
+  assert(before_disable >= 0.949f && before_disable <= 0.951f);
+
+  // Disabling must not jump from the clamp to the dry signal in one sample;
+  // that step is the end-of-AutoMix click. The ceiling ramps to 1.0 while the
+  // release gain settles, so every adjacent sample stays continuous.
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+  for (int32_t i = 0; i < frames; ++i) pcm[i] = 1.0f;
+  // Drive the release in small blocks so the test covers audio-thread buffer
+  // boundaries, not just a single giant callback.
+  for (int32_t offset = 0; offset < frames; offset += 64) {
+    const int32_t count = (offset + 64 <= frames) ? 64 : frames - offset;
+    assert(nar_automix_tone_process(pcm + offset, count, 1, 0) == 1);
+  }
+  const float first_step = fabsf(pcm[0] - before_disable);
+  assert(first_step < 0.001f);
+  for (int32_t i = 1; i < frames; ++i) {
+    assert(fabsf(pcm[i] - pcm[i - 1]) < 0.005f);
+  }
+  for (int32_t i = frames - 100; i < frames; ++i) {
+    assert(fabsf(pcm[i] - 1.0f) < 1e-6f);
+  }
+}
+
 static void test_true_peak_limiter_catches_intersample_peaks(void) {
   const int32_t frames = 9600;
   float pcm[9600];
@@ -1952,6 +1987,7 @@ int main(void) {
   test_tone_filters_independent_streams();
   test_true_peak_limiter_is_transparent_by_default();
   test_true_peak_limiter_respects_ceiling();
+  test_true_peak_limiter_disable_releases_smoothly();
   test_true_peak_limiter_catches_intersample_peaks();
   test_true_peak_limiter_is_per_stream();
   test_true_peak_limiter_reset_preserves_target();

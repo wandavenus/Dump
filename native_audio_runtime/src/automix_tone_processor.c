@@ -6,6 +6,11 @@
 #include <string.h>
 
 #define NAR_AUTOMIX_TONE_PI 3.14159265358979323846f
+// Release ramp used when the limiter is disabled at the end of an AutoMix.
+#define NAR_AUTOMIX_TONE_TRUE_PEAK_RELEASE_MS 50.0f
+// Once the effective ceiling is back at 1.0, the limiter is disengaged only
+// after its gain is this close to unity, so bypass cannot step the waveform.
+#define NAR_AUTOMIX_TONE_TRUE_PEAK_SETTLED 0.9995f
 
 _Static_assert(offsetof(NarAutomixToneState, low_pass_state) == 0,
                "NEON low-pass state offset changed");
@@ -33,7 +38,13 @@ _Static_assert(offsetof(NarAutomixToneState, true_peak_history) == 112,
                "true-peak history offset changed");
 _Static_assert(offsetof(NarAutomixToneState, true_peak_primed) == 240,
                "true-peak primed offset changed");
-_Static_assert(sizeof(NarAutomixToneState) == 244,
+_Static_assert(offsetof(NarAutomixToneState, true_peak_ceiling) == 244,
+               "true-peak ceiling offset changed");
+_Static_assert(offsetof(NarAutomixToneState, true_peak_release_frames) == 248,
+               "true-peak release frames offset changed");
+_Static_assert(offsetof(NarAutomixToneState, true_peak_release_step) == 252,
+               "true-peak release step offset changed");
+_Static_assert(sizeof(NarAutomixToneState) == 256,
                "true-peak state size changed");
 
 static NarAutomixToneState g_states[NAR_AUTOMIX_TONE_STREAM_COUNT];
@@ -90,6 +101,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_configure(
   state->true_peak_release_alpha =
       1.0f - expf(-1.0f / ((float)sample_rate * 0.050f));
   state->true_peak_primed = 0;
+  state->true_peak_ceiling = 0.0f;
+  state->true_peak_release_frames = 0;
+  state->true_peak_release_step = 0.0f;
   state->sample_rate = sample_rate;
   state->channel_count = channel_count;
   state->configured = 1;
@@ -219,6 +233,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_reset(int32_t stream_slot) {
   memset(state->true_peak_history, 0, sizeof(state->true_peak_history));
   state->true_peak_gain = 1.0f;
   state->true_peak_primed = 0;
+  state->true_peak_ceiling = 0.0f;
+  state->true_peak_release_frames = 0;
+  state->true_peak_release_step = 0.0f;
   return 1;
 }
 
@@ -245,6 +262,24 @@ static float true_peak_frame(const float history[4]) {
   return peak;
 }
 
+// Starts the end-of-overlap release. The ceiling must walk back to 1.0 over
+// the same ~50 ms window as the gain release; jumping straight to bypass would
+// step every sample that the clamp was holding at the AutoMix ceiling.
+static void begin_true_peak_release(NarAutomixToneState* state) {
+  if (state->true_peak_release_frames > 0 ||
+      state->true_peak_ceiling >= 1.0f) {
+    return;
+  }
+  int32_t frames = (int32_t)(
+      (float)state->sample_rate * NAR_AUTOMIX_TONE_TRUE_PEAK_RELEASE_MS /
+          1000.0f +
+      0.5f);
+  if (frames < 1) frames = 1;
+  state->true_peak_release_frames = frames;
+  state->true_peak_release_step =
+      (1.0f - state->true_peak_ceiling) / (float)frames;
+}
+
 // Per-deck safety limiter. The platform mixer is downstream and sums both
 // decks; the AutoMix L1 fade budget (outgoing + incoming <= 1) keeps that sum
 // bounded when each deck's true peak is bounded here. This is a causal
@@ -253,15 +288,24 @@ static float true_peak_frame(const float history[4]) {
 // the per-deck output inside the ceiling.
 static void apply_true_peak_limiter(
     float* interleaved, int32_t frame_count, int32_t channel_count,
-    float ceiling, NarAutomixToneState* state) {
+    float ceiling, int32_t release_ceiling, NarAutomixToneState* state) {
   if (!state->true_peak_primed) {
     memset(state->true_peak_history, 0, sizeof(state->true_peak_history));
     state->true_peak_gain = 1.0f;
+    state->true_peak_ceiling = ceiling;
+    state->true_peak_release_frames = 0;
+    state->true_peak_release_step = 0.0f;
     state->true_peak_primed = 1;
   }
   float gain = state->true_peak_gain;
   const float release = state->true_peak_release_alpha;
+  float effective_ceiling = state->true_peak_ceiling;
   for (int32_t frame = 0; frame < frame_count; ++frame) {
+    if (release_ceiling && state->true_peak_release_frames > 0) {
+      effective_ceiling =
+          fminf(1.0f, effective_ceiling + state->true_peak_release_step);
+      state->true_peak_release_frames--;
+    }
     const size_t base = (size_t)frame * (size_t)channel_count;
     float peak = 0.0f;
     for (int32_t channel = 0; channel < channel_count; ++channel) {
@@ -273,7 +317,8 @@ static void apply_true_peak_limiter(
       const float frame_peak = true_peak_frame(history);
       if (frame_peak > peak) peak = frame_peak;
     }
-    const float desired = peak > ceiling ? ceiling / peak : 1.0f;
+    const float desired =
+        peak > effective_ceiling ? effective_ceiling / peak : 1.0f;
     if (desired < gain) {
       gain = desired;
     } else {
@@ -281,14 +326,22 @@ static void apply_true_peak_limiter(
     }
     if (gain < 0.0f) gain = 0.0f;
     if (gain > 1.0f) gain = 1.0f;
+    if (release_ceiling && state->true_peak_release_frames == 0 &&
+        effective_ceiling >= 1.0f &&
+        gain >= NAR_AUTOMIX_TONE_TRUE_PEAK_SETTLED) {
+      // Release finished. Use unity for the rest of this block so the first
+      // bypassed block cannot inherit a residual gain step.
+      gain = 1.0f;
+    }
     for (int32_t channel = 0; channel < channel_count; ++channel) {
       float sample = interleaved[base + (size_t)channel] * gain;
       if (!isfinite(sample)) sample = 0.0f;
-      sample = fminf(ceiling, fmaxf(-ceiling, sample));
+      sample = fminf(effective_ceiling, fmaxf(-effective_ceiling, sample));
       interleaved[base + (size_t)channel] = sample;
     }
   }
   state->true_peak_gain = gain;
+  state->true_peak_ceiling = effective_ceiling;
 }
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
@@ -370,13 +423,28 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
   }
 
   if (true_peak_ceiling > 0.0f) {
+    // A new or continuing overlap owns the ceiling; cancel any release ramp.
+    state->true_peak_ceiling = true_peak_ceiling;
+    state->true_peak_release_frames = 0;
+    state->true_peak_release_step = 0.0f;
     apply_true_peak_limiter(interleaved, frame_count, channel_count,
-                            true_peak_ceiling, state);
+                            true_peak_ceiling, 0, state);
   } else if (state->true_peak_primed) {
-    // Drop back to a transparent, primed-from-scratch limiter state so a
-    // re-enable cannot reuse a stale gain or history from the previous fade.
-    state->true_peak_primed = 0;
-    state->true_peak_gain = 1.0f;
+    // Do not bypass in place at the end of an AutoMix. Ramp the clamp back to
+    // 1.0 and keep the limiter engaged until its release gain has settled;
+    // then drop to the transparent path without a waveform step.
+    begin_true_peak_release(state);
+    apply_true_peak_limiter(interleaved, frame_count, channel_count,
+                            1.0f, 1, state);
+    if (state->true_peak_release_frames == 0 &&
+        state->true_peak_ceiling >= 1.0f &&
+        state->true_peak_gain >= NAR_AUTOMIX_TONE_TRUE_PEAK_SETTLED) {
+      state->true_peak_primed = 0;
+      state->true_peak_gain = 1.0f;
+      state->true_peak_ceiling = 0.0f;
+      state->true_peak_release_step = 0.0f;
+      memset(state->true_peak_history, 0, sizeof(state->true_peak_history));
+    }
   }
   return 1;
 }

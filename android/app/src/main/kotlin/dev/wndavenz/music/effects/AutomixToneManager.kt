@@ -142,7 +142,7 @@ class AutomixToneAudioProcessor(
         }
     }
 
-    /** True-peak ceiling for this deck; 0 disables the limiter. */
+    /** True-peak ceiling for this deck; 0 starts the native release and then bypasses. */
     fun setTruePeakLimit(ceiling: Float) {
         if (NativeDspAudioProcessor.isLibraryAvailable) {
             nativeSetTruePeakLimit(streamSlot, normalizeTruePeakCeiling(ceiling))
@@ -310,8 +310,8 @@ class AutomixToneManager {
     }
 
     /**
-     * Per-deck true-peak ceiling. A ceiling <= 0 disables the limiter and keeps
-     * the deck bit-transparent outside an AutoMix overlap.
+     * Per-deck true-peak ceiling. A ceiling <= 0 starts the native release and
+     * then keeps the deck bit-transparent outside an AutoMix overlap.
      */
     fun setTruePeakLimit(streamSlot: Int, ceiling: Float) {
         val normalized =
