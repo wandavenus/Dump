@@ -1821,9 +1821,17 @@ class AutomixService {
       if (fileSeconds <= 0) return ([head.$1], fileSeconds, false);
     }
 
-    final segments = <AutomixSegmentFeatures>[head.$1];
+    // The nullable local is reassigned inside the retry loop, so Dart cannot
+    // retain its earlier promotion here. Revalidate the invariant after the
+    // loop before consuming the final head window.
+    final resolvedHead = head;
+    if (resolvedHead == null) {
+      return (const <AutomixSegmentFeatures>[], 0.0, false);
+    }
+
+    final segments = <AutomixSegmentFeatures>[resolvedHead.$1];
     if (fileSeconds <= windowSeconds) {
-      return (segments, fileSeconds, head.$3);
+      return (segments, fileSeconds, resolvedHead.$3);
     }
 
     var tailAnalyzed = false;
