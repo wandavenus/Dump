@@ -187,6 +187,20 @@ static double history_sample(const NarLiveTracker* tracker, double age) {
   return lower * (1.0 - fraction) + upper * fraction;
 }
 
+static double onset_peak(
+    const NarLiveTracker* tracker, double age, int32_t count) {
+  double peak = history_sample(tracker, age);
+  if (age >= 1.0) {
+    const double newer = history_sample(tracker, age - 1.0);
+    if (newer > peak) peak = newer;
+  }
+  if (age + 1.0 < (double)count) {
+    const double older = history_sample(tracker, age + 1.0);
+    if (older > peak) peak = older;
+  }
+  return peak > 0.0 ? peak : 0.0;
+}
+
 // Coarse section cue: compare the mean frame RMS of the most recent quarter of
 // the history window with the quarter before it. Frame RMS (unlike onset flux)
 // is not dominated by a single level jump, so a build-up reads as a sustained
@@ -334,26 +348,20 @@ static void estimate_live_beat(int32_t slot) {
   }
 
   // Beat-phase selection: score every candidate grid phase by the total onset
-  // energy it aligns across the whole history window, allowing ±1 frame of
-  // drift per beat, and publish the most recent beat of the winning grid.
+  // energy it aligns across the whole history window. The grid advances by the
+  // fractional beat period so non-integer tempos do not drift against the
+  // onset history, and the most recent beat of the winning grid is published.
   // A single loud accent or noise spike can no longer hijack the phase the
   // way it could when the latest period's loudest onset won outright.
+  double phase_lag = 60.0 * frames_per_second / candidate_bpm;
+  if (!isfinite(phase_lag) || phase_lag <= 0.0) phase_lag = refined_lag;
   double best_grid = 0.0;
   int32_t best_phase = 0;
-  for (int32_t phase = 0; phase < best_lag && phase < count; ++phase) {
+  const double phase_limit = fmin((double)count, phase_lag);
+  for (int32_t phase = 0; (double)phase < phase_limit; ++phase) {
     double sum = 0.0;
-    for (int32_t age = phase; age < count; age += best_lag) {
-      double aligned = history_age(tracker, age);
-      if (aligned <= 0.0) continue;
-      if (age > 0) {
-        const double newer = history_age(tracker, age - 1);
-        if (newer > aligned) aligned = newer;
-      }
-      if (age + 1 < count) {
-        const double older = history_age(tracker, age + 1);
-        if (older > aligned) aligned = older;
-      }
-      sum += aligned;
+    for (double age = (double)phase; age < (double)count; age += phase_lag) {
+      sum += history_sample(tracker, age);
     }
     if (sum > best_grid) {
       best_grid = sum;
@@ -363,22 +371,13 @@ static void estimate_live_beat(int32_t slot) {
   // Sub-frame phase: linear interpolation of the onset history around the
   // integer grid covers the between-frame latency left by the frame clock.
   double best_phase_fractional = (double)best_phase;
-  if (best_lag > 1) {
+  if (phase_lag > 1.0) {
     const double lo = fmax(0.0, (double)best_phase - 0.5);
-    const double hi = fmin((double)best_lag - 0.001, (double)best_phase + 0.5);
+    const double hi = fmin(phase_lag - 0.001, (double)best_phase + 0.5);
     for (double phase = lo; phase <= hi; phase += 0.05) {
       double sum = 0.0;
-      for (double age = phase; age < (double)count; age += (double)best_lag) {
-        double aligned = history_sample(tracker, age);
-        if (age >= 1.0) {
-          const double newer = history_sample(tracker, age - 1.0);
-          if (newer > aligned) aligned = newer;
-        }
-        if (age + 1.0 < (double)count) {
-          const double older = history_sample(tracker, age + 1.0);
-          if (older > aligned) aligned = older;
-        }
-        if (aligned > 0.0) sum += aligned;
+      for (double age = phase; age < (double)count; age += phase_lag) {
+        sum += history_sample(tracker, age);
       }
       if (sum > best_grid) {
         best_grid = sum;
@@ -396,31 +395,22 @@ static void estimate_live_beat(int32_t slot) {
   if (count < 450) tracker->confidence *= (double)(count - LIVE_MIN_FRAMES) / 150.0;
   tracker->confidence = clamp01(tracker->confidence);
 
-  // Downbeat phase: the pulse train repeats every best_lag frames. Score the
+  // Downbeat phase: the pulse train repeats every phase_lag frames. Score the
   // four beat positions of a 4/4 bar by how much onset energy each position
-  // carries across the whole history window (same ±1 frame tolerance as the
-  // beat grid) and treat the strongest position as the bar start, so an
-  // accented on-beat kick identifies which recent pulse is the downbeat.
+  // carries across the whole history window, with a ±1 frame peak so an accent
+  // that lands between frames still counts, and treat the strongest position
+  // as the bar start. An accented on-beat kick then identifies the downbeat.
   const double frames_to_ms =
       (double)tracker->frame_samples * 1000.0 / tracker->sample_rate;
-  const double bar_period_ms = refined_lag * 4.0 * frames_to_ms;
+  const double bar_period_ms = phase_lag * 4.0 * frames_to_ms;
   double bar_scores[4] = {0.0, 0.0, 0.0, 0.0};
   for (int32_t position = 0; position < 4; ++position) {
     double sum = 0.0;
     int32_t pulse = 0;
-    for (int32_t age = best_phase; age < count; age += best_lag, ++pulse) {
+    for (double age = best_phase_fractional; age < (double)count;
+         age += phase_lag, ++pulse) {
       if (pulse % 4 != position) continue;
-      double aligned = history_age(tracker, age);
-      if (aligned <= 0.0) continue;
-      if (age > 0) {
-        const double newer = history_age(tracker, age - 1);
-        if (newer > aligned) aligned = newer;
-      }
-      if (age + 1 < count) {
-        const double older = history_age(tracker, age + 1);
-        if (older > aligned) aligned = older;
-      }
-      sum += aligned;
+      sum += onset_peak(tracker, age, count);
     }
     bar_scores[position] = sum;
   }
@@ -442,7 +432,8 @@ static void estimate_live_beat(int32_t slot) {
   // that many pulses before the newest beat pulse.
   const int32_t downbeat_pulses_back = best_bar;
   tracker->downbeat_at_estimate_ms =
-      (double)(best_phase + downbeat_pulses_back * best_lag) * frames_to_ms;
+      (best_phase_fractional + (double)downbeat_pulses_back * phase_lag) *
+      frames_to_ms;
   double downbeat_elapsed =
       fmod(tracker->downbeat_at_estimate_ms, bar_period_ms);
   if (!isfinite(downbeat_elapsed) || downbeat_elapsed < 0.0) {
