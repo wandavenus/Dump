@@ -1850,6 +1850,121 @@ static unsigned long long tracker_probe_rand(void) {
   return tracker_probe_state;
 }
 
+typedef struct {
+  float* pcm;
+  int32_t frames;
+  int32_t last_click;
+  int32_t last_accent;
+  int32_t click_count;
+} FractionalClickTrain;
+
+static FractionalClickTrain render_fractional_click_train(
+    double bpm, int32_t accent_every, double min_click_seconds,
+    double end_offset_seconds, int32_t sample_rate) {
+  const double pi = 3.14159265358979323846;
+  const double period_samples = 60.0 * sample_rate / bpm;
+  const int32_t beats = (int32_t)ceil(min_click_seconds * bpm / 60.0);
+  const int32_t frames = (int32_t)llround(
+      (double)beats * period_samples + end_offset_seconds * sample_rate);
+  FractionalClickTrain train = {0};
+  train.pcm = (float*)calloc((size_t)frames * 2u, sizeof(float));
+  assert(train.pcm != NULL);
+  train.frames = frames;
+  train.last_accent = -1;
+  double next_click = 0.0;
+  int32_t burst_start = -10000;
+  int32_t burst_is_accent = 0;
+  int32_t click = 0;
+  for (int32_t n = 0; n < frames; ++n) {
+    if (n == (int32_t)llround(next_click)) {
+      burst_start = n;
+      burst_is_accent = accent_every > 0 && (click % accent_every) == 0;
+      train.last_click = n;
+      if (burst_is_accent) train.last_accent = n;
+      ++click;
+      next_click += period_samples;
+    }
+    const double t = (double)n / sample_rate;
+    double value = 0.01 * sin(2.0 * pi * 300.0 * t);
+    const int32_t offset = n - burst_start;
+    if (offset >= 0 && offset < 48) {
+      const double gain = burst_is_accent ? 0.9 : 0.25;
+      const double frequency = burst_is_accent ? 100.0 : 800.0;
+      value += gain * (1.0 - (double)offset / 48.0) *
+          sin(2.0 * pi * frequency * t);
+    }
+    train.pcm[n * 2] = (float)value;
+    train.pcm[n * 2 + 1] = (float)value;
+  }
+  train.click_count = click;
+  return train;
+}
+
+static double click_train_elapsed_ms(
+    const FractionalClickTrain* train, int32_t onset_sample,
+    int32_t sample_rate) {
+  return (double)(train->frames - 1 - onset_sample) * 1000.0 / sample_rate;
+}
+
+static void run_live_tracker_click_train(
+    const FractionalClickTrain* train, int32_t sample_rate, double* state) {
+  const int32_t chunk_frames = 512;
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  int32_t produced = 0;
+  while (produced < train->frames) {
+    int32_t frames = train->frames - produced;
+    if (frames > chunk_frames) frames = chunk_frames;
+    assert(nar_automix_live_tracker_process(
+               train->pcm + (size_t)produced * 2u, frames, 2, sample_rate,
+               0) == 1);
+    produced += frames;
+  }
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
+static void test_live_tracker_fractional_phase_accuracy(void) {
+  // Fractional-frame periods drift against an integer lag over the 6 s
+  // history, so the published phase must be checked at non-integer tempos.
+  const int32_t sample_rate = 48000;
+  const double bpms[] = {97.5, 110.0, 123.0};
+  const double click_seconds[] = {2.5, 7.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    for (size_t j = 0; j < sizeof(click_seconds) / sizeof(click_seconds[0]);
+         ++j) {
+      FractionalClickTrain train = render_fractional_click_train(
+          bpms[i], 0, click_seconds[j], 0.21, sample_rate);
+      double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+      run_live_tracker_click_train(&train, sample_rate, state);
+      const double expected =
+          click_train_elapsed_ms(&train, train.last_click, sample_rate);
+      assert(fabs(state[0] - bpms[i]) <= bpms[i] * 0.02);
+      assert(state[2] > 0.2);
+      assert(fabs(state[1] - expected) <= 18.0);
+      free(train.pcm);
+    }
+  }
+}
+
+static void test_live_tracker_fractional_downbeat_accuracy(void) {
+  const int32_t sample_rate = 48000;
+  FractionalClickTrain train = render_fractional_click_train(
+      123.0, 4, 7.0, 0.21, sample_rate);
+  assert(train.last_accent >= 0);
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&train, sample_rate, state);
+  const double expected =
+      click_train_elapsed_ms(&train, train.last_accent, sample_rate);
+  assert(fabs(state[0] - 123.0) <= 123.0 * 0.02);
+  assert(state[2] > 0.2);
+  assert(state[3] > 0.0);
+  assert(state[4] > 0.25);
+  assert(fabs(state[3] - expected) <= 20.0);
+  free(train.pcm);
+}
+
 static void test_live_tracker_phase_follows_beat_grid(void) {
   // 120 BPM click train over a quiet bed, plus pseudo-random loud low-frequency
   // accents that never align with the beat grid. The loudest single onset in
@@ -1999,6 +2114,8 @@ static void test_live_tracker_reports_activity_trend(void) {
 }
 
 int main(void) {
+  test_live_tracker_fractional_phase_accuracy();
+  test_live_tracker_fractional_downbeat_accuracy();
   test_live_tracker_phase_follows_beat_grid();
   test_live_tracker_publishes_downbeat_phase();
   test_live_tracker_reports_activity_trend();
