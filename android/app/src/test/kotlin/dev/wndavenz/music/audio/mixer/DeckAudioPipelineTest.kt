@@ -79,6 +79,39 @@ class DeckAudioPipelineTest {
     }
 
     @Test
+    fun `active processor receives direct input buffer for JNI-backed stages`() {
+        val assertDirect = DirectInputAssertProcessor()
+        val pipeline = DeckAudioPipeline(listOf(assertDirect), busSampleRate = 48_000)
+        pipeline.configure(
+            Format.Builder()
+                .setSampleMimeType(MimeTypes.AUDIO_RAW)
+                .setPcmEncoding(C.ENCODING_PCM_16BIT)
+                .setSampleRate(48_000)
+                .setChannelCount(2)
+                .build(),
+        )
+        val bytes = ByteArray(480 * 4)
+        pipeline.process(bytes, 0, bytes.size, 0L)
+        assertTrue(assertDirect.sawDirectInput)
+    }
+
+    private class DirectInputAssertProcessor : androidx.media3.common.audio.BaseAudioProcessor() {
+        var sawDirectInput = false
+            private set
+
+        override fun onConfigure(
+            inputAudioFormat: androidx.media3.common.audio.AudioProcessor.AudioFormat,
+        ): androidx.media3.common.audio.AudioProcessor.AudioFormat = inputAudioFormat
+
+        override fun queueInput(inputBuffer: java.nio.ByteBuffer) {
+            sawDirectInput = inputBuffer.isDirect
+            val output = replaceOutputBuffer(inputBuffer.remaining())
+            output.put(inputBuffer)
+            output.flip()
+        }
+    }
+
+    @Test
     fun `unsupported encodings are rejected`() {
         val pipeline = DeckAudioPipeline(emptyList(), busSampleRate = 48_000)
         try {
