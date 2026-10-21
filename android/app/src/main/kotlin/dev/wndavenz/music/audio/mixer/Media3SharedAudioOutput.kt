@@ -30,7 +30,11 @@ import java.nio.ByteOrder
 @UnstableApi
 class Media3SharedAudioOutput(
     context: Context,
+    private val lifecycleLog: (String) -> Unit = {},
 ) : SharedAudioOutput {
+
+    private val lifecycleOwnerLabel =
+        "shared-output@\${Integer.toHexString(System.identityHashCode(this))}"
 
     private val sink: DefaultAudioSink = DefaultAudioSink.Builder(context)
         // The bus is float; let the sink do the final PCM16 conversion.
@@ -74,6 +78,16 @@ class Media3SharedAudioOutput(
             }
 
             override fun onAudioTrackInitialized(audioTrackConfig: AudioSink.AudioTrackConfig) {
+                lifecycleLog(
+                    AudioTrackLifecycleRegistry.onInitialized(
+                        owner = this@Media3SharedAudioOutput,
+                        ownerLabel = lifecycleOwnerLabel,
+                        encoding = audioTrackConfig.encoding,
+                        sampleRate = audioTrackConfig.sampleRate,
+                        channelConfig = audioTrackConfig.channelConfig,
+                        bufferSize = audioTrackConfig.bufferSize,
+                    ),
+                )
                 listener?.onAudioTrackInitialized(
                     audioTrackConfig.encoding,
                     audioTrackConfig.sampleRate,
@@ -83,6 +97,12 @@ class Media3SharedAudioOutput(
             }
 
             override fun onAudioTrackReleased(audioTrackConfig: AudioSink.AudioTrackConfig) {
+                lifecycleLog(
+                    AudioTrackLifecycleRegistry.onReleased(
+                        owner = this@Media3SharedAudioOutput,
+                        ownerLabel = lifecycleOwnerLabel,
+                    ),
+                )
                 listener?.onAudioTrackReleased(
                     audioTrackConfig.encoding,
                     audioTrackConfig.sampleRate,
