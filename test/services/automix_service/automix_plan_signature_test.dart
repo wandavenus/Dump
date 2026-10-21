@@ -22,6 +22,7 @@ void main() {
         'dropCueMs': 60000.0,
         'multiplier': 1.016,
         'fadeSeconds': 7.62,
+        'transitionLeadMs': 45000.0,
         'fadeCurve': 1.35,
         'levelTrimOutgoing': 0.8,
         'levelTrimIncoming': 1.0,
@@ -49,6 +50,7 @@ void main() {
         (targetIndex: 1, field: 'dropCueMs', value: 61000.0),
         (targetIndex: 1, field: 'multiplier', value: 1.02),
         (targetIndex: 1, field: 'fadeSeconds', value: 7.7),
+        (targetIndex: 1, field: 'transitionLeadMs', value: 46000.0),
         (targetIndex: 1, field: 'fadeCurve', value: 1.1),
         (targetIndex: 1, field: 'levelTrimOutgoing', value: 0.9),
         (targetIndex: 1, field: 'levelTrimIncoming', value: 0.85),
@@ -85,6 +87,7 @@ void main() {
           'levelTrimOutgoing': 0.8,
           'fadeCurve': 1.35,
           'fadeSeconds': 7.62,
+          'transitionLeadMs': 45000.0,
           'multiplier': 1.016,
           'dropCueMs': 60000.0,
           'downbeatOffsetMs': 500.0,
@@ -214,6 +217,7 @@ void main() {
         'pitchSemitonesOutgoing': double.parse(values['pitchSemitonesOutgoing']!),
         'fadeSeconds': double.parse(values['fadeSeconds']!),
         'transitionStartMs': double.parse(values['transitionStartMs']!),
+        'transitionLeadMs': double.parse(values['transitionLeadMs']!),
         'fadeCurve': double.parse(values['fadeCurve']!),
         'levelTrimOutgoing': double.parse(values['levelTrimOutgoing']!),
         'levelTrimIncoming': double.parse(values['levelTrimIncoming']!),
@@ -236,6 +240,7 @@ void main() {
         'pitchSemitonesOutgoing',
         'fadeSeconds',
         'transitionStartMs',
+        'transitionLeadMs',
         'fadeCurve',
         'levelTrimOutgoing',
         'levelTrimIncoming',
@@ -243,6 +248,7 @@ void main() {
         expect(targets.last, contains(key), reason: 'Missing $key in Dart payload');
       }
       expect(targets.last['transitionStartMs'], 135000.0);
+      expect(targets.last['transitionLeadMs'], 45000.0);
       expect(targets.last['pitchSemitonesOutgoing'], -1.0);
       expect(targets.last['fadeSeconds'], 3.8);
     });
