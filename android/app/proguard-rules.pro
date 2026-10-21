@@ -33,3 +33,11 @@
 -keepclasseswithmembers class dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor {
     native <methods>;
 }
+# Single-AudioTrack native PCM bus (libpcm_mixer_native.so). Exported JNI
+# symbols are derived from this exact class + method names.
+-keepclasseswithmembers class dev.wndavenz.music.audio.mixer.NativePcmBridge {
+    native <methods>;
+}
+-keepclassmembers class dev.wndavenz.music.audio.mixer.NativePcmBridge {
+    *;
+}

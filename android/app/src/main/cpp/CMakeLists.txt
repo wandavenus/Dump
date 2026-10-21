@@ -167,3 +167,31 @@ target_include_directories(stretch_native PRIVATE
 target_compile_options(stretch_native PRIVATE -Wall -Wextra -fvisibility=hidden -O3 -fstack-protector-strong)
 
 target_link_libraries(stretch_native PRIVATE log)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Single-AudioTrack PCM bus — format conversion, windowed-sinc resampling,
+# stereo summing, gain ramp and post-sum limiter.
+#
+# This is the only sample-processing owner of the shared hardware bus. It is a
+# separate .so from the Media3 DSP chain so a native failure can fail open to
+# the Kotlin reference path without affecting decoder/effect libraries.
+#
+# ARM64 uses NEON intrinsics for U8/S16/S32/F32 conversion, stereo expansion,
+# bus summation and non-finite sanitisation. All sources also compile on the
+# host / non-ARM ABIs through scalar fallbacks.
+# ─────────────────────────────────────────────────────────────────────────────
+add_library(pcm_mixer_native SHARED
+    pcm/pcm_native.cpp
+    pcm/pcm_native_jni.cpp
+)
+
+target_include_directories(pcm_mixer_native PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/pcm
+)
+
+target_compile_options(pcm_mixer_native PRIVATE
+    -Wall -Wextra -Werror=return-type -fvisibility=hidden -O3
+    -fno-math-errno -fstack-protector-strong
+)
+
+target_link_libraries(pcm_mixer_native PRIVATE log)

@@ -78,6 +78,17 @@ class SingleAudioTrackEngine(
     private val gainCoefficient = MixGain.smoothingCoefficient(sampleRate = busSampleRate)
     private val mixScratch = FloatArray(maxBlockFrames * PcmRingBuffer.CHANNELS)
 
+    /**
+     * C++/NEON bus mixer. Zero means the native library is unavailable or the
+     * engine was configured with an unsupported deck count; the Kotlin
+     * reference mixer below is then used for the whole session.
+     */
+    @Volatile
+    private var nativeMixer = 0L
+    private val nativeMixerLock = Any()
+    private val nativeGains = FloatArray(deckCount) { 1f }
+    private val nativeTargets = FloatArray(deckCount) { 1f }
+
     @Volatile
     private var running = true
 
@@ -117,6 +128,16 @@ class SingleAudioTrackEngine(
 
     init {
         requireDeckCount()
+        nativeMixer = if (deckCount == NATIVE_DECK_COUNT) {
+            NativePcmBridge.createMixer(busSampleRate, maxBlockFrames)
+        } else {
+            0L
+        }
+        if (nativeMixer != 0L) {
+            log("Mixer DSP backend: C++/NEON (pcm_mixer_native)")
+        } else {
+            log("Mixer DSP backend: Kotlin reference (native mixer unavailable)")
+        }
         output.listener = this
         engineThread = Thread(::engineLoop, "noisegraph-mix-bus").apply {
             isDaemon = true
@@ -236,7 +257,7 @@ class SingleAudioTrackEngine(
             // describes PCM still waiting to be mixed. Clear old bus mappings
             // so they cannot be interpreted against the reset bus-frame clock.
             for (deck in decks) deck.stream.playedTimeline.clear()
-            limiter.reset()
+            resetLimiterState()
         }
     }
 
@@ -255,7 +276,7 @@ class SingleAudioTrackEngine(
                 playingOutput = false
                 busFramesWritten = 0L
                 busFramesPlayed = 0L
-                limiter.reset()
+                resetLimiterState()
                 for (deck in decks) deck.stream.playedTimeline.clear()
                 succeeded = true
                 log("Mixer output suspended for exclusive playback mode")
@@ -385,6 +406,7 @@ class SingleAudioTrackEngine(
     fun release() {
         if (!running) {
             output.release()
+            releaseNativeMixerIfStopped(engineThread)
             return
         }
         val latch = CountDownLatch(1)
@@ -395,7 +417,8 @@ class SingleAudioTrackEngine(
         }
         latch.await(RELEASE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         running = false
-        engineThread?.let { thread ->
+        val thread = engineThread
+        if (thread != null) {
             thread.interrupt()
             try {
                 thread.join(RELEASE_TIMEOUT_MS)
@@ -403,7 +426,15 @@ class SingleAudioTrackEngine(
                 Thread.currentThread().interrupt()
             }
         }
-        engineThread = null
+        // Never destroy the native mixer while the mix thread could still be
+        // inside a JNI call. If the join timed out, engineLoop's finally block
+        // owns the handle and destroys it once the thread actually exits.
+        if (thread == null || !thread.isAlive) {
+            engineThread = null
+            releaseNativeMixerIfStopped(thread)
+        } else {
+            log("Mixer thread still alive after release timeout; deferring native mixer destroy")
+        }
         busListeners.clear()
         log("Mixer released: ${metrics()}")
     }
@@ -479,55 +510,61 @@ class SingleAudioTrackEngine(
 
     private fun engineLoop() {
         try {
-            onThreadStart()
-        } catch (_: Exception) {
-            // Priority hints are best-effort.
-        }
-        while (running) {
             try {
-                drainControlQueue()
-                // release() can be executed by a queued command; do not touch
-                // the sink after it has been released.
-                if (!running) return
+                onThreadStart()
+            } catch (_: Exception) {
+                // Priority hints are best-effort.
+            }
+            while (running) {
+                try {
+                    drainControlQueue()
+                    // release() can be executed by a queued command; do not touch
+                    // the sink after it has been released.
+                    if (!running) return
 
-                val anyPlaying = decks.any { it.playing && !it.released }
-                if (anyPlaying && !busConfigured && !outputFailed) {
-                    // An exclusive playback mode may have reset the shared
-                    // sink; reopen it before any normal deck becomes audible.
-                    if (!configureOutput()) {
-                        sleepQuietly(ERROR_SLEEP_MS)
+                    val anyPlaying = decks.any { it.playing && !it.released }
+                    if (anyPlaying && !busConfigured && !outputFailed) {
+                        // An exclusive playback mode may have reset the shared
+                        // sink; reopen it before any normal deck becomes audible.
+                        if (!configureOutput()) {
+                            sleepQuietly(ERROR_SLEEP_MS)
+                            continue
+                        }
+                    }
+                    if (anyPlaying && !wasPlaying) {
+                        resetLimiterState()
+                    }
+                    wasPlaying = anyPlaying
+
+                    if (!busConfigured || outputFailed || !anyPlaying) {
+                        if (playingOutput && (!anyPlaying || outputFailed)) {
+                            output.pause()
+                            playingOutput = false
+                        }
+                        wasPlaying = false
+                        sleepQuietly(IDLE_SLEEP_MS)
                         continue
                     }
-                }
-                if (anyPlaying && !wasPlaying) {
-                    limiter.reset()
-                }
-                wasPlaying = anyPlaying
 
-                if (!busConfigured || outputFailed || !anyPlaying) {
-                    if (playingOutput && (!anyPlaying || outputFailed)) {
-                        output.pause()
-                        playingOutput = false
+                    if (!playingOutput) {
+                        output.play()
+                        playingOutput = true
                     }
-                    wasPlaying = false
-                    sleepQuietly(IDLE_SLEEP_MS)
-                    continue
-                }
 
-                if (!playingOutput) {
-                    output.play()
-                    playingOutput = true
+                    updateBusPlayhead()
+                    mixBlock()
+                } catch (interrupted: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return
+                } catch (error: Exception) {
+                    log("Mixer loop error: ${error.message}")
+                    sleepQuietly(ERROR_SLEEP_MS)
                 }
-
-                updateBusPlayhead()
-                mixBlock()
-            } catch (interrupted: InterruptedException) {
-                Thread.currentThread().interrupt()
-                return
-            } catch (error: Exception) {
-                log("Mixer loop error: ${error.message}")
-                sleepQuietly(ERROR_SLEEP_MS)
             }
+        } finally {
+            // The engine thread is the only thread allowed to mix through the
+            // native handle, so it is also the safe owner of a deferred destroy.
+            releaseNativeMixerOnEngineThread()
         }
     }
 
@@ -554,6 +591,7 @@ class SingleAudioTrackEngine(
                 deck.lastGeneration = stream.generation
                 deck.consumedFrames = 0L
                 deck.gain = deck.volume
+                if (deck.slot < nativeGains.size) nativeGains[deck.slot] = deck.volume
                 deck.started = false
                 val needed = maxBlockFrames * PcmRingBuffer.CHANNELS
                 if (deck.readScratch.size < needed) deck.readScratch = FloatArray(needed)
@@ -600,7 +638,7 @@ class SingleAudioTrackEngine(
         }
         if (!anyData) return false
 
-        java.util.Arrays.fill(mixScratch, 0, frames * PcmRingBuffer.CHANNELS, 0f)
+        var activeMask = 0
         for (deck in decks) {
             if (!deck.playing || deck.released) continue
             val stream = deck.stream
@@ -610,23 +648,73 @@ class SingleAudioTrackEngine(
             val localStartFrames = deck.consumedFrames
             val read = stream.ring.read(deck.readScratch, 0, framesForDeck)
             if (read <= 0) continue
-            var gain = deck.gain
-            val target = deck.volume
-            val scratch = deck.readScratch
-            for (frame in 0 until read) {
-                gain += (target - gain) * gainCoefficient
-                val base = frame * PcmRingBuffer.CHANNELS
-                mixScratch[base] += scratch[base] * gain
-                mixScratch[base + 1] += scratch[base + 1] * gain
+            if (read < frames) {
+                // The native mixer consumes a common frame count from every
+                // active deck; never let it read a stale tail from an earlier
+                // block if a ring ever returns fewer frames than requested.
+                java.util.Arrays.fill(
+                    deck.readScratch,
+                    read * PcmRingBuffer.CHANNELS,
+                    frames * PcmRingBuffer.CHANNELS,
+                    0f,
+                )
             }
-            deck.gain = gain
+            if (deck.slot < NATIVE_DECK_COUNT) activeMask = activeMask or (1 shl deck.slot)
+            if (deck.slot < nativeTargets.size) nativeTargets[deck.slot] = deck.volume
             deck.started = true
             deck.lastReadStream = stream
             deck.lastReadStartFrames = localStartFrames
             deck.lastReadFrames = read
         }
+        if (activeMask == 0) return false
 
-        limiter.process(mixScratch, frames)
+        val mixerHandle = nativeMixer
+        var mixedNatively = false
+        if (mixerHandle != 0L) {
+            mixedNatively = NativePcmBridge.mix(
+                handle = mixerHandle,
+                activeMask = activeMask,
+                deck0 = decks[0].readScratch,
+                deck1 = decks[1].readScratch,
+                gains = nativeGains,
+                targets = nativeTargets,
+                output = mixScratch,
+                frames = frames,
+            )
+            if (mixedNatively) {
+                for (deck in decks) {
+                    if (deck.slot < nativeGains.size) deck.gain = nativeGains[deck.slot]
+                }
+            } else {
+                // Keep the engine alive if the native library ever rejects a
+                // block: mirror the last native gain state into the Kotlin
+                // reference mixer and continue on it for this and later blocks.
+                log("Native bus mixer rejected a block; falling back to Kotlin")
+                for (deck in decks) {
+                    if (deck.slot < nativeGains.size) deck.gain = nativeGains[deck.slot]
+                }
+                releaseNativeMixerOnEngineThread()
+            }
+        }
+
+        if (!mixedNatively) {
+            java.util.Arrays.fill(mixScratch, 0, frames * PcmRingBuffer.CHANNELS, 0f)
+            for (deck in decks) {
+                val read = deck.lastReadFrames
+                if (read <= 0) continue
+                var gain = deck.gain
+                val target = deck.volume
+                val scratch = deck.readScratch
+                for (frame in 0 until read) {
+                    gain += (target - gain) * gainCoefficient
+                    val base = frame * PcmRingBuffer.CHANNELS
+                    mixScratch[base] += scratch[base] * gain
+                    mixScratch[base + 1] += scratch[base + 1] * gain
+                }
+                deck.gain = gain
+            }
+            limiter.process(mixScratch, frames)
+        }
         val outputStartFrame = busFramesWritten
         val presentationTimeUs = outputStartFrame * 1_000_000L / busSampleRate
         if (!output.handleBuffer(mixScratch, frames, presentationTimeUs)) {
@@ -688,6 +776,34 @@ class SingleAudioTrackEngine(
         for (deck in decks) deck.stream.playedTimeline.trimBefore(playedFrame)
     }
 
+    private fun resetLimiterState() {
+        limiter.reset()
+        val mixerHandle = nativeMixer
+        if (mixerHandle != 0L) NativePcmBridge.resetMixer(mixerHandle)
+    }
+
+    /**
+     * Atomically detaches the native handle so exactly one caller can destroy
+     * it, even if release(), the mix-thread fallback and engine teardown race.
+     */
+    private fun takeNativeMixer(): Long = synchronized(nativeMixerLock) {
+        val mixerHandle = nativeMixer
+        nativeMixer = 0L
+        mixerHandle
+    }
+
+    /** Called only on the engine thread, which is done mixing when this runs. */
+    private fun releaseNativeMixerOnEngineThread() {
+        val mixerHandle = takeNativeMixer()
+        if (mixerHandle != 0L) NativePcmBridge.destroyMixer(mixerHandle)
+    }
+
+    /** Destroys the handle only when the mix thread has definitively stopped. */
+    private fun releaseNativeMixerIfStopped(thread: Thread?) {
+        if (thread != null && thread.isAlive) return
+        releaseNativeMixerOnEngineThread()
+    }
+
     private fun deck(slot: Int): DeckState {
         require(slot in decks.indices) { "Unknown deck slot $slot" }
         return decks[slot]
@@ -721,6 +837,9 @@ class SingleAudioTrackEngine(
         const val DEFAULT_BLOCK_FRAMES = BUS_SAMPLE_RATE / 100
 
         const val DEFAULT_DECK_COUNT = 2
+
+        /** Both decks are interleaved into one bus by the native mixer. */
+        private const val NATIVE_DECK_COUNT = 2
 
         private const val IDLE_SLEEP_MS = 3L
         private const val ERROR_SLEEP_MS = 20L

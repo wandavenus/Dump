@@ -64,6 +64,23 @@ class DeckAudioPipeline(
     private var operational = false
     private var configured = false
 
+    /**
+     * C++/NEON converter for the sample-domain path. Zero means the native
+     * library is unavailable (or rejected this configuration) and the Kotlin
+     * reference converter below is used instead.
+     */
+    private var nativeConverter = 0L
+    private var nativeChannels = 0
+    private var nativeSampleFormat: PcmSampleFormat = PcmSampleFormat.SIGNED_16
+    private var nativeBigEndian = false
+
+    /**
+     * Reused native output staging area. Each returned chunk is still copied to
+     * a right-sized array because it may stay queued for backpressure/EOS, but
+     * the staging buffer itself never allocates after warm-up.
+     */
+    private var nativeOutputScratch = FloatArray(0)
+
     /** Source µs buffered in the filter that has not produced output yet. */
     private var carriedSourceUs = 0L
 
@@ -78,6 +95,11 @@ class DeckAudioPipeline(
      * `DeckAudioSink.supportsFormat`).
      */
     fun configure(format: Format) {
+        releaseNativeConverter()
+        // If configuration fails part-way through, the previous native handle
+        // is already gone; mark the pipeline unusable rather than leaving a
+        // stale `configured` flag that would call into a mismatched pipeline.
+        configured = false
         val encoding = format.pcmEncoding
         val mapped = mapEncoding(encoding)
             ?: throw IllegalArgumentException(
@@ -126,13 +148,31 @@ class DeckAudioPipeline(
             inputSampleRate
         }
         resampler = SincResampler(processingSampleRate, busSampleRate)
+        if (operational) {
+            nativeConverter = NativePcmBridge.createDeckConverter(
+                inputRate = processingSampleRate,
+                outputRate = busSampleRate,
+            )
+            nativeChannels = outputChannelCount
+            nativeSampleFormat = outputSampleFormat
+            nativeBigEndian = outputBigEndian
+        } else {
+            nativeConverter = NativePcmBridge.createDeckConverter(
+                inputRate = inputSampleRate,
+                outputRate = busSampleRate,
+            )
+            nativeChannels = inputChannelCount
+            nativeSampleFormat = inputSampleFormat
+            nativeBigEndian = inputBigEndian
+        }
         carriedSourceUs = 0L
         lastSourceEndUs = 0L
         configured = true
 
         log(
             "Deck pipeline configured: in=${inputSampleRate}Hz/${inputChannelCount}ch " +
-                "fmt=$inputSampleFormat bus=${busSampleRate}Hz operational=$operational",
+                "fmt=$inputSampleFormat bus=${busSampleRate}Hz operational=$operational " +
+                "native=${nativeConverter != 0L}",
         )
     }
 
@@ -173,16 +213,29 @@ class DeckAudioPipeline(
             pipeline.queueInput(directInputBuffer)
             drainOutput(chunks)
         } else {
-            val floats = PcmConversions.readFloats(
-                bytes,
-                offsetBytes,
-                frameCount,
-                inputChannelCount,
-                inputSampleFormat,
-                inputBigEndian,
+            val native = convertNative(
+                source = null,
+                sourceBytes = bytes,
+                sourceOffsetBytes = offsetBytes,
+                inputFrames = frameCount,
+                channels = inputChannelCount,
+                format = inputSampleFormat,
+                bigEndian = inputBigEndian,
             )
-            val stereo = PcmConversions.toStereo(floats, frameCount, inputChannelCount)
-            chunks.add(resampleToBus(stereo))
+            if (native != null) {
+                chunks.add(native)
+            } else {
+                val floats = PcmConversions.readFloats(
+                    bytes,
+                    offsetBytes,
+                    frameCount,
+                    inputChannelCount,
+                    inputSampleFormat,
+                    inputBigEndian,
+                )
+                val stereo = PcmConversions.toStereo(floats, frameCount, inputChannelCount)
+                chunks.add(resampleToBus(stereo))
+            }
         }
 
         return buildBlocks(chunks, presentationTimeUs, mediaDurationUs)
@@ -225,6 +278,7 @@ class DeckAudioPipeline(
             // configure() rebuilds the pipeline anyway.
         }
         resampler?.reset()
+        NativePcmBridge.resetDeckConverter(nativeConverter)
         carriedSourceUs = 0L
         lastSourceEndUs = 0L
     }
@@ -236,6 +290,7 @@ class DeckAudioPipeline(
             // Already reset / never configured.
         }
         resampler?.reset()
+        releaseNativeConverter()
         carriedSourceUs = 0L
         lastSourceEndUs = 0L
         operational = false
@@ -252,6 +307,22 @@ class DeckAudioPipeline(
                 output.position(output.limit())
                 return
             }
+            val native = convertNative(
+                source = output,
+                sourceBytes = null,
+                sourceOffsetBytes = output.position(),
+                inputFrames = frames,
+                channels = outputChannelCount,
+                format = outputSampleFormat,
+                bigEndian = outputBigEndian,
+            )
+            if (native != null) {
+                // The pipeline requires callers to consume the buffer before
+                // it can produce more.
+                output.position(output.limit())
+                chunks.add(native)
+                continue
+            }
             val floats = PcmConversions.readFloats(
                 output,
                 0,
@@ -260,8 +331,6 @@ class DeckAudioPipeline(
                 outputSampleFormat,
                 outputBigEndian,
             )
-            // The pipeline requires callers to consume the buffer before it
-            // can produce more.
             output.position(output.limit())
             val stereo = PcmConversions.toStereo(floats, frames, outputChannelCount)
             chunks.add(resampleToBus(stereo))
@@ -280,6 +349,103 @@ class DeckAudioPipeline(
         } else {
             out.copyOf(produced * PcmRingBuffer.CHANNELS)
         }
+    }
+
+    /**
+     * Runs the C++/NEON converter when it is available and configured for the
+     * exact format currently being drained. Returns null on any mismatch or
+     * native failure so the caller can use the Kotlin reference path.
+     */
+    private fun convertNative(
+        source: ByteBuffer?,
+        sourceBytes: ByteArray?,
+        sourceOffsetBytes: Int,
+        inputFrames: Int,
+        channels: Int,
+        format: PcmSampleFormat,
+        bigEndian: Boolean,
+    ): FloatArray? {
+        val converter = nativeConverter
+        if (converter == 0L || inputFrames <= 0) return null
+        if (channels !in 1..MAX_NATIVE_CHANNELS) return null
+        if (channels != nativeChannels ||
+            format != nativeSampleFormat ||
+            bigEndian != nativeBigEndian
+        ) {
+            return null
+        }
+
+        val upperBound = NativePcmBridge.deckOutputFramesUpperBound(converter, inputFrames)
+        if (upperBound <= 0 || upperBound > Int.MAX_VALUE / PcmRingBuffer.CHANNELS) {
+            return null
+        }
+        val outputFloats = upperBound * PcmRingBuffer.CHANNELS
+        if (nativeOutputScratch.size < outputFloats) {
+            nativeOutputScratch = FloatArray(outputFloats)
+        }
+        val output = nativeOutputScratch
+
+        val directSource: ByteBuffer
+        val directOffset: Int
+        if (source != null && source.isDirect) {
+            directSource = source
+            directOffset = sourceOffsetBytes
+        } else {
+            val sampleBytes = format.bytesPerSample.toLong() * channels
+            val byteCountLong = inputFrames.toLong() * sampleBytes
+            if (sourceBytes == null ||
+                sourceOffsetBytes < 0 ||
+                sampleBytes <= 0L ||
+                byteCountLong <= 0L ||
+                byteCountLong > Int.MAX_VALUE
+            ) {
+                return null
+            }
+            val byteCount = byteCountLong.toInt()
+            if (sourceOffsetBytes.toLong() + byteCount > sourceBytes.size) return null
+            val buffer = ensureDirectInputBuffer(byteCount)
+            buffer.clear()
+            buffer.put(sourceBytes, sourceOffsetBytes, byteCount)
+            buffer.flip()
+            directSource = buffer
+            directOffset = 0
+        }
+
+        val produced = NativePcmBridge.processDeck(
+            handle = converter,
+            input = directSource,
+            offsetBytes = directOffset,
+            inputFrames = inputFrames,
+            channels = channels,
+            format = format,
+            bigEndian = bigEndian,
+            output = output,
+        )
+        if (produced < 0 || produced > upperBound) {
+            log("Native PCM converter disabled after status=$produced")
+            releaseNativeConverter()
+            return null
+        }
+        if (produced == 0) return FloatArray(0)
+        // The output can stay queued on ring backpressure, so it must not alias
+        // the next block's staging buffer.
+        return output.copyOf(produced * PcmRingBuffer.CHANNELS)
+    }
+
+    private fun ensureDirectInputBuffer(bytes: Int): ByteBuffer {
+        if (directInputBuffer.capacity() < bytes) {
+            directInputBuffer = ByteBuffer.allocateDirect(maxOf(bytes, 8 * 1024))
+                .order(ByteOrder.nativeOrder())
+        }
+        directInputBuffer.order(ByteOrder.nativeOrder())
+        return directInputBuffer
+    }
+
+    private fun releaseNativeConverter() {
+        val converter = nativeConverter
+        nativeConverter = 0L
+        nativeChannels = 0
+        if (converter != 0L) NativePcmBridge.destroyDeckConverter(converter)
     }
 
     private fun buildBlocks(
@@ -324,6 +490,9 @@ class DeckAudioPipeline(
     companion object {
         private const val MAX_DRAIN_ITERATIONS = 512
         private const val MAX_FINISH_ITERATIONS = 64
+
+        /** Keep in sync with kMaxChannels in pcm_native.cpp. */
+        private const val MAX_NATIVE_CHANNELS = 8
 
         /** Maps a Media3 PCM encoding onto the converter's layout. */
         fun mapEncoding(encoding: Int): Pair<PcmSampleFormat, Boolean>? = when (encoding) {

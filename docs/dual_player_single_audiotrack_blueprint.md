@@ -1,7 +1,7 @@
 # Blueprint: Dual-Player dengan Satu AudioTrack
 
 **Project:** Noisegraph / Dump  
-**Status:** Implementasi dual-player/Single-AudioTrack aktif secara default untuk validasi perangkat nyata; set `SingleAudioTrackEngine.enabled = false` untuk kembali ke jalur legacy bila ditemukan regresi.
+**Status:** Implementasi dual-player/Single-AudioTrack aktif secara default untuk validasi perangkat nyata; sample-domain bus (konversi format, resampling, gain ramp, summing, limiter) memakai C++/NEON dengan fallback Kotlin. Set `SingleAudioTrackEngine.enabled = false` untuk kembali ke jalur legacy bila ditemukan regresi.
 **Baseline:** `Media3PlaybackService`, `CrossfadeController`, `SignalsmithStretchAudioProcessor`, `AutomixToneManager`, Media3 `1.11.1`
 
 ## 0. Status implementasi
@@ -16,8 +16,12 @@ Jalur dual-player sekarang memakai dua ExoPlayer + dua `DeckAudioSink` virtual +
 | `audio/mixer/DeckAudioPipeline.kt` | Processor chain per deck (`ToFloat → NativeDsp → StereoWiden → Reverb → Stretch → AutoMixTone`) + normalisasi bus |
 | `audio/mixer/DeckTimelineMap.kt` | Mapping frame output deck ↔ posisi media sumber |
 | `audio/mixer/PcmRingBuffer.kt` | Ring SPSC bounded 500 ms per deck, backpressure tanpa drop |
-| `audio/mixer/SincResampler.kt` | Konversi sample-rate stereo 32-tap windowed sinc (anti-alias saat downsampling) |
-| `audio/mixer/MixDsp.kt` | Bus limiter pasca-summing + smoothing gain per deck |
+| `audio/mixer/SincResampler.kt` | Referensi Kotlin konversi sample-rate stereo 32-tap windowed sinc (anti-alias saat downsampling) |
+| `audio/mixer/MixDsp.kt` | Referensi Kotlin bus limiter pasca-summing + smoothing gain per deck |
+| `audio/mixer/NativePcmBridge.kt` | Wrapper JNI `libpcm_mixer_native.so`; gagal-terbuka ke implementasi Kotlin |
+| `src/main/cpp/pcm/pcm_native.cpp` | C++/NEON: konversi PCM, resampling sinc, gain ramp, summing dua deck, limiter bus |
+| `src/main/cpp/pcm/pcm_native_jni.cpp` | Validasi handle/buffer/array JNI tanpa exception ke audio thread |
+| `src/main/cpp/CMakeLists.txt` | Target `pcm_mixer_native` (arm64, `-O3`, NEON intrinsics) |
 | `audio/mixer/Media3SharedAudioOutput.kt` | Adapter `DefaultAudioSink` tunggal + forward event/audio session |
 | `Media3PlaybackService.kt` | Membuat engine sebelum player pertama, memilih deck sink vs legacy sink, release saat teardown |
 
@@ -35,6 +39,18 @@ Keputusan implementasi yang menyimpang dari proposal:
   during Media3 `hasPendingData()/isEnded()` polling instead of dropping it.
 - **Bit-Perfect is exclusive**: the shared sink is reset before its clean player starts and
   the mixer reconfigures when normal dual-player playback resumes.
+- **Sample math lives in C++/NEON, state stays in Kotlin**: `libpcm_mixer_native.so` owns
+  byte→stereo-float conversion, windowed-sinc resampling, per-frame gain ramps, two-deck
+  summing and the post-sum limiter. Kotlin still owns ring buffers, source-timeline maps,
+  the Media3 `AudioSink` contract, EOS/position state and the single hardware sink. No native
+  code creates an `AudioTrack`.
+- **Native is optional and fail-open**: if the library is missing, an ABI/symbol mismatches,
+  or a native call rejects a block, the affected deck/bus falls back to the existing Kotlin
+  `PcmConversions`/`SincResampler`/`BusLimiter` implementations. `SingleAudioTrackEngine.enabled`
+  remains the independent kill switch for the whole shared-output path.
+- **Parity is intentional**: native constants match the Kotlin reference (32 taps, 256 phases,
+  12 ms gain smoothing, 0.98 ceiling, 50 ms limiter release, stereo float bus), so enabling
+  the native path does not change gain, limiting or resampling semantics.
 
 - **Bus rate dipilih sekali per sesi dari sample rate output native perangkat**
   (`AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE`, fallback 48 kHz), stereo float. Ini
@@ -109,10 +125,10 @@ Referensi:
            \                                           /
             +---------- SingleAudioTrackEngine --------+
                         - clock / PTS mapping
-                        - sample-rate + channel normalize
+                        - C++/NEON sample-rate + channel normalize
                         - A/B alignment
                         - gain envelope / AutoMix controls
-                        - sum + bus safety limiter
+                        - C++/NEON sum + bus safety limiter
                                    |
                                    v
                           ONE DefaultAudioSink
@@ -147,15 +163,17 @@ Mixer tidak boleh menjumlahkan buffer mentah yang berbeda format.
 3. Stereo widening/reverb sesuai setting yang berlaku.
 4. Signalsmith Stretch untuk tempo/pitch; live tempo-follow tetap menargetkan deck incoming.
 5. AutoMix tone/EQ, per-deck gain dan limiter.
-6. Normalisasi channel/sample-rate ke format bus PCM float.
+6. Normalisasi channel/sample-rate ke format bus PCM float. Pada build arm64, konversi +
+   resampling dilakukan `pcm_native` (C++/NEON); jika native tidak tersedia dipakai
+   `PcmConversions` + `SincResampler`.
 7. Enqueue blok PCM ke ring milik deck tersebut.
 
 **Bus bersama setelah mixing:**
 
 1. Ambil sampel A/B pada indeks frame output yang sama.
-2. Terapkan gain envelope bersama agar A/B memakai progress fade yang sama.
-3. Jumlahkan dalam float dengan headroom.
-4. Terapkan bus limiter/soft clip sebagai proteksi akhir; ini melengkapi limiter per deck, bukan menggantikannya.
+2. Terapkan gain envelope bersama agar A/B memakai progress fade yang sama (`pcm_native` gain ramp pada arm64, `MixGain` sebagai referensi/fallback).
+3. Jumlahkan dalam float dengan headroom (`pcm_native` dua-deck summing pada arm64).
+4. Terapkan bus limiter/soft clip sebagai proteksi akhir; ini melengkapi limiter per deck, bukan menggantikannya (`pcm_native` limiter pada arm64, `BusLimiter` sebagai referensi/fallback).
 5. Kirim PCM hasil mix ke satu `DefaultAudioSink`, yang menangani penulisan ke `AudioTrack`.
 
 Pindahkan konversi akhir ke PCM16 ke output sink. Jangan mengonversi masing-masing deck ke PCM16 sebelum penjumlahan jika targetnya menjaga headroom dan menghindari clipping tambahan.
@@ -227,7 +245,8 @@ Nama di bawah ini adalah usulan, bukan file yang sudah dibuat.
 | `audio/mixer/DeckAudioPipeline.kt` | Memproses PCM per deck dan mengeluarkan float stereo format bus dengan timeline metadata |
 | `audio/mixer/DeckTimelineMap.kt` | Mapping source media PTS ↔ output frame cursor per deck |
 | `audio/mixer/PcmRingBuffer` | Ring bounded multi-frame, backpressure, discontinuity dan EOS |
-| `native_audio_runtime/src/pcm_mixer.c` *(opsional)* | Fast-path mixing, ring arithmetic dan bus limiter jika benchmark membuktikan Kotlin tak cukup stabil |
+| `src/main/cpp/pcm/pcm_native.cpp` | Fast-path konversi/resampling/mixing/limiter C++/NEON |
+| `src/main/cpp/pcm/pcm_native_jni.cpp` + `NativePcmBridge.kt` | Batas JNI tervalidasi, fail-open ke Kotlin |
 | `Media3PlaybackService.kt` | Buat engine dulu; injeksikan adapter A/B lewat factory, wiring global play/pause/focus/shutdown |
 | `CrossfadeController.kt` | Pertahankan cue/planner; ubah interface fade agar memerintah mixer envelope/output-frame schedule, tidak menulis gain hardware secara terpisah |
 | `AutomixToneManager.kt` | Tetap per-deck; pisahkan target gain per-deck dari envelope master crossfade untuk mencegah gain diterapkan dua kali |
@@ -271,6 +290,8 @@ Hindari rewrite massal `Media3PlaybackService.kt`. Tambahkan interface `DeckOutp
 
 ### Phase 4 — Migrasi DSP dan AutoMix
 
+- Pindahkan sample-domain bus (konversi, resampling, gain ramp, summing, limiter) ke
+  `libpcm_mixer_native.so` (C++/NEON) dengan fallback Kotlin yang dipertahankan.
 - Pindahkan semua DSP yang memang per-deck ke pipeline deck, dengan sample-rate/channel normalization setelah efek yang membutuhkan format sumber.
 - Terapkan satu gain-envelope authority untuk menghindari gain ganda dari ExoPlayer volume, tone processor, dan mixer.
 - Pindahkan bus headroom/limiter ke setelah summing.
@@ -295,6 +316,17 @@ Hindari rewrite massal `Media3PlaybackService.kt`. Tambahkan interface `DeckOutp
 - Timeline map: normal playback, speed changes, tempo nudge berubah, seek, timestamp jump, buffer partial, EOS.
 - Sink contract: configure ulang format; panggilan flush di satu deck; release satu deck; `playToEndOfStream`; repeated `handleBuffer` saat ring penuh.
 - Lifecycle: pause, resume, audio-focus duck, interruption, cancel mid-fade, outgoing EOF, standby decoder error, service destruction.
+
+### Native DSP host tests
+
+- Konversi semua format (U8/S16/S24/S32/F32/F64), little/big endian, mono/stereo/surround.
+- Resampling block-size invariance: output untuk partisi blok berbeda harus identik (tidak ada klik di sambungan blok), plus cek amplitudo/RMS dan downsampling 48→44.1 kHz.
+- Gain ramp: satu-pole 12 ms, deck nonaktif tidak mengubah gain, target 0/1.
+- Limiter: ceiling 0.98, release 50 ms, perilaku sample non-finite (silence tanpa memajukan envelope), reset state.
+- Batas buffer: output terlalu pendek ditolak tanpa memajukan history; blok mixer melebihi `max_frames` ditolak.
+- Jalankan `src/main/cpp/pcm/tests/run_host_tests.sh` di x86-64 (scalar) dan aarch64
+  (NEON, via QEMU) serta di bawah ASan/UBSan. `tests/jni/run_jni_smoke.sh` memvalidasi
+  offset direct buffer, array marshalling, dan siklus handle pada JVM desktop.
 
 ### Integration/device
 
