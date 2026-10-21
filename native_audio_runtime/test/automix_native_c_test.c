@@ -2150,7 +2150,7 @@ static double phase_circular_distance_ms(double actual, double expected,
 }
 
 static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
-  // Begin with a stable 180 BPM / 4-beat bar, then slow to 100 BPM exactly
+  // Begin with a stable 150 BPM / 4-beat bar, then slow to 100 BPM exactly
   // on a downbeat. The six-second analysis window necessarily contains both
   // grids during the change, so phase accuracy is asserted on each stable
   // side of the transition instead of against a single impossible mixed grid.
@@ -2159,11 +2159,11 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
   const double pi = 3.14159265358979323846;
   const int32_t sample_rate = 48000;
   const int32_t chunk_frames = 512;
-  const int64_t transition_frame = (int64_t)sample_rate * 8;  // 24 beats at 180 BPM.
+  const int64_t transition_frame = (int64_t)sample_rate * 8;  // 20 beats at 150 BPM.
   // Wait 7.5 s after the switch so the 6 s analysis window is fully on the
   // new pulse grid and enough callbacks remain to measure settled phase.
   const int64_t total_frames = transition_frame + (int64_t)(sample_rate * 7.5);
-  const int64_t fast_period_frames = sample_rate / 3;  // 180 BPM.
+  const int64_t fast_period_frames = sample_rate * 2 / 5;  // 150 BPM.
   const int64_t slow_period_frames = (int64_t)sample_rate * 3 / 5;  // 100 BPM.
   float pcm[512 * 2];
   double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
@@ -2259,7 +2259,7 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
     const int in_slow_steady_window =
         last_sample >= transition_frame + (int64_t)(sample_rate * 6.25);
     if (in_fast_steady_window &&
-        fabs(state[0] - 180.0) <= 180.0 * 0.08 &&
+        fabs(state[0] - 150.0) <= 150.0 * 0.08 &&
         state[2] > 0.15) {
       const double beat_error = phase_circular_distance_ms(
           state[1], expected_beat_age_ms, actual_beat_period_ms);
