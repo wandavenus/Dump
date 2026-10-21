@@ -267,11 +267,17 @@ class AutomixService {
       }
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
-      if (!state.isPlaying ||
-          state.currentSong == null ||
+      // Preserve the prepared transition while paused, but disarm stale native
+      // state when the current queue can no longer produce a valid transition.
+      if (!state.isPlaying) return;
+      if (state.currentSong == null ||
           queue.length < 2 ||
           state.currentIndex < 0 ||
           state.currentIndex >= queue.length) {
+        final generation = _automixGeneration;
+        await _clearAutoMixTransition(generation);
+        _lastAutoQueueIdentity = null;
+        _plannedTail = null;
         return;
       }
       final tailIds = _tailIdsOf(state, queue);
@@ -754,11 +760,22 @@ class AutomixService {
           _scheduleReplanRetry();
           return;
         }
-        await AudioService.setAutomixTransition(
-          enabled: true,
-          targets: targets,
-        );
-        if (!_isAutoMixGenerationCurrent(generation)) return;
+        try {
+          await AudioService.setAutomixTransition(
+            enabled: true,
+            targets: targets,
+          );
+        } on Object {
+          // Native publication and the temporary crossfade override form one
+          // transaction. Roll back both sides if target publication fails.
+          await _clearAutoMixTransition(generation);
+          if (!_isAutoMixGenerationCurrent(generation)) return;
+          rethrow;
+        }
+        if (!_isAutoMixGenerationCurrent(generation)) {
+          await _clearAutoMixTransition(generation);
+          return;
+        }
         _lastNativeSignature = signature;
         _replanRetryCount = 0;
         LogService.log(

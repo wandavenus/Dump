@@ -317,8 +317,12 @@ static void apply_true_peak_limiter(
       const float frame_peak = true_peak_frame(history);
       if (frame_peak > peak) peak = frame_peak;
     }
+    // Keep a small deterministic guard band under the requested ceiling.
+    // The estimator is causal (no lookahead), so this margin reduces initial
+    // transient overshoot without adding buffering or changing the audio path.
+    const float guarded_ceiling = effective_ceiling * 0.98f;
     const float desired =
-        peak > effective_ceiling ? effective_ceiling / peak : 1.0f;
+        peak > guarded_ceiling ? guarded_ceiling / peak : 1.0f;
     if (desired < gain) {
       gain = desired;
     } else {
