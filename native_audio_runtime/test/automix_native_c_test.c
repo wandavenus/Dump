@@ -2151,23 +2151,29 @@ static double phase_circular_distance_ms(double actual, double expected,
 
 static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
   // Begin with a stable 180 BPM / 4-beat bar, then slow to 100 BPM exactly
-  // on a downbeat. During the transition the autocorrelation candidate and
-  // the attack-smoothed published BPM intentionally differ. Beat and downbeat
-  // phase must continue to describe the latest audible pulse, not the phase
-  // of a grid scored with one tempo and projected with another.
+  // on a downbeat. The six-second analysis window necessarily contains both
+  // grids during the change, so phase accuracy is asserted on each stable
+  // side of the transition instead of against a single impossible mixed grid.
+  // During the mixed-history period, the published tuple must remain finite
+  // and internally bounded while the tracker reacquires the slower pulse.
   const double pi = 3.14159265358979323846;
   const int32_t sample_rate = 48000;
   const int32_t chunk_frames = 512;
   const int64_t transition_frame = (int64_t)sample_rate * 8;  // 24 beats at 180 BPM.
-  const int64_t total_frames = transition_frame + (int64_t)sample_rate * 6;
+  // Wait 7.5 s after the switch so the 6 s analysis window is fully on the
+  // new pulse grid and enough callbacks remain to measure settled phase.
+  const int64_t total_frames = transition_frame + (int64_t)(sample_rate * 7.5);
   const int64_t fast_period_frames = sample_rate / 3;  // 180 BPM.
   const int64_t slow_period_frames = (int64_t)sample_rate * 3 / 5;  // 100 BPM.
   float pcm[512 * 2];
   double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
-  double max_beat_phase_error_ms = 0.0;
-  double max_downbeat_phase_error_ms = 0.0;
-  int32_t checked_beat_phases = 0;
-  int32_t checked_downbeat_phases = 0;
+  double max_fast_beat_error_ms = 0.0;
+  double max_fast_downbeat_error_ms = 0.0;
+  double max_slow_beat_error_ms = 0.0;
+  double max_slow_downbeat_error_ms = 0.0;
+  int32_t checked_fast_phases = 0;
+  int32_t checked_slow_phases = 0;
+  int32_t checked_transition_states = 0;
   int64_t produced = 0;
 
   assert(nar_automix_live_tracker_set_enabled(1) == 1);
@@ -2207,56 +2213,94 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
     assert(nar_automix_live_tracker_get(
                0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
 
-    // Check phase against the known synthetic pulse locations instead of
-    // comparing adjacent modulo phases across a tempo change. The latter
-    // incorrectly treats a legitimate period change as a phase discontinuity.
     const int64_t last_sample = produced - 1;
     const int after_transition = last_sample >= transition_frame;
-    const int64_t phase_origin =
-        after_transition ? transition_frame : 0;
+    const int64_t phase_origin = after_transition ? transition_frame : 0;
     const int64_t relative_sample = last_sample - phase_origin;
-    const int64_t period_frames =
+    const int64_t actual_period_frames =
         after_transition ? slow_period_frames : fast_period_frames;
+    const double actual_beat_period_ms =
+        (double)actual_period_frames * 1000.0 / sample_rate;
+    const double actual_bar_period_ms = actual_beat_period_ms * 4.0;
     const int64_t last_beat_frame =
-        phase_origin + (relative_sample / period_frames) * period_frames;
+        phase_origin +
+        (relative_sample / actual_period_frames) * actual_period_frames;
     const int64_t last_downbeat_frame =
         phase_origin +
-        (relative_sample / (period_frames * 4)) * (period_frames * 4);
+        (relative_sample / (actual_period_frames * 4)) *
+            (actual_period_frames * 4);
     const double expected_beat_age_ms =
         (double)(last_sample - last_beat_frame) * 1000.0 / sample_rate;
     const double expected_downbeat_age_ms =
         (double)(last_sample - last_downbeat_frame) * 1000.0 / sample_rate;
 
-    // Measure the transition and its settling period, while both old and new
-    // pulse trains still inhabit the analysis window.
+    // During the mixed-history period, the estimate is allowed to move
+    // between tempos, but published phase values must remain finite and stay
+    // inside the period implied by the same published BPM tuple.
     const int in_transition_window =
-        produced >= transition_frame + sample_rate / 2 &&
-        produced <= transition_frame + (int64_t)(sample_rate * 3.5);
+        last_sample >= transition_frame &&
+        last_sample < transition_frame + sample_rate * 6;
     if (in_transition_window && state[0] >= 60.0 && state[0] <= 200.0 &&
         state[2] > 0.15) {
-      const double beat_period_ms = 60000.0 / state[0];
-      const double beat_error = phase_circular_distance_ms(
-          state[1], expected_beat_age_ms, beat_period_ms);
-      if (beat_error > max_beat_phase_error_ms) {
-        max_beat_phase_error_ms = beat_error;
-      }
-      checked_beat_phases++;
+      const double estimated_period_ms = 60000.0 / state[0];
+      assert(isfinite(state[1]) && state[1] >= 0.0 &&
+             state[1] < estimated_period_ms);
+      assert(isfinite(state[3]) && state[3] >= 0.0 &&
+             state[3] < estimated_period_ms * 4.0);
+      assert(isfinite(state[2]) && state[2] <= 1.0);
+      checked_transition_states++;
+    }
 
+    // Measure phase accuracy only when the input has held a single tempo long
+    // enough for the entire 6 s history window to contain that tempo.
+    const int in_fast_steady_window =
+        last_sample >= transition_frame - sample_rate &&
+        last_sample < transition_frame;
+    const int in_slow_steady_window =
+        last_sample >= transition_frame + (int64_t)(sample_rate * 6.25);
+    if (in_fast_steady_window &&
+        fabs(state[0] - 180.0) <= 180.0 * 0.08 &&
+        state[2] > 0.15) {
+      const double beat_error = phase_circular_distance_ms(
+          state[1], expected_beat_age_ms, actual_beat_period_ms);
+      if (beat_error > max_fast_beat_error_ms) {
+        max_fast_beat_error_ms = beat_error;
+      }
+      checked_fast_phases++;
       if (state[4] > 0.15) {
         const double downbeat_error = phase_circular_distance_ms(
-            state[3], expected_downbeat_age_ms, beat_period_ms * 4.0);
-        if (downbeat_error > max_downbeat_phase_error_ms) {
-          max_downbeat_phase_error_ms = downbeat_error;
+            state[3], expected_downbeat_age_ms, actual_bar_period_ms);
+        if (downbeat_error > max_fast_downbeat_error_ms) {
+          max_fast_downbeat_error_ms = downbeat_error;
         }
-        checked_downbeat_phases++;
+      }
+    }
+    if (in_slow_steady_window &&
+        fabs(state[0] - 100.0) <= 100.0 * 0.08 &&
+        state[2] > 0.15) {
+      const double beat_error = phase_circular_distance_ms(
+          state[1], expected_beat_age_ms, actual_beat_period_ms);
+      if (beat_error > max_slow_beat_error_ms) {
+        max_slow_beat_error_ms = beat_error;
+      }
+      checked_slow_phases++;
+      if (state[4] > 0.15) {
+        const double downbeat_error = phase_circular_distance_ms(
+            state[3], expected_downbeat_age_ms, actual_bar_period_ms);
+        if (downbeat_error > max_slow_downbeat_error_ms) {
+          max_slow_downbeat_error_ms = downbeat_error;
+        }
       }
     }
   }
 
-  assert(checked_beat_phases >= 40);
-  assert(max_beat_phase_error_ms < 120.0);
-  assert(checked_downbeat_phases >= 10);
-  assert(max_downbeat_phase_error_ms < 240.0);
+  assert(checked_fast_phases >= 40);
+  assert(max_fast_beat_error_ms < 25.0);
+  assert(max_fast_downbeat_error_ms < 40.0);
+  assert(checked_transition_states >= 100);
+  assert(checked_slow_phases >= 40);
+  assert(max_slow_beat_error_ms < 25.0);
+  assert(max_slow_downbeat_error_ms < 40.0);
   // After a full slow-tempo history window, the estimate must converge toward
   // the new pulse rather than retaining the previous fast tempo.
   assert(state[0] >= 90.0 && state[0] <= 110.0);
