@@ -476,9 +476,19 @@ class AutomixService {
         if (cue.transitionStartMs != null &&
             cue.transitionStartMs!.isFinite &&
             cue.transitionStartMs! >= 0) {
-          // The native scheduler interprets this on the outgoing deck's media
-          // timeline, while fadeSeconds remains only the overlap duration.
+          // Keep the absolute cue for compatibility, but schedule from a
+          // duration-independent lead so native Media3 can resolve the start
+          // against the actual duration reported by the outgoing player.
           target['transitionStartMs'] = cue.transitionStartMs;
+          final outgoingDurationMs = previous.durationSeconds * 1000.0;
+          final transitionLeadMs =
+              outgoingDurationMs - cue.transitionStartMs!;
+          if (outgoingDurationMs.isFinite &&
+              outgoingDurationMs > 0 &&
+              transitionLeadMs.isFinite &&
+              transitionLeadMs > 0) {
+            target['transitionLeadMs'] = transitionLeadMs;
+          }
         }
         target['fadeCurve'] = cue.curveGamma;
         target['levelTrimOutgoing'] = cue.outgoingTrim;
