@@ -94,6 +94,11 @@ object AudioTrackLifecycleRegistry {
         event(kind = "RELEASED", track = track, ownerLabel = ownerLabel)
     }
 
+    /** Number of currently-live tracks registered for the exact sink/player owner. */
+    fun activeCountForOwner(owner: Any): Int = synchronized(lock) {
+        ownerTrackIds[owner]?.size ?: 0
+    }
+
     fun snapshot(): Snapshot = synchronized(lock) {
         Snapshot(
             activeCount = activeTracks.size,
