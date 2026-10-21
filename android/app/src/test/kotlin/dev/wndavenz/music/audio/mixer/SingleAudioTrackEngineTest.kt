@@ -175,6 +175,21 @@ class SingleAudioTrackEngineTest {
     }
 
     @Test
+    fun `exclusive mode releases output and engine reconfigures it on resume`() {
+        assertTrue(engine.configureOutput())
+        assertTrue(engine.suspendOutputForExclusiveMode())
+        assertEquals(1, output.resetCount)
+        assertEquals(0, output.configuredSampleRate)
+
+        engine.addDeck(0)
+        engine.setDeckPlaying(0, true)
+        await { output.configureCount >= 2 }
+        assertEquals(SingleAudioTrackEngine.BUS_SAMPLE_RATE, output.configuredSampleRate)
+        engine.setDeckPlaying(0, false)
+        engine.resetDeck(0)
+    }
+
+    @Test
     fun `bus configuration is idempotent`() {
         assertTrue(engine.configureOutput())
         assertTrue(engine.configureOutput())
@@ -230,6 +245,12 @@ class SingleAudioTrackEngineTest {
         var configureCount: Int = 0
 
         @Volatile
+        var outputConfigured: Boolean = false
+
+        @Volatile
+        var resetCount: Int = 0
+
+        @Volatile
         var configuredSampleRate: Int = SingleAudioTrackEngine.BUS_SAMPLE_RATE
 
         @Volatile
@@ -243,10 +264,11 @@ class SingleAudioTrackEngineTest {
         override fun configure(sampleRate: Int, channelCount: Int): Boolean {
             configureCount++
             configuredSampleRate = sampleRate
+            outputConfigured = true
             return true
         }
 
-        override fun isConfigured(): Boolean = true
+        override fun isConfigured(): Boolean = outputConfigured
 
         override fun play() = Unit
 
@@ -282,6 +304,13 @@ class SingleAudioTrackEngineTest {
         override fun audioSessionId(): Int = 0
 
         override fun flush() = Unit
+
+        override fun reset() {
+            resetCount++
+            outputConfigured = false
+            configuredSampleRate = 0
+            writtenFrames = 0L
+        }
 
         override fun release() {
             released = true
