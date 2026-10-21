@@ -122,6 +122,59 @@ class SingleAudioTrackEngineTest {
     }
 
     @Test
+    fun `bus uses the requested device sample rate instead of a hardcoded 48 kHz`() {
+        val customOutput = FakeSingleOutput()
+        val customEngine = SingleAudioTrackEngine(
+            output = customOutput,
+            busSampleRate = 44_100,
+            log = {},
+        )
+        try {
+            assertTrue(customEngine.configureOutput())
+            assertEquals(44_100, customOutput.configuredSampleRate)
+        } finally {
+            customEngine.release()
+        }
+    }
+
+    @Test
+    fun `position stays on audible frame while AudioTrack buffers submitted PCM`() {
+        val delayedOutput = FakeSingleOutput().apply {
+            playbackLagFrames = 20_000L
+            writeDelayMs = 2L
+        }
+        val delayedEngine = SingleAudioTrackEngine(delayedOutput, log = {})
+        try {
+            assertTrue(delayedEngine.configureOutput())
+            val generation = delayedEngine.addDeck(0)
+            val blockFrames = 480
+            val blockCount = 25
+            for (block in 0 until blockCount) {
+                val pcm = FloatArray(blockFrames * 2) { 0.1f }
+                assertEquals(
+                    blockFrames,
+                    delayedEngine.appendFrames(
+                        slot = 0,
+                        generation = generation,
+                        pcm = pcm,
+                        offsetFrames = 0,
+                        frames = blockFrames,
+                        sourceStartUs = block * 10_000L,
+                        sourceDurationUs = 10_000L,
+                    ),
+                )
+            }
+            delayedEngine.finishStream(0, generation)
+            delayedEngine.setDeckPlaying(0, true)
+
+            await { delayedOutput.writtenFrames >= 4_800L }
+            assertEquals(0L, delayedEngine.deckPositionUs(0, sourceEnded = false))
+        } finally {
+            delayedEngine.release()
+        }
+    }
+
+    @Test
     fun `bus configuration is idempotent`() {
         assertTrue(engine.configureOutput())
         assertTrue(engine.configureOutput())
@@ -176,10 +229,20 @@ class SingleAudioTrackEngineTest {
         @Volatile
         var configureCount: Int = 0
 
+        @Volatile
+        var configuredSampleRate: Int = SingleAudioTrackEngine.BUS_SAMPLE_RATE
+
+        @Volatile
+        var playbackLagFrames: Long = 0L
+
+        @Volatile
+        var writeDelayMs: Long = 0L
+
         private val blocks = Collections.synchronizedList(ArrayList<FloatArray>())
 
         override fun configure(sampleRate: Int, channelCount: Int): Boolean {
             configureCount++
+            configuredSampleRate = sampleRate
             return true
         }
 
@@ -194,13 +257,23 @@ class SingleAudioTrackEngineTest {
             frameCount: Int,
             presentationTimeUs: Long,
         ): Boolean {
+            if (writeDelayMs > 0L) {
+                try {
+                    Thread.sleep(writeDelayMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return false
+                }
+            }
             blocks.add(pcm.copyOf(frameCount * 2))
             writtenFrames += frameCount
             return true
         }
 
-        override fun currentPositionUs(): Long =
-            writtenFrames * 1_000_000L / SingleAudioTrackEngine.BUS_SAMPLE_RATE
+        override fun currentPositionUs(): Long {
+            val playedFrames = (writtenFrames - playbackLagFrames).coerceAtLeast(0L)
+            return playedFrames * 1_000_000L / configuredSampleRate
+        }
 
         override fun hasPendingData(): Boolean = false
 
