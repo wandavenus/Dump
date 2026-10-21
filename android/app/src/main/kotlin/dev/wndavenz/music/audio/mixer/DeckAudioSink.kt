@@ -80,6 +80,10 @@ class DeckAudioSink(
     private var retryPosition: Int = 0
     private var retryLimit: Int = 0
 
+    /** EOS draining can be retried without queueing the processor tail twice. */
+    private var eosRequested = false
+    private var eosStreamFinished = false
+
     /** Bytes of an incomplete PCM frame carried into the next buffer. */
     private var leftover = ByteArray(0)
     private var pendingTail: ByteArray? = null
@@ -306,36 +310,56 @@ class DeckAudioSink(
 
     override fun playToEndOfStream() {
         val format = configuredFormat ?: return
-        val tail = try {
-            pipeline.finish()
-        } catch (error: Exception) {
-            log("Deck $slot EOS drain failed: ${error.message}")
-            emptyList()
+        if (!eosRequested) {
+            val tail = try {
+                pipeline.finish()
+            } catch (error: Exception) {
+                log("Deck $slot EOS pipeline drain failed: ${error.message}")
+                listener?.onAudioSinkError(error)
+                return
+            }
+            for (block in tail) {
+                pending.addLast(
+                    PendingBlock(
+                        pcm = block.pcm,
+                        offsetFrames = 0,
+                        frames = block.frames,
+                        sourceStartUs = block.sourceStartUs,
+                        sourceDurationUs = block.sourceDurationUs,
+                    ),
+                )
+            }
+            eosRequested = true
         }
-        for (block in tail) {
-            pending.addLast(
-                PendingBlock(
-                    pcm = block.pcm,
-                    offsetFrames = 0,
-                    frames = block.frames,
-                    sourceStartUs = block.sourceStartUs,
-                    sourceDurationUs = block.sourceDurationUs,
-                ),
-            )
+
+        if (!finishEosIfDrained(DRAIN_EOS_TIMEOUT_MS)) {
+            // Preserve pending PCM on backpressure; normal renderer polling will
+            // retry once the shared ring has space. EOS is not published yet.
+            log("Deck $slot EOS drain deferred with ${pending.size} pending blocks")
+        } else {
+            log("Deck $slot EOS drained: generation=$generation format=${format.sampleRate}Hz")
         }
-        if (!drainPending(DRAIN_EOS_TIMEOUT_MS)) {
-            log("Deck $slot EOS drain timed out; dropping ${pending.size} pending blocks")
-            pending.clear()
-        }
-        engine.finishStream(slot, generation)
-        log("Deck $slot EOS drained: generation=$generation format=${format.sampleRate}Hz")
     }
 
-    override fun isEnded(): Boolean =
-        configuredFormat != null && pending.isEmpty() && engine.deckIsEnded(slot)
+    override fun isEnded(): Boolean {
+        finishEosIfDrained(RETRY_EOS_DRAIN_TIMEOUT_MS)
+        return configuredFormat != null && pending.isEmpty() &&
+            eosStreamFinished && engine.deckIsEnded(slot)
+    }
 
-    override fun hasPendingData(): Boolean =
-        pending.isNotEmpty() || engine.deckHasPendingData(slot)
+    override fun hasPendingData(): Boolean {
+        finishEosIfDrained(RETRY_EOS_DRAIN_TIMEOUT_MS)
+        return pending.isNotEmpty() || engine.deckHasPendingData(slot)
+    }
+
+    private fun finishEosIfDrained(timeoutMs: Long): Boolean {
+        if (!eosRequested) return false
+        if (eosStreamFinished) return true
+        if (!drainPending(timeoutMs) || pending.isNotEmpty()) return false
+        engine.finishStream(slot, generation)
+        eosStreamFinished = true
+        return true
+    }
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
         val positionUs = engine.deckPositionUs(slot, sourceEnded)
@@ -469,6 +493,8 @@ class DeckAudioSink(
         retryBuffer = null
         pendingTail = null
         leftover = ByteArray(0)
+        eosRequested = false
+        eosStreamFinished = false
     }
 
     private fun commitPendingTail() {
@@ -485,6 +511,7 @@ class DeckAudioSink(
     companion object {
         private const val DRAIN_TIMEOUT_MS = 250L
         private const val DRAIN_EOS_TIMEOUT_MS = 2_000L
+        private const val RETRY_EOS_DRAIN_TIMEOUT_MS = 0L
         private const val WRITE_ERROR = -1
     }
 }
