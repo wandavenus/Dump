@@ -36,6 +36,28 @@ internal object AutomixTransitionPolicy {
     }
 
     /**
+     * Resolve the planner's early-handover lead against the actual Media3
+     * duration. Prefer the relative lead whenever present; falling back to the
+     * legacy absolute position preserves compatibility with older Dart payloads.
+     * An invalid relative cue fails closed rather than reviving a stale absolute
+     * position that may schedule the fade at EOF or outside the supported window.
+     */
+    fun resolveEarlyHandoverStartMs(
+        transitionLeadMs: Long?,
+        fallbackTransitionStartMs: Long?,
+        outgoingDurationMs: Long,
+    ): Long? {
+        if (transitionLeadMs == null) return fallbackTransitionStartMs
+        if (outgoingDurationMs <= 0L ||
+            transitionLeadMs !in EARLY_TRANSITION_MIN_LEAD_MS..EARLY_TRANSITION_MAX_LEAD_MS ||
+            transitionLeadMs >= outgoingDurationMs
+        ) {
+            return null
+        }
+        return outgoingDurationMs - transitionLeadMs
+    }
+
+    /**
      * Phase-lock requires comparable *measured* pulse periods, not merely BPMs
      * that the planner can octave-fold (half/double-time). The planner may still
      * allow those pairs for a regular fade, but correcting phase between 60 and
@@ -169,6 +191,7 @@ internal data class ParsedAutomixTransitionTarget(
     val dropCueMs: Long?,
     val fadeSeconds: Float?,
     val transitionStartMs: Long?,
+    val transitionLeadMs: Long?,
     val curveGamma: Float?,
     val incomingTrim: Float?,
     val outgoingTrim: Float?,
@@ -198,6 +221,8 @@ internal data class ParsedAutomixTransitionTarget(
                 ?.takeIf {
                     it.isFinite() && it >= 0.0 && it <= 86_400_000.0
                 }?.toLong()
+            val transitionLeadMs = nonNegativeMillis("transitionLeadMs")
+                ?.takeIf { it <= 86_400_000L }
 
             return ParsedAutomixTransitionTarget(
                 id = id,
@@ -208,6 +233,7 @@ internal data class ParsedAutomixTransitionTarget(
                 dropCueMs = nonNegativeMillis("dropCueMs"),
                 fadeSeconds = AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade),
                 transitionStartMs = transitionStartMs,
+                transitionLeadMs = transitionLeadMs,
                 curveGamma = AutomixTransitionPolicy.curveGamma(strategy, requestedCurve),
                 incomingTrim = (target["levelTrimIncoming"] as? Number)?.toFloat()
                     ?.takeIf { it.isFinite() }?.coerceIn(0f, 1f),
