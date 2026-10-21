@@ -2160,9 +2160,9 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
   const int32_t sample_rate = 48000;
   const int32_t chunk_frames = 512;
   const int64_t transition_frame = (int64_t)sample_rate * 8;  // 20 beats at 150 BPM.
-  // Wait 7.5 s after the switch so the 6 s analysis window is fully on the
-  // new pulse grid and enough callbacks remain to measure settled phase.
-  const int64_t total_frames = transition_frame + (int64_t)(sample_rate * 7.5);
+  // Wait 9 s after the switch so both the 6 s history and the smoothed BPM
+  // estimate have settled on the new pulse grid before measuring its phase.
+  const int64_t total_frames = transition_frame + (int64_t)(sample_rate * 9.0);
   const int64_t fast_period_frames = sample_rate * 2 / 5;  // 150 BPM.
   const int64_t slow_period_frames = (int64_t)sample_rate * 3 / 5;  // 100 BPM.
   float pcm[512 * 2];
@@ -2172,7 +2172,9 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
   double max_slow_beat_error_ms = 0.0;
   double max_slow_downbeat_error_ms = 0.0;
   int32_t checked_fast_phases = 0;
+  int32_t checked_fast_downbeat_phases = 0;
   int32_t checked_slow_phases = 0;
+  int32_t checked_slow_downbeat_phases = 0;
   int32_t checked_transition_states = 0;
   int64_t produced = 0;
 
@@ -2257,7 +2259,7 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
         last_sample >= transition_frame - sample_rate &&
         last_sample < transition_frame;
     const int in_slow_steady_window =
-        last_sample >= transition_frame + (int64_t)(sample_rate * 6.25);
+        last_sample >= transition_frame + (int64_t)(sample_rate * 8.0);
     if (in_fast_steady_window &&
         fabs(state[0] - 150.0) <= 150.0 * 0.08 &&
         state[2] > 0.15) {
@@ -2273,10 +2275,11 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
         if (downbeat_error > max_fast_downbeat_error_ms) {
           max_fast_downbeat_error_ms = downbeat_error;
         }
+        checked_fast_downbeat_phases++;
       }
     }
     if (in_slow_steady_window &&
-        fabs(state[0] - 100.0) <= 100.0 * 0.08 &&
+        fabs(state[0] - 100.0) <= 100.0 * 0.02 &&
         state[2] > 0.15) {
       const double beat_error = phase_circular_distance_ms(
           state[1], expected_beat_age_ms, actual_beat_period_ms);
@@ -2290,16 +2293,19 @@ static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
         if (downbeat_error > max_slow_downbeat_error_ms) {
           max_slow_downbeat_error_ms = downbeat_error;
         }
+        checked_slow_downbeat_phases++;
       }
     }
   }
 
   assert(checked_fast_phases >= 40);
   assert(max_fast_beat_error_ms < 25.0);
+  assert(checked_fast_downbeat_phases >= 20);
   assert(max_fast_downbeat_error_ms < 40.0);
   assert(checked_transition_states >= 100);
   assert(checked_slow_phases >= 40);
   assert(max_slow_beat_error_ms < 25.0);
+  assert(checked_slow_downbeat_phases >= 20);
   assert(max_slow_downbeat_error_ms < 40.0);
   // After a full slow-tempo history window, the estimate must converge toward
   // the new pulse rather than retaining the previous fast tempo.
