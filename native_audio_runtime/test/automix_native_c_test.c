@@ -1684,6 +1684,48 @@ static void test_tone_processor_various_frame_counts(void) {
   }
 }
 
+static void test_live_tracker_ignores_lfe_and_surround_channels(void) {
+  // 5.1-ish interleaved layout: L, R, C, LFE, SL, SR. A loud click train in
+  // the LFE/center/surround channels must not be mistaken for the musical
+  // beat: the tracker only listens to the stereo L/R bed.
+  const int32_t sample_rate = 48000;
+  const int32_t channels = 6;
+  const int32_t chunk_frames = 512;
+  const int32_t total_frames = sample_rate * 8;
+  float pcm[512 * 6];
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  int32_t produced = 0;
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t absolute = (int64_t)produced + i;
+      const int64_t phase = absolute % 24000;
+      const float click = phase < 48
+          ? (float)(0.9 * (1.0 - (double)phase / 48.0))
+          : 0.0f;
+      const int32_t base = i * channels;
+      pcm[base] = 0.0f;
+      pcm[base + 1] = 0.0f;
+      pcm[base + 2] = click;
+      pcm[base + 3] = click;
+      pcm[base + 4] = click;
+      pcm[base + 5] = click;
+    }
+    assert(nar_automix_live_tracker_process(
+               pcm, frames, channels, sample_rate, 0) == 1);
+    produced += frames;
+  }
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[0] < 1.0);
+  assert(state[2] < 0.05);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 static void test_live_tracker_requires_explicit_enable(void) {
   float pcm[512 * 2] = {0.0f};
   double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {-1.0, -1.0, -1.0};
@@ -2194,6 +2236,7 @@ int main(void) {
   test_live_tracker_publishes_downbeat_phase();
   test_live_tracker_reports_activity_trend();
   test_live_tracker_requires_explicit_enable();
+  test_live_tracker_ignores_lfe_and_surround_channels();
   test_live_tracker_disable_clears_live_state();
   test_live_tracker_reset_is_slot_local_during_processing();
   test_tone_processor_unity_bands_preserve_fade_target();

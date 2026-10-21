@@ -52,6 +52,63 @@ void main() {
     messenger.setMockMethodCallHandler(playbackChannel, null);
   });
 
+  test('withholds outgoing phase when only the whole-track grid is available', () {
+    const outgoing = AutomixTrackFeatures(
+      songId: 201,
+      bpm: 120,
+      bpmConfidence: 0.9,
+      beatOffsetMs: 300,
+      downbeatOffsetMs: 900,
+      tailAnalyzed: true,
+      tailBpmConfidence: 0.1,
+    );
+    const incoming = AutomixTrackFeatures(
+      songId: 202,
+      bpm: 122,
+      bpmConfidence: 0.9,
+      beatOffsetMs: 120,
+      downbeatOffsetMs: 480,
+    );
+    final targets = AutomixService.buildNativeTargetsForTesting(outgoing, [
+      incoming,
+    ]);
+    expect(targets, hasLength(2));
+    // Whole-track BPM may still be used for tempo sequencing, but the head
+    // phase must never masquerade as the outgoing exit grid.
+    expect(targets.first['bpm'], 120.0);
+    expect(targets.first.containsKey('beatOffsetMs'), isFalse);
+    expect(targets.first.containsKey('downbeatOffsetMs'), isFalse);
+    expect(targets[1]['bpm'], 122.0);
+    expect(targets[1]['beatOffsetMs'], 120.0);
+    expect(targets[1]['downbeatOffsetMs'], 480.0);
+  });
+
+  test('publishes the tail grid when the exit estimate is confident', () {
+    const outgoing = AutomixTrackFeatures(
+      songId: 301,
+      bpm: 120,
+      bpmConfidence: 0.9,
+      beatOffsetMs: 300,
+      downbeatOffsetMs: 900,
+      tailBpm: 126,
+      tailBpmConfidence: 0.9,
+      tailBeatOffsetMs: 31250,
+      tailDownbeatOffsetMs: 31800,
+      tailAnalyzed: true,
+    );
+    const incoming = AutomixTrackFeatures(
+      songId: 302,
+      bpm: 126,
+      bpmConfidence: 0.9,
+    );
+    final targets = AutomixService.buildNativeTargetsForTesting(outgoing, [
+      incoming,
+    ]);
+    expect(targets.first['bpm'], 126.0);
+    expect(targets.first['beatOffsetMs'], 31250.0);
+    expect(targets.first['downbeatOffsetMs'], 31800.0);
+  });
+
   test('same-ID queue never engages the AutoMix transition', () async {
     final result = await AutomixService.startAutomix([
       song(101),

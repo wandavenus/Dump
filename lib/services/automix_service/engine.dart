@@ -430,6 +430,22 @@ AutomixTrackFeatures automixMergeSegments({
     return bpm == null ? value : automixFoldToOctave(value, bpm);
   }
 
+  // An edge phase is measured modulo the edge tempo's beat period. Folding a
+  // faster edge estimate down to the track octave shortens that period, so the
+  // same phase can represent either a main beat or its offbeat. Only a slower
+  // edge estimate (whose period is a multiple of the published one) preserves
+  // the phase unambiguously.
+  bool edgePhaseSurvivesFold(double? measuredBpm, double? publishedBpm) {
+    if (measuredBpm == null || publishedBpm == null) return true;
+    if (!measuredBpm.isFinite ||
+        !publishedBpm.isFinite ||
+        measuredBpm <= 0 ||
+        publishedBpm <= 0) {
+      return false;
+    }
+    return measuredBpm <= publishedBpm * 1.03;
+  }
+
   double? startBpm;
   double? endBpm;
   var startBpmConfidence = 0.0;
@@ -443,6 +459,7 @@ AutomixTrackFeatures automixMergeSegments({
     startBpmConfidence = startBpm == null ? 0.0 : head.startBpmConfidence;
     if (startBpm != null &&
         startBpmConfidence >= 0.35 &&
+        edgePhaseSurvivesFold(head.startBpm, startBpm) &&
         head.startBeatOffsetMs != null &&
         head.startBeatOffsetMs!.isFinite &&
         head.startBeatOffsetMs! >= 0) {
@@ -556,7 +573,8 @@ AutomixTrackFeatures automixMergeSegments({
           ? s.endBpm!
           : automixFoldToOctave(s.endBpm!, bpm);
       tailBpmConfidence = s.endBpmConfidence;
-      if (s.endBeatOffsetMs != null &&
+      if (edgePhaseSurvivesFold(s.endBpm, tailBpm) &&
+          s.endBeatOffsetMs != null &&
           s.endBeatOffsetMs!.isFinite &&
           s.endBeatOffsetMs! >= 0) {
         tailBeatOffsetMs =
@@ -572,10 +590,15 @@ AutomixTrackFeatures automixMergeSegments({
               tailConfidence <= 1
           ? tailConfidence
           : 0.0;
-      if (s.beatOffsetMs != null && s.bpmConfidence >= 0.25) {
+      final phaseSurvivesFold = edgePhaseSurvivesFold(s.bpm, tailBpm);
+      if (phaseSurvivesFold &&
+          s.beatOffsetMs != null &&
+          s.bpmConfidence >= 0.25) {
         tailBeatOffsetMs = s.startSeconds * 1000.0 + s.beatOffsetMs!;
       }
-      if (s.downbeatOffsetMs != null && s.bpmConfidence >= 0.25) {
+      if (phaseSurvivesFold &&
+          s.downbeatOffsetMs != null &&
+          s.bpmConfidence >= 0.25) {
         tailDownbeatOffsetMs = s.startSeconds * 1000.0 + s.downbeatOffsetMs!;
       }
     }
