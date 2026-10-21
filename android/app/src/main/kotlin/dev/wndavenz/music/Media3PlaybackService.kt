@@ -2261,14 +2261,6 @@ class Media3PlaybackService : MediaSessionService() {
         player.currentMediaItem?.mediaId?.toIntOrNull()
 
     /**
-     * AutoMix beat-grid seek target (ms from the start of the file) for
-     * [player], or null when the incoming/active deck pair is not confidently
-     * beat-matched.
-     *
-     * Shared by the preload path (which seeks the still-silent standby) and the
-     * pre-warm path, which must reuse the same phase instead of seekTo(0).
-     */
-    /**
      * Converts the planner's duration-independent handover lead to the current
      * outgoing player's media timeline. Both CrossfadeController and the drop
      * seek path call this resolver, preventing them from disagreeing about
@@ -2286,6 +2278,14 @@ class Media3PlaybackService : MediaSessionService() {
         )
     }
 
+    /**
+     * AutoMix beat-grid seek target (ms from the start of the file) for
+     * [player], or null when the incoming/active deck pair is not confidently
+     * beat-matched.
+     *
+     * Shared by the preload path (which seeks the still-silent standby) and the
+     * pre-warm path, which must reuse the same phase instead of seekTo(0).
+     */
     private fun automixBeatSeekMsFor(player: ExoPlayer): Long? {
         if (!automixTransitionEnabled) return null
         val incomingId = player.currentMediaItem?.mediaId?.toIntOrNull() ?: return null
