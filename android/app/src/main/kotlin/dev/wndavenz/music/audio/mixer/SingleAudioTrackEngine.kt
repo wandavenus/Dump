@@ -729,11 +729,10 @@ class SingleAudioTrackEngine(
         private const val RELEASE_TIMEOUT_MS = 1_500L
 
         /**
-         * Runtime kill switch. Keep the experimental mixer off until device
-         * capture/listening/stress validation passes. When false, the service
-         * uses the legacy per-deck DefaultAudioSink path.
+         * Runtime kill switch. Enabled for real-device validation of the shared
+         * single-AudioTrack path. Set false to fall back to per-deck DefaultAudioSink.
          */
         @Volatile
-        var enabled: Boolean = false
+        var enabled: Boolean = true
     }
 }
