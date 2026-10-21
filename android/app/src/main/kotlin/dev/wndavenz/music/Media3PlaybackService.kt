@@ -22,6 +22,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.common.PlaybackException
+import dev.wndavenz.music.audio.mixer.DeckAudioSink
+import dev.wndavenz.music.audio.mixer.Media3SharedAudioOutput
+import dev.wndavenz.music.audio.mixer.SingleAudioTrackEngine
 import dev.wndavenz.music.audio_focus.AudioFocusManager
 import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import dev.wndavenz.music.automix.ParsedAutomixTransitionTarget
@@ -163,6 +166,13 @@ class Media3PlaybackService : MediaSessionService() {
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
     private val playerAutomixToneProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.AutomixToneAudioProcessor>()
 
+    // ── Single-AudioTrack mixer (dual-player / one hardware output) ───────────
+    // Both ExoPlayer decks feed virtual DeckAudioSinks; this engine owns the
+    // only DefaultAudioSink/AudioTrack for the whole dual-player session.
+    // See docs/dual_player_single_audiotrack_blueprint.md.
+    private var singleAudioTrackEngine: SingleAudioTrackEngine? = null
+    private var sharedAudioOutput:      Media3SharedAudioOutput? = null
+
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
     // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
     // without needing to query the player synchronously off the analytics thread.
@@ -288,6 +298,24 @@ class Media3PlaybackService : MediaSessionService() {
         reverbManager = ReverbManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
         automixToneManager = dev.wndavenz.music.effects.AutomixToneManager()
+
+        // Single-AudioTrack mixer: create the shared bus BEFORE the first player
+        // so createConfiguredPlayer() can hand each deck a virtual sink. The
+        // engine owns the only hardware output; Bit-Perfect Mode keeps using
+        // its own dedicated clean player/sink and never runs concurrently.
+        if (SingleAudioTrackEngine.enabled) {
+            val busOutput = Media3SharedAudioOutput(this)
+            sharedAudioOutput = busOutput
+            val mixRate = preferredMixSampleRate()
+            singleAudioTrackEngine = SingleAudioTrackEngine(
+                output = busOutput,
+                busSampleRate = mixRate,
+                log = { message -> NativeLogger.emit("debug", "Mixer", message) },
+            )
+            NativeLogger.emit("info", "Mixer",
+                "Single-AudioTrack mixer enabled: one shared ${mixRate}Hz float bus, " +
+                    "deck sinks are virtual (legacy dual-AudioTrack path disabled)")
+        }
 
         // Create primary player — always physical stream slot 0.
         primaryPlayer = createConfiguredPlayer(streamSlot = 0)
@@ -1219,6 +1247,11 @@ class Media3PlaybackService : MediaSessionService() {
         // first (the "release" MethodChannel path) or when the system kills the
         // service without a prior prepareShutdown() (system-kill path).
         shutdownCoordinator.performTeardown()
+        // Players were released above (their deck sinks detached themselves),
+        // so the shared mixer can now release the single hardware output.
+        singleAudioTrackEngine?.release()
+        singleAudioTrackEngine = null
+        sharedAudioOutput = null
         // The next onCreate() must go through the same wiring before it's safe
         // for Dart to push settings again — see ServiceReadyGate doc comment.
         ServiceReadyGate.reset()
@@ -1467,7 +1500,35 @@ class Media3PlaybackService : MediaSessionService() {
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
-            ): DefaultAudioSink {
+            ): AudioSink {
+                // Single-AudioTrack path: the deck gets a virtual sink that
+                // runs the same processor chain and feeds the shared mixer. No
+                // AudioTrack is created per deck.
+                val mixEngine = singleAudioTrackEngine
+                val busOutput = sharedAudioOutput
+                if (mixEngine != null && busOutput != null) {
+                    NativeLogger.emit(
+                        "info", "Mixer",
+                        "[Mixer] virtual deck sink slot=$streamSlot " +
+                            "order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,AutoMixTone] " +
+                            "stretchHash=${System.identityHashCode(stretchProc)} " +
+                            "bus=${mixEngine.busSampleRate}Hz/2ch/float",
+                    )
+                    return DeckAudioSink(
+                        engine = mixEngine,
+                        output = busOutput,
+                        slot = streamSlot,
+                        processors = listOf(
+                            toFloatProc,
+                            nativeDspProc,
+                            channelMixingProc,
+                            reverbProc,
+                            stretchProc,
+                            automixToneProc,
+                        ),
+                        log = { message -> NativeLogger.emit("debug", "Mixer", message) },
+                    )
+                }
                 NativeLogger.emit(
                     "info", "Stretch",
                     "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,AutoMixTone,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
@@ -1610,6 +1671,22 @@ class Media3PlaybackService : MediaSessionService() {
         }
 
         return player
+    }
+
+    /**
+     * Prefers the platform's native output rate so 44.1 kHz libraries are not
+     * resampled twice (deck → mix bus → AudioFlinger). Falls back to 48 kHz
+     * when the property is unavailable or implausible.
+     */
+    private fun preferredMixSampleRate(): Int {
+        val rate = (getSystemService(Context.AUDIO_SERVICE) as? AudioManager)
+            ?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)
+            ?.toIntOrNull()
+        return if (rate != null && rate in 8_000..192_000) {
+            rate
+        } else {
+            SingleAudioTrackEngine.BUS_SAMPLE_RATE
+        }
     }
 
     /**
@@ -2532,17 +2609,26 @@ class Media3PlaybackService : MediaSessionService() {
             // Dual-player crossfade and Bit-Perfect Mode never run together.
             crossfadeController.cancel(resetVolume = true)
             preloadManager.releaseStandbyPlayer()
+            val wasPlaying = current.isPlaying
+            val positionMs = current.currentPosition
+            current.pause()
+            // Do not let the clean player open another AudioTrack while the
+            // shared mixer still owns its paused hardware output.
+            if (singleAudioTrackEngine?.suspendOutputForExclusiveMode() == false) {
+                NativeLogger.emit("error", "Media3",
+                    "BitPerfect: shared AudioTrack could not be released; aborting mode switch")
+                if (wasPlaying) current.play()
+                return
+            }
+
             // Bit-Perfect uses a clean player and cannot consume AutoMix targets.
-            // Clear those targets and stop live analysis before leaving this pipeline.
+            // Change transition policy only after shared-output release succeeds,
+            // so an aborted switch doesn't silently disable AutoMix.
             applyAutomixTransitionNow(
                 enabled = false,
                 targets = emptyList(),
                 preloadStandby = false,
             )
-
-            val wasPlaying = current.isPlaying
-            val positionMs = current.currentPosition
-            current.pause()
 
             // No AudioEffects during bit-perfect playback.
             effectsManager.releaseEffects()
@@ -2649,6 +2735,13 @@ class Media3PlaybackService : MediaSessionService() {
             }
             // BP-05: migrate the tracked offload listener back to the restored player.
             attachOffloadListenerTo(restoredPlayer)
+
+            // The media proxy now targets the restored virtual deck. Release
+            // the clean player instead of retaining a paused physical sink;
+            // otherwise its AudioTrack may coexist with the shared mixer.
+            detachPlayerListener(clean)
+            try { clean.release() } catch (_: Exception) {}
+            bitPerfectPlayer = null
 
             // Re-attach AudioEffects for the restored session — the
             // onAudioSessionIdChanged listener only fires when the numeric session

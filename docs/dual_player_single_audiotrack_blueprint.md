@@ -1,8 +1,58 @@
 # Blueprint: Dual-Player dengan Satu AudioTrack
 
 **Project:** Noisegraph / Dump  
-**Status:** Proposal arsitektur — belum diimplementasikan  
+**Status:** Implementasi ada di PR #193 dengan regression fixes; feature flag default nonaktif sampai validasi perangkat nyata selesai
 **Baseline:** `Media3PlaybackService`, `CrossfadeController`, `SignalsmithStretchAudioProcessor`, `AutomixToneManager`, Media3 `1.11.1`
+
+## 0. Status implementasi
+
+Jalur dual-player sekarang memakai dua ExoPlayer + dua `DeckAudioSink` virtual + satu
+`SingleAudioTrackEngine` + satu output `DefaultAudioSink`/`AudioTrack`.
+
+| File | Isi |
+|---|---|
+| `audio/mixer/SingleAudioTrackEngine.kt` | Pemilik satu output, thread mixing, bus clock, play/pause global, gain per deck, metrik |
+| `audio/mixer/DeckAudioSink.kt` | Implementasi kontrak `AudioSink` per deck (tanpa AudioTrack) |
+| `audio/mixer/DeckAudioPipeline.kt` | Processor chain per deck (`ToFloat → NativeDsp → StereoWiden → Reverb → Stretch → AutoMixTone`) + normalisasi bus |
+| `audio/mixer/DeckTimelineMap.kt` | Mapping frame output deck ↔ posisi media sumber |
+| `audio/mixer/PcmRingBuffer.kt` | Ring SPSC bounded 500 ms per deck, backpressure tanpa drop |
+| `audio/mixer/SincResampler.kt` | Konversi sample-rate stereo 32-tap windowed sinc (anti-alias saat downsampling) |
+| `audio/mixer/MixDsp.kt` | Bus limiter pasca-summing + smoothing gain per deck |
+| `audio/mixer/Media3SharedAudioOutput.kt` | Adapter `DefaultAudioSink` tunggal + forward event/audio session |
+| `Media3PlaybackService.kt` | Membuat engine sebelum player pertama, memilih deck sink vs legacy sink, release saat teardown |
+
+Keputusan implementasi yang menyimpang dari proposal:
+
+- **Bus rate is authoritative end-to-end**: the engine configures the physical sink at its
+  selected `busSampleRate`, and ring/mix-block sizes scale with that rate.
+- **Audible timeline mapping is per deck**: consumed deck ranges are mapped to absolute bus
+  frames and retained until the shared output playhead passes them. This avoids advancing
+  positions from decoder/mixer consumption while PCM remains inside the hardware buffer.
+- **JNI processors receive direct input buffers**: the deck pipeline copies decoder bytes into
+  a reusable direct ByteBuffer before processing so Signalsmith can access samples through
+  `GetDirectBufferAddress()`.
+- **EOS backpressure is lossless**: a timed-out ring drain keeps pending PCM and retries
+  during Media3 `hasPendingData()/isEnded()` polling instead of dropping it.
+- **Bit-Perfect is exclusive**: the shared sink is reset before its clean player starts and
+  the mixer reconfigures when normal dual-player playback resumes.
+
+- **Bus rate dipilih sekali per sesi dari sample rate output native perangkat**
+  (`AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE`, fallback 48 kHz), stereo float. Ini
+  menjamin satu AudioTrack, menghindari rekonfigurasi di tengah transisi, dan tidak
+  melakukan resampling ganda pada perangkat 44.1 kHz. Setiap deck yang rate-nya berbeda
+  dikonversi dengan `SincResampler`.
+- **Bit-Perfect Mode tetap memakai player/sink bersihnya sendiri** dan tidak berjalan
+  bersamaan dengan AutoMix/crossfade, sesuai batas di bagian 4.
+- **`flushBusForSeek`** hanya mem-flush output hardware bila deck yang di-seek sendirian dan
+  tidak ada frame lain yang belum diputar; selama overlap, flush per deck tidak menyentuh
+  output bersama.
+- **Kill switch**: `SingleAudioTrackEngine.enabled = false` sebelum player dibuat akan
+  mengembalikan jalur legacy dua AudioTrack tanpa perubahan lain.
+
+Gate Phase 0 (bukti jumlah `AudioTrack` saat runtime) dilayani oleh log engine
+`AudioTrack initialized/released ... activeAudioTrackCount=...`; gate Phase 5
+(capture PCM, listening test, stress test perangkat) tetap wajib dijalankan di perangkat
+nyata sebelum flag dianggap final.
 
 ## 1. Tujuan
 
