@@ -2692,9 +2692,6 @@ class Media3PlaybackService : MediaSessionService() {
             val wasPlaying = src.isPlaying
             val positionMs = src.currentPosition
             clean.pause()
-            // Force the dedicated clean renderer to tear down its AudioTrack
-            // before the normal shared output can be configured again.
-            clean.stop()
             if (src !== clean) src.pause()
 
             val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
@@ -2738,6 +2735,13 @@ class Media3PlaybackService : MediaSessionService() {
             }
             // BP-05: migrate the tracked offload listener back to the restored player.
             attachOffloadListenerTo(restoredPlayer)
+
+            // The media proxy now targets the restored virtual deck. Release
+            // the clean player instead of retaining a paused physical sink;
+            // otherwise its AudioTrack may coexist with the shared mixer.
+            detachPlayerListener(clean)
+            try { clean.release() } catch (_: Exception) {}
+            bitPerfectPlayer = null
 
             // Re-attach AudioEffects for the restored session — the
             // onAudioSessionIdChanged listener only fires when the numeric session
