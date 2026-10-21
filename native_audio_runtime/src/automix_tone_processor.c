@@ -317,14 +317,15 @@ static void apply_true_peak_limiter(
       const float frame_peak = true_peak_frame(history);
       if (frame_peak > peak) peak = frame_peak;
     }
-    // Keep a small deterministic guard band under the requested ceiling.
-    // The estimator is causal (no lookahead), so this margin reduces initial
-    // transient overshoot without adding buffering or changing the audio path.
-    const float guarded_ceiling = effective_ceiling * 0.98f;
     const float desired =
-        peak > guarded_ceiling ? guarded_ceiling / peak : 1.0f;
+        peak > effective_ceiling ? effective_ceiling / peak : 1.0f;
     if (desired < gain) {
-      gain = desired;
+      // A small extra attack margin helps cover the causal detector's first
+      // transient overshoot. Do not use it as the steady-state target: the
+      // gain must recover to the requested ceiling once the peak settles.
+      const float guarded_desired =
+          peak > effective_ceiling ? effective_ceiling * 0.98f / peak : desired;
+      gain = guarded_desired < desired ? guarded_desired : desired;
     } else {
       gain += (desired - gain) * release;
     }

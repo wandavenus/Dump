@@ -267,9 +267,8 @@ class AutomixService {
       }
       final state = AudioService.playbackState.value;
       final queue = state.currentPlaylist;
-      // Preserve the prepared transition while paused, but disarm stale native
-      // state when the current queue can no longer produce a valid transition.
-      if (!state.isPlaying) return;
+      // Disarm stale native state whenever the queue cannot produce a valid
+      // transition, including while paused. A valid paused session keeps its plan.
       if (state.currentSong == null ||
           queue.length < 2 ||
           state.currentIndex < 0 ||
@@ -280,6 +279,7 @@ class AutomixService {
         _plannedTail = null;
         return;
       }
+      if (!state.isPlaying) return;
       final tailIds = _tailIdsOf(state, queue);
       final identity = _autoMixQueueIdentity(state, queue, tailIds);
       final queueChanged = _lastAutoQueueIdentity != identity;
