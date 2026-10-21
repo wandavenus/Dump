@@ -351,6 +351,13 @@ class AutomixService {
   static bool _tempoInRange(double? bpm) =>
       bpm != null && bpm.isFinite && bpm >= 50 && bpm <= 220;
 
+  /// Test-only entry point for the pure target builder.
+  @visibleForTesting
+  static List<Map<String, Object?>> buildNativeTargetsForTesting(
+    AutomixTrackFeatures current,
+    List<AutomixTrackFeatures> upcoming,
+  ) => _buildNativeTargets(current, upcoming);
+
   /// Builds the per-deck plan native needs.
   ///
   /// The outgoing deck publishes its **exit** grid (the blend happens at the
@@ -390,15 +397,21 @@ class AutomixService {
           : (useLocalIntroGrid ? features.startBpm : features.bpm);
       // Local BPM estimates use phases measured in the same edge quarter.
       // Their whole-window phrase phases are intentionally not forwarded.
+      //
+      // For the outgoing deck the fallback whole-track BPM may still be used
+      // for tempo sequencing, but its beat/downbeat offsets were measured at
+      // the head. Publishing that phase as the exit grid would make native
+      // phase-lock align the end of the track using a grid from its start.
+      // Withhold phase whenever the confident tail grid is unavailable.
       final beatOffsetMs = isOutgoing
-          ? (useTailGrid ? features.tailBeatOffsetMs : features.beatOffsetMs)
+          ? (useTailGrid ? features.tailBeatOffsetMs : null)
           : (useLocalIntroGrid
               ? features.introBeatOffsetMs
               : features.beatOffsetMs);
       final downbeatOffsetMs = isOutgoing
           ? (useTailGrid
               ? (useLocalTailGrid ? null : features.tailDownbeatOffsetMs)
-              : features.downbeatOffsetMs)
+              : null)
           : (useLocalIntroGrid ? null : features.downbeatOffsetMs);
       final confidence = isOutgoing
           ? automixExitBpmConfidence(features)
@@ -754,10 +767,21 @@ class AutomixService {
           _scheduleReplanRetry();
           return;
         }
-        await AudioService.setAutomixTransition(
-          enabled: true,
-          targets: targets,
-        );
+        try {
+          await AudioService.setAutomixTransition(
+            enabled: true,
+            targets: targets,
+          );
+        } on Object catch (e) {
+          // The crossfade override is already engaged at this point. Roll it
+          // back before retrying so an armed Dart session never outlives a
+          // native transition that failed to install.
+          LogService.warn('Automix', 'native transition arm failed: $e');
+          await _clearAutoMixTransition(generation);
+          if (!_isAutoMixGenerationCurrent(generation)) return;
+          _scheduleReplanRetry();
+          return;
+        }
         if (!_isAutoMixGenerationCurrent(generation)) return;
         _lastNativeSignature = signature;
         _replanRetryCount = 0;
@@ -1032,7 +1056,8 @@ class AutomixService {
   // v14: add the quarter energy profile and derived intro/outro slopes.
   // v15: use cepstral periodicity and stereo center-channel evidence in the
   //     native vocal proxy.
-  static const int _analysisSchemaVersion = 16;
+  // v17: drop edge phases measured on a faster quarter tempo before folding.
+  static const int _analysisSchemaVersion = 17;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};

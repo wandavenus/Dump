@@ -413,7 +413,12 @@ static void estimate_live_beat(int32_t slot) {
   // onset history, and the most recent beat of the winning grid is published.
   // A single loud accent or noise spike can no longer hijack the phase the
   // way it could when the latest period's loudest onset won outright.
-  double phase_lag = 60.0 * frames_per_second / candidate_bpm;
+  //
+  // Use the same (smoothed) tempo that will advance the phase between audio
+  // callbacks. Scoring at the raw candidate while projecting at tracker->bpm
+  // makes the anchor and its projection use different periods during a tempo
+  // change, which shifts both the beat and downbeat phase.
+  double phase_lag = 60.0 * frames_per_second / tracker->bpm;
   if (!isfinite(phase_lag) || phase_lag <= 0.0) phase_lag = refined_lag;
   double best_grid = 0.0;
   int32_t best_phase = 0;
@@ -550,13 +555,12 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
       mono = fabs(mid) < 0.25 * fmax(fabs(left), fabs(right))
           ? (fabs(left) >= fabs(right) ? left : right)
           : mid;
-      if (channel_count > 2) {
-        double sum = mono;
-        for (int32_t channel = 2; channel < channel_count; ++channel) {
-          sum += interleaved_pcm[base + channel];
-        }
-        mono = sum / channel_count;
-      }
+      // Multichannel layouts put LFE and surround channels after the L/R
+      // pair. LFE carries sub-bass effects rather than tempo information, and
+      // averaging every channel also attenuates L/R-only musical content by
+      // 1/N. The live tracker only needs the stereo musical bed, so ignore the
+      // remaining channels; the offline downsampler separately excludes LFE
+      // using the container channel mask.
     }
     if (!isfinite(mono)) mono = 0.0;
     tracker->lowpass += tracker->lowpass_alpha * (mono - tracker->lowpass);

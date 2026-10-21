@@ -1393,6 +1393,71 @@ void main() {
       expect(merged.outroTempoStability, 0.84);
     });
 
+    test('drops an edge phase that a faster quarter tempo cannot map', () {
+      final merged = automixMergeSegments(
+        songId: 23,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.95,
+            startBpm: 240,
+            startBpmConfidence: 0.9,
+            startQuarterPhaseMs: 100,
+          ),
+          seg(
+            240,
+            bpm: 120,
+            conf: 0.9,
+            endBpm: 240,
+            endBpmConfidence: 0.9,
+            endQuarterPhaseMs: 125,
+          ),
+        ],
+      );
+
+      // 240 BPM folds onto the 120 BPM track octave, but its 250 ms phase
+      // could be either main beat or offbeat on the resulting 500 ms grid.
+      expect(merged.startBpm, closeTo(120, 1));
+      expect(merged.endBpm, closeTo(120, 1));
+      expect(merged.introBeatOffsetMs, isNull);
+      expect(merged.tailBeatOffsetMs, isNull);
+      // The tempo estimates remain usable even though their phase is dropped.
+      expect(merged.startBpmConfidence, 0.9);
+      expect(merged.tailBpmConfidence, 0.9);
+    });
+
+    test('keeps an edge phase when the quarter tempo is slower', () {
+      final merged = automixMergeSegments(
+        songId: 24,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            conf: 0.95,
+            startBpm: 60,
+            startBpmConfidence: 0.9,
+            startQuarterPhaseMs: 300,
+          ),
+          seg(
+            240,
+            bpm: 120,
+            conf: 0.9,
+            endBpm: 60,
+            endBpmConfidence: 0.9,
+            endQuarterPhaseMs: 300,
+          ),
+        ],
+      );
+
+      // A 1000 ms edge period is a multiple of the 500 ms track period, so its
+      // phase is still the correct main-beat phase after the octave fold.
+      expect(merged.startBpm, closeTo(120, 1));
+      expect(merged.endBpm, closeTo(120, 1));
+      expect(merged.introBeatOffsetMs, 300);
+      expect(merged.tailBeatOffsetMs, closeTo(240300, 0.5));
+    });
+
     test('folds the tempo curve into the track BPM octave', () {
       final merged = automixMergeSegments(
         songId: 8,
