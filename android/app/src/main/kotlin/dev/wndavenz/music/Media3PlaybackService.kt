@@ -198,8 +198,10 @@ class Media3PlaybackService : MediaSessionService() {
     // Per-transition shaping, keyed by the INCOMING song id: its fade length,
     // the transfer curve, and the level match with the outgoing deck.
     private val automixFadeSecondsBySongId = mutableMapOf<Int, Float>()
-    // Outgoing media-position where the transition to this incoming song starts.
+    // Outgoing media-position cue from older payloads, retained as fallback.
     private val automixTransitionStartMsBySongId = mutableMapOf<Int, Long>()
+    // Duration-independent early handover lead, preferred over the absolute cue.
+    private val automixTransitionLeadMsBySongId = mutableMapOf<Int, Long>()
     private val automixCurveBySongId = mutableMapOf<Int, Float>()
     private val automixIncomingTrimBySongId = mutableMapOf<Int, Float>()
     private val automixOutgoingTrimBySongId = mutableMapOf<Int, Float>()
@@ -670,7 +672,7 @@ class Media3PlaybackService : MediaSessionService() {
             },
             getAutoMixTransitionStartMsForPlayer = { p ->
                 if (!automixTransitionEnabled) null
-                else automixSongIdOf(p)?.let { automixTransitionStartMsBySongId[it] }
+                else automixTransitionStartMsFor(p, activePlayer?.duration ?: 0L)
             },
             getAutoMixCurveForPlayer = { p ->
                 if (!automixTransitionEnabled) 1f
@@ -2266,6 +2268,24 @@ class Media3PlaybackService : MediaSessionService() {
      * Shared by the preload path (which seeks the still-silent standby) and the
      * pre-warm path, which must reuse the same phase instead of seekTo(0).
      */
+    /**
+     * Converts the planner's duration-independent handover lead to the current
+     * outgoing player's media timeline. Both CrossfadeController and the drop
+     * seek path call this resolver, preventing them from disagreeing about
+     * whether an early transition exists.
+     */
+    private fun automixTransitionStartMsFor(
+        incomingPlayer: ExoPlayer,
+        outgoingDurationMs: Long,
+    ): Long? {
+        val incomingId = automixSongIdOf(incomingPlayer) ?: return null
+        return AutomixTransitionPolicy.resolveEarlyHandoverStartMs(
+            transitionLeadMs = automixTransitionLeadMsBySongId[incomingId],
+            fallbackTransitionStartMs = automixTransitionStartMsBySongId[incomingId],
+            outgoingDurationMs = outgoingDurationMs,
+        )
+    }
+
     private fun automixBeatSeekMsFor(player: ExoPlayer): Long? {
         if (!automixTransitionEnabled) return null
         val incomingId = player.currentMediaItem?.mediaId?.toIntOrNull() ?: return null
@@ -2287,7 +2307,7 @@ class Media3PlaybackService : MediaSessionService() {
         val fadeSeconds = automixFadeSecondsBySongId[incomingId]
         val bpm = automixBpmBySongId[incomingId]
         val multiplier = automixTempoMultiplierBySongId[incomingId] ?: 1f
-        val transitionStartMs = automixTransitionStartMsBySongId[incomingId]
+        val transitionStartMs = automixTransitionStartMsFor(player, outgoing.duration)
         val fadeDurationMs = fadeSeconds?.let {
             (it * 1000f).toLong().coerceAtLeast(AutomixTransitionPolicy.MIN_FADE_MS)
         }
@@ -2415,6 +2435,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixDropCueMsBySongId.clear()
         automixFadeSecondsBySongId.clear()
         automixTransitionStartMsBySongId.clear()
+        automixTransitionLeadMsBySongId.clear()
         automixCurveBySongId.clear()
         automixIncomingTrimBySongId.clear()
         automixOutgoingTrimBySongId.clear()
@@ -2432,6 +2453,7 @@ class Media3PlaybackService : MediaSessionService() {
                 parsed.dropCueMs?.let { automixDropCueMsBySongId[id] = it }
                 parsed.fadeSeconds?.let { automixFadeSecondsBySongId[id] = it }
                 parsed.transitionStartMs?.let { automixTransitionStartMsBySongId[id] = it }
+                parsed.transitionLeadMs?.let { automixTransitionLeadMsBySongId[id] = it }
                 parsed.curveGamma?.let { automixCurveBySongId[id] = it }
                 parsed.incomingTrim?.let { automixIncomingTrimBySongId[id] = it }
                 parsed.outgoingTrim?.let { automixOutgoingTrimBySongId[id] = it }
