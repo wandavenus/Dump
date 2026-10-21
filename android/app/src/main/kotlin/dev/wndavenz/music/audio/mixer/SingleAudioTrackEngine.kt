@@ -444,7 +444,7 @@ class SingleAudioTrackEngine(
         log(
             "AudioTrack initialized: encoding=$encoding rate=$sampleRate " +
                 "channelConfig=$channelConfig buffer=$bufferSize " +
-                "activeAudioTrackCount=$activeAudioTracks",
+                "sharedSinkAudioTrackCount=$activeAudioTracks",
         )
         for (listener in busListeners) {
             listener.onAudioTrackInitialized(encoding, sampleRate, channelConfig, bufferSize)
@@ -458,7 +458,7 @@ class SingleAudioTrackEngine(
     ) {
         activeAudioTracks = (activeAudioTracks - 1).coerceAtLeast(0)
         audioTracksReleased++
-        log("AudioTrack released: activeAudioTrackCount=$activeAudioTracks")
+        log("AudioTrack released: sharedSinkAudioTrackCount=$activeAudioTracks")
         for (listener in busListeners) {
             listener.onAudioTrackReleased(encoding, sampleRate, channelConfig)
         }
