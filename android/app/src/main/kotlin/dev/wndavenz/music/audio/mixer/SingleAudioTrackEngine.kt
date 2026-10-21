@@ -165,7 +165,12 @@ class SingleAudioTrackEngine(
         val stream = deck.stream
         if (stream.generation != generation) return 0
 
-        val accepted = stream.ring.write(pcm, offsetFrames, frames)
+        // Reserve the currently free capacity first. Only this producer can
+        // advance writeFrame, while the consumer can only free more capacity,
+        // so the subsequent write accepts this exact frame count. Publish the
+        // timeline metadata before the ring's volatile write pointer, ensuring
+        // the consumer can never observe PCM without its source-time mapping.
+        val accepted = min(frames, stream.ring.availableToWrite)
         if (accepted <= 0) return 0
 
         val duration = if (accepted == frames) {
@@ -173,14 +178,19 @@ class SingleAudioTrackEngine(
         } else {
             sourceDurationUs * accepted / frames
         }
+        val localStartFrame = stream.producedFrames
         stream.timeline.append(
-            stream.producedFrames,
+            localStartFrame,
             accepted,
             sourceStartUs,
             duration,
         )
-        stream.producedFrames = stream.producedFrames + accepted
-        return accepted
+        stream.producedFrames = localStartFrame + accepted
+        val written = stream.ring.write(pcm, offsetFrames, accepted)
+        check(written == accepted) {
+            "SPSC ring accepted $written frames after reserving $accepted"
+        }
+        return written
     }
 
     /** Marks the generation as end-of-stream after its tail was appended. */
