@@ -243,6 +243,40 @@ class SingleAudioTrackEngine(
         }
     }
 
+    /**
+     * Releases the shared AudioTrack before entering a playback mode that owns
+     * an exclusive output sink. The shared sink remains reusable on return.
+     */
+    fun suspendOutputForExclusiveMode(): Boolean {
+        val latch = CountDownLatch(1)
+        var succeeded = false
+        executeOnOutputThread {
+            try {
+                output.pause()
+                output.reset()
+                busConfigured = false
+                playingOutput = false
+                busFramesWritten = 0L
+                busFramesPlayed = 0L
+                limiter.reset()
+                for (deck in decks) deck.stream.playedTimeline.clear()
+                succeeded = true
+                log("Mixer output suspended for exclusive playback mode")
+            } catch (error: Exception) {
+                outputFailed = true
+                log("Mixer output suspend failed: ${error.message}")
+            } finally {
+                latch.countDown()
+            }
+        }
+        return try {
+            latch.await(RELEASE_TIMEOUT_MS, TimeUnit.MILLISECONDS) && succeeded
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+    }
+
     /** Frames that may be appended right now for a deck generation. */
     fun deckFreeFrames(slot: Int, generation: Long): Int {
         val stream = deck(slot).stream
@@ -460,6 +494,14 @@ class SingleAudioTrackEngine(
                 if (!running) return
 
                 val anyPlaying = decks.any { it.playing && !it.released }
+                if (anyPlaying && !busConfigured && !outputFailed) {
+                    // An exclusive playback mode may have reset the shared
+                    // sink; reopen it before any normal deck becomes audible.
+                    if (!configureOutput()) {
+                        sleepQuietly(ERROR_SLEEP_MS)
+                        continue
+                    }
+                }
                 if (anyPlaying && !wasPlaying) {
                     limiter.reset()
                 }
