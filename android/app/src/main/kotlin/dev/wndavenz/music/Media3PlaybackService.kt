@@ -23,6 +23,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.common.PlaybackException
 import dev.wndavenz.music.audio.mixer.DeckAudioSink
+import dev.wndavenz.music.audio.mixer.AudioTrackLifecycleRegistry
 import dev.wndavenz.music.audio.mixer.Media3SharedAudioOutput
 import dev.wndavenz.music.audio.mixer.SingleAudioTrackEngine
 import dev.wndavenz.music.audio_focus.AudioFocusManager
@@ -155,6 +156,8 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
     private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
     private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+    private val deferredAudioTrackAnalyticsListeners: MutableMap<ExoPlayer, AnalyticsListener> =
+        Collections.synchronizedMap(IdentityHashMap())
 
     /** Decoder name stored by onAudioDecoderInitialized for the active player.
      *  Read by onTracksChanged to include in the audioFormat EventChannel event. */
@@ -304,7 +307,12 @@ class Media3PlaybackService : MediaSessionService() {
         // engine owns the only hardware output; Bit-Perfect Mode keeps using
         // its own dedicated clean player/sink and never runs concurrently.
         if (SingleAudioTrackEngine.enabled) {
-            val busOutput = Media3SharedAudioOutput(this)
+            val busOutput = Media3SharedAudioOutput(
+                this,
+                lifecycleLog = { message ->
+                    NativeLogger.emit("info", "AudioTrackLifecycle", message)
+                },
+            )
             sharedAudioOutput = busOutput
             val mixRate = preferredMixSampleRate()
             singleAudioTrackEngine = SingleAudioTrackEngine(
@@ -315,6 +323,12 @@ class Media3PlaybackService : MediaSessionService() {
             NativeLogger.emit("info", "Mixer",
                 "Single-AudioTrack mixer enabled: one shared ${mixRate}Hz float bus, " +
                     "deck sinks are virtual (legacy dual-AudioTrack path disabled)")
+        } else {
+            NativeLogger.emit(
+                "info",
+                "Mixer",
+                "Single-AudioTrack mixer DISABLED by kill switch; legacy per-player DefaultAudioSink path is active",
+            )
         }
 
         // Create primary player — always physical stream slot 0.
@@ -1252,6 +1266,16 @@ class Media3PlaybackService : MediaSessionService() {
         singleAudioTrackEngine?.release()
         singleAudioTrackEngine = null
         sharedAudioOutput = null
+        val trackSnapshot = AudioTrackLifecycleRegistry.snapshot()
+        NativeLogger.emit(
+            "info",
+            "AudioTrackLifecycle",
+            "HW_AUDIO_TRACK_TEARDOWN_SNAPSHOT active=${trackSnapshot.activeCount} " +
+                "created=${trackSnapshot.totalCreated} released=${trackSnapshot.totalReleased} " +
+                "peakConcurrent=${trackSnapshot.peakConcurrent} " +
+                "unmatchedReleaseCallbacks=${trackSnapshot.unmatchedReleaseCallbacks} " +
+                "liveOwners=${trackSnapshot.activeOwners}",
+        )
         // The next onCreate() must go through the same wiring before it's safe
         // for Dart to push settings again — see ServiceReadyGate doc comment.
         ServiceReadyGate.reset()
@@ -1780,7 +1804,13 @@ class Media3PlaybackService : MediaSessionService() {
         // the detachListener callback passed to CrossfadeController (line 312) and
         // onDestroy. Listener de-duplication is kept here to prevent double-attach.
         playerListeners.remove(p)?.let { p.removeListener(it) }
-        analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        analyticsListeners.remove(p)?.let { analyticsListener ->
+            // The AudioTrack release callback may arrive asynchronously on Media3's
+            // playback thread. Keep this listener attached while this player still
+            // owns a track, even though its other listeners/processors are detached.
+            deferredAudioTrackAnalyticsListeners[p] = analyticsListener
+            scheduleDeferredAudioTrackAnalyticsRemoval(p)
+        }
         statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
 
         // Item 6: PlaybackStatsListener — accumulates per-session metrics for
@@ -2232,6 +2262,18 @@ class Media3PlaybackService : MediaSessionService() {
                 audioTrackConfig: AudioSink.AudioTrackConfig,
             ) {
                 val active = p === activePlayer
+                NativeLogger.emit(
+                    "info",
+                    "AudioTrackLifecycle",
+                    AudioTrackLifecycleRegistry.onInitialized(
+                        owner = p,
+                        ownerLabel = "exo-player@${Integer.toHexString(System.identityHashCode(p))}",
+                        encoding = audioTrackConfig.encoding,
+                        sampleRate = audioTrackConfig.sampleRate,
+                        channelConfig = audioTrackConfig.channelConfig,
+                        bufferSize = audioTrackConfig.bufferSize,
+                    ),
+                )
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioTrackInitialized: isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding}" +
@@ -2259,6 +2301,17 @@ class Media3PlaybackService : MediaSessionService() {
                 audioTrackConfig: AudioSink.AudioTrackConfig,
             ) {
                 val active = p === activePlayer
+                NativeLogger.emit(
+                    "info",
+                    "AudioTrackLifecycle",
+                    AudioTrackLifecycleRegistry.onReleased(
+                        owner = p,
+                        ownerLabel = "exo-player@${Integer.toHexString(System.identityHashCode(p))}",
+                    ),
+                )
+                // Do not detach the observer until every physical track owned by
+                // this player has delivered its release callback.
+                scheduleDeferredAudioTrackAnalyticsRemoval(p)
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioTrackReleased: isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding}" +
@@ -2309,6 +2362,17 @@ class Media3PlaybackService : MediaSessionService() {
         }
         analyticsListeners[p] = analyticsListener
         p.addAnalyticsListener(analyticsListener)
+    }
+
+    private fun scheduleDeferredAudioTrackAnalyticsRemoval(p: ExoPlayer) {
+        if (!deferredAudioTrackAnalyticsListeners.containsKey(p)) return
+        handler.post {
+            if (AudioTrackLifecycleRegistry.activeCountForOwner(p) == 0) {
+                deferredAudioTrackAnalyticsListeners.remove(p)?.let { listener ->
+                    p.removeAnalyticsListener(listener)
+                }
+            }
+        }
     }
 
     private fun detachPlayerListener(p: ExoPlayer) {
