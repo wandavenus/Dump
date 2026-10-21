@@ -156,6 +156,8 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
     private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
     private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+    private val deferredAudioTrackAnalyticsListeners: MutableMap<ExoPlayer, AnalyticsListener> =
+        Collections.synchronizedMap(IdentityHashMap())
 
     /** Decoder name stored by onAudioDecoderInitialized for the active player.
      *  Read by onTracksChanged to include in the audioFormat EventChannel event. */
@@ -1268,7 +1270,7 @@ class Media3PlaybackService : MediaSessionService() {
         NativeLogger.emit(
             "info",
             "AudioTrackLifecycle",
-            "HW_AUDIO_TRACK_SUMMARY active=${trackSnapshot.activeCount} " +
+            "HW_AUDIO_TRACK_TEARDOWN_SNAPSHOT active=${trackSnapshot.activeCount} " +
                 "created=${trackSnapshot.totalCreated} released=${trackSnapshot.totalReleased} " +
                 "peakConcurrent=${trackSnapshot.peakConcurrent} " +
                 "unmatchedReleaseCallbacks=${trackSnapshot.unmatchedReleaseCallbacks} " +
@@ -1803,10 +1805,11 @@ class Media3PlaybackService : MediaSessionService() {
         // onDestroy. Listener de-duplication is kept here to prevent double-attach.
         playerListeners.remove(p)?.let { p.removeListener(it) }
         analyticsListeners.remove(p)?.let { analyticsListener ->
-            // Disposal callers detach immediately before ExoPlayer.release(). Keep
-            // the analytics listener through that synchronous release so its real
-            // onAudioTrackReleased callback closes the hardware lifecycle counter.
-            handler.post { p.removeAnalyticsListener(analyticsListener) }
+            // The AudioTrack release callback may arrive asynchronously on Media3's
+            // playback thread. Keep this listener attached while this player still
+            // owns a track, even though its other listeners/processors are detached.
+            deferredAudioTrackAnalyticsListeners[p] = analyticsListener
+            scheduleDeferredAudioTrackAnalyticsRemoval(p)
         }
         statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
 
@@ -2306,6 +2309,9 @@ class Media3PlaybackService : MediaSessionService() {
                         ownerLabel = "exo-player@${Integer.toHexString(System.identityHashCode(p))}",
                     ),
                 )
+                // Do not detach the observer until every physical track owned by
+                // this player has delivered its release callback.
+                scheduleDeferredAudioTrackAnalyticsRemoval(p)
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioTrackReleased: isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding}" +
@@ -2356,6 +2362,17 @@ class Media3PlaybackService : MediaSessionService() {
         }
         analyticsListeners[p] = analyticsListener
         p.addAnalyticsListener(analyticsListener)
+    }
+
+    private fun scheduleDeferredAudioTrackAnalyticsRemoval(p: ExoPlayer) {
+        if (!deferredAudioTrackAnalyticsListeners.containsKey(p)) return
+        handler.post {
+            if (AudioTrackLifecycleRegistry.activeCountForOwner(p) == 0) {
+                deferredAudioTrackAnalyticsListeners.remove(p)?.let { listener ->
+                    p.removeAnalyticsListener(listener)
+                }
+            }
+        }
     }
 
     private fun detachPlayerListener(p: ExoPlayer) {
