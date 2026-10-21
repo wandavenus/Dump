@@ -185,24 +185,11 @@ void slog(JNIEnv *env, const char *level, const std::string &msg) {
 // allocation from a malformed AudioFormat.
 constexpr int kMaxChannels = 8;
 
-// FIX Temuan #6 (LOW): log throttle is now frame-counter based, not
-// steady_clock based. steady_clock::now() is a syscall (clock_gettime) that
-// adds non-deterministic latency to every audio callback; a simple cumulative
-// frame counter costs one integer add and one integer comparison per buffer —
-// indistinguishable from zero overhead. The effective interval is ~2 seconds
-// at the sample rate stored in StretchHandle::sampleRate.
-constexpr uint64_t kProcessLogFrameInterval = 96000;  // fallback when sampleRate==0
-
 struct StretchHandle {
     signalsmith::stretch::SignalsmithStretch<float> stretch;
     int channels = 0;
 
-    // FIX Temuan #6 (LOW): replaces steady_clock::now() throttle with a
-    // frame counter. No syscall overhead on the audio thread.
-    float    sampleRate = 48000.0f;         // stored from nativeCreate
     float    lastPlaybackRate = 1.0f;       // input/output frame ratio used by the last successful process()
-    uint64_t totalFramesProcessed = 0;      // cumulative input frames since create
-    uint64_t lastLoggedAtFrame    = 0;      // totalFramesProcessed at last log emission
 
     // Flat planar scratch storage, reused (grow-only) across calls.
     // inPtrs[c]/outPtrs[c] are recomputed on every call from the CURRENT
@@ -252,7 +239,6 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeCreate(
         return 0;
     }
     handle->channels    = channels;
-    handle->sampleRate  = static_cast<float>(sampleRate);
     try {
         // Signalsmith Stretch 1.2.0 supports splitComputation. Keep the
         // general-purpose ~120ms block / ~30ms interval preset while spreading
@@ -293,7 +279,6 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeDestroy(
 JNIEXPORT void JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeReset(
         JNIEnv *env, jclass, jlong handlePtr) {
-    slog(env, "info", "nativeReset pointer=" + ptrToHex(handlePtr));
     auto *h = fromPtr(handlePtr);
     if (h == nullptr) return;
     try {
@@ -312,11 +297,6 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSetPitchS
         return;
     }
     if (!std::isfinite(semitones)) semitones = 0.0f;
-    {
-        char buf[96];
-        snprintf(buf, sizeof(buf), "setTransposeSemitones() pointer=%s semitones=%.3f", ptrToHex(handlePtr).c_str(), semitones);
-        slog(env, "info", buf);
-    }
     try {
         h->stretch.setTransposeSemitones(semitones);
     } catch (...) {
@@ -330,27 +310,9 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeOutputLat
     auto *h = fromPtr(handlePtr);
     if (h == nullptr) return 0;
     try {
-        const int latency = h->stretch.outputLatency();
-        slog(env, "info", "nativeOutputLatencyFrames pointer=" + ptrToHex(handlePtr) + " latency=" + std::to_string(latency));
-        return latency;
+        return h->stretch.outputLatency();
     } catch (...) {
         slog(env, "error", "nativeOutputLatencyFrames threw pointer=" + ptrToHex(handlePtr));
-        return 0;
-    }
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeekLengthFrames(
-        JNIEnv *env, jclass, jlong handlePtr) {
-    auto *h = fromPtr(handlePtr);
-    if (h == nullptr) return 0;
-    try {
-        // Signalsmith Stretch 1.2.0 exposes blockSamples()/intervalSamples();
-        // its documented seek pre-roll is one block plus one interval.
-        const int frames = h->stretch.blockSamples() + h->stretch.intervalSamples();
-        return std::max(frames, 0);
-    } catch (...) {
-        slog(env, "error", "nativeSeekLengthFrames threw pointer=" + ptrToHex(handlePtr));
         return 0;
     }
 }
@@ -361,9 +323,12 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeekLengt
 // Returns 0 on success, negative on failure (Kotlin side treats this as
 // "emit nothing for this call" — fail-open, never garbage audio).
 //
-// Diagnostics (RMS + call summary) are throttled to at most once every 2s
-// per handle (rule 6) via StretchHandle::lastProcessLogTime — this adds no
-// extra per-sample work on the throttled-out calls beyond one clock read.
+// AUDIO-THREAD CONTRACT: no logging, no allocation, no JNI callbacks here.
+// Logging from a real-time callback (especially the native→Kotlin
+// bridgeToSystemLog path) can block the audio thread long enough to underrun;
+// the previous 2-second diagnostics and per-update pitch logs were removed for
+// that reason. Error paths below still report, but they are not part of the
+// steady-state loop.
 JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         JNIEnv *env, jclass, jlong handlePtr,
@@ -407,19 +372,10 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         }
     }
 
-    // FIX Temuan #6 (LOW): frame-counter throttle — no syscall on audio thread.
-    h->totalFramesProcessed += static_cast<uint64_t>(inputFrames > 0 ? inputFrames : 0);
-    const uint64_t logIntervalFrames = h->sampleRate > 0.0f
-        ? static_cast<uint64_t>(h->sampleRate * 2.0f)
-        : kProcessLogFrameInterval;
-    const bool shouldLog =
-        (h->totalFramesProcessed - h->lastLoggedAtFrame) >= logIntervalFrames;
-
     try {
         h->ensureCapacity(inputFrames, outputFrames);
 
-        double inSumSq = 0.0;
-        if (h->channels == 2 && !shouldLog) {
+        if (h->channels == 2) {
 #if defined(__aarch64__)
             const int processed = deinterleaveStereoNeon(
                 inSamples, inputFrames, h->inPtrs[0], h->inPtrs[1]);
@@ -433,25 +389,15 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         } else {
             for (int i = 0; i < inputFrames; ++i) {
                 for (int c = 0; c < h->channels; ++c) {
-                    const float s = inSamples[i * h->channels + c];
-                    h->inPtrs[c][i] = s;
-                    if (shouldLog) inSumSq += static_cast<double>(s) * s;
+                    h->inPtrs[c][i] = inSamples[i * h->channels + c];
                 }
             }
-        }
-
-        if (shouldLog) {
-            slog(env, "info",
-                 "process() pointer=" + ptrToHex(handlePtr) + " inputFrames=" + std::to_string(inputFrames) +
-                     " outputFrames=" + std::to_string(outputFrames) + " channels=" + std::to_string(h->channels));
         }
 
         h->lastPlaybackRate = static_cast<float>(inputFrames) / static_cast<float>(outputFrames);
         h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), outputFrames);
 
-        bool hasNonFinite = false;
-        double outSumSq = 0.0;
-        if (h->channels == 2 && !shouldLog) {
+        if (h->channels == 2) {
 #if defined(__aarch64__)
             const int processed = interleaveStereoNeon(
                 h->outPtrs[0], h->outPtrs[1],
@@ -462,112 +408,22 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
             for (int i = processed; i < outputFrames; ++i) {
                 const float left = h->outPtrs[0][i];
                 const float right = h->outPtrs[1][i];
-                const bool leftFinite = std::isfinite(left);
-                const bool rightFinite = std::isfinite(right);
-                outSamples[i * 2] = leftFinite ? left : 0.0f;
-                outSamples[i * 2 + 1] = rightFinite ? right : 0.0f;
+                outSamples[i * 2] = std::isfinite(left) ? left : 0.0f;
+                outSamples[i * 2 + 1] = std::isfinite(right) ? right : 0.0f;
             }
         } else {
             for (int i = 0; i < outputFrames; ++i) {
                 for (int c = 0; c < h->channels; ++c) {
                     const float s = h->outPtrs[c][i];
-                    const bool finite = std::isfinite(s);
-                    if (!finite) hasNonFinite = true;
-                    const float safe = finite ? s : 0.0f;
-                    outSamples[i * h->channels + c] = safe;
-                    if (shouldLog) outSumSq += static_cast<double>(safe) * safe;
+                    outSamples[i * h->channels + c] = std::isfinite(s) ? s : 0.0f;
                 }
             }
-        }
-
-        if (shouldLog) {
-            const long inCount = static_cast<long>(inputFrames) * h->channels;
-            const long outCount = static_cast<long>(outputFrames) * h->channels;
-            const double inRms = inCount > 0 ? std::sqrt(inSumSq / inCount) : 0.0;
-            const double outRms = outCount > 0 ? std::sqrt(outSumSq / outCount) : 0.0;
-
-            char buf[64];
-            snprintf(buf, sizeof(buf), "RMS in=%.4f", inRms);
-            slog(env, "info", buf);
-            snprintf(buf, sizeof(buf), "RMS out=%.4f", outRms);
-            slog(env, "info", buf);
-
-            if (outCount > 0 && outRms == 0.0) {
-                slog(env, "warn", "nativeProcess output RMS is zero pointer=" + ptrToHex(handlePtr));
-            }
-            if (hasNonFinite) {
-                slog(env, "warn", "nativeProcess NaN/Inf detected in output pointer=" + ptrToHex(handlePtr));
-            }
-            // Logging-only (no behaviour change): Signalsmith Stretch's process()
-            // contract always fills exactly `outputFrames` (see signalsmith-stretch.h
-            // process(): the outputIndex loop runs unconditionally for the full
-            // requested outputSamples, with no early-exit that writes fewer), so
-            // "actual frames written" is always equal to the requested outputFrames
-            // on this success path — logged explicitly per the runtime-audit request
-            // rather than left implicit.
-            slog(env, "info",
-                 "nativeProcess actualFramesWritten=" + std::to_string(outputFrames) +
-                     " returnValue=0 pointer=" + ptrToHex(handlePtr));
-            h->lastLoggedAtFrame = h->totalFramesProcessed;
         }
     } catch (...) {
         slog(env, "error", "nativeProcess exception during process() pointer=" + ptrToHex(handlePtr) +
                                 " actualFramesWritten=0 returnValue=-1");
         return -1;
     }
-    return 0;
-}
-
-// Seed the STFT history with the immediately preceding bypass audio.
-// Signalsmith's documented seek() API copies this pre-roll into its input
-// history without consuming it as normal playback output. The required history
-// is one block plus one interval (reported by nativeSeekLengthFrames); seek()
-// also pads short history safely at the start of playback.
-JNIEXPORT jint JNICALL
-Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSeek(
-        JNIEnv *env, jclass, jlong handlePtr,
-        jobject inputBuffer, jint inputFrames, jfloat playbackRate) {
-    auto *h = fromPtr(handlePtr);
-    if (h == nullptr || inputFrames <= 0 || !std::isfinite(playbackRate) || playbackRate <= 0.0f) {
-        slog(env, "warn", "nativeSeek invalid args pointer=" + ptrToHex(handlePtr) +
-             " inputFrames=" + std::to_string(inputFrames) +
-             " playbackRate=" + std::to_string(playbackRate));
-        return -1;
-    }
-
-    auto *inSamples = static_cast<float *>(env->GetDirectBufferAddress(inputBuffer));
-    if (inSamples == nullptr) {
-        slog(env, "error", "nativeSeek GetDirectBufferAddress null pointer=" + ptrToHex(handlePtr));
-        return -1;
-    }
-
-    const jlong inCapBytes = env->GetDirectBufferCapacity(inputBuffer);
-    const jlong inNeededBytes =
-        static_cast<jlong>(inputFrames) * h->channels * static_cast<jlong>(sizeof(float));
-    if (inCapBytes < 0 || inCapBytes < inNeededBytes) {
-        slog(env, "error", "nativeSeek direct-buffer capacity too small pointer=" + ptrToHex(handlePtr) +
-             " inCap=" + std::to_string(inCapBytes) +
-             " inNeed=" + std::to_string(inNeededBytes));
-        return -1;
-    }
-
-    try {
-        h->ensureCapacity(inputFrames, inputFrames);
-        for (int i = 0; i < inputFrames; ++i) {
-            for (int c = 0; c < h->channels; ++c) {
-                h->inPtrs[c][i] = inSamples[i * h->channels + c];
-            }
-        }
-        h->stretch.seek(h->inPtrs.data(), inputFrames, static_cast<double>(playbackRate));
-        h->lastPlaybackRate = playbackRate;
-    } catch (...) {
-        slog(env, "error", "nativeSeek exception during seek() pointer=" + ptrToHex(handlePtr));
-        return -1;
-    }
-
-    slog(env, "info", "nativeSeek completed pointer=" + ptrToHex(handlePtr) +
-         " preRollFrames=" + std::to_string(inputFrames) +
-         " playbackRate=" + std::to_string(playbackRate));
     return 0;
 }
 
@@ -603,8 +459,6 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
         }
     }
 
-    slog(env, "info", "flush() pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames));
-
     try {
         // Signalsmith's documented fixed-stream ending sequence first advances
         // processing time through inputLatency() frames of silence, at the last
@@ -636,7 +490,6 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
         slog(env, "error", "nativeFlush exception during flush() pointer=" + ptrToHex(handlePtr) + " result=-1");
         return -1;
     }
-    slog(env, "info", "nativeFlush completed pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames) + " result=0");
     return 0;
 }
 

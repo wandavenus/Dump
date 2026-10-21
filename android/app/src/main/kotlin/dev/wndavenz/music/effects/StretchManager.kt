@@ -131,12 +131,19 @@ class StretchManager {
     }
 
     fun setSpeed(newSpeed: Float) {
-        speedTarget = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
+        // Written under the same lock the smoothing timer reads it with, so a
+        // committed slider value cannot be missed (which would let the timer
+        // settle early on a stale target).
+        synchronized(lock) {
+            speedTarget = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
+        }
         ensureSmoothingLoop()
     }
 
     fun setPitchSemitones(newSemitones: Float) {
-        pitchTarget = if (newSemitones.isFinite()) newSemitones else 0f
+        synchronized(lock) {
+            pitchTarget = if (newSemitones.isFinite()) newSemitones else 0f
+        }
         ensureSmoothingLoop()
     }
 
@@ -175,11 +182,6 @@ class StretchManager {
                         p.setSpeed(currentSpeed)
                         p.setPitchSemitones(currentPitch + (pitchOffsets[slot] ?: 0f))
                     }
-
-                    NativeLogger.emit(
-                        "info", "Stretch",
-                        "[Stretch] smoothed update speed=$currentSpeed pitch=${currentPitch}st targetSpeed=$targetSpeed targetPitch=${targetPitch}st appliedTo=${snapshot.size}",
-                    )
                 }
             }
         }
