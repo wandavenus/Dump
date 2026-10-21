@@ -1,7 +1,7 @@
 # Blueprint: Dual-Player dengan Satu AudioTrack
 
 **Project:** Noisegraph / Dump  
-**Status:** Diimplementasikan (Phase 1–3 + DSP migration) dengan feature flag internal; validasi perangkat nyata masih diperlukan  
+**Status:** Implementasi ada di PR #193 dengan regression fixes; feature flag default nonaktif sampai validasi perangkat nyata selesai
 **Baseline:** `Media3PlaybackService`, `CrossfadeController`, `SignalsmithStretchAudioProcessor`, `AutomixToneManager`, Media3 `1.11.1`
 
 ## 0. Status implementasi
@@ -22,6 +22,19 @@ Jalur dual-player sekarang memakai dua ExoPlayer + dua `DeckAudioSink` virtual +
 | `Media3PlaybackService.kt` | Membuat engine sebelum player pertama, memilih deck sink vs legacy sink, release saat teardown |
 
 Keputusan implementasi yang menyimpang dari proposal:
+
+- **Bus rate is authoritative end-to-end**: the engine configures the physical sink at its
+  selected `busSampleRate`, and ring/mix-block sizes scale with that rate.
+- **Audible timeline mapping is per deck**: consumed deck ranges are mapped to absolute bus
+  frames and retained until the shared output playhead passes them. This avoids advancing
+  positions from decoder/mixer consumption while PCM remains inside the hardware buffer.
+- **JNI processors receive direct input buffers**: the deck pipeline copies decoder bytes into
+  a reusable direct ByteBuffer before processing so Signalsmith can access samples through
+  `GetDirectBufferAddress()`.
+- **EOS backpressure is lossless**: a timed-out ring drain keeps pending PCM and retries
+  during Media3 `hasPendingData()/isEnded()` polling instead of dropping it.
+- **Bit-Perfect is exclusive**: the shared sink is reset before its clean player starts and
+  the mixer reconfigures when normal dual-player playback resumes.
 
 - **Bus rate dipilih sekali per sesi dari sample rate output native perangkat**
   (`AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE`, fallback 48 kHz), stereo float. Ini
