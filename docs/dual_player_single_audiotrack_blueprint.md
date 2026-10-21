@@ -1,7 +1,7 @@
 # Blueprint: Dual-Player dengan Satu AudioTrack
 
 **Project:** Noisegraph / Dump  
-**Status:** Implementasi ada di PR #193 dengan regression fixes; feature flag default nonaktif sampai validasi perangkat nyata selesai
+**Status:** Implementasi dual-player/Single-AudioTrack aktif secara default untuk validasi perangkat nyata; set `SingleAudioTrackEngine.enabled = false` untuk kembali ke jalur legacy bila ditemukan regresi.
 **Baseline:** `Media3PlaybackService`, `CrossfadeController`, `SignalsmithStretchAudioProcessor`, `AutomixToneManager`, Media3 `1.11.1`
 
 ## 0. Status implementasi
