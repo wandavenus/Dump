@@ -2609,14 +2609,6 @@ class Media3PlaybackService : MediaSessionService() {
             // Dual-player crossfade and Bit-Perfect Mode never run together.
             crossfadeController.cancel(resetVolume = true)
             preloadManager.releaseStandbyPlayer()
-            // Bit-Perfect uses a clean player and cannot consume AutoMix targets.
-            // Clear those targets and stop live analysis before leaving this pipeline.
-            applyAutomixTransitionNow(
-                enabled = false,
-                targets = emptyList(),
-                preloadStandby = false,
-            )
-
             val wasPlaying = current.isPlaying
             val positionMs = current.currentPosition
             current.pause()
@@ -2628,6 +2620,15 @@ class Media3PlaybackService : MediaSessionService() {
                 if (wasPlaying) current.play()
                 return
             }
+
+            // Bit-Perfect uses a clean player and cannot consume AutoMix targets.
+            // Change transition policy only after shared-output release succeeds,
+            // so an aborted switch doesn't silently disable AutoMix.
+            applyAutomixTransitionNow(
+                enabled = false,
+                targets = emptyList(),
+                preloadStandby = false,
+            )
 
             // No AudioEffects during bit-perfect playback.
             effectsManager.releaseEffects()
