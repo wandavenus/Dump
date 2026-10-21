@@ -23,6 +23,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.common.PlaybackException
 import dev.wndavenz.music.audio.mixer.DeckAudioSink
+import dev.wndavenz.music.audio.mixer.AudioTrackLifecycleRegistry
 import dev.wndavenz.music.audio.mixer.Media3SharedAudioOutput
 import dev.wndavenz.music.audio.mixer.SingleAudioTrackEngine
 import dev.wndavenz.music.audio_focus.AudioFocusManager
@@ -304,7 +305,12 @@ class Media3PlaybackService : MediaSessionService() {
         // engine owns the only hardware output; Bit-Perfect Mode keeps using
         // its own dedicated clean player/sink and never runs concurrently.
         if (SingleAudioTrackEngine.enabled) {
-            val busOutput = Media3SharedAudioOutput(this)
+            val busOutput = Media3SharedAudioOutput(
+                this,
+                lifecycleLog = { message ->
+                    NativeLogger.emit("info", "AudioTrackLifecycle", message)
+                },
+            )
             sharedAudioOutput = busOutput
             val mixRate = preferredMixSampleRate()
             singleAudioTrackEngine = SingleAudioTrackEngine(
@@ -315,6 +321,12 @@ class Media3PlaybackService : MediaSessionService() {
             NativeLogger.emit("info", "Mixer",
                 "Single-AudioTrack mixer enabled: one shared ${mixRate}Hz float bus, " +
                     "deck sinks are virtual (legacy dual-AudioTrack path disabled)")
+        } else {
+            NativeLogger.emit(
+                "info",
+                "Mixer",
+                "Single-AudioTrack mixer DISABLED by kill switch; legacy per-player DefaultAudioSink path is active",
+            )
         }
 
         // Create primary player — always physical stream slot 0.
@@ -2232,6 +2244,18 @@ class Media3PlaybackService : MediaSessionService() {
                 audioTrackConfig: AudioSink.AudioTrackConfig,
             ) {
                 val active = p === activePlayer
+                NativeLogger.emit(
+                    "info",
+                    "AudioTrackLifecycle",
+                    AudioTrackLifecycleRegistry.onInitialized(
+                        owner = p,
+                        ownerLabel = "exo-player@${Integer.toHexString(System.identityHashCode(p))}",
+                        encoding = audioTrackConfig.encoding,
+                        sampleRate = audioTrackConfig.sampleRate,
+                        channelConfig = audioTrackConfig.channelConfig,
+                        bufferSize = audioTrackConfig.bufferSize,
+                    ),
+                )
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioTrackInitialized: isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding}" +
@@ -2259,6 +2283,14 @@ class Media3PlaybackService : MediaSessionService() {
                 audioTrackConfig: AudioSink.AudioTrackConfig,
             ) {
                 val active = p === activePlayer
+                NativeLogger.emit(
+                    "info",
+                    "AudioTrackLifecycle",
+                    AudioTrackLifecycleRegistry.onReleased(
+                        owner = p,
+                        ownerLabel = "exo-player@${Integer.toHexString(System.identityHashCode(p))}",
+                    ),
+                )
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioTrackReleased: isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding}" +
