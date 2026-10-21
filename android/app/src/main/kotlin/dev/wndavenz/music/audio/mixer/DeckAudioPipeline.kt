@@ -59,6 +59,8 @@ class DeckAudioPipeline(
     private var outputBigEndian = false
 
     private var resampler: SincResampler? = null
+    private var directInputBuffer: ByteBuffer =
+        ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
     private var operational = false
     private var configured = false
 
@@ -118,7 +120,12 @@ class DeckAudioPipeline(
             outputBigEndian = inputBigEndian
         }
 
-        resampler = SincResampler(inputSampleRate, busSampleRate)
+        val processingSampleRate = if (operational) {
+            pipeline.outputAudioFormat.sampleRate
+        } else {
+            inputSampleRate
+        }
+        resampler = SincResampler(processingSampleRate, busSampleRate)
         carriedSourceUs = 0L
         lastSourceEndUs = 0L
         configured = true
@@ -152,9 +159,18 @@ class DeckAudioPipeline(
 
         val chunks = ArrayList<FloatArray>(2)
         if (operational) {
-            val input = ByteBuffer.wrap(bytes, offsetBytes, frameCount * inputFrameSize)
-                .order(ByteOrder.nativeOrder())
-            pipeline.queueInput(input)
+            val inputBytes = frameCount * inputFrameSize
+            if (directInputBuffer.capacity() < inputBytes) {
+                directInputBuffer = ByteBuffer.allocateDirect(maxOf(inputBytes, 8 * 1024))
+                    .order(ByteOrder.nativeOrder())
+            }
+            directInputBuffer.clear()
+            directInputBuffer.put(bytes, offsetBytes, inputBytes)
+            directInputBuffer.flip()
+            // JNI-backed processors such as Signalsmith Stretch require direct
+            // buffers for GetDirectBufferAddress(). ByteBuffer.wrap(ByteArray)
+            // is heap-backed and can silently force the processor into bypass.
+            pipeline.queueInput(directInputBuffer)
             drainOutput(chunks)
         } else {
             val floats = PcmConversions.readFloats(
