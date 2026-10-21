@@ -178,8 +178,10 @@ class AutomixToneAudioProcessor(
         val frameBytes = channelCount * Float.SIZE_BYTES
         if (remaining == 0 || channelCount <= 0 || frameBytes <= 0) return
 
-        // PCM buffers should be frame-aligned. Preserve any malformed trailing
+        // PCM buffers should be frame-aligned. Drop any malformed trailing
         // bytes instead of passing a partial frame to the native processor.
+        // BaseAudioProcessor requires each queueInput call to consume the whole
+        // input buffer; leaving the tail behind would stall the audio pipeline.
         val alignedBytes = remaining - remaining % frameBytes
         if (alignedBytes <= 0) {
             inputBuffer.position(inputBuffer.limit())
@@ -203,7 +205,7 @@ class AutomixToneAudioProcessor(
                 streamSlot,
             )
         }
-        inputBuffer.position(inputBuffer.position() + alignedBytes)
+        inputBuffer.position(inputBuffer.limit())
     }
 
     @Deprecated("Deprecated by Media3; retained for BaseAudioProcessor lifecycle compatibility.")

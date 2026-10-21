@@ -279,7 +279,7 @@ class CrossfadeController(
         val downbeatOffset = if (beatMs != null) {
             getAutoMixDownbeatOffsetMsForPlayer(p)?.toDouble()
         } else null
-        val beatAlignedStart = if (beatMs != null && beatMs > 0.0 &&
+        val snappedStart = if (beatMs != null && beatMs > 0.0 &&
             (beatOffset != null || downbeatOffset != null)
         ) {
             // Prefer the largest phrase boundary (64/32/16/4 beats) that stays
@@ -292,6 +292,17 @@ class CrossfadeController(
             ).coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
         } else {
             idealStart
+        }
+        // Phrase snapping may move an early handover up to four beats earlier,
+        // past the planner's 65 s early-exit envelope that justified using the
+        // incoming drop. Keep the validated requested start in that case instead
+        // of silently accepting a transition the policy rejected.
+        val beatAlignedStart = if (isEarlyTransition &&
+            !AutomixTransitionPolicy.isValidEarlyHandover(snappedStart, dur, crossMs)
+        ) {
+            idealStart
+        } else {
+            snappedStart
         }
         // For the normal near-end path, let the fade reach the outgoing
         // boundary; beat alignment may extend it by less than one beat. Early
@@ -1061,7 +1072,12 @@ class CrossfadeController(
                             offlineDownbeatOffsetMs =
                                 getAutoMixDownbeatOffsetMsForPlayer(newPlayer)?.toDouble(),
                         )
-                        if (oldGrid != null && newGrid != null) {
+                        if (oldGrid != null && newGrid != null &&
+                            AutomixTransitionPolicy.isBeatMatchedPair(
+                                oldGrid.bpm.toFloat(),
+                                newGrid.bpm.toFloat(),
+                            )
+                        ) {
                             // Convert the remaining outgoing source-media horizon to wall
                             // time, then into incoming source-media time. Read both applied
                             // speeds every sample so speed changes during a blend are tracked.
@@ -1110,6 +1126,12 @@ class CrossfadeController(
                             if (tempoFactor != null) {
                                 lastPhaseNudge = tempoFactor
                             }
+                        } else {
+                            // Live and offline sources can disagree by an
+                            // octave even when the offline pair passed the
+                            // beat-match gate. Do not keep applying a
+                            // correction derived from a now-invalid grid.
+                            lastPhaseNudge = 1f
                         }
                     }
                 }

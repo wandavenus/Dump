@@ -1684,6 +1684,48 @@ static void test_tone_processor_various_frame_counts(void) {
   }
 }
 
+static void test_live_tracker_ignores_lfe_and_surround_channels(void) {
+  // 5.1-ish interleaved layout: L, R, C, LFE, SL, SR. A loud click train in
+  // the LFE/center/surround channels must not be mistaken for the musical
+  // beat: the tracker only listens to the stereo L/R bed.
+  const int32_t sample_rate = 48000;
+  const int32_t channels = 6;
+  const int32_t chunk_frames = 512;
+  const int32_t total_frames = sample_rate * 8;
+  float pcm[512 * 6];
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  int32_t produced = 0;
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t absolute = (int64_t)produced + i;
+      const int64_t phase = absolute % 24000;
+      const float click = phase < 48
+          ? (float)(0.9 * (1.0 - (double)phase / 48.0))
+          : 0.0f;
+      const int32_t base = i * channels;
+      pcm[base] = 0.0f;
+      pcm[base + 1] = 0.0f;
+      pcm[base + 2] = click;
+      pcm[base + 3] = click;
+      pcm[base + 4] = click;
+      pcm[base + 5] = click;
+    }
+    assert(nar_automix_live_tracker_process(
+               pcm, frames, channels, sample_rate, 0) == 1);
+    produced += frames;
+  }
+  assert(nar_automix_live_tracker_get(
+             0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+  assert(state[0] < 1.0);
+  assert(state[2] < 0.05);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 static void test_live_tracker_requires_explicit_enable(void) {
   float pcm[512 * 2] = {0.0f};
   double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {-1.0, -1.0, -1.0};
@@ -2097,6 +2139,181 @@ static void test_live_tracker_phase_follows_beat_grid(void) {
   assert(nar_automix_live_tracker_set_enabled(0) == 1);
 }
 
+static double phase_circular_distance_ms(double actual, double expected,
+                                           double period_ms) {
+  if (!isfinite(actual) || !isfinite(expected) ||
+      !isfinite(period_ms) || period_ms <= 0.0) {
+    return INFINITY;
+  }
+  double distance = fmod(fabs(actual - expected), period_ms);
+  return fmin(distance, period_ms - distance);
+}
+
+static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
+  // Begin with a stable 150 BPM / 4-beat bar, then slow to 100 BPM exactly
+  // on a downbeat. The six-second analysis window necessarily contains both
+  // grids during the change, so phase accuracy is asserted on each stable
+  // side of the transition instead of against a single impossible mixed grid.
+  // During the mixed-history period, the published tuple must remain finite
+  // and internally bounded while the tracker reacquires the slower pulse.
+  const double pi = 3.14159265358979323846;
+  const int32_t sample_rate = 48000;
+  const int32_t chunk_frames = 512;
+  const int64_t transition_frame = (int64_t)sample_rate * 8;  // 20 beats at 150 BPM.
+  // Wait 9 s after the switch so both the 6 s history and the smoothed BPM
+  // estimate have settled on the new pulse grid before measuring its phase.
+  const int64_t total_frames = transition_frame + (int64_t)(sample_rate * 9.0);
+  const int64_t fast_period_frames = sample_rate * 2 / 5;  // 150 BPM.
+  const int64_t slow_period_frames = (int64_t)sample_rate * 3 / 5;  // 100 BPM.
+  float pcm[512 * 2];
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  double max_fast_beat_error_ms = 0.0;
+  double max_fast_downbeat_error_ms = 0.0;
+  double max_slow_beat_error_ms = 0.0;
+  double max_slow_downbeat_error_ms = 0.0;
+  int32_t checked_fast_phases = 0;
+  int32_t checked_fast_downbeat_phases = 0;
+  int32_t checked_slow_phases = 0;
+  int32_t checked_slow_downbeat_phases = 0;
+  int32_t checked_transition_states = 0;
+  int64_t produced = 0;
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (int32_t)(total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t n = produced + i;
+      const int after_transition = n >= transition_frame;
+      const int64_t local_frame =
+          after_transition ? n - transition_frame : n;
+      const int64_t period_frames =
+          after_transition ? slow_period_frames : fast_period_frames;
+      const int64_t beat_index =
+          after_transition
+              ? 24 + local_frame / period_frames
+              : local_frame / period_frames;
+      const int64_t beat_phase = local_frame % period_frames;
+      const double t = (double)n / sample_rate;
+      double value = 0.01 * sin(2.0 * pi * 300.0 * t);
+      if (beat_phase < 48) {
+        value += 0.25 * (1.0 - (double)beat_phase / 48.0) *
+            sin(2.0 * pi * 800.0 * t);
+        if (beat_index % 4 == 0) {
+          value += 0.9 * (1.0 - (double)beat_phase / 48.0) *
+              sin(2.0 * pi * 100.0 * t);
+        }
+      }
+      pcm[i * 2] = (float)value;
+      pcm[i * 2 + 1] = (float)value;
+    }
+
+    assert(nar_automix_live_tracker_process(
+               pcm, frames, 2, sample_rate, 0) == 1);
+    produced += frames;
+    assert(nar_automix_live_tracker_get(
+               0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+
+    const int64_t last_sample = produced - 1;
+    const int after_transition = last_sample >= transition_frame;
+    const int64_t phase_origin = after_transition ? transition_frame : 0;
+    const int64_t relative_sample = last_sample - phase_origin;
+    const int64_t actual_period_frames =
+        after_transition ? slow_period_frames : fast_period_frames;
+    const double actual_beat_period_ms =
+        (double)actual_period_frames * 1000.0 / sample_rate;
+    const double actual_bar_period_ms = actual_beat_period_ms * 4.0;
+    const int64_t last_beat_frame =
+        phase_origin +
+        (relative_sample / actual_period_frames) * actual_period_frames;
+    const int64_t last_downbeat_frame =
+        phase_origin +
+        (relative_sample / (actual_period_frames * 4)) *
+            (actual_period_frames * 4);
+    const double expected_beat_age_ms =
+        (double)(last_sample - last_beat_frame) * 1000.0 / sample_rate;
+    const double expected_downbeat_age_ms =
+        (double)(last_sample - last_downbeat_frame) * 1000.0 / sample_rate;
+
+    // During the mixed-history period, the estimate is allowed to move
+    // between tempos, but published phase values must remain finite and stay
+    // inside the period implied by the same published BPM tuple.
+    const int in_transition_window =
+        last_sample >= transition_frame &&
+        last_sample < transition_frame + sample_rate * 6;
+    if (in_transition_window && state[0] >= 60.0 && state[0] <= 200.0 &&
+        state[2] > 0.15) {
+      const double estimated_period_ms = 60000.0 / state[0];
+      assert(isfinite(state[1]) && state[1] >= 0.0 &&
+             state[1] < estimated_period_ms);
+      assert(isfinite(state[3]) && state[3] >= 0.0 &&
+             state[3] < estimated_period_ms * 4.0);
+      assert(isfinite(state[2]) && state[2] <= 1.0);
+      checked_transition_states++;
+    }
+
+    // Measure phase accuracy only when the input has held a single tempo long
+    // enough for the entire 6 s history window to contain that tempo.
+    const int in_fast_steady_window =
+        last_sample >= transition_frame - sample_rate &&
+        last_sample < transition_frame;
+    const int in_slow_steady_window =
+        last_sample >= transition_frame + (int64_t)(sample_rate * 8.0);
+    if (in_fast_steady_window &&
+        fabs(state[0] - 150.0) <= 150.0 * 0.08 &&
+        state[2] > 0.15) {
+      const double beat_error = phase_circular_distance_ms(
+          state[1], expected_beat_age_ms, actual_beat_period_ms);
+      if (beat_error > max_fast_beat_error_ms) {
+        max_fast_beat_error_ms = beat_error;
+      }
+      checked_fast_phases++;
+      if (state[4] > 0.15) {
+        const double downbeat_error = phase_circular_distance_ms(
+            state[3], expected_downbeat_age_ms, actual_bar_period_ms);
+        if (downbeat_error > max_fast_downbeat_error_ms) {
+          max_fast_downbeat_error_ms = downbeat_error;
+        }
+        checked_fast_downbeat_phases++;
+      }
+    }
+    if (in_slow_steady_window &&
+        fabs(state[0] - 100.0) <= 100.0 * 0.02 &&
+        state[2] > 0.15) {
+      const double beat_error = phase_circular_distance_ms(
+          state[1], expected_beat_age_ms, actual_beat_period_ms);
+      if (beat_error > max_slow_beat_error_ms) {
+        max_slow_beat_error_ms = beat_error;
+      }
+      checked_slow_phases++;
+      if (state[4] > 0.15) {
+        const double downbeat_error = phase_circular_distance_ms(
+            state[3], expected_downbeat_age_ms, actual_bar_period_ms);
+        if (downbeat_error > max_slow_downbeat_error_ms) {
+          max_slow_downbeat_error_ms = downbeat_error;
+        }
+        checked_slow_downbeat_phases++;
+      }
+    }
+  }
+
+  assert(checked_fast_phases >= 40);
+  assert(max_fast_beat_error_ms < 25.0);
+  assert(checked_fast_downbeat_phases >= 20);
+  assert(max_fast_downbeat_error_ms < 40.0);
+  assert(checked_transition_states >= 100);
+  assert(checked_slow_phases >= 40);
+  assert(max_slow_beat_error_ms < 25.0);
+  assert(checked_slow_downbeat_phases >= 20);
+  assert(max_slow_downbeat_error_ms < 40.0);
+  // After a full slow-tempo history window, the estimate must converge toward
+  // the new pulse rather than retaining the previous fast tempo.
+  assert(state[0] >= 90.0 && state[0] <= 110.0);
+  assert(state[2] > 0.0);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 static void test_live_tracker_publishes_downbeat_phase(void) {
   // 120 BPM click train with a low-frequency accent every fourth beat, i.e. a
   // 2 s bar. The stream ends 300 ms after the last click and 1800 ms after
@@ -2191,9 +2408,11 @@ int main(void) {
   test_live_tracker_resolves_half_tempo_lock();
   test_live_tracker_keeps_low_tempo();
   test_live_tracker_phase_follows_beat_grid();
+  test_live_tracker_phase_stays_coherent_during_tempo_change();
   test_live_tracker_publishes_downbeat_phase();
   test_live_tracker_reports_activity_trend();
   test_live_tracker_requires_explicit_enable();
+  test_live_tracker_ignores_lfe_and_surround_channels();
   test_live_tracker_disable_clears_live_state();
   test_live_tracker_reset_is_slot_local_during_processing();
   test_tone_processor_unity_bands_preserve_fade_target();
