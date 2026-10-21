@@ -182,7 +182,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
           ),
           SizeTransition(
             sizeFactor: _ctrl,
-            alignment: Alignment.topCenter,
+            axisAlignment: -1.0,
             child: FadeTransition(
               opacity: _fade,
               child: Column(

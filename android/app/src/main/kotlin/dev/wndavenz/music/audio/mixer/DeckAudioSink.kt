@@ -225,10 +225,14 @@ class DeckAudioSink(
                 commitPendingTail()
                 buffer.position(retryLimit)
                 retryBuffer = null
+                retryPosition = 0
+                retryLimit = 0
                 return true
             }
             commitPendingTail()
             retryBuffer = null
+            retryPosition = 0
+            retryLimit = 0
         }
 
         val position = buffer.position()
