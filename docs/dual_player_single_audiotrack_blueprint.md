@@ -1,8 +1,45 @@
 # Blueprint: Dual-Player dengan Satu AudioTrack
 
 **Project:** Noisegraph / Dump  
-**Status:** Proposal arsitektur — belum diimplementasikan  
+**Status:** Diimplementasikan (Phase 1–3 + DSP migration) dengan feature flag internal; validasi perangkat nyata masih diperlukan  
 **Baseline:** `Media3PlaybackService`, `CrossfadeController`, `SignalsmithStretchAudioProcessor`, `AutomixToneManager`, Media3 `1.11.1`
+
+## 0. Status implementasi
+
+Jalur dual-player sekarang memakai dua ExoPlayer + dua `DeckAudioSink` virtual + satu
+`SingleAudioTrackEngine` + satu output `DefaultAudioSink`/`AudioTrack`.
+
+| File | Isi |
+|---|---|
+| `audio/mixer/SingleAudioTrackEngine.kt` | Pemilik satu output, thread mixing, bus clock, play/pause global, gain per deck, metrik |
+| `audio/mixer/DeckAudioSink.kt` | Implementasi kontrak `AudioSink` per deck (tanpa AudioTrack) |
+| `audio/mixer/DeckAudioPipeline.kt` | Processor chain per deck (`ToFloat → NativeDsp → StereoWiden → Reverb → Stretch → AutoMixTone`) + normalisasi bus |
+| `audio/mixer/DeckTimelineMap.kt` | Mapping frame output deck ↔ posisi media sumber |
+| `audio/mixer/PcmRingBuffer.kt` | Ring SPSC bounded 500 ms per deck, backpressure tanpa drop |
+| `audio/mixer/SincResampler.kt` | Konversi sample-rate stereo 32-tap windowed sinc (anti-alias saat downsampling) |
+| `audio/mixer/MixDsp.kt` | Bus limiter pasca-summing + smoothing gain per deck |
+| `audio/mixer/Media3SharedAudioOutput.kt` | Adapter `DefaultAudioSink` tunggal + forward event/audio session |
+| `Media3PlaybackService.kt` | Membuat engine sebelum player pertama, memilih deck sink vs legacy sink, release saat teardown |
+
+Keputusan implementasi yang menyimpang dari proposal:
+
+- **Bus rate dipilih sekali per sesi dari sample rate output native perangkat**
+  (`AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE`, fallback 48 kHz), stereo float. Ini
+  menjamin satu AudioTrack, menghindari rekonfigurasi di tengah transisi, dan tidak
+  melakukan resampling ganda pada perangkat 44.1 kHz. Setiap deck yang rate-nya berbeda
+  dikonversi dengan `SincResampler`.
+- **Bit-Perfect Mode tetap memakai player/sink bersihnya sendiri** dan tidak berjalan
+  bersamaan dengan AutoMix/crossfade, sesuai batas di bagian 4.
+- **`flushBusForSeek`** hanya mem-flush output hardware bila deck yang di-seek sendirian dan
+  tidak ada frame lain yang belum diputar; selama overlap, flush per deck tidak menyentuh
+  output bersama.
+- **Kill switch**: `SingleAudioTrackEngine.enabled = false` sebelum player dibuat akan
+  mengembalikan jalur legacy dua AudioTrack tanpa perubahan lain.
+
+Gate Phase 0 (bukti jumlah `AudioTrack` saat runtime) dilayani oleh log engine
+`AudioTrack initialized/released ... activeAudioTrackCount=...`; gate Phase 5
+(capture PCM, listening test, stress test perangkat) tetap wajib dijalankan di perangkat
+nyata sebelum flag dianggap final.
 
 ## 1. Tujuan
 
