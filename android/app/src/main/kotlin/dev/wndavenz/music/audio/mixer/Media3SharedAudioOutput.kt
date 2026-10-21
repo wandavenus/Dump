@@ -161,7 +161,16 @@ class Media3SharedAudioOutput(
             // be offered again until the remainder is accepted.
             var guard = 0
             while (buffer.hasRemaining()) {
-                if (sink.handleBuffer(buffer, presentationTimeUs, 1)) break
+                val accepted = sink.handleBuffer(buffer, presentationTimeUs, 1)
+                if (accepted) {
+                    if (buffer.hasRemaining()) {
+                        listener?.onError(
+                            "DefaultAudioSink accepted a block with ${buffer.remaining()} bytes unconsumed",
+                        )
+                        return false
+                    }
+                    break
+                }
                 Thread.sleep(1L)
                 guard++
                 if (guard > HANDLE_BUFFER_RETRY_LIMIT) {
@@ -169,7 +178,7 @@ class Media3SharedAudioOutput(
                     return false
                 }
             }
-            true
+            !buffer.hasRemaining()
         } catch (error: Exception) {
             listener?.onError(
                 "bus write failed: ${error.javaClass.simpleName}: ${error.message}",
@@ -209,6 +218,19 @@ class Media3SharedAudioOutput(
 
     override fun flush() {
         if (!released) sink.flush()
+    }
+
+    override fun reset() {
+        if (released) return
+        try {
+            // Release the current AudioTrack but keep the sink reusable when
+            // normal dual-player playback resumes after an exclusive mode.
+            sink.reset()
+        } finally {
+            configured = false
+            scratch = null
+            sessionId = 0
+        }
     }
 
     override fun release() {
