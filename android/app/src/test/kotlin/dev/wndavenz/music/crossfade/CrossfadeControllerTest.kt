@@ -6,6 +6,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import dev.wndavenz.music.automix.AutomixTransitionPolicy
 import java.util.ArrayDeque
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -79,6 +80,7 @@ class CrossfadeControllerTest {
         rebuildPromotedQueue: () -> Unit = {},
         automixEnabled: Boolean = false,
         transitionStartMs: Long? = null,
+        transitionLeadMs: Long? = null,
     ): CrossfadeController {
         activePlayerState = activePlayer
         return CrossfadeController(
@@ -97,7 +99,15 @@ class CrossfadeControllerTest {
             rebuildPromotedQueue = rebuildPromotedQueue,
             onCrossfadeComplete  = { crossfadeCompleteCalls++ },
             isAutomixTransitionEnabled = { automixEnabled },
-            getAutoMixTransitionStartMsForPlayer = { transitionStartMs },
+            getAutoMixTransitionStartMsForPlayer = {
+                transitionLeadMs?.let {
+                    AutomixTransitionPolicy.resolveEarlyHandoverStartMs(
+                        transitionLeadMs = it,
+                        fallbackTransitionStartMs = transitionStartMs,
+                        outgoingDurationMs = mockActivePlayer.duration,
+                    )
+                } ?: transitionStartMs
+            },
             emitAll              = { emitAllCalls++ },
             refreshNotification  = { refreshNotifCalls++ },
             onCrossfadeStarting  = { crossfadeStartingCalls++ },
@@ -615,7 +625,24 @@ class CrossfadeControllerTest {
         assertFalse("stale cue must not cut the current track early", ctrl.crossfadeInProgress)
     }
 
-    @Test fun `F11 outgoing EOS completes crossfade and runs queue restoration callback`() {
+    @Test fun `F11 early handover survives analyzed versus Media3 duration mismatch`() {
+        whenever(mockActivePlayer.duration).thenReturn(210_000L)
+        whenever(mockActivePlayer.currentPosition).thenReturn(165_000L)
+        val ctrl = makeController(
+            automixEnabled = true,
+            transitionStartMs = 135_000L,
+            transitionLeadMs = 45_000L,
+        ).also { it.setDuration(3.8f) }
+
+        ctrl.maybeCrossfadeOut()
+
+        assertTrue(
+            "relative lead should resolve to 165 s on the 210 s Media3 timeline",
+            ctrl.crossfadeInProgress,
+        )
+    }
+
+    @Test fun `F12 outgoing EOS completes crossfade and runs queue restoration callback`() {
         val ctrl = makeControllerWithImmediateTrigger()
         ctrl.maybeCrossfadeOut()
         assertTrue(ctrl.crossfadeInProgress)
