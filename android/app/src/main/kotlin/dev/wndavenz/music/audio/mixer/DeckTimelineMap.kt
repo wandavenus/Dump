@@ -83,6 +83,41 @@ class DeckTimelineMap(capacitySegments: Int = DEFAULT_CAPACITY_SEGMENTS) {
         return sourceStartsUs[lastIndex] + sourceDurationsUs[lastIndex]
     }
 
+    /**
+     * Copies source-time metadata for a consumed local-frame range into a map
+     * keyed by absolute output-bus frames. Call before trimming local metadata.
+     */
+    @Synchronized
+    fun appendRangeToPlayedTimeline(
+        localStartFrame: Long,
+        frames: Int,
+        busStartFrame: Long,
+        destination: DeckPlayedTimelineMap,
+    ) {
+        if (frames <= 0 || count == 0) return
+        val localEndFrame = localStartFrame + frames
+        for (i in 0 until count) {
+            val index = (head + i) % startFrames.size
+            val segmentStart = startFrames[index]
+            val segmentFrames = frameCounts[index]
+            val segmentEnd = segmentStart + segmentFrames
+            val overlapStart = maxOf(localStartFrame, segmentStart)
+            val overlapEnd = minOf(localEndFrame, segmentEnd)
+            if (overlapEnd <= overlapStart || segmentFrames <= 0L) continue
+
+            val sourceStart = sourceStartsUs[index] +
+                ((overlapStart - segmentStart) * sourceDurationsUs[index]) / segmentFrames
+            val sourceEnd = sourceStartsUs[index] +
+                ((overlapEnd - segmentStart) * sourceDurationsUs[index]) / segmentFrames
+            destination.append(
+                busStartFrame = busStartFrame + (overlapStart - localStartFrame),
+                frames = (overlapEnd - overlapStart).toInt(),
+                sourceStartUs = sourceStart,
+                sourceDurationUs = (sourceEnd - sourceStart).coerceAtLeast(0L),
+            )
+        }
+    }
+
     /** Source position at the end of the newest segment, if any. */
     @Synchronized
     fun endPositionUs(): Long? {
