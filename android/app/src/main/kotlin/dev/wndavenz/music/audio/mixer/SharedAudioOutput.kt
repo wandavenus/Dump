@@ -80,5 +80,8 @@ interface SharedAudioOutput {
 
     fun flush()
 
+    /** Resets/releases hardware output while keeping the adapter reusable. */
+    fun reset()
+
     fun release()
 }
