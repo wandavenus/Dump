@@ -1264,6 +1264,16 @@ class Media3PlaybackService : MediaSessionService() {
         singleAudioTrackEngine?.release()
         singleAudioTrackEngine = null
         sharedAudioOutput = null
+        val trackSnapshot = AudioTrackLifecycleRegistry.snapshot()
+        NativeLogger.emit(
+            "info",
+            "AudioTrackLifecycle",
+            "HW_AUDIO_TRACK_SUMMARY active=${trackSnapshot.activeCount} " +
+                "created=${trackSnapshot.totalCreated} released=${trackSnapshot.totalReleased} " +
+                "peakConcurrent=${trackSnapshot.peakConcurrent} " +
+                "unmatchedReleaseCallbacks=${trackSnapshot.unmatchedReleaseCallbacks} " +
+                "liveOwners=${trackSnapshot.activeOwners}",
+        )
         // The next onCreate() must go through the same wiring before it's safe
         // for Dart to push settings again — see ServiceReadyGate doc comment.
         ServiceReadyGate.reset()
@@ -1792,7 +1802,12 @@ class Media3PlaybackService : MediaSessionService() {
         // the detachListener callback passed to CrossfadeController (line 312) and
         // onDestroy. Listener de-duplication is kept here to prevent double-attach.
         playerListeners.remove(p)?.let { p.removeListener(it) }
-        analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        analyticsListeners.remove(p)?.let { analyticsListener ->
+            // Disposal callers detach immediately before ExoPlayer.release(). Keep
+            // the analytics listener through that synchronous release so its real
+            // onAudioTrackReleased callback closes the hardware lifecycle counter.
+            handler.post { p.removeAnalyticsListener(analyticsListener) }
+        }
         statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
 
         // Item 6: PlaybackStatsListener — accumulates per-session metrics for
