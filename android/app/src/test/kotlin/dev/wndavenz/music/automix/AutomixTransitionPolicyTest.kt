@@ -22,6 +22,40 @@ class AutomixTransitionPolicyTest {
     }
 
     @Test
+    fun `relative early handover resolves against the actual Media3 duration`() {
+        // Dart analyzed 180 s and selected 135 s, a 45 s lead. Media3 reports
+        // 210 s, so the accepted start must move to 165 s instead of reusing
+        // the stale absolute position (which would be 75 s before EOF).
+        val resolved = AutomixTransitionPolicy.resolveEarlyHandoverStartMs(
+            transitionLeadMs = 45_000L,
+            fallbackTransitionStartMs = 135_000L,
+            outgoingDurationMs = 210_000L,
+        )
+        assertEquals(165_000L, resolved)
+        assertFalse(
+            AutomixTransitionPolicy.isValidEarlyHandover(135_000L, 210_000L, 3_800L),
+        )
+        assertTrue(
+            AutomixTransitionPolicy.isValidEarlyHandover(resolved, 210_000L, 3_800L),
+        )
+        assertEquals(
+            125_000L,
+            AutomixTransitionPolicy.resolveEarlyHandoverStartMs(
+                transitionLeadMs = 45_000L,
+                fallbackTransitionStartMs = 135_000L,
+                outgoingDurationMs = 170_000L,
+            ),
+        )
+        assertNull(
+            AutomixTransitionPolicy.resolveEarlyHandoverStartMs(
+                transitionLeadMs = 66_000L,
+                fallbackTransitionStartMs = 135_000L,
+                outgoingDurationMs = 210_000L,
+            ),
+        )
+    }
+
+    @Test
     fun `beat phase lock requires two planner-approved tempo grids`() {
         assertTrue(AutomixTransitionPolicy.isBeatMatchedPair(120f, 124f))
         assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(null, 124f))
@@ -179,6 +213,7 @@ class AutomixTransitionPolicyTest {
         assertEquals(60000L, target.dropCueMs)
         assertEquals(3.8f, target.fadeSeconds!!, 0.001f)
         assertEquals(135000L, target.transitionStartMs)
+        assertEquals(45000L, target.transitionLeadMs)
         // Strategy SHORT_HANDOVER enforces its production minimum curve.
         assertEquals(1.20f, target.curveGamma!!, 0.001f)
         assertEquals(0.8f, target.outgoingTrim!!, 0.001f)
