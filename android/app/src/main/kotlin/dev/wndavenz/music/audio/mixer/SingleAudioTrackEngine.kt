@@ -218,37 +218,24 @@ class SingleAudioTrackEngine(
     }
 
     /**
-     * Flushes the shared hardware buffer after a seek on [slot], but only when
-     * no other deck is playing and no deck still has unplayed frames.
-     *
-     * Without this, the samples already written to the single AudioTrack would
-     * keep playing for up to one hardware buffer (~100-250 ms) after the user
-     * seeks. During an overlap the bus must NOT be flushed: the other deck's
-     * queued audio would be lost, which is why the guard is strict.
+     * Flushes samples still buffered in the shared hardware output after a seek.
+     * This is safe only when no other deck is actively audible; an idle standby
+     * may have preloaded PCM in its ring, which must not prevent the hardware
+     * flush or be marked consumed as a side effect.
      */
     fun flushBusForSeek(slot: Int) {
         executeOnOutputThread {
             val otherPlaying = decks.any { it.slot != slot && it.playing && !it.released }
             if (otherPlaying) return@executeOnOutputThread
-            val unplayed = decks.any { deck ->
-                val stream = deck.stream
-                deck.consumedFrames < stream.producedFrames ||
-                    stream.playedTimeline.hasPendingData(busFramesPlayed)
-            }
-            if (unplayed) return@executeOnOutputThread
 
             output.flush()
             busFramesWritten = 0L
             busFramesPlayed = 0L
-            for (deck in decks) {
-                // Decks other than the seeked one are fully played (guard
-                // above); mark their consumed counter at their produced
-                // total so they do not look like they have pending data.
-                // lastGeneration stays untouched: the generations themselves
-                // did not change, and resetting it would make an idle deck
-                // look unplayed again.
-                deck.consumedFrames = deck.stream.producedFrames
-            }
+            // Flushing discards only frames already submitted to hardware. Keep
+            // each deck's consumedFrames and producer ring intact; that metadata
+            // describes PCM still waiting to be mixed. Clear old bus mappings
+            // so they cannot be interpreted against the reset bus-frame clock.
+            for (deck in decks) deck.stream.playedTimeline.clear()
             limiter.reset()
         }
     }
