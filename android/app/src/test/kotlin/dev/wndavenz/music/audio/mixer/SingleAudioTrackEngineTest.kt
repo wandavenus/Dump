@@ -175,6 +175,39 @@ class SingleAudioTrackEngineTest {
     }
 
     @Test
+    fun `seek flush is not blocked by standby PCM waiting in its ring`() {
+        val seekOutput = FakeSingleOutput().apply { playbackLagFrames = 10_000L }
+        val seekEngine = SingleAudioTrackEngine(seekOutput, log = {})
+        try {
+            assertTrue(seekEngine.configureOutput())
+            val outgoing = seekEngine.addDeck(0)
+            val standby = seekEngine.addDeck(1)
+            appendConstantFor(
+                seekEngine, 0, outgoing, 480, 0.1f, 10_000L,
+            )
+            appendConstantFor(
+                seekEngine, 1, standby, 480, 0.2f, 10_000L,
+            )
+            seekEngine.finishStream(0, outgoing)
+            seekEngine.setDeckPlaying(0, true)
+            await { seekOutput.writtenFrames >= 480L }
+
+            // A seek replaces the outgoing generation. The standby's PCM has
+            // not reached hardware and must remain queued while hardware is flushed.
+            seekEngine.resetDeck(0)
+            seekEngine.flushBusForSeek(0)
+            await { seekOutput.flushCount == 1 }
+            assertEquals(0L, seekOutput.writtenFrames)
+            assertEquals(
+                SingleAudioTrackEngine.DEFAULT_RING_FRAMES - 480,
+                seekEngine.deckFreeFrames(1, standby),
+            )
+        } finally {
+            seekEngine.release()
+        }
+    }
+
+    @Test
     fun `exclusive mode releases output and engine reconfigures it on resume`() {
         assertTrue(engine.configureOutput())
         assertTrue(engine.suspendOutputForExclusiveMode())
@@ -194,6 +227,29 @@ class SingleAudioTrackEngineTest {
         assertTrue(engine.configureOutput())
         assertTrue(engine.configureOutput())
         assertEquals(1, output.configureCount)
+    }
+
+    private fun appendConstantFor(
+        engine: SingleAudioTrackEngine,
+        slot: Int,
+        generation: Long,
+        frames: Int,
+        value: Float,
+        sourceDurationUs: Long,
+    ) {
+        val pcm = FloatArray(frames * 2) { value }
+        assertEquals(
+            frames,
+            engine.appendFrames(
+                slot = slot,
+                generation = generation,
+                pcm = pcm,
+                offsetFrames = 0,
+                frames = frames,
+                sourceStartUs = 0L,
+                sourceDurationUs = sourceDurationUs,
+            ),
+        )
     }
 
     private fun appendConstant(
@@ -251,6 +307,9 @@ class SingleAudioTrackEngineTest {
         var resetCount: Int = 0
 
         @Volatile
+        var flushCount: Int = 0
+
+        @Volatile
         var configuredSampleRate: Int = SingleAudioTrackEngine.BUS_SAMPLE_RATE
 
         @Volatile
@@ -303,7 +362,10 @@ class SingleAudioTrackEngineTest {
 
         override fun audioSessionId(): Int = 0
 
-        override fun flush() = Unit
+        override fun flush() {
+            flushCount++
+            writtenFrames = 0L
+        }
 
         override fun reset() {
             resetCount++
