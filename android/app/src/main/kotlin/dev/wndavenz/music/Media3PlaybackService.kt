@@ -2620,6 +2620,14 @@ class Media3PlaybackService : MediaSessionService() {
             val wasPlaying = current.isPlaying
             val positionMs = current.currentPosition
             current.pause()
+            // Do not let the clean player open another AudioTrack while the
+            // shared mixer still owns its paused hardware output.
+            if (singleAudioTrackEngine?.suspendOutputForExclusiveMode() == false) {
+                NativeLogger.emit("error", "Media3",
+                    "BitPerfect: shared AudioTrack could not be released; aborting mode switch")
+                if (wasPlaying) current.play()
+                return
+            }
 
             // No AudioEffects during bit-perfect playback.
             effectsManager.releaseEffects()
@@ -2683,6 +2691,9 @@ class Media3PlaybackService : MediaSessionService() {
             val wasPlaying = src.isPlaying
             val positionMs = src.currentPosition
             clean.pause()
+            // Force the dedicated clean renderer to tear down its AudioTrack
+            // before the normal shared output can be configured again.
+            clean.stop()
             if (src !== clean) src.pause()
 
             val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
