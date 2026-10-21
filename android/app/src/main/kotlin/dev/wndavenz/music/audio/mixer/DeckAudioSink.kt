@@ -112,16 +112,9 @@ class DeckAudioSink(
             channelConfig: Int,
             bufferSize: Int,
         ) {
-            listener?.onAudioTrackInitialized(
-                AudioSink.AudioTrackConfig(
-                    encoding,
-                    sampleRate,
-                    channelConfig,
-                    /* tunneling= */ false,
-                    /* offload= */ false,
-                    bufferSize,
-                ),
-            )
+            // This is a virtual deck sink, not a hardware AudioTrack. The shared
+            // physical sink logs its lifecycle once; relaying this callback into
+            // each ExoPlayer would double-count one track as multiple tracks.
         }
 
         override fun onAudioTrackReleased(
@@ -129,16 +122,7 @@ class DeckAudioSink(
             sampleRate: Int,
             channelConfig: Int,
         ) {
-            listener?.onAudioTrackReleased(
-                AudioSink.AudioTrackConfig(
-                    encoding,
-                    sampleRate,
-                    channelConfig,
-                    /* tunneling= */ false,
-                    /* offload= */ false,
-                    /* bufferSize= */ 0,
-                ),
-            )
+            // See onAudioTrackInitialized: virtual decks do not own hardware.
         }
 
         override fun onSinkError(message: String) {
