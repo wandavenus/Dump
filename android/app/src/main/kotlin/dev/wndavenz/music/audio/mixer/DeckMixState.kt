@@ -19,6 +19,9 @@ class DeckStream(
     @Volatile
     var producedFrames: Long = 0L
 
+    /** Bus-frame mapping retained until AudioTrack's playhead passes each range. */
+    val playedTimeline = DeckPlayedTimelineMap()
+
     /** True after `playToEndOfStream()` drained the processor tail. */
     @Volatile
     var eos: Boolean = false
