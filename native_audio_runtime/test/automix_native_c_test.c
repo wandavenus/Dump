@@ -2139,6 +2139,127 @@ static void test_live_tracker_phase_follows_beat_grid(void) {
   assert(nar_automix_live_tracker_set_enabled(0) == 1);
 }
 
+static double phase_circular_distance_ms(double actual, double expected,
+                                           double period_ms) {
+  if (!isfinite(actual) || !isfinite(expected) ||
+      !isfinite(period_ms) || period_ms <= 0.0) {
+    return INFINITY;
+  }
+  double distance = fmod(fabs(actual - expected), period_ms);
+  return fmin(distance, period_ms - distance);
+}
+
+static void test_live_tracker_phase_stays_coherent_during_tempo_change(void) {
+  // Begin with a stable 180 BPM / 4-beat bar, then slow to 100 BPM exactly
+  // on a downbeat. During the transition the autocorrelation candidate and
+  // the attack-smoothed published BPM intentionally differ. Beat and downbeat
+  // phase must stay in the same period domain as the published BPM rather than
+  // jumping when an estimate is re-anchored.
+  const double pi = 3.14159265358979323846;
+  const int32_t sample_rate = 48000;
+  const int32_t chunk_frames = 512;
+  const int32_t transition_frame = sample_rate * 8;  // 24 beats at 180 BPM.
+  const int32_t total_frames = transition_frame + sample_rate * 6;
+  const int32_t fast_period_frames = sample_rate / 3;  // 180 BPM.
+  const int32_t slow_period_frames = sample_rate * 3 / 5;  // 100 BPM.
+  float pcm[512 * 2];
+  double previous[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  double max_beat_prediction_error_ms = 0.0;
+  double max_downbeat_prediction_error_ms = 0.0;
+  int32_t checked_beat_phases = 0;
+  int32_t checked_downbeat_phases = 0;
+  int32_t produced = 0;
+  int have_previous = 0;
+
+  assert(nar_automix_live_tracker_set_enabled(1) == 1);
+  while (produced < total_frames) {
+    const int32_t frames = (total_frames - produced) < chunk_frames
+        ? (total_frames - produced)
+        : chunk_frames;
+    for (int32_t i = 0; i < frames; ++i) {
+      const int64_t n = (int64_t)produced + i;
+      const int after_transition = n >= transition_frame;
+      const int64_t local_frame =
+          after_transition ? n - transition_frame : n;
+      const int64_t period_frames =
+          after_transition ? slow_period_frames : fast_period_frames;
+      const int64_t beat_index =
+          after_transition
+              ? 24 + local_frame / period_frames
+              : local_frame / period_frames;
+      const int64_t beat_phase = local_frame % period_frames;
+      const double t = (double)n / sample_rate;
+      double value = 0.01 * sin(2.0 * pi * 300.0 * t);
+      if (beat_phase < 48) {
+        value += 0.25 * (1.0 - (double)beat_phase / 48.0) *
+            sin(2.0 * pi * 800.0 * t);
+        if (beat_index % 4 == 0) {
+          value += 0.9 * (1.0 - (double)beat_phase / 48.0) *
+              sin(2.0 * pi * 100.0 * t);
+        }
+      }
+      pcm[i * 2] = (float)value;
+      pcm[i * 2 + 1] = (float)value;
+    }
+
+    assert(nar_automix_live_tracker_process(
+               pcm, frames, 2, sample_rate, 0) == 1);
+    produced += frames;
+    assert(nar_automix_live_tracker_get(
+               0, state, NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT) == 1);
+
+    // Inspect the first 3.5 s after the tempo drop, where the raw tempo
+    // candidate and smoothed tracker BPM differ most. Adjacent callback states
+    // should advance on the currently published beat/bar periods; re-estimates
+    // must not introduce a large phase-domain jump.
+    const int in_transition_window =
+        produced >= transition_frame + sample_rate / 2 &&
+        produced <= transition_frame + (int32_t)(sample_rate * 3.5);
+    if (have_previous && in_transition_window &&
+        state[0] >= 60.0 && state[0] <= 200.0 &&
+        state[2] > 0.15 && previous[2] > 0.15) {
+      const double delta_ms =
+          (double)frames * 1000.0 / (double)sample_rate;
+      const double beat_period_ms = 60000.0 / state[0];
+      const double expected_beat = fmod(previous[1] + delta_ms,
+                                        beat_period_ms);
+      const double beat_error = phase_circular_distance_ms(
+          state[1], expected_beat, beat_period_ms);
+      if (beat_error > max_beat_prediction_error_ms) {
+        max_beat_prediction_error_ms = beat_error;
+      }
+      checked_beat_phases++;
+
+      if (state[4] > 0.15 && previous[4] > 0.15) {
+        const double bar_period_ms = beat_period_ms * 4.0;
+        const double expected_downbeat = fmod(previous[3] + delta_ms,
+                                              bar_period_ms);
+        const double downbeat_error = phase_circular_distance_ms(
+            state[3], expected_downbeat, bar_period_ms);
+        if (downbeat_error > max_downbeat_prediction_error_ms) {
+          max_downbeat_prediction_error_ms = downbeat_error;
+        }
+        checked_downbeat_phases++;
+      }
+    }
+    for (int32_t i = 0; i < NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT; ++i) {
+      previous[i] = state[i];
+    }
+    have_previous = 1;
+  }
+
+  assert(checked_beat_phases >= 40);
+  assert(max_beat_prediction_error_ms < 140.0);
+  assert(checked_downbeat_phases >= 10);
+  assert(max_downbeat_prediction_error_ms < 280.0);
+  // After a full slow-tempo history window, the estimate must converge toward
+  // the new pulse rather than retaining the previous fast tempo.
+  assert(state[0] >= 90.0 && state[0] <= 110.0);
+  assert(state[2] > 0.0);
+  assert(nar_automix_live_tracker_set_enabled(0) == 1);
+}
+
 static void test_live_tracker_publishes_downbeat_phase(void) {
   // 120 BPM click train with a low-frequency accent every fourth beat, i.e. a
   // 2 s bar. The stream ends 300 ms after the last click and 1800 ms after
@@ -2233,6 +2354,7 @@ int main(void) {
   test_live_tracker_resolves_half_tempo_lock();
   test_live_tracker_keeps_low_tempo();
   test_live_tracker_phase_follows_beat_grid();
+  test_live_tracker_phase_stays_coherent_during_tempo_change();
   test_live_tracker_publishes_downbeat_phase();
   test_live_tracker_reports_activity_trend();
   test_live_tracker_requires_explicit_enable();
