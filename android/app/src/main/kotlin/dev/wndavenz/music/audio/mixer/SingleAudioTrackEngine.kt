@@ -34,8 +34,8 @@ class SingleAudioTrackEngine(
     private val output: SharedAudioOutput,
     val busSampleRate: Int = BUS_SAMPLE_RATE,
     private val deckCount: Int = DEFAULT_DECK_COUNT,
-    private val ringFrames: Int = DEFAULT_RING_FRAMES,
-    private val maxBlockFrames: Int = DEFAULT_BLOCK_FRAMES,
+    private val ringFrames: Int = (busSampleRate / 2).coerceAtLeast(1),
+    private val maxBlockFrames: Int = (busSampleRate / 100).coerceAtLeast(1),
     private val log: (String) -> Unit = {},
     /** Runs inside the mix thread before the loop (e.g. audio thread priority). */
     private val onThreadStart: () -> Unit = {},
@@ -64,6 +64,9 @@ class SingleAudioTrackEngine(
         var lastGeneration: Long = -1L
         var underrunFrames: Long = 0L
         var readScratch: FloatArray = FloatArray(0)
+        var lastReadStream: DeckStream? = null
+        var lastReadStartFrames: Long = 0L
+        var lastReadFrames: Int = 0
     }
 
     private val decks = Array(deckCount) { DeckState(it) }
@@ -219,8 +222,8 @@ class SingleAudioTrackEngine(
             if (otherPlaying) return@executeOnOutputThread
             val unplayed = decks.any { deck ->
                 val stream = deck.stream
-                stream.producedFrames > 0L &&
-                    playedLocalFrames(deck, stream) < stream.producedFrames
+                deck.consumedFrames < stream.producedFrames ||
+                    stream.playedTimeline.hasPendingData(busFramesPlayed)
             }
             if (unplayed) return@executeOnOutputThread
 
@@ -254,25 +257,32 @@ class SingleAudioTrackEngine(
     fun deckPositionUs(slot: Int, sourceEnded: Boolean): Long {
         val deck = deck(slot)
         val stream = deck.stream
-        val produced = stream.producedFrames
-        if (produced <= 0L) return -1L
-        val played = playedLocalFrames(deck, stream)
-        if (sourceEnded && played >= produced) {
-            return stream.timeline.endPositionUs() ?: -1L
+        val audibleBusFrame = busFramesPlayed
+        val audiblePositionUs = stream.playedTimeline.positionAt(audibleBusFrame)
+        if (
+            sourceEnded &&
+            stream.eos &&
+            deck.consumedFrames >= stream.producedFrames &&
+            !stream.playedTimeline.hasPendingData(audibleBusFrame)
+        ) {
+            return stream.timeline.endPositionUs() ?: audiblePositionUs ?: -1L
         }
-        return stream.timeline.positionAt(played) ?: -1L
+        return audiblePositionUs ?: -1L
     }
 
     fun deckHasPendingData(slot: Int): Boolean {
         val deck = deck(slot)
         val stream = deck.stream
-        return playedLocalFrames(deck, stream) < stream.producedFrames
+        return deck.consumedFrames < stream.producedFrames ||
+            stream.playedTimeline.hasPendingData(busFramesPlayed)
     }
 
     fun deckIsEnded(slot: Int): Boolean {
         val deck = deck(slot)
         val stream = deck.stream
-        return stream.eos && playedLocalFrames(deck, stream) >= stream.producedFrames
+        return stream.eos &&
+            deck.consumedFrames >= stream.producedFrames &&
+            !stream.playedTimeline.hasPendingData(busFramesPlayed)
     }
 
     // ── Shared output control (engine thread discipline) ─────────────────────
@@ -288,15 +298,15 @@ class SingleAudioTrackEngine(
         var configured = false
         executeOnOutputThread {
             if (!busConfigured) {
-                configured = output.configure(BUS_SAMPLE_RATE, PcmRingBuffer.CHANNELS)
+                configured = output.configure(busSampleRate, PcmRingBuffer.CHANNELS)
                 if (configured) {
                     busConfigured = true
                     log(
-                        "Mixer bus configured: ${BUS_SAMPLE_RATE}Hz stereo float, " +
+                        "Mixer bus configured: ${busSampleRate}Hz stereo float, " +
                             "one shared output sink",
                     )
                 } else {
-                    log("Mixer bus configuration FAILED at ${BUS_SAMPLE_RATE}Hz")
+                    log("Mixer bus configuration FAILED at ${busSampleRate}Hz")
                 }
             } else {
                 configured = true
@@ -494,10 +504,12 @@ class SingleAudioTrackEngine(
     }
 
     private fun mixBlock(): Boolean {
-        val toMix = decks.filter { it.playing && !it.released }
-        if (toMix.isEmpty()) return false
-
-        for (deck in toMix) {
+        var activeDeckCount = 0
+        for (deck in decks) {
+            deck.lastReadStream = null
+            deck.lastReadFrames = 0
+            if (!deck.playing || deck.released) continue
+            activeDeckCount++
             val stream = deck.stream
             if (deck.lastGeneration != stream.generation) {
                 deck.lastGeneration = stream.generation
@@ -508,26 +520,28 @@ class SingleAudioTrackEngine(
                 if (deck.readScratch.size < needed) deck.readScratch = FloatArray(needed)
             }
         }
+        if (activeDeckCount == 0) return false
 
         var starved = false
-        for (deck in toMix) {
+        for (deck in decks) {
+            if (!deck.playing || deck.released) continue
             val stream = deck.stream
-            val monitoring = deck.started && !stream.eos
-            if (monitoring && stream.ring.availableToRead == 0) {
+            if (deck.started && !stream.eos && stream.ring.availableToRead == 0) {
                 starved = true
                 deck.underrunFrames++
                 break
             }
         }
-
         if (starved) {
-            // Give the decoder a short grace period. If it still has not
-            // produced anything, write silence for the whole bus without
-            // consuming the other deck: this preserves A/B alignment instead
-            // of advancing one deck alone.
             sleepQuietly(UNDERRUN_GRACE_MS)
-            val stillStarved = toMix.any {
-                it.started && !it.stream.eos && it.stream.ring.availableToRead == 0
+            var stillStarved = false
+            for (deck in decks) {
+                if (!deck.playing || deck.released) continue
+                val stream = deck.stream
+                if (deck.started && !stream.eos && stream.ring.availableToRead == 0) {
+                    stillStarved = true
+                    break
+                }
             }
             if (!stillStarved) return false
             busUnderrunFrames += maxBlockFrames.toLong()
@@ -537,34 +551,26 @@ class SingleAudioTrackEngine(
 
         var frames = maxBlockFrames
         var anyData = false
-        for (deck in toMix) {
+        for (deck in decks) {
+            if (!deck.playing || deck.released) continue
             val available = deck.stream.ring.availableToRead
             if (available > 0) {
                 anyData = true
                 frames = min(frames, available)
             }
         }
-        if (!anyData) {
-            // All contributing decks are EOS and drained (or still waiting for
-            // their first decoded buffer). Nothing to schedule right now.
-            return false
-        }
+        if (!anyData) return false
 
-        java.util.Arrays.fill(
-            mixScratch,
-            0,
-            frames * PcmRingBuffer.CHANNELS,
-            0f,
-        )
-
-        for (deck in toMix) {
+        java.util.Arrays.fill(mixScratch, 0, frames * PcmRingBuffer.CHANNELS, 0f)
+        for (deck in decks) {
+            if (!deck.playing || deck.released) continue
             val stream = deck.stream
             val framesForDeck = min(frames, stream.ring.availableToRead)
             if (framesForDeck <= 0) continue
 
+            val localStartFrames = deck.consumedFrames
             val read = stream.ring.read(deck.readScratch, 0, framesForDeck)
             if (read <= 0) continue
-
             var gain = deck.gain
             val target = deck.volume
             val scratch = deck.readScratch
@@ -575,23 +581,42 @@ class SingleAudioTrackEngine(
                 mixScratch[base + 1] += scratch[base + 1] * gain
             }
             deck.gain = gain
-            deck.consumedFrames += read
             deck.started = true
-            stream.timeline.trimBefore(deck.consumedFrames)
+            deck.lastReadStream = stream
+            deck.lastReadStartFrames = localStartFrames
+            deck.lastReadFrames = read
         }
 
         limiter.process(mixScratch, frames)
-
-        val presentationTimeUs = busFramesWritten * 1_000_000L / busSampleRate
-        val accepted = output.handleBuffer(mixScratch, frames, presentationTimeUs)
-        if (!accepted) {
+        val outputStartFrame = busFramesWritten
+        val presentationTimeUs = outputStartFrame * 1_000_000L / busSampleRate
+        if (!output.handleBuffer(mixScratch, frames, presentationTimeUs)) {
             log("Mixer output rejected a block")
             outputFailed = true
             return false
         }
 
+        // Preserve the source-to-bus mapping until hardware actually plays it.
+        // A single global in-flight-frame estimate is incorrect if a deck
+        // begins later or has intermittent gaps in its own stream.
+        for (deck in decks) {
+            val read = deck.lastReadFrames
+            val stream = deck.lastReadStream
+            if (read <= 0 || stream == null) continue
+            if (deck.stream !== stream || stream.generation != deck.lastGeneration) continue
+            stream.timeline.appendRangeToPlayedTimeline(
+                localStartFrame = deck.lastReadStartFrames,
+                frames = read,
+                busStartFrame = outputStartFrame,
+                destination = stream.playedTimeline,
+            )
+            deck.consumedFrames += read
+            stream.timeline.trimBefore(deck.consumedFrames)
+        }
+
         busFramesWritten += frames
         updateBusPlayhead()
+        trimPlayedTimelines()
         return true
     }
 
@@ -606,6 +631,7 @@ class SingleAudioTrackEngine(
         if (output.handleBuffer(mixScratch, frames, presentationTimeUs)) {
             busFramesWritten += frames
             updateBusPlayhead()
+            trimPlayedTimelines()
         } else {
             outputFailed = true
         }
@@ -618,12 +644,9 @@ class SingleAudioTrackEngine(
         busFramesPlayed = played.coerceIn(0L, busFramesWritten)
     }
 
-    private fun playedLocalFrames(deck: DeckState, stream: DeckStream): Long {
-        val produced = stream.producedFrames
-        val consumed = deck.consumedFrames
-        val pending = (busFramesWritten - busFramesPlayed).coerceAtLeast(0L)
-        val inFlight = min(pending, consumed)
-        return (consumed - inFlight).coerceIn(0L, produced)
+    private fun trimPlayedTimelines() {
+        val playedFrame = busFramesPlayed
+        for (deck in decks) deck.stream.playedTimeline.trimBefore(playedFrame)
     }
 
     private fun deck(slot: Int): DeckState {
@@ -667,11 +690,11 @@ class SingleAudioTrackEngine(
         private const val RELEASE_TIMEOUT_MS = 1_500L
 
         /**
-         * Runtime kill switch. When false the service keeps the legacy
-         * per-deck `DefaultAudioSink` path (two AudioTracks, mixed by
-         * AudioFlinger). Flip before players are created to roll back.
+         * Runtime kill switch. Keep the experimental mixer off until device
+         * capture/listening/stress validation passes. When false, the service
+         * uses the legacy per-deck DefaultAudioSink path.
          */
         @Volatile
-        var enabled: Boolean = true
+        var enabled: Boolean = false
     }
 }
