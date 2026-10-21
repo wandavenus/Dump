@@ -34,7 +34,7 @@ class Media3SharedAudioOutput(
 ) : SharedAudioOutput {
 
     private val lifecycleOwnerLabel =
-        "shared-output@\${Integer.toHexString(System.identityHashCode(this))}"
+        "shared-output@${Integer.toHexString(System.identityHashCode(this))}"
 
     private val sink: DefaultAudioSink = DefaultAudioSink.Builder(context)
         // The bus is float; let the sink do the final PCM16 conversion.
