@@ -119,7 +119,7 @@ object ExoMetadataReader {
         }
 
         builder.build().also { tags ->
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
+            if (NativeLogger.isEnabled && Log.isLoggable(TAG, Log.DEBUG)) {
                 NativeLogger.debugLog(
                     TAG,
                     "Read ${file.name}: " +
