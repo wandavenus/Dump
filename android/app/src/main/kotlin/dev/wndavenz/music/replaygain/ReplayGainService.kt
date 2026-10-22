@@ -1,5 +1,6 @@
 package dev.wndavenz.music.replaygain
 
+import dev.wndavenz.music.events.NativeLogger
 import android.util.Log
 
 /**
@@ -34,7 +35,7 @@ object ReplayGainService {
      */
     fun scanTrack(path: String, onProgress: (Float) -> Unit = {}): LoudnessResult? {
         if (!nativeAvailable) {
-            Log.w(TAG, "Native ReplayGain unavailable: ${ReplayGainNative.lastLoadError}")
+            NativeLogger.warnLog(TAG, "Native ReplayGain unavailable: ${ReplayGainNative.lastLoadError}")
             return null
         }
 
