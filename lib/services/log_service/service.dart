@@ -75,6 +75,13 @@ class LogService {
 
   // ── Logging ─────────────────────────────────────────────────────────────────
 
+  /// Writes console diagnostics only while the app-wide logging toggle is ON.
+  /// Feature code should use this instead of calling [debugPrint] directly.
+  static void debugPrintIfEnabled(String message) {
+    if (!loggingEnabled.value) return;
+    debugPrint(message);
+  }
+
   static void log(
     String category,
     String message, {
