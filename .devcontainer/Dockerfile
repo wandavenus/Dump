@@ -103,7 +103,14 @@ RUN yes | sdkmanager --licenses >/dev/null 2>&1 || true && \
 # postCreate runs as vscode and must be able to update Flutter's cache, install
 # SDK packages, and write Dart/Gradle/ccache data. The named volumes declared in
 # devcontainer.json inherit these permissions when first initialised.
-RUN mkdir -p /opt/pub-cache /opt/ccache /home/vscode/.gradle /home/vscode/.ccache \
+# Keep compatibility with stale VS Code Flutter SDK selections from older containers.
+# The canonical SDK remains /opt/flutter; both paths point to the exact same installation.
+RUN if [ -e /home/vscode/flutter ] && [ ! -L /home/vscode/flutter ]; then \
+        mv /home/vscode/flutter "/home/vscode/flutter.legacy.$(date +%s)"; \
+    fi \
+    && ln -sfn /opt/flutter /home/vscode/flutter \
+    && chown -h vscode:vscode /home/vscode/flutter \
+    && mkdir -p /opt/pub-cache /opt/ccache /home/vscode/.gradle /home/vscode/.ccache \
     && chown -R vscode:vscode \
         /opt/flutter \
         /opt/android-sdk \
