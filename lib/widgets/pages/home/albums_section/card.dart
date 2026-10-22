@@ -51,6 +51,9 @@ class _AlbumCardState extends State<_AlbumCard> {
   void didUpdateWidget(_AlbumCard old) {
     super.didUpdateWidget(old);
     if (old.album.coverSongId != widget.album.coverSongId) {
+      // Do not keep the previous album's palette visible while the new one is
+      // loading. didUpdateWidget is followed by build, so assigning is enough.
+      _cardColor = _fallbackColor;
       unawaited(_loadPaletteColor());
     }
   }
@@ -67,7 +70,9 @@ class _AlbumCardState extends State<_AlbumCard> {
     }
 
     final colors = await NativePaletteService.get(songId);
-    if (!mounted) return;
+    // The card may have been recycled for another album while extraction was
+    // in flight; only apply colors that still belong to the current cover.
+    if (!mounted || widget.album.coverSongId != songId) return;
 
     setState(() => _cardColor = _dominantColor(colors));
   }
@@ -147,10 +152,10 @@ class _AlbumCardState extends State<_AlbumCard> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.white,
+                                color: paletteForegroundColor(_cardColor),
                               ),
                             ),
                             const SizedBox(height: 1),
@@ -159,9 +164,11 @@ class _AlbumCardState extends State<_AlbumCard> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
-                                color: Color(0xB3FFFFFF),
+                                color: paletteSecondaryForegroundColor(
+                                  _cardColor,
+                                ),
                               ),
                             ),
                           ],

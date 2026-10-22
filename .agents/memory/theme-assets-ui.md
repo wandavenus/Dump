@@ -1,6 +1,6 @@
 ---
 name: Theme, Assets & UI System
-description: ThemeController fields, glass system, shader, assets tree (fonts/shaders/images), PaletteExtractor, UI constants.
+description: ThemeController fields, glass system, shader, assets tree (fonts/shaders/images), NativePaletteService, UI constants.
 ---
 
 # Theme, Assets & UI System
@@ -53,9 +53,13 @@ Components subscribe via `ValueListenableBuilder`. Helper: `isGlass(notifier)` c
 - Palette quantization: MMCQ with up to 96 swatches and cleared filters
 - Memory cache: LRU 256 entries
 - Disk: debounced atomic JSON writes to
-  `palette_cache_v<native-version>.json`
+  `palette_cache_v<native-version>.json`; writes are serialized through a
+  single `_persist` loop so overlapping timers cannot share the temp file
+- Warm-up validates persisted rows (object root, list, int ARGB range) and
+  catches `Object`; extraction has an 8 s Dart timeout and `invalidate(songId)`
+  clears memory + in-flight work when artwork is evicted
 - Android native version is queried through `getCacheVersion`; non-Android/web
-  uses the hardcoded fallback palette
+  uses the hardcoded fallback palette (`_fallbackCacheVersion = 9`)
 
 ## Assets Tree
 

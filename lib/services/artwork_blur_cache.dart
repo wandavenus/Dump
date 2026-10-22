@@ -36,8 +36,9 @@ class ArtworkBlurImageLease {
 
 /// Small memory-only LRU of pre-rendered blur frames.
 ///
-/// It intentionally caches only generated 384px images. The source artwork
-/// remains owned by ArtworkRepository, and no blurred frame is written to disk.
+/// It intentionally caches only generated 64px blur frames. The source
+/// artwork remains owned by ArtworkRepository, and no blurred frame is written
+/// to disk.
 class ArtworkBlurCache {
   ArtworkBlurCache._();
 

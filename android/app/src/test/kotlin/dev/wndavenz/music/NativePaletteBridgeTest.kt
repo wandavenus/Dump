@@ -31,7 +31,7 @@ import java.util.concurrent.RejectedExecutionException
  *   B. Native per-song request coalescing and five-color output
  *   C. Queue rejection and transient null-artwork result
  *   D. Dispose lifecycle and exactly-once completion
- *   E. OKLab clustering and dominant-neutral correction
+ *   E. OKLab clustering, dominant-neutral correction, and neutral derivation
  */
 class NativePaletteBridgeTest {
 
@@ -125,7 +125,7 @@ class NativePaletteBridgeTest {
         artworkCacheManager = mock(),
         executor = executor,
         mainHandler = immediateHandler(),
-            callbackWatchdog = mock(),
+        callbackWatchdog = mock(),
         extractColorsOverride = extractor,
     )
 
@@ -398,6 +398,69 @@ class NativePaletteBridgeTest {
         val result = bridge().selectBestFiveForTest(emptyPalette)
         assertEquals(NativePaletteBridge.FALLBACK, result)
     }
+
+    @Test
+    fun `E04 clustering compares representatives instead of any member`() {
+        // OKLab distances: a-b = 0.047, b-c = 0.132, a-c = 0.179.
+        // Any-member matching would chain-merge all three; representative-only
+        // matching keeps c as a distinct family.
+        val a = 0xFF3D2929.toInt()
+        val b = 0xFF4D3333.toInt()
+        val c = 0xFF7A5252.toInt()
+        val result = bridge().selectBestFiveForTest(
+            palette(
+                a to 1000,
+                b to 50,
+                c to 10,
+            ),
+        )
+
+        assertEquals(5, result.size)
+        assertEquals(a, result[0])
+        assertEquals(c, result[2])
+    }
+
+    @Test
+    fun `E05 fully neutral artwork derives neutral tones instead of fallback blue`() {
+        val midGray = 0xFF888888.toInt()
+        val lightGray = 0xFFCCCCCC.toInt()
+        val result = bridge().selectBestFiveForTest(
+            palette(
+                midGray to 100,
+                lightGray to 50,
+            ),
+        )
+
+        assertEquals(5, result.size)
+        assertEquals(midGray, result[0])
+        result.forEach { rgb ->
+            assertEquals("expected neutral ARGB=$rgb", red(rgb), green(rgb))
+            assertEquals("expected neutral ARGB=$rgb", green(rgb), blue(rgb))
+        }
+    }
+
+    @Test
+    fun `E06 neutral primary derives neutral highlight and shadow`() {
+        val neutral = 0xFFEEEEEE.toInt()
+        val result = bridge().selectBestFiveForTest(
+            palette(
+                neutral to 300,
+                0xFFCC2244.toInt() to 20,
+                0xFF882244.toInt() to 10,
+            ),
+        )
+
+        assertEquals(5, result.size)
+        assertEquals(neutral, result[0])
+        assertEquals(red(result[3]), green(result[3]))
+        assertEquals(green(result[3]), blue(result[3]))
+        assertEquals(red(result[4]), green(result[4]))
+        assertEquals(green(result[4]), blue(result[4]))
+    }
+
+    private fun red(rgb: Int): Int = (rgb shr 16) and 0xFF
+    private fun green(rgb: Int): Int = (rgb shr 8) and 0xFF
+    private fun blue(rgb: Int): Int = rgb and 0xFF
 
     private fun redDistance(first: Int, second: Int): Int =
         kotlin.math.abs(((first shr 16) and 0xFF) - ((second shr 16) and 0xFF)) +

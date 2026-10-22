@@ -95,7 +95,7 @@ class MediaStoreService {
   // Deduplicates concurrent refreshes (startup reconcile racing a manual
   // pull-to-refresh, a rescan event, etc.) so only one MediaStore query runs
   // and every caller awaits the same in-flight result — mirrors the
-  // in-flight dedup pattern already used by ArtworkRepository/PaletteExtractor.
+  // in-flight dedup pattern already used by ArtworkRepository/NativePaletteService.
   static Future<List<LocalSong>>? _inFlightRefresh;
 
   // Throttles reconcile retries after a failed background refresh so a

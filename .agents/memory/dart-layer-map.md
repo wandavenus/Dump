@@ -33,7 +33,7 @@ description: Every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ 
 | `media_capabilities_service.dart` | — | Device media hardware capability queries |
 | `media_store_service.dart` | `MediaStoreService` | System MediaStore → audio file discovery (throws MissingPluginException on web — handle gracefully) |
 | `open_file_service.dart` | `OpenFileService` | External intent file opening |
-| `palette_extractor.dart` | `PaletteExtractor` | Dominant color extraction from artwork for theming |
+| `native_palette_service.dart` | `NativePaletteService` | Cached native palette extraction (5 roles) for player/card theming |
 | `player_sheet_controller.dart` | `PlayerSheetController` | Shared progress/expanded state and animation controller used by UnifiedMorphPlayer |
 | `playlist_service.dart` | `PlaylistService` | Playlist CRUD + favorites |
 | `replay_gain_service.dart` | — | ReplayGain processing entry point |

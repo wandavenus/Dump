@@ -4,9 +4,9 @@
 - [Session Artwork Metadata (artworkData)](session-artwork-metadata.md) — fix zoom+pecah artwork notifikasi (1.5.27): SystemUI/MIUI render MediaSession artworkData, bukan largeIcon; publish square 1024px bytes via Player.replaceMediaItems (ganti current item, seamless) + SessionArtworkProvider.
 - [Flutter refinement roadmap](flutter-refinement-roadmap.md) — Flutter tetap menjadi framework utama; penyempurnaan dilakukan bertahap tanpa migrasi Compose.
 - [Localization Implementation](localization-implementation.md) — Flutter gen_l10n memakai ARB lokal EN/ID, LanguageManager sebagai sumber locale, dan context.l10n untuk UI.
-- [Native Palette Engine](native-palette-engine.md) — androidx.palette MMCQ + perceptual scoring replaces palette_generator_plus; NativePaletteService = drop-in for PaletteExtractor.
+- [Native Palette Engine](native-palette-engine.md) — androidx.palette MMCQ + perceptual scoring; NativePaletteService replaced the removed PaletteExtractor/palette_generator_plus.
 - [Palette fallback during shuffle](palette-shuffle-fallback.md) — transient artwork extraction failures must stay retryable; never persist hardcoded fallback as a song palette.
-- [Now Playing artwork blur cache](artwork-blur-cache.md) — 384px source, scale-adjusted pre-blur, three-entry memory LRU with leases and deferred eviction.
+- [Now Playing artwork blur cache](artwork-blur-cache.md) — 64px source, scale-adjusted sigma-28 pre-blur, three-entry memory LRU with leases and deferred eviction.
 - [Morph Player 60 FPS](morph-player-60fps.md) — larangan implicit animation di jalur morph; albumCover pakai Positioned+Transform; PlayerSheetController pakai Ticker bukan Timer.
 - [Repo Architecture Overview](repo-architecture.md) — layer stack, top-level folders, key invariants (single engine, native queue ownership, target device).
 - [Dart Layer Map](dart-layer-map.md) — every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ with class + role; init order.
@@ -19,7 +19,7 @@
 - [Settings Page Deep](settings-page-deep.md) — every settings file/widget; mutual exclusion rules (Bit-Perfect/EQ/ReplayGain/LN); ThemeController sub-toggles.
 - [App Init & Navigation](app-init-navigation.md) — full main.dart init sequence (10 steps); app_state.dart lifecycle; routing (onGenerateRoute, ZoomFadeRoute, bottom nav).
 - [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, SyncedLyricsView, progress, transport, fog shader, home sections.
-- [Theme, Assets & UI](theme-assets-ui.md) — ThemeController 10 toggles; fluid.frag shader; assets tree (SF Pro Text fonts, webp images); PaletteExtractor; lib/utils/.
+- [Theme, Assets & UI](theme-assets-ui.md) — ThemeController 10 toggles; fluid.frag shader; assets tree (SF Pro Text fonts, webp images); NativePaletteService; lib/utils/.
 - [DSP Processor Params](dsp-processor-params.md) — full param ranges for all 7 processors: comp, limiter, loudness, crossfeed, replaygain, biquad, soft clipper.
 - [Android Build Config](android-build-config.md) — Manifest permissions/services; build.gradle SDK/NDK/CMake; CMakeLists targets; ProGuard keeps.
 - [Pages Browse Search Detail](pages-browse-search-detail.md) — BrowsePage, RadioPage, PlaylistPage, SearchPage, AlbumPage, ArtistPage, all detail section widgets.

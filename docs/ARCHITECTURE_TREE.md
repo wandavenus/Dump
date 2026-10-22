@@ -221,8 +221,8 @@ services/
 ├── media_capabilities_service.dart + /service.dart   ← prefix key "mcap_"
 ├── audio_focus_service.dart · audio_playback_state.dart
 ├── media_store_service.dart (533)   MethodChannel musicplayer/media_store
-├── history_service.dart · playlist_service.dart · artwork_repository.dart (322)
-├── native_palette_service.dart (324)  MethodChannel (NativePaletteBridge.CHANNEL)
+├── history_service.dart · playlist_service.dart · artwork_repository.dart (327)
+├── native_palette_service.dart (452)  MethodChannel (NativePaletteBridge.CHANNEL)
 ├── replay_gain_service.dart + /service.dart (1091) + /models.dart
 ├── loudness_source_resolver.dart · song_metadata_service/ · open_file_service.dart
 │       (MethodChannel musicplayer/open_file)

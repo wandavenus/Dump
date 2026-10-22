@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'media_store_service.dart';
+import 'native_palette_service.dart';
 
 /// Two-layer persistent artwork cache.
 class ArtworkRepository {
@@ -268,6 +269,10 @@ class ArtworkRepository {
     _paths.remove(songId);
     _providers.remove(songId);
     _diskCachedIds.remove(songId);
+    // The artwork bytes are about to disappear (or be re-extracted from
+    // different source metadata). Drop the palette derived from the old file,
+    // including an extraction that is still in flight.
+    NativePaletteService.invalidate(songId);
 
     final deleteFuture = MediaStoreService.deleteArtworkCache(songId);
     _pendingDeletes[songId] = deleteFuture;

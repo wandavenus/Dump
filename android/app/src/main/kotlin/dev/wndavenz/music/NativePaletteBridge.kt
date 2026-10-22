@@ -50,12 +50,15 @@ import kotlin.math.pow
  *
  * 5. **OKLab color clustering** — perceptually similar swatches are merged into
  *    [ColorCluster] groups using the existing OKLab [colorSimilar] function
- *    (threshold 0.15).  This corrects a fundamental weakness of MMCQ: a single
- *    visual color family (e.g. Black + Navy + Dark Blue) is often split into
- *    multiple Palette swatches, each covering a small fraction of the image.
- *    Without clustering, a 28 % skin tone wins over a 48 % dark family simply
- *    because the dark pixels are fragmented across three separate buckets.
- *    After clustering, the merged dark family competes with its full weight.
+ *    (threshold 0.15).  Each candidate is compared only against the cluster's
+ *    representative swatch, so an A ≈ B ≈ C chain cannot transitively merge
+ *    two visibly distinct families A and C.  This corrects a fundamental
+ *    weakness of MMCQ: a single visual color family (e.g. Black + Navy + Dark
+ *    Blue) is often split into multiple Palette swatches, each covering a small
+ *    fraction of the image.  Without clustering, a 28 % skin tone wins over a
+ *    48 % dark family simply because the dark pixels are fragmented across
+ *    three separate buckets.  After clustering, the merged dark family competes
+ *    with its full weight.
  *
  * 6. **Coverage-driven role selection** — roles are selected greedily from the
  *    highest-scoring clusters. Population remains the main signal, while
@@ -80,15 +83,19 @@ import kotlin.math.pow
  *      highlight = lightest saturated representative (L > 0.55, S > 0.10)
  *      shadow    = darkest saturated representative  (L < 0.45, S > 0.08)
  *    Candidates must remain within [HUE_ANCHOR_THRESHOLD] degrees of the
- *    primary hue. For neutral primaries, both colors are derived from primary.
- *    If no suitable cluster exists, the corresponding color is derived from
- *    primary.
+ *    primary hue. For neutral primaries, both colors are derived from primary
+ *    without manufacturing saturation (a gray cover stays gray instead of
+ *    acquiring a forced red hue). If no suitable cluster exists, the
+ *    corresponding color is derived from primary.
  *
  * 10. **Output** — 5-element List<Int> [primary, secondary, accent, highlight, shadow].
  *     Existing callers that only read indices 0/1/2 remain compatible. If the
  *     artwork has fewer than three meaningful families, missing supporting roles
  *     are derived from primary rather than replacing valid families with named
- *     swatches.
+ *     swatches. Fully neutral artwork (no chromatic candidates at all) uses its
+ *     most populated tone as primary and derives all four supporting tones from
+ *     it instead of padding a partial named-swatch list with the blue-gray hard
+ *     fallback.
  *
  * # Performance
  * The palette pass is intentionally bounded to a bitmap whose decoded width and
@@ -142,11 +149,16 @@ class NativePaletteBridge(
          * v8: preserves valid one/two-family palettes instead of falling back
          *     to AndroidX named swatches; two-family artwork keeps the second
          *     family as accent and derives a related secondary tone.
+         * v9: representative-only cluster matching prevents A-B-C chain merges;
+         *     neutral primaries no longer acquire a forced hue during derivation.
          */
-        const val CACHE_VERSION = 8
+        const val CACHE_VERSION = 9
 
         /** Minimum perceptual distance for a distinct palette role. */
         private const val MIN_ROLE_DISTANCE = 0.12f
+
+        /** Saturation below which a color is treated as neutral. */
+        private const val NEUTRAL_SATURATION = 0.12f
 
         /** Maximum hue distance for non-neutral highlight/shadow candidates. */
         private const val HUE_ANCHOR_THRESHOLD = 120f
@@ -528,7 +540,23 @@ class NativePaletteBridge(
             val hsl = sw.hsl
             hsl[1] >= 0.10f && hsl[2] in 0.06f..0.93f
         }
-        if (candidates.isEmpty()) return buildFallbackFromPalette(palette)
+        if (candidates.isEmpty()) {
+            // Fully neutral artwork (or artwork whose colors are all outside the
+            // lightness window): keep the actual dominant tone and derive the
+            // four supporting roles from it. Padding a partial named-swatch list
+            // with FALLBACK used to inject blue-gray tones into black-and-white
+            // covers.
+            val dominant = all.maxByOrNull { it.population }
+                ?: return buildFallbackFromPalette(palette)
+            val base = dominant.rgb
+            return listOf(
+                base,
+                deriveSecondary(base),
+                deriveAccent(base),
+                deriveHighlight(base),
+                deriveShadow(base),
+            )
+        }
 
         // Step 3: Score each candidate.
         //
@@ -624,20 +652,22 @@ class NativePaletteBridge(
         val dominantNeutral = all
             .filter { sw ->
                 val hsl = sw.hsl
-                hsl[1] < 0.12f && hsl[2] in 0.0f..1.0f
+                hsl[1] < NEUTRAL_SATURATION
             }
             .maxByOrNull { it.population }
 
         if (dominantNeutral != null &&
-    dominantNeutral.population > primaryCluster.totalPopulation * 2.0) {
-    // The dominant neutral becomes the primary tone. Downstream highlight
-    // and shadow derivation then uses this actual artwork tone as its anchor,
-    // so black/white artwork is not forced through a chromatic triplet.
-    primaryCluster = ColorCluster(
-        swatches = mutableListOf(dominantNeutral),
-        totalPopulation = dominantNeutral.population,
-        totalScore = 0.0,
-    )
+            dominantNeutral.population > primaryCluster.totalPopulation * 2.0
+        ) {
+            // The dominant neutral becomes the primary tone. Downstream
+            // highlight and shadow derivation then uses this actual artwork
+            // tone as its anchor, so black/white artwork is not forced through
+            // a chromatic triplet.
+            primaryCluster = ColorCluster(
+                swatches = mutableListOf(dominantNeutral),
+                totalPopulation = dominantNeutral.population,
+                totalScore = 0.0,
+            )
 
             secondaryCluster = chooseCoverageCluster(
                 candidates = top,
@@ -679,7 +709,7 @@ class NativePaletteBridge(
         // contaminating the palette gradient.  For neutral primaries (S < 0.12)
         // skip the hue-coherence check — achromatic hue is arbitrary in HSL;
         // derive directly from primary.  If no cluster qualifies, fall back to
-        // deriveHighlight() / deriveShadow() unchanged.
+        // deriveHighlight() / deriveShadow(), which preserve neutral saturation.
         val usedRgbs = setOf(
             primaryCluster.representativeSwatch.rgb,
             secondaryCluster?.representativeSwatch?.rgb,
@@ -687,7 +717,8 @@ class NativePaletteBridge(
         ).filterNotNull().toSet()
         val restClusters = clusters.filter { it.representativeSwatch.rgb !in usedRgbs }
         val primaryHue     = primaryCluster.representativeSwatch.hsl[0]
-        val primaryIsNeutral = primaryCluster.representativeSwatch.hsl[1] < 0.12f
+        val primaryIsNeutral =
+            primaryCluster.representativeSwatch.hsl[1] < NEUTRAL_SATURATION
 
         val highlightCluster = if (primaryIsNeutral) null else restClusters.filter { cl ->
             val hsl = cl.representativeSwatch.hsl
@@ -743,10 +774,8 @@ class NativePaletteBridge(
         val clusters = mutableListOf<ColorCluster>()
         for (item in scored) {
             val existing = clusters.firstOrNull { cluster ->
-    cluster.swatches.any { sw ->
-        colorSimilar(sw.rgb, item.swatch.rgb)
-    }
-}
+                colorSimilar(cluster.representativeSwatch.rgb, item.swatch.rgb)
+            }
             if (existing != null) {
                 existing.swatches += item.swatch
                 existing.totalPopulation += item.swatch.population
@@ -817,11 +846,18 @@ class NativePaletteBridge(
 
     // ── Derived highlight / shadow ────────────────────────────────────────────
 
-    /** Lightens [baseRgb] to produce a highlight tone (L → 0.75, S softened). */
+    /**
+     * Lightens [baseRgb] to produce a highlight tone (L → 0.75, S softened).
+     * Neutral bases keep their existing (near-zero) saturation: HSL reports
+     * hue 0 for grays, so forcing S ≥ 0.15 used to turn a white/black cover
+     * highlight red.
+     */
     private fun deriveHighlight(baseRgb: Int): Int {
         val hsl = rgbToHsl(baseRgb)
         hsl[2] = 0.75f
-        hsl[1] = (hsl[1] * 0.70f).coerceAtLeast(0.15f)
+        if (hsl[1] >= NEUTRAL_SATURATION) {
+            hsl[1] = (hsl[1] * 0.70f).coerceAtLeast(0.15f)
+        }
         return hslToRgb(hsl[0], hsl[1], hsl[2])
     }
 
@@ -829,7 +865,9 @@ class NativePaletteBridge(
     private fun deriveSecondary(baseRgb: Int): Int {
         val hsl = rgbToHsl(baseRgb)
         hsl[2] = (hsl[2] + 0.18f).coerceIn(0.28f, 0.44f)
-        hsl[1] = (hsl[1] * 0.90f).coerceAtLeast(0.20f)
+        if (hsl[1] >= NEUTRAL_SATURATION) {
+            hsl[1] = (hsl[1] * 0.90f).coerceAtLeast(0.20f)
+        }
         return hslToRgb(hsl[0], hsl[1], hsl[2])
     }
 
@@ -837,7 +875,9 @@ class NativePaletteBridge(
     private fun deriveAccent(baseRgb: Int): Int {
         val hsl = rgbToHsl(baseRgb)
         hsl[2] = (hsl[2] + 0.28f).coerceIn(0.42f, 0.62f)
-        hsl[1] = (hsl[1] * 1.12f).coerceIn(0.28f, 0.90f)
+        if (hsl[1] >= NEUTRAL_SATURATION) {
+            hsl[1] = (hsl[1] * 1.12f).coerceIn(0.28f, 0.90f)
+        }
         return hslToRgb(hsl[0], hsl[1], hsl[2])
     }
 
@@ -845,7 +885,9 @@ class NativePaletteBridge(
     private fun deriveShadow(baseRgb: Int): Int {
         val hsl = rgbToHsl(baseRgb)
         hsl[2] = 0.18f
-        hsl[1] = (hsl[1] * 0.80f).coerceAtLeast(0.10f)
+        if (hsl[1] >= NEUTRAL_SATURATION) {
+            hsl[1] = (hsl[1] * 0.80f).coerceAtLeast(0.10f)
+        }
         return hslToRgb(hsl[0], hsl[1], hsl[2])
     }
 
@@ -853,7 +895,8 @@ class NativePaletteBridge(
 
     /**
      * Best-effort 5-colour list from Palette's own named swatch hierarchy.
-     * Used when the scoring pass finds too few candidates.
+     * Only used for a completely empty Palette; non-empty neutral artwork is
+     * handled by the dominant-tone derivation path in [selectBestFive].
      */
     private fun buildFallbackFromPalette(palette: Palette): List<Int> {
         val swatches = listOfNotNull(

@@ -18,7 +18,7 @@ runZonedGuarded {
      - LyricsSettings.init()
      - WatermarkService.init()
      - ArtworkRepository.instance.warmUp()      ← resolves cache dir
-     - PaletteExtractor.warmUp()                ← hydrates persisted palette
+     - NativePaletteService.warmUp()            ← hydrates persisted palette
      - MediaStoreService.warmUp()               ← hydrates last-known song list
      - HistoryService.warmUp()                  ← hydrates recently played IDs
 
@@ -69,7 +69,7 @@ runZonedGuarded {
 | Concern | Handler | Action |
 |---------|---------|--------|
 | `resumed` | `didChangeAppLifecycleState` | Apply edge-to-edge, `AudioService.syncFromNative()`, `OpenFileService.onResume()` |
-| `paused/detached` | `didChangeAppLifecycleState` | Clear `PaletteExtractor` memory cache, flush `LyricsSettings` |
+| `paused/detached` | `didChangeAppLifecycleState` | Clear `NativePaletteService` memory cache, flush `LyricsSettings` |
 | Watermark | `ValueListenableBuilder<WatermarkService.visible>` | Overlay `WatermarkService.text` on app |
 | Disposal | `dispose()` | Cancel `MediaCapabilitiesService` subscriptions, remove observers |
 

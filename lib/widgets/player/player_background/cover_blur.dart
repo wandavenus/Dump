@@ -72,12 +72,16 @@ class _ArtworkBlurPlayerBackgroundState
   static const int _targetSizePx = ArtworkBlurPlayerBackground._targetSizePx;
   static const double _blurSigma = ArtworkBlurPlayerBackground._blurSigma;
 
+  static const int _maxBlurRetries = 2;
+
   ImageProvider? _provider;
   int _providerSongId = -1;
   ArtworkBlurImageLease? _blurLease;
   String? _requestedBlurKey;
   int _artworkRequestId = 0;
   int _blurRequestId = 0;
+  int _blurRetriesLeft = _maxBlurRetries;
+  Timer? _blurRetryTimer;
 
   @override
   void initState() {
@@ -102,6 +106,9 @@ class _ArtworkBlurPlayerBackgroundState
     // visible until the new artwork and blur are ready. Clearing both here
     // made the background briefly fall back to black on every track change.
     _blurRequestId++;
+    _blurRetryTimer?.cancel();
+    _blurRetryTimer = null;
+    _blurRetriesLeft = _maxBlurRetries;
     _requestedBlurKey = null;
 
     final provider = ArtworkRepository.instance.getProviderSync(
@@ -135,7 +142,28 @@ class _ArtworkBlurPlayerBackgroundState
       songId,
       targetSizePx: _targetSizePx,
     );
-    if (!mounted || requestId != _artworkRequestId || provider == null) return;
+    if (!mounted || requestId != _artworkRequestId) return;
+    if (widget.songId != songId) return;
+
+    if (provider == null) {
+      // The new song has no artwork. Keeping the previous track's provider and
+      // cached frame would show the wrong cover indefinitely, so clear both and
+      // let the fallback render. This is different from the loading window
+      // above, where retaining the old frame avoids a black flash.
+      final previous = _blurLease;
+      setState(() {
+        _provider = null;
+        _providerSongId = songId;
+        _blurLease = null;
+        _requestedBlurKey = null;
+        _blurRequestId++;
+        _blurRetriesLeft = _maxBlurRetries;
+      });
+      previous?.release();
+      return;
+    }
+
+    _blurRetriesLeft = _maxBlurRetries;
     setState(() {
       _provider = provider;
       _providerSongId = songId;
@@ -157,8 +185,8 @@ class _ArtworkBlurPlayerBackgroundState
     if (songId != widget.songId) return;
 
     // ImageFilter sigma is expressed in the destination coordinate space.
-    // Scale the pre-blur radius to preserve the existing 32px on-screen look
-    // after the 384px source is enlarged to fill the player.
+    // Scale the pre-blur radius to preserve the intended on-screen look after
+    // the 64px source is enlarged to fill the player.
     final imageScale = math.max(width / _targetSizePx, height / _targetSizePx);
     final sourceSigma = (_blurSigma / imageScale)
         .clamp(0.5, _blurSigma)
@@ -196,7 +224,24 @@ class _ArtworkBlurPlayerBackgroundState
       return;
     }
 
-    if (lease == null) return;
+    if (lease == null) {
+      // The cache can reject an acquire while an image is being evicted or
+      // decoded. Before this retry, `_requestedBlurKey` stayed set, so the
+      // widget silently kept the expensive runtime blur for the whole track.
+      // Allow the key to be requested again, bounded to avoid a hot loop.
+      if (_blurRetriesLeft <= 0) return;
+      _blurRetriesLeft--;
+      _requestedBlurKey = null;
+      _blurRetryTimer?.cancel();
+      _blurRetryTimer = Timer(const Duration(milliseconds: 600), () {
+        _blurRetryTimer = null;
+        if (!mounted) return;
+        setState(() {});
+      });
+      return;
+    }
+
+    _blurRetriesLeft = _maxBlurRetries;
     final previous = _blurLease;
     setState(() => _blurLease = lease);
     previous?.release();
@@ -206,6 +251,8 @@ class _ArtworkBlurPlayerBackgroundState
   void dispose() {
     _artworkRequestId++;
     _blurRequestId++;
+    _blurRetryTimer?.cancel();
+    _blurRetryTimer = null;
     _blurLease?.release();
     _blurLease = null;
     super.dispose();

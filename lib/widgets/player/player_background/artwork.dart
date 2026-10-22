@@ -128,6 +128,11 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
   void dispose() {
     _controller.removeListener(_onTick);
     _controller.dispose();
+    // FragmentShader owns native GPU resources; FragmentProgram itself has no
+    // dispose(). Release the shader before dropping both references.
+    _painter?.shader.dispose();
+    _painter = null;
+    _program = null;
     super.dispose();
   }
 

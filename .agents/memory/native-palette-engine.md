@@ -14,22 +14,29 @@ Use `NativePaletteService` (lib/services/native_palette_service.dart) for all pa
 `NativePaletteBridge.kt` — androidx.palette MMCQ (maximumColorCount=96, clearFilters) + custom selectBestFive().
 Reads artwork directly from ArtworkCacheManager (no bytes transfer over MethodChannel).
 Registered in MainActivity.configureFlutterEngine → setupNativePaletteChannel().
-Runs on artworkExecutor (bounded 2-thread pool).
+Runs on artworkExecutor (bounded 3-thread pool, shared with artwork cache work).
 
 ## Selection Algorithm (current)
 1. Filter chromatic candidates: sat ≥ 0.10, lightness 0.06–0.93
 2. Score: `(0.90 × population + 0.10 × sat^0.8) × lightness × darkBonus`; there is no spatial/center weighting. Decode uses ARGB_8888.
-3. Merge perceptually similar swatches with OKLab before role selection.
+3. Merge perceptually similar swatches with OKLab before role selection, comparing only each cluster's representative swatch so A≈B≈C chains cannot transitively merge distinct families.
 4. Coverage-driven roles: primary = largest family; secondary/accent = remaining families ranked by population plus perceptual distance from already-selected roles.
 5. **Neutral-dominance correction:** after chromatic selection, a truly dominant neutral (S < 0.12, full lightness range) can replace primary. This includes near-black and near-white artwork backgrounds.
-6. Highlight/shadow: use distinct remaining artwork clusters where possible, otherwise derive from primary.
-7. Fallback: named palette swatches → hardcoded colors
+6. **No chromatic candidates:** use the most populated swatch as primary and derive all four supporting tones from it. Do not pad a partial named-swatch list with the hard fallback.
+7. Highlight/shadow: use distinct remaining artwork clusters where possible, otherwise derive from primary. Neutral primaries keep their existing (near-zero) saturation; do not force S ≥ 0.10/0.15, which would introduce a red hue for grays.
+8. Fallback: named palette swatches → hardcoded colors (only for an empty Palette)
 
 ## Dart Cache
 LRU 256 entries + debounced disk persist to the versioned palette cache file.
-The native cache version is currently v8. It is read by Dart through
-`getCacheVersion` and used in the persisted filename; v8 preserves
-one/two-family palettes.
+The native cache version is currently v9. It is read by Dart through
+`getCacheVersion` and used in the persisted filename; v9 adds
+representative-only clustering and neutral-preserving derivation.
+Warm-up validates every persisted row (object root, list value, int in the
+32-bit ARGB range) and catches `Object` so a corrupt cache cannot skip
+`runApp()`. Extraction attempts have an 8 s Dart-side timeout, and
+`invalidate(songId)` bumps a generation, drops the in-flight future and
+persists the removal when artwork is evicted. Disk writes are serialized so
+overlapping debounce timers cannot share `$path.tmp`.
 
 **Historical rationale:** The legacy Dart `palette_generator_plus` path had
 decode/quantize isolate overhead and naïve role selection. The active native
@@ -65,24 +72,32 @@ request, complete exactly once, and participate in `dispose()`. Any palette
 selection change must bump the native cache version; do not hardcode a second
 independent version in Dart except as an older-engine fallback.
 
-v8 keeps a valid second family as accent when clustering produces only two
+v9 keeps a valid second family as accent when clustering produces only two
 families, derives a related secondary tone from primary, and uses the
 highest-scoring cluster as primary unless dominant-neutral correction applies.
+Clustering compares only cluster representatives, so transitive A≈B≈C chains no
+longer collapse distinct families. Fully neutral artwork keeps its actual
+dominant tone, and neutral primaries derive neutral (not red-tinted) support
+tones.
 
 ## Important failure mode
 
-The OKLab merge threshold and greedy “any member” matching can collapse an artwork
-into fewer than three clusters. If role selection treats that as a hard fallback,
-the named Palette swatches can mask the new coverage algorithm and often return
-related blue tones again.
+The OKLab merge threshold and greedy any-member matching used to collapse an
+artwork into fewer than three clusters. If role selection treats that as a hard
+fallback, the named Palette swatches can mask the coverage algorithm and often
+return related blue tones again. v9 switches to representative-only matching;
+keep it that way when changing clustering.
 
 **Why:** A palette may contain only two perceptually meaningful families (for
 example, dark blue plus warm beige), but that is still a valid result for
-primary/secondary/accent. Falling back loses the warm family entirely.
+primary/secondary/accent. Falling back loses the warm family entirely. A chain
+A≈B≈C can have A–C distance above the OKLab threshold, so any-member matching
+would incorrectly merge A and C.
 
 **How to apply:** Do not replace a valid two-family extraction with generic named
 swatches. Preserve the available distinct families and derive only the missing
-role; test the `< 3 clusters` path explicitly.
+role; test the `< 3 clusters` path explicitly. Keep E04 (representative chain)
+and E05/E06 (neutral derivation) green.
 
 **Failure handling:** Native queue rejection and extraction exceptions are
 returned as MethodChannel errors. Dart must not persist the fallback for these
@@ -92,9 +107,12 @@ usable artwork may still return and cache the fallback.
 ## Queue saturation protection
 
 Native requests for the same `songId` share one in-flight extraction job.
-The bridge keeps the artwork executor bounded at two threads and emits sampled
-debug metrics for extraction count, coalesced requests, queue rejections, and
-average duration. Dart uses a longer bounded retry delay after `palette_busy`.
+The bridge keeps the shared artwork executor bounded at three threads and emits
+sampled debug metrics for extraction count, coalesced requests, queue
+rejections, and average duration. Dart uses a longer bounded retry delay after
+`palette_busy` and an 8 s per-attempt timeout so a stuck native extraction
+cannot pin the prefetch slot forever. Palette prefetch is skipped entirely while
+the player background style is `artworkBlur`.
 
 **Why:** Artwork cache work and palette extraction share the target device's
 small artwork pool. Repeating decode/MMCQ for identical requests amplifies
@@ -108,7 +126,11 @@ the target Xiaomi device.
 
 `NativePaletteBridgeTest` is a deterministic JVM suite covering MethodChannel
 validation, coalescing, queue rejection, extraction/OOM errors, lifecycle
-completion, five-color fallback, clustering, and dominant-neutral correction.
+completion, five-color fallback, representative-only clustering,
+dominant-neutral correction, neutral-artwork derivation, and the v9 cache
+version. `test/services/native_palette_service_test.dart` covers corrupt cache
+warm-up, validation, padding/truncation, dedup, timeout, hard-fallback caching,
+invalidation, and the stale in-flight completion guard.
 
 **Why:** Palette regressions and lifecycle races are otherwise difficult to
 reproduce on the target device, while AndroidX Palette inputs can be tested

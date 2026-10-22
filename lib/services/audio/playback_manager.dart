@@ -11,6 +11,7 @@ export 'equalizer_parameters.dart';
 import 'equalizer_parameters.dart';
 import '../native_palette_service.dart';
 import '../../models/local_song.dart';
+import '../../themes/theme_controller.dart';
 import '../log_service.dart';
 import 'media3/media3_playback_bridge.dart';
 import '../native/bridges/native_dsp_bridge.dart';
@@ -896,7 +897,15 @@ class PlaybackManager {
   }
 
   static Future<void> _prefetchPalette(int songId) async {
-    if (songId <= 0 || !_prefetchingSongs.add(songId)) return;
+    if (songId <= 0) return;
+    // Blur-artwork mode does not consume palette colors (the player background
+    // is the blurred cover), so prefetching would spend MMCQ/CPU on invisible
+    // work. Switching back to fluid mode extracts on demand from the player.
+    if (ThemeController.playerBackgroundStyle.value ==
+        PlayerBackgroundStyle.artworkBlur) {
+      return;
+    }
+    if (!_prefetchingSongs.add(songId)) return;
 
     // N3 fix: at the concurrency cap the song used to be dropped from
     // _prefetchingSongs and never retried — the currentTrack guard

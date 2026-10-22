@@ -36,10 +36,12 @@ import 'package:path_provider/path_provider.dart';
 //   • 256-entry LRU in memory
 //   • Debounced disk persistence to palette_cache_v<native-version>.json
 //   • Old 3-color entries are padded to 5 with fallback tones when loaded
+//   • Persisted entries are validated before use; corrupt rows are skipped
 //   • In-flight dedup: concurrent callers for the same songId share one Future
+//   • invalidate(songId) drops memory rows and schedules disk removal when
+//     artwork changes
 //   • On non-Android / web: returns the hardcoded fallback palette
 // ─────────────────────────────────────────────────────────────────────────────
-
 
 class NativePaletteService {
   NativePaletteService._();
@@ -59,13 +61,24 @@ class NativePaletteService {
   // Used only when the native channel is unavailable (web/non-Android or an
   // older engine). Android resolves the authoritative value from
   // NativePaletteBridge.getCacheVersion during warm-up.
-  static const int _fallbackCacheVersion = 8;
+  static const int _fallbackCacheVersion = 9;
+
+  /// Upper bound for a single native extraction attempt. The native watchdog
+  /// only starts after `Palette.generate` completes, so a stuck extraction
+  /// would otherwise pin the caller (and the prefetch slot) forever.
+  @visibleForTesting
+  static Duration extractTimeout = const Duration(seconds: 8);
+
+  /// Cache-version handshake is a tiny synchronous native getter, but a broken
+  /// engine must not block startup indefinitely.
+  static const Duration _cacheVersionTimeout = Duration(seconds: 2);
 
   static final _cache = _LruCache<int, List<Color>>(256);
 
   // ── Disk persistence ────────────────────────────────────────────────────────
   static String? _cacheFilePath;
   static bool _dirty = false;
+  static bool _persisting = false;
   static Timer? _saveDebounce;
 
   /// Loads the persisted palette cache from disk.  Call once during app startup
@@ -90,8 +103,15 @@ class NativePaletteService {
       if (defaultTargetPlatform == TargetPlatform.android) {
         try {
           cacheVersion =
-              await _channel.invokeMethod<int>('getCacheVersion') ??
+              await _channel
+                  .invokeMethod<int>('getCacheVersion')
+                  .timeout(_cacheVersionTimeout) ??
               cacheVersion;
+        } on TimeoutException catch (e, st) {
+          LogService.debugPrintIfEnabled(
+            '[NativePaletteService] native cache version timed out: '
+            '$e\n$st',
+          );
         } on PlatformException catch (e, st) {
           LogService.debugPrintIfEnabled(
             '[NativePaletteService] native cache version unavailable: '
@@ -102,6 +122,11 @@ class NativePaletteService {
             '[NativePaletteService] native cache version plugin unavailable: '
             '$e\n$st',
           );
+        } on Object catch (e, st) {
+          LogService.debugPrintIfEnabled(
+            '[NativePaletteService] native cache version failed: '
+            '$e\n$st',
+          );
         }
       }
       _cacheFilePath = '${dir.path}/artwork/palette_cache_v$cacheVersion.json';
@@ -109,7 +134,15 @@ class NativePaletteService {
       if (!file.existsSync()) return;
 
       final raw = await file.readAsString();
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        // A valid JSON array/string is still a corrupt cache. Drop it instead
+        // of letting a TypeError escape this startup path.
+        LogService.debugPrintIfEnabled(
+          '[NativePaletteService] warmUp ignored non-object cache',
+        );
+        return;
+      }
       for (final entry in decoded.entries) {
         final songId = int.tryParse(entry.key);
         final values = entry.value;
@@ -117,28 +150,43 @@ class NativePaletteService {
         // file. The versioned filename prevents entries from older algorithms
         // from being reused; 3-color entries in the current file are padded for
         // compatibility with older cache contents.
-        if (songId == null || values is! List || values.length < 3) continue;
-        final colors = List<Color>.generate(
-          values.length,
-          (i) => Color(values[i] as int),
-        );
+        if (songId == null || values is! List<Object?> || values.length < 3) {
+          continue;
+        }
+        final colors = <Color>[];
+        var malformed = false;
+        for (final value in values) {
+          // int.tryParse above already rejected non-string keys; JSON numbers
+          // can still be out of the 32-bit ARGB range or non-integer.
+          if (value is! int || value < 0 || value > 0xFFFFFFFF) {
+            malformed = true;
+            break;
+          }
+          colors.add(Color(value));
+        }
+        if (malformed) continue;
         final padded = _padToFive(colors);
         if (isHardFallback(padded)) continue;
         // Pad old 3-color entries to 5 so callers relying on indices 3/4
         // get something reasonable until the next real extraction.
         _cache.put(songId, padded);
       }
-    } on Exception catch (e, st) {
+    } on Object catch (e, st) {
       // Corrupt or unreadable cache — start fresh, never crash startup.
-      // IOException, FormatException, etc. all extend Exception.
-      LogService.debugPrintIfEnabled('[NativePaletteService] warmUp failed: $e\n$st');
+      // Catch Object, not just Exception: a malformed persisted row used to
+      // throw a TypeError (an Error, not an Exception) and skip runApp().
+      LogService.debugPrintIfEnabled(
+        '[NativePaletteService] warmUp failed: $e\n$st',
+      );
     }
   }
 
-  /// Pads a list to 5 colors using the fallback palette for missing slots.
+  /// Returns exactly 5 colors: truncates longer rows and pads short rows with
+  /// the fallback tones so every caller can rely on indices 0..4.
   static List<Color> _padToFive(List<Color> colors) {
-    if (colors.length >= 5) return colors;
-    return [...colors, for (int i = colors.length; i < 5; i++) _kFallback[i]];
+    final result = colors.take(5).toList(growable: false);
+    if (result.length == 5) return result;
+    return [...result, for (int i = result.length; i < 5; i++) _kFallback[i]];
   }
 
   /// True when the native side had no usable artwork colours.
@@ -158,39 +206,57 @@ class NativePaletteService {
   }
 
   static Future<void> _persist() async {
-    if (!_dirty) return;
-    final path = _cacheFilePath;
-    if (path == null) {
-      // D5 fix: nothing can be written without a cache path — clear the dirty
-      // flag and stop instead of self-rescheduling forever. A later extraction
-      // (after warmUp sets the path) calls _schedulePersist() again, so no
-      // pending write is lost; the in-memory _cache keeps the fresh results.
-      _dirty = false;
-      return;
-    }
-    _dirty = false;
+    // Serialize writes: overlapping calls used to share `$path.tmp`, so a
+    // slow writer could rename a file that another writer had just truncated.
+    if (_persisting) return;
+    _persisting = true;
     try {
-      final map = <String, List<int>>{};
-      for (final entry in _cache.entries) {
-        map[entry.key.toString()] = entry.value
-            .map((c) => c.toARGB32())
-            .toList();
+      while (_dirty) {
+        final path = _cacheFilePath;
+        if (path == null) {
+          // D5 fix: nothing can be written without a cache path — clear the
+          // dirty flag and stop instead of self-rescheduling forever. A later
+          // extraction (after warmUp sets the path) calls _schedulePersist()
+          // again, so no pending write is lost; the in-memory _cache keeps the
+          // fresh results.
+          _dirty = false;
+          break;
+        }
+        _dirty = false;
+        try {
+          final map = <String, List<int>>{};
+          for (final entry in _cache.entries) {
+            map[entry.key.toString()] = entry.value
+                .map((c) => c.toARGB32())
+                .toList();
+          }
+          final file = File(path);
+          await file.parent.create(recursive: true);
+          // Atomic write: temp file → rename avoids a half-written cache.
+          // Writes are serialized by _persisting, so this temp path has a
+          // single writer.
+          final tmp = File('$path.tmp');
+          await tmp.writeAsString(jsonEncode(map));
+          await tmp.rename(path);
+        } on Exception catch (e, st) {
+          // Best-effort — a failed save just means palettes recompute next
+          // launch. IOException, FormatException, etc. all extend Exception.
+          LogService.debugPrintIfEnabled(
+            '[NativePaletteService] persist failed: $e\n$st',
+          );
+        }
       }
-      final file = File(path);
-      await file.parent.create(recursive: true);
-      // Atomic write: temp file → rename avoids a half-written cache.
-      final tmp = File('$path.tmp');
-      await tmp.writeAsString(jsonEncode(map));
-      await tmp.rename(path);
-    } on Exception catch (e, st) {
-      // Best-effort — a failed save just means palettes recompute next launch.
-      // IOException, FormatException, etc. all extend Exception.
-      LogService.debugPrintIfEnabled('[NativePaletteService] persist failed: $e\n$st');
+    } finally {
+      _persisting = false;
     }
   }
 
   // In-flight dedup: concurrent callers for the same songId share one Future.
-  static final Map<int, Future<List<Color>>> _pending = {};
+  static final Map<int, _PendingPalette> _pending = {};
+
+  // Bumped by [invalidate]; an extraction started before the bump must not
+  // write its (now stale) colors back into the cache.
+  static final Map<int, int> _generations = {};
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -205,6 +271,17 @@ class NativePaletteService {
 
   /// Clears the in-memory LRU cache to free RAM.  Disk cache remains intact.
   static void clearMemoryCache() => _cache.clear();
+
+  /// Drops every cached palette for [songId], including an extraction that is
+  /// already in flight. Call this when the artwork bytes for a song change
+  /// (cache eviction, re-download, or user edit) so a later request
+  /// re-extracts instead of serving colors from the old image.
+  static void invalidate(int songId) {
+    _cache.remove(songId);
+    _generations[songId] = _generationOf(songId) + 1;
+    _pending.remove(songId);
+    _schedulePersist();
+  }
 
   /// Extracts and caches the palette for [songId].
   /// Returns the cached result immediately if already available.
@@ -222,15 +299,39 @@ class NativePaletteService {
       return Future.value(cached);
     }
 
+    final generation = _generationOf(songId);
     final inFlight = _pending[songId];
-    if (inFlight != null) return inFlight;
+    if (inFlight != null && inFlight.generation == generation) {
+      return inFlight.future;
+    }
 
-    final future = _extract(songId);
-    _pending[songId] = future;
+    final future = _extract(songId, generation);
+    final pending = _PendingPalette(generation, future);
+    _pending[songId] = pending;
+    // `.ignore()` both marks the secondary future as handled and keeps the
+    // cleanup off the caller's result value.
+    future.whenComplete(() {
+      if (identical(_pending[songId], pending)) _pending.remove(songId);
+    }).ignore();
     return future;
   }
 
-  static Future<List<Color>> _extract(int songId) async {
+  static int _generationOf(int songId) => _generations[songId] ?? 0;
+
+  @visibleForTesting
+  static void resetForTests() {
+    _cache.clear();
+    _pending.clear();
+    _generations.clear();
+    _dirty = false;
+    _persisting = false;
+    _saveDebounce?.cancel();
+    _saveDebounce = null;
+    _cacheFilePath = null;
+    extractTimeout = const Duration(seconds: 8);
+  }
+
+  static Future<List<Color>> _extract(int songId, int generation) async {
     try {
       // Non-Android / web: no native extractor is available. Do not cache the
       // fallback, otherwise a later platform transition can never retry.
@@ -244,20 +345,30 @@ class NativePaletteService {
       for (var attempt = 0; attempt < 2; attempt++) {
         var retryDelay = const Duration(milliseconds: 120);
         try {
-          final raw = await _channel.invokeListMethod<int>(
-            'extractPalette',
-            songId,
-          );
+          final raw = await _channel
+              .invokeListMethod<int>('extractPalette', songId)
+              .timeout(extractTimeout);
 
-          // Need at least 3 values; bridge normally returns 5.
+          // Need at least 3 values; bridge normally returns 5. Validate each
+          // int before constructing a Color: a buggy/older bridge response
+          // must not throw an uncaught ArgumentError out of the cache layer.
           if (raw != null && raw.length >= 3) {
-            final colors = _padToFive(
-              raw.map(Color.new).toList(growable: false),
-            );
-            if (!isHardFallback(colors)) {
-              _cache.put(songId, colors);
-              _schedulePersist();
-              return colors;
+            final valid = raw.every((v) => v >= 0 && v <= 0xFFFFFFFF);
+            if (valid) {
+              final colors = _padToFive(
+                raw.map(Color.new).toList(growable: false),
+              );
+              if (!isHardFallback(colors)) {
+                if (generation != _generationOf(songId)) {
+                  // The artwork was invalidated while this extraction was in
+                  // flight. Returning fallback forces the caller to request the
+                  // new artwork instead of displaying/caching stale colors.
+                  return _kFallback;
+                }
+                _cache.put(songId, colors);
+                _schedulePersist();
+                return colors;
+              }
             }
           }
         } on PlatformException catch (e, st) {
@@ -273,6 +384,7 @@ class NativePaletteService {
             );
           }
         } on Exception catch (e, st) {
+          // Includes TimeoutException from the Dart-side guard.
           if (attempt == 1) {
             LogService.debugPrintIfEnabled(
               '[NativePaletteService] extraction failed for '
@@ -290,11 +402,23 @@ class NativePaletteService {
       // a transient engine teardown, or a temporary decode failure must remain
       // retryable on the next call.
       return _kFallback;
-    } finally {
-      // ignore: unawaited_futures
-      _pending.remove(songId);
+    } on Object catch (e, st) {
+      // Defensive boundary: an Error here (e.g. a future bridge regression)
+      // should still degrade to the fallback instead of breaking the player.
+      LogService.debugPrintIfEnabled(
+        '[NativePaletteService] unexpected extraction error for '
+        'songId=$songId: $e\n$st',
+      );
+      return _kFallback;
     }
   }
+}
+
+class _PendingPalette {
+  const _PendingPalette(this.generation, this.future);
+
+  final int generation;
+  final Future<List<Color>> future;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -321,6 +445,8 @@ class _LruCache<K, V> {
     _map[key] = value;
     if (_map.length > _maxSize) _map.remove(_map.keys.first);
   }
+
+  void remove(K key) => _map.remove(key);
 
   void clear() => _map.clear();
 }

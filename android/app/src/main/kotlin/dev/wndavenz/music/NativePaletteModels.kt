@@ -28,6 +28,10 @@ internal data class Scored(val swatch: Palette.Swatch, val score: Double)
  *   shifted.  The [representativeSwatch] is always a real Palette swatch —
  *   it is visually accurate, numerically stable, and carries the correct
  *   HSL values for downstream hue and role-assignment calculations.
+ *
+ * Cluster matching also compares only [representativeSwatch], never any
+ * member: with an A≈B≈C chain, any-member matching could merge A and C even
+ * though their OKLab distance is above the threshold.
  */
 internal data class ColorCluster(
     val swatches: MutableList<Palette.Swatch>,
