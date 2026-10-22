@@ -1,5 +1,6 @@
 package dev.wndavenz.music.replaygain
 
+import dev.wndavenz.music.events.NativeLogger
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentResolver
@@ -192,7 +193,7 @@ class MediaStoreWriteGate {
                     drainQueue()
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "createWriteRequest (batch, ${stillNeeded.size} files) failed", e)
+                NativeLogger.warnLog(TAG, "createWriteRequest (batch, ${stillNeeded.size} files) failed", e)
                 item.onResult(item.uris.associateWith { it in alreadyGranted })
                 drainQueue()
             }
@@ -256,7 +257,7 @@ class MediaStoreWriteGate {
                         val pi = MediaStore.createWriteRequest(resolver, listOf(uri))
                         requestGrantForUris(activity, resolver, listOf(uri), pi.intentSender, onResult)
                     } catch (e: Exception) {
-                        Log.w(TAG, "createWriteRequest failed for $uri", e)
+                        NativeLogger.warnLog(TAG, "createWriteRequest failed for $uri", e)
                         onResult(false)
                     }
                 } else {
@@ -293,7 +294,7 @@ class MediaStoreWriteGate {
         try {
             activity.startIntentSenderForResult(intentSender, REQUEST_CODE, null, 0, 0, 0)
         } catch (e: Exception) {
-            Log.w(TAG, "startIntentSenderForResult failed for ${uris.size} uri(s)", e)
+            NativeLogger.warnLog(TAG, "startIntentSenderForResult failed for ${uris.size} uri(s)", e)
             dialogInFlight = false
             pendingCallback = null
             onResult(false)
@@ -341,7 +342,7 @@ class MediaStoreWriteGate {
         } catch (e: SecurityException) {
             OpenAttempt.Denied
         } catch (e: Exception) {
-            Log.w(TAG, "openFileDescriptor(rw) failed for $uri", e)
+            NativeLogger.warnLog(TAG, "openFileDescriptor(rw) failed for $uri", e)
             OpenAttempt.Denied
         }
     }
