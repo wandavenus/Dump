@@ -36,6 +36,7 @@
     // ── Persistent cache volumes ───────────────────────────────────────────────
     // Named volumes survive container rebuilds, preventing full re-downloads of
     // Gradle deps, Dart packages, and ccache data on every `gh cs rebuild`.
+    // Do not rename these volume sources without intentionally resetting caches.
     "mounts": [
         // Gradle distribution + dependency cache (~1-3 GB after first build)
         {
