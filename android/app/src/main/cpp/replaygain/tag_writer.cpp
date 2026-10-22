@@ -5,6 +5,8 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cstdarg>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -27,6 +29,25 @@
 #include <xiphcomment.h>
 
 namespace replaygain {
+
+namespace {
+std::atomic<bool> gReplayGainLoggingEnabled{false};
+}
+
+// Shared with replaygain_jni.cpp; defaults OFF before Dart applies preferences.
+void setLoggingEnabled(bool enabled) {
+    gReplayGainLoggingEnabled.store(enabled, std::memory_order_relaxed);
+}
+
+// stderr is redirected to Logcat on Android, so keep this native diagnostic
+// behind the same application-wide toggle and avoid even formatting when OFF.
+void nativeReplayGainLog(const char* format, ...) {
+    if (!gReplayGainLoggingEnabled.load(std::memory_order_relaxed)) return;
+    va_list args;
+    va_start(args, format);
+    std::vfprintf(stderr, format, args);
+    va_end(args);
+}
 
 namespace {
 
