@@ -115,6 +115,7 @@
 #include "dsp_processor.h"
 #include "dsp_stream.h"
 #include "native_audio_runtime_internal.h"
+#include "native_audio_runtime.h"
 
 #if defined(__aarch64__)
 #include "neon_kernels.h"
@@ -123,7 +124,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define LN_TAG "NarLoudness"
-#define LN_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, LN_TAG, __VA_ARGS__)
+#define LN_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, LN_TAG, __VA_ARGS__); } while (0)
 #else
 #define LN_LOG(...) ((void)0)
 #endif

@@ -1,5 +1,6 @@
 package dev.wndavenz.music
 
+import dev.wndavenz.music.events.NativeLogger
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -239,7 +240,7 @@ class ArtworkCacheManager(private val context: Context) {
             val sz = f.length()
             if (f.delete()) {
                 remaining -= sz
-                Log.d(TAG, "Evicted ${f.name} (${sz / 1024} KB)")
+                NativeLogger.debugLog(TAG, "Evicted ${f.name} (${sz / 1024} KB)")
             }
         }
     }
@@ -255,7 +256,7 @@ class ArtworkCacheManager(private val context: Context) {
         try {
             cacheDir.listFiles { f -> f.name.endsWith(".tmp") }?.forEach { f ->
                 if (f.lastModified() < cutoff && f.delete()) {
-                    Log.d(TAG, "Removed stale tmp ${f.name}")
+                    NativeLogger.debugLog(TAG, "Removed stale tmp ${f.name}")
                 }
             }
         } catch (_: Exception) {
@@ -302,7 +303,7 @@ class ArtworkCacheManager(private val context: Context) {
             mmr.setDataSource(context, uri)
             mmr.embeddedPicture
         } catch (e: Exception) {
-            Log.w(TAG, "Cannot extract artwork songId=$songId: ${e.message}")
+            NativeLogger.warnLog(TAG, "Cannot extract artwork songId=$songId: ${e.message}")
             null
         } finally {
             // Always release, even if setDataSource()/embeddedPicture throws.
@@ -376,7 +377,7 @@ class ArtworkCacheManager(private val context: Context) {
             ok = tmp.length() > 0L && tmp.renameTo(target)
             ok
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
+            NativeLogger.warnLog(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
             false
         } finally {
             bitmap?.recycle()
@@ -461,7 +462,7 @@ class ArtworkCacheManager(private val context: Context) {
             ok = tmp.renameTo(target)
             ok
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to save raw artwork for ${target.name}: ${e.message}")
+            NativeLogger.warnLog(TAG, "Failed to save raw artwork for ${target.name}: ${e.message}")
             false
         } finally {
             if (!ok) {

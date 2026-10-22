@@ -97,6 +97,56 @@ object ServiceReadyGate {
  * MainActivity still accesses this via Media3PlaybackService.NativeLogs (companion alias).
  */
 object NativeLogger {
+    // Logging defaults to OFF so native diagnostics cannot emit during cold start
+    // before Dart has loaded the persisted in-app preference.
+    @Volatile private var enabled: Boolean = false
+    val isEnabled: Boolean get() = enabled
+    private val loggingSetters = ConcurrentHashMap<String, (Boolean) -> Unit>()
+
+    /**
+     * Set the application-wide logging gate. Updates are visible to audio/JNI
+     * threads without locks; registered native libraries receive the same state.
+     */
+    fun setEnabled(value: Boolean) {
+        enabled = value
+        loggingSetters.values.forEach { setter -> runCatching { setter(value) } }
+        androidx.media3.common.util.Log.setLogLevel(
+            if (value) androidx.media3.common.util.Log.LOG_LEVEL_INFO
+            else androidx.media3.common.util.Log.LOG_LEVEL_OFF,
+        )
+    }
+
+    /** Register a setter for a native library that may load after the toggle. */
+    fun registerLoggingSetter(key: String, setter: (Boolean) -> Unit) {
+        loggingSetters[key] = setter
+        runCatching { setter(enabled) }
+    }
+
+    // App-owned Logcat output shares the same gate as the in-app log viewer.
+    fun debugLog(tag: String, message: String, throwable: Throwable? = null) {
+        if (!enabled) return
+        if (throwable == null) android.util.Log.d(tag, message)
+        else android.util.Log.d(tag, message, throwable)
+    }
+
+    fun infoLog(tag: String, message: String, throwable: Throwable? = null) {
+        if (!enabled) return
+        if (throwable == null) android.util.Log.i(tag, message)
+        else android.util.Log.i(tag, message, throwable)
+    }
+
+    fun warnLog(tag: String, message: String, throwable: Throwable? = null) {
+        if (!enabled) return
+        if (throwable == null) android.util.Log.w(tag, message)
+        else android.util.Log.w(tag, message, throwable)
+    }
+
+    fun errorLog(tag: String, message: String, throwable: Throwable? = null) {
+        if (!enabled) return
+        if (throwable == null) android.util.Log.e(tag, message)
+        else android.util.Log.e(tag, message, throwable)
+    }
+
     // @Volatile: emit() is now called from arbitrary background threads (audio/
     // playback thread, native JNI callbacks) in addition to the main thread —
     // without this, a background-thread read of `sink` is not guaranteed to see
@@ -143,7 +193,12 @@ object NativeLogger {
      * perspective, so a logging call can never abort playback again.
      */
     fun emit(level: String, category: String, message: String) {
+        if (!enabled) return
         val payload = mapOf("level" to level, "category" to category, "message" to message)
-        dispatcher { runCatching { sink?.success(payload) } }
+        dispatcher {
+            // A log queued while enabled must not leak after the user switches
+            // the toggle OFF before the main-looper callback runs.
+            if (enabled) runCatching { sink?.success(payload) }
+        }
     }
 }

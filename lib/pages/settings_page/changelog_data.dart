@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.40',
+    date: '22 Oktober 2026',
+    changes: [
+      'Saat logging dinonaktifkan, log aplikasi, diagnostik native, dan pengiriman log ke viewer dihentikan untuk mengurangi pekerjaan tambahan saat pemutaran.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.39',
     date: '16 Oktober 2026',
     changes: [

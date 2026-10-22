@@ -1,5 +1,6 @@
 package dev.wndavenz.music.metadata
 
+import dev.wndavenz.music.events.NativeLogger
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
@@ -180,7 +181,7 @@ class MetadataCacheDb private constructor(context: Context)
                 )
             }
         } catch (e: Exception) {
-            Log.w(TAG, "get($songId) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "get($songId) failed: ${e.message}")
             null
         }
     }
@@ -219,7 +220,7 @@ class MetadataCacheDb private constructor(context: Context)
                 )
             }
         } catch (e: Exception) {
-            Log.w(TAG, "getByPath($path) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "getByPath($path) failed: ${e.message}")
             null
         }
     }
@@ -257,7 +258,7 @@ class MetadataCacheDb private constructor(context: Context)
             writableDatabase.insertWithOnConflict(TABLE, null, values,
                 SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
-            Log.w(TAG, "put($songId) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "put($songId) failed: ${e.message}")
         }
     }
 
@@ -292,7 +293,7 @@ class MetadataCacheDb private constructor(context: Context)
             writableDatabase.insertWithOnConflict(TABLE, null, values,
                 SQLiteDatabase.CONFLICT_REPLACE)
         } catch (e: Exception) {
-            Log.w(TAG, "putByPath($path) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "putByPath($path) failed: ${e.message}")
         }
     }
 
@@ -308,7 +309,7 @@ class MetadataCacheDb private constructor(context: Context)
             }
             writableDatabase.update(TABLE, values, "$COL_PATH = ?", arrayOf(path))
         } catch (e: Exception) {
-            Log.w(TAG, "updateLyrics($path) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "updateLyrics($path) failed: ${e.message}")
         }
     }
 
@@ -317,7 +318,7 @@ class MetadataCacheDb private constructor(context: Context)
         try {
             writableDatabase.delete(TABLE, "$COL_ID = ?", arrayOf(songId.toString()))
         } catch (e: Exception) {
-            Log.w(TAG, "invalidate($songId) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "invalidate($songId) failed: ${e.message}")
         }
     }
 
@@ -333,7 +334,7 @@ class MetadataCacheDb private constructor(context: Context)
         try {
             writableDatabase.delete(TABLE, "$COL_PATH = ?", arrayOf(path))
         } catch (e: Exception) {
-            Log.w(TAG, "invalidateByPath($path) failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "invalidateByPath($path) failed: ${e.message}")
         }
     }
 
@@ -344,9 +345,9 @@ class MetadataCacheDb private constructor(context: Context)
             val deleted = writableDatabase.delete(
                 TABLE, "$COL_CACHED_AT < ?", arrayOf(cutoff.toString())
             )
-            if (deleted > 0) Log.d(TAG, "Pruned $deleted stale cache entries")
+            if (deleted > 0) NativeLogger.debugLog(TAG, "Pruned $deleted stale cache entries")
         } catch (e: Exception) {
-            Log.w(TAG, "pruneOld failed: ${e.message}")
+            NativeLogger.warnLog(TAG, "pruneOld failed: ${e.message}")
         }
     }
 

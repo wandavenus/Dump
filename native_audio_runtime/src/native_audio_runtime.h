@@ -68,6 +68,13 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_dispose(void);
 // native_runtime_dispose() has not since been called, 0 otherwise.
 FFI_PLUGIN_EXPORT int32_t native_runtime_is_initialized(void);
 
+// ── Application logging control ──────────────────────────────────────────────
+
+// Logging is disabled by default. The application toggle updates this atomic
+// gate; native diagnostics must not construct or emit messages while it is off.
+FFI_PLUGIN_EXPORT void native_runtime_set_logging_enabled(int32_t enabled);
+FFI_PLUGIN_EXPORT int32_t native_runtime_is_logging_enabled(void);
+
 // ── Version / capability reporting ──────────────────────────────────────────
 
 // Static, human-readable runtime version string. Owned by the runtime —

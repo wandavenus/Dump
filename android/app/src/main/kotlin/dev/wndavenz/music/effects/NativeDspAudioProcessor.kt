@@ -1,6 +1,7 @@
 package dev.wndavenz.music.effects
 
 import android.util.Log
+import dev.wndavenz.music.events.NativeLogger
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
@@ -116,6 +117,9 @@ class NativeDspAudioProcessor(
         private external fun nativeIsInitialized(): Boolean
 
         @JvmStatic
+        private external fun nativeSetLoggingEnabled(enabled: Boolean)
+
+        @JvmStatic
         private external fun nativeGetLiveBeatState(streamSlot: Int): DoubleArray?
 
         @JvmStatic
@@ -182,9 +186,12 @@ class NativeDspAudioProcessor(
          */
         val isLibraryAvailable: Boolean = runCatching {
             System.loadLibrary("native_audio_runtime")
+            NativeLogger.registerLoggingSetter("native_audio_runtime") { enabled ->
+                nativeSetLoggingEnabled(enabled)
+            }
             true
         }.getOrElse { e ->
-            Log.w(LOG_TAG, "native_audio_runtime unavailable — DSP bypassed: $e")
+            NativeLogger.warnLog(LOG_TAG, "native_audio_runtime unavailable — DSP bypassed: $e")
             false
         }
     }
@@ -206,7 +213,7 @@ class NativeDspAudioProcessor(
      */
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val active = isLibraryAvailable && inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
-        Log.i(
+        NativeLogger.infoLog(
             LOG_TAG,
             "onConfigure encoding=${inputAudioFormat.encoding} " +
                 "(PCM_FLOAT=${C.ENCODING_PCM_FLOAT}) libraryAvailable=$isLibraryAvailable active=$active",

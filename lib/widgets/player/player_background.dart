@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:musicplayer/services/log_service.dart';
 
 import '../../services/artwork_blur_cache.dart';
 import '../../services/artwork_repository.dart';

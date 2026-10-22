@@ -41,6 +41,7 @@
 #include <jni.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
@@ -59,9 +60,9 @@
 #include "signalsmith-stretch.h"
 
 #define LOG_TAG "StretchNative"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) do { if (gLoggingEnabled.load(std::memory_order_relaxed)) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__); } while (0)
+#define LOGW(...) do { if (gLoggingEnabled.load(std::memory_order_relaxed)) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); } while (0)
+#define LOGE(...) do { if (gLoggingEnabled.load(std::memory_order_relaxed)) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__); } while (0)
 
 // ─────────────────────────────────────────────────────────────────────────
 // System Log bridge (diagnostics feature — added per runtime-diagnostics
@@ -79,6 +80,7 @@
 namespace {
 
 std::mutex gLogMutex;
+std::atomic<bool> gLoggingEnabled{false};
 jclass gProcClass = nullptr;
 jmethodID gLogMethodId = nullptr;
 
@@ -168,7 +170,7 @@ void bridgeToSystemLog(JNIEnv *env, const char *level, const std::string &messag
 // Single entry point used by every log call below: writes to Logcat (for
 // `adb logcat` users) AND bridges to the in-app System Log (rule 4).
 // `msg` should NOT include the "[Stretch] " prefix — added once here (rule 7).
-void slog(JNIEnv *env, const char *level, const std::string &msg) {
+void slogImpl(JNIEnv *env, const char *level, const std::string &msg) {
     const std::string full = std::string("[Stretch] ") + msg;
     if (std::strcmp(level, "error") == 0) {
         LOGE("%s", full.c_str());
@@ -179,6 +181,12 @@ void slog(JNIEnv *env, const char *level, const std::string &msg) {
     }
     bridgeToSystemLog(env, level, full);
 }
+
+// Preserve the call sites while ensuring all message construction (including
+// string concatenation and formatting) is skipped when logging is disabled.
+#define slog(env, level, message) \
+    do { if (gLoggingEnabled.load(std::memory_order_relaxed)) \
+        slogImpl((env), (level), (message)); } while (0)
 
 // Defensive upper bound — real content is mono/stereo/5.1/7.1 at most.
 // Rejecting anything above this in nativeCreate() avoids unbounded
@@ -236,6 +244,13 @@ inline StretchHandle *fromPtr(jlong handlePtr) {
 }  // namespace
 
 extern "C" {
+
+JNIEXPORT void JNICALL
+Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSetLoggingEnabled(
+        JNIEnv *env, jclass, jboolean enabled) {
+    (void)env;
+    gLoggingEnabled.store(enabled == JNI_TRUE, std::memory_order_relaxed);
+}
 
 JNIEXPORT jlong JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeCreate(
@@ -408,11 +423,14 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
     }
 
     // FIX Temuan #6 (LOW): frame-counter throttle — no syscall on audio thread.
-    h->totalFramesProcessed += static_cast<uint64_t>(inputFrames > 0 ? inputFrames : 0);
+    const bool loggingEnabled = gLoggingEnabled.load(std::memory_order_relaxed);
+    if (loggingEnabled) {
+        h->totalFramesProcessed += static_cast<uint64_t>(inputFrames);
+    }
     const uint64_t logIntervalFrames = h->sampleRate > 0.0f
         ? static_cast<uint64_t>(h->sampleRate * 2.0f)
         : kProcessLogFrameInterval;
-    const bool shouldLog =
+    const bool shouldLog = loggingEnabled &&
         (h->totalFramesProcessed - h->lastLoggedAtFrame) >= logIntervalFrames;
 
     try {

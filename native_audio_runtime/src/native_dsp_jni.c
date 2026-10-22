@@ -36,6 +36,15 @@
 // Java class: dev.wndavenz.music.effects.NativeDspAudioProcessor
 // JNI name mangling: '.' → '_', no underscores in any component.
 
+// Keeps native runtime diagnostics under the in-app logging toggle.
+JNIEXPORT void JNICALL
+Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeSetLoggingEnabled(
+    JNIEnv* env, jclass clazz, jboolean enabled) {
+  (void)env;
+  (void)clazz;
+  native_runtime_set_logging_enabled(enabled ? 1 : 0);
+}
+
 // Process frame_count * channel_count float32 samples in `buffer` in-place,
 // for the given `stream_slot` (production-hardening pass — see
 // dsp_stream.h). Each NativeDspAudioProcessor instance is constructed with

@@ -25,6 +25,8 @@
 #include "jni_common.h"
 #include "tag_writer.h"
 
+namespace replaygain { void setLoggingEnabled(bool enabled); }
+
 using replaygain::EburAnalyzer;
 using replaygain::LoudnessResult;
 using replaygain::RegionBackup;
@@ -32,6 +34,15 @@ using replaygain::TagFormat;
 using replaygain::TagSnapshot;
 using replaygain::WriteRequest;
 using replaygain::WriteResult;
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeSetLoggingEnabled(
+    JNIEnv* env, jobject thiz, jboolean enabled) {
+    (void)env;
+    (void)thiz;
+    replaygain::setLoggingEnabled(enabled == JNI_TRUE);
+}
 
 namespace {
 
