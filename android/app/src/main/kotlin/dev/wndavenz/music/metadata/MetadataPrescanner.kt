@@ -1,5 +1,6 @@
 package dev.wndavenz.music.metadata
 
+import dev.wndavenz.music.events.NativeLogger
 import android.content.Context
 import android.os.Process
 import android.util.Log
@@ -86,7 +87,7 @@ object MetadataPrescanner {
             var skipped = 0
             var errors  = 0
 
-            Log.d(TAG, "Pre-scan started — ${songs.size} songs to check")
+            NativeLogger.debugLog(TAG, "Pre-scan started — ${songs.size} songs to check")
 
             for (song in songs) {
                 if (generation.get() != myGeneration) break
@@ -129,7 +130,7 @@ object MetadataPrescanner {
                     break
                 } catch (e: Exception) {
                     errors++
-                    Log.w(TAG, "Pre-scan error for ${song.path}: ${e.message}")
+                    NativeLogger.warnLog(TAG, "Pre-scan error for ${song.path}: ${e.message}")
                 }
             }
 
@@ -137,7 +138,7 @@ object MetadataPrescanner {
             // `running` — a superseded worker must not reset it while the
             // replacement scan is still in progress.
             if (generation.get() == myGeneration) running = false
-            Log.d(TAG, "Pre-scan finished — " +
+            NativeLogger.debugLog(TAG, "Pre-scan finished — " +
                 "scanned=$scanned skipped=$skipped errors=$errors cancelled=${generation.get() != myGeneration}")
 
         }.apply {
@@ -158,7 +159,7 @@ object MetadataPrescanner {
         // call is a fresh scan and is not affected.
         generation.incrementAndGet()
         if (running) {
-            Log.d(TAG, "Pre-scan cancelled")
+            NativeLogger.debugLog(TAG, "Pre-scan cancelled")
         }
     }
 }
