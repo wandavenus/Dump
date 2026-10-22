@@ -1,9 +1,10 @@
 {
     // ─────────────────────────────────────────────────────────────────────────
-    // Dev Container — Flutter Android (GitHub Codespaces)
-    // Flutter 3.44.5 · Java 21 · Android SDK (platform-35, NDK 28.2, CMake 3.22.1)
+    // Dev Container — Flutter Android + Web (GitHub Codespaces)
+    // Flutter 3.47.7 · Dart 3.13.5 · Java 21 · Android SDK 36
+    // NDK 28.2.13676358 · CMake 3.22.1 · Node 22 · Chrome (web tests)
     // ─────────────────────────────────────────────────────────────────────────
-    "name": "Flutter Android",
+    "name": "Flutter Android + Web",
 
     // ── Build ─────────────────────────────────────────────────────────────────
     "build": {
@@ -19,12 +20,17 @@
         "FLUTTER_HOME": "/opt/flutter",
         "ANDROID_HOME": "/opt/android-sdk",
         "ANDROID_SDK_ROOT": "/opt/android-sdk",
+        "ANDROID_NDK_HOME": "/opt/android-sdk/ndk/28.2.13676358",
+        "ANDROID_NDK_ROOT": "/opt/android-sdk/ndk/28.2.13676358",
         "PUB_CACHE": "/opt/pub-cache",
         "CCACHE_DIR": "/home/vscode/.ccache",
         "GRADLE_USER_HOME": "/home/vscode/.gradle",
         "JAVA_HOME": "/usr/lib/jvm/java-21-openjdk-amd64",
-        // Extend the container PATH (Flutter, Dart, Android tools, ccache)
-        "PATH": "/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/build-tools/36.0.0:/usr/lib/jvm/java-21-openjdk-amd64/bin:/usr/lib/ccache:${containerEnv:PATH}"
+        "CHROME_EXECUTABLE": "/usr/bin/google-chrome-stable",
+        "FLUTTER_SUPPRESS_ANALYTICS": "true",
+        "DART_SUPPRESS_ANALYTICS": "true",
+        // Extend the container PATH (Flutter, Dart, pub global bins, Android, ccache)
+        "PATH": "/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:/opt/pub-cache/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/build-tools/36.0.0:/usr/lib/jvm/java-21-openjdk-amd64/bin:/usr/lib/ccache:${containerEnv:PATH}"
     },
 
     // ── Persistent cache volumes ───────────────────────────────────────────────
@@ -42,6 +48,12 @@
             "source": "musicplayer-ccache",
             "target": "/home/vscode/.ccache",
             "type": "volume"
+        },
+        // Dart/Flutter pub cache (avoids re-downloading packages on rebuild)
+        {
+            "source": "musicplayer-pub-cache",
+            "target": "/opt/pub-cache",
+            "type": "volume"
         }
     ],
 
@@ -56,14 +68,22 @@
                 // Flutter / Dart
                 "Dart-Code.flutter",
                 "Dart-Code.dart-code",
-                // Kotlin
+                // Kotlin / Java / Gradle
                 "fwcd.kotlin",
+                "vscjava.vscode-gradle",
                 // C/C++ (JNI / native DSP)
                 "ms-vscode.cpptools",
                 "ms-vscode.cpptools-extension-pack",
-                // CMake
+                // CMake / Make
                 "ms-vscode.cmake-tools",
                 "twxs.cmake",
+                "ms-vscode.makefile-tools",
+                // Shell / YAML / Markdown / JSON
+                "timonwong.shellcheck",
+                "foxundermoon.shell-format",
+                "redhat.vscode-yaml",
+                "DavidAnson.vscode-markdownlint",
+                "esbenp.prettier-vscode",
                 // General helpers
                 "streetsidesoftware.code-spell-checker",
                 "EditorConfig.EditorConfig"
@@ -72,6 +92,11 @@
                 // Flutter & Dart SDK paths
                 "dart.flutterSdkPath": "/opt/flutter",
                 "dart.sdkPath": "/opt/flutter/bin/cache/dart-sdk",
+                "dart.analysisExcludedFolders": [
+                    "build",
+                    ".dart_tool",
+                    "native_audio_runtime/example"
+                ],
 
                 // Java
                 "java.home": "/usr/lib/jvm/java-21-openjdk-amd64",
@@ -82,10 +107,14 @@
                 // CMake
                 "cmake.configureOnOpen": false,
 
+                // Shell
+                "shellcheck.executablePath": "/usr/bin/shellcheck",
+
                 // Editor
                 "editor.formatOnSave": true,
                 "editor.rulers": [100],
                 "files.trimTrailingWhitespace": true,
+                "files.trimFinalNewlines": true,
 
                 // C/C++ IntelliSense (points at NDK clang headers)
                 "C_Cpp.default.compilerPath": "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang",
@@ -98,8 +127,18 @@
     // ── Codespaces-specific settings ──────────────────────────────────────────
     "features": {},
 
-    // Forward no ports by default; Codespaces forwards on demand
-    "forwardPorts": [],
+    // Forwarded on demand by Codespaces; these are the two local dev servers.
+    "forwardPorts": [5000, 8080],
+    "portsAttributes": {
+        "5000": {
+            "label": "Music Player web (server.js)",
+            "onAutoForward": "notify"
+        },
+        "8080": {
+            "label": "Flutter web debug",
+            "onAutoForward": "notify"
+        }
+    },
 
     // Reasonable machine size for Android/NDK builds
     "hostRequirements": {

@@ -4,8 +4,21 @@
     // Informasi lebih lanjut dapat ditemukan di sini: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
-
+        {
+            "name": "Flutter: debug (device/emulator)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Flutter: debug (web-server on :8080)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "cwd": "${workspaceFolder}",
+            "args": ["-d", "web-server", "--web-port", "8080", "--web-hostname", "0.0.0.0"]
+        },
         {
             "name": "Attach to Chrome",
             "port": 9222,

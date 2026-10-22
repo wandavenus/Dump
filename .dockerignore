@@ -1,0 +1,7 @@
+# The dev-container image only needs .devcontainer/ — it downloads the
+# Flutter/Android/Node toolchains instead of COPY-ing project files.
+# Keeping the context tiny makes `gh cs rebuild` / `devcontainer build` fast
+# and avoids sending build/ (~GBs), SDK caches, and git history to Docker.
+*
+!.devcontainer/
+!.devcontainer/**

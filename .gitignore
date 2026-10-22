@@ -36,6 +36,7 @@ tmp/
 .flutter-plugins-dependencies
 .pub/
 .pub-cache/
+coverage/
 
 **/doc/api/
 **/ios/Flutter/.last_build_id

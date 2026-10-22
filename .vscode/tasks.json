@@ -1,0 +1,93 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Flutter: analyze",
+            "type": "shell",
+            "command": "flutter analyze --no-pub",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "group": { "kind": "build", "isDefault": true }
+        },
+        {
+            "label": "Flutter: test",
+            "type": "shell",
+            "command": "flutter test --no-pub",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "group": { "kind": "test", "isDefault": true }
+        },
+        {
+            "label": "Flutter: test current file",
+            "type": "shell",
+            "command": "flutter test --no-pub ${relativeFile}",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Flutter: coverage",
+            "type": "shell",
+            "command": "flutter test --no-pub --coverage && genhtml coverage/lcov.info -o coverage/html",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Native: tests",
+            "type": "shell",
+            "command": "dart test",
+            "options": { "cwd": "${workspaceFolder}/native_audio_runtime" },
+            "problemMatcher": [],
+            "group": "test"
+        },
+        {
+            "label": "Android: Kotlin tests",
+            "type": "shell",
+            "command": "./gradlew :app:testDebugUnitTest --no-daemon",
+            "options": { "cwd": "${workspaceFolder}/android" },
+            "problemMatcher": [],
+            "group": "test"
+        },
+        {
+            "label": "Check: analyze + all tests",
+            "dependsOn": [
+                "Flutter: analyze",
+                "Flutter: test",
+                "Native: tests",
+                "Android: Kotlin tests"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "group": "test"
+        },
+        {
+            "label": "Format: Dart",
+            "type": "shell",
+            "command": "dart format lib test native_audio_runtime/lib native_audio_runtime/test",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Web: build release",
+            "type": "shell",
+            "command": "flutter build web --release --no-pub",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "Web: serve",
+            "type": "shell",
+            "command": "node server.js",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "APK: build debug",
+            "type": "shell",
+            "command": "flutter build apk --debug",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "group": "build"
+        }
+    ]
+}

@@ -45,9 +45,19 @@ This file contains team-shared architectural patterns, development workflows, co
 ### Testing
 - Run Unit/Widget tests: `flutter test`
 - Run specific test file: `flutter test test/path_to_test.dart`
+- Run native C/FFI tests: `cd native_audio_runtime && dart test`
+- Run Android Kotlin unit tests: `cd android && ./gradlew :app:testDebugUnitTest --no-daemon`
+
+### Shortcuts (Makefile)
+- `make check` — analyzer + Flutter, native, and Kotlin tests
+- `make test-native` — `native_audio_runtime` C/FFI suite
+- `make test-kotlin` — Android Kotlin unit tests
+- `make coverage` — Flutter coverage + HTML report in `coverage/html`
+- `make build-web` / `make serve` — release web build / local server on :5000
 
 ### Building the Project
 - Build Android APK: `./build-apk.sh` or `flutter build apk --release`
+- Build debug APK quickly: `make build-apk`
 
 ---
 
