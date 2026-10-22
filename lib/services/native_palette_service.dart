@@ -5,6 +5,7 @@ import 'dart:typed_data'; // ignore: unnecessary_import — kept for Uint8List i
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:musicplayer/services/log_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,6 +39,10 @@ import 'package:path_provider/path_provider.dart';
 //   • In-flight dedup: concurrent callers for the same songId share one Future
 //   • On non-Android / web: returns the hardcoded fallback palette
 // ─────────────────────────────────────────────────────────────────────────────
+
+void _debugPrintIfEnabled(String message) {
+  if (LogService.loggingEnabled.value) debugPrint(message);
+}
 
 class NativePaletteService {
   NativePaletteService._();
@@ -91,7 +96,7 @@ class NativePaletteService {
               await _channel.invokeMethod<int>('getCacheVersion') ??
               cacheVersion;
         } on PlatformException catch (e, st) {
-          debugPrint(
+          _debugPrintIfEnabled(
             '[NativePaletteService] native cache version unavailable: '
             '$e\n$st',
           );
