@@ -44,6 +44,25 @@ void main() {
     expect(LogService.getLogs(), isEmpty);
   });
 
+  test('console debug prints follow the app logging toggle', () {
+    final printed = <String?>[];
+    final previousDebugPrint = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      printed.add(message);
+    };
+
+    try {
+      LogService.debugPrintIfEnabled('hidden');
+      expect(printed, isEmpty);
+
+      LogService.loggingEnabled.value = true;
+      LogService.debugPrintIfEnabled('visible');
+      expect(printed, equals(['visible']));
+    } finally {
+      debugPrint = previousDebugPrint;
+    }
+  });
+
   test('turning logging OFF clears buffered entries and syncs native gate', () async {
     await LogService.setLoggingEnabled(true);
     LogService.log('Test', 'temporary entry');

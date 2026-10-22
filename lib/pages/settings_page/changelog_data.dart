@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.41',
+    date: '22 Oktober 2026',
+    changes: [
+      'Semua jalur debugPrint aplikasi kini mengikuti toggle logging; log error registrasi plugin Android juga digate dengan preferensi yang sama.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.40',
     date: '22 Oktober 2026',
     changes: [

@@ -40,9 +40,6 @@ import 'package:path_provider/path_provider.dart';
 //   • On non-Android / web: returns the hardcoded fallback palette
 // ─────────────────────────────────────────────────────────────────────────────
 
-void _debugPrintIfEnabled(String message) {
-  if (LogService.loggingEnabled.value) debugPrint(message);
-}
 
 class NativePaletteService {
   NativePaletteService._();
@@ -96,12 +93,12 @@ class NativePaletteService {
               await _channel.invokeMethod<int>('getCacheVersion') ??
               cacheVersion;
         } on PlatformException catch (e, st) {
-          _debugPrintIfEnabled(
+          LogService.debugPrintIfEnabled(
             '[NativePaletteService] native cache version unavailable: '
             '$e\n$st',
           );
         } on MissingPluginException catch (e, st) {
-          debugPrint(
+          LogService.debugPrintIfEnabled(
             '[NativePaletteService] native cache version plugin unavailable: '
             '$e\n$st',
           );
@@ -134,7 +131,7 @@ class NativePaletteService {
     } on Exception catch (e, st) {
       // Corrupt or unreadable cache — start fresh, never crash startup.
       // IOException, FormatException, etc. all extend Exception.
-      debugPrint('[NativePaletteService] warmUp failed: $e\n$st');
+      LogService.debugPrintIfEnabled('[NativePaletteService] warmUp failed: $e\n$st');
     }
   }
 
@@ -188,7 +185,7 @@ class NativePaletteService {
     } on Exception catch (e, st) {
       // Best-effort — a failed save just means palettes recompute next launch.
       // IOException, FormatException, etc. all extend Exception.
-      debugPrint('[NativePaletteService] persist failed: $e\n$st');
+      LogService.debugPrintIfEnabled('[NativePaletteService] persist failed: $e\n$st');
     }
   }
 
@@ -270,14 +267,14 @@ class NativePaletteService {
             retryDelay = const Duration(milliseconds: 240);
           }
           if (attempt == 1) {
-            debugPrint(
+            LogService.debugPrintIfEnabled(
               '[NativePaletteService] extraction failed for '
               'songId=$songId: $e\n$st',
             );
           }
         } on Exception catch (e, st) {
           if (attempt == 1) {
-            debugPrint(
+            LogService.debugPrintIfEnabled(
               '[NativePaletteService] extraction failed for '
               'songId=$songId: $e\n$st',
             );

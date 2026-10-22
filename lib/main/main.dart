@@ -143,7 +143,7 @@ Future<void> main() async {
           stackTrace: stack.toString(),
         );
       } else {
-        if (LogService.loggingEnabled.value) debugPrint('[Zone/pre-init] $error\n$stack');
+        LogService.debugPrintIfEnabled('[Zone/pre-init] $error\n$stack');
       }
     },
   );
