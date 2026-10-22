@@ -18,7 +18,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define LIM_TAG "NarLimiterProcessor"
-#define LIM_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, LIM_TAG, __VA_ARGS__)
+#define LIM_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, LIM_TAG, __VA_ARGS__); } while (0)
 #else
 #define LIM_LOG(...) ((void)0)
 #endif
