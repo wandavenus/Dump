@@ -332,7 +332,8 @@ class NativePaletteBridge(
             extractionFailureCount.incrementAndGet()
         }
         recordQueueDepth()
-        if (Log.isLoggable(TAG, Log.DEBUG) && (completed == 1L || completed % 32L == 0L)) {
+        if (NativeLogger.isEnabled && Log.isLoggable(TAG, Log.DEBUG) &&
+            (completed == 1L || completed % 32L == 0L)) {
             val coalesced = coalescedRequestCount.get()
             val rejected = queueRejectedCount.get()
             val averageMs = totalDuration / completed.coerceAtLeast(1L)
