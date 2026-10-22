@@ -774,7 +774,7 @@ class NativePaletteBridge(
         val clusters = mutableListOf<ColorCluster>()
         for (item in scored) {
             val existing = clusters.firstOrNull { cluster ->
-                colorSimilar(cluster.representativeSwatch.rgb, item.swatch.rgb)
+                colorSimilar(cluster.representativeSwatch.rgb, item.swatch.rgb, threshold = 0.15f)
             }
             if (existing != null) {
                 existing.swatches += item.swatch
