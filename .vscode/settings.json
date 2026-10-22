@@ -1,0 +1,11 @@
+{
+  // Pin the workspace extensions to the SDK installed by the devcontainer.
+  // Workspace settings override stale Remote/User SDK selections.
+  "dart.flutterSdkPath": "/opt/flutter",
+  "dart.sdkPath": "/opt/flutter/bin/cache/dart-sdk",
+  "dart.analysisExcludedFolders": [
+    "build",
+    ".dart_tool",
+    "native_audio_runtime/example"
+  ]
+}
