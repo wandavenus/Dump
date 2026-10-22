@@ -1,5 +1,6 @@
 package dev.wndavenz.music
 
+import dev.wndavenz.music.events.NativeLogger
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
@@ -238,7 +239,7 @@ class NativePaletteBridge(
                     }
                 } catch (error: OutOfMemoryError) {
                     outcome = "oom"
-                    Log.e(
+                    NativeLogger.errorLog(
                         TAG,
                         "Palette extraction ran out of memory for songId=${job.songId}",
                         error,
@@ -252,7 +253,7 @@ class NativePaletteBridge(
                     }
                 } catch (error: Exception) {
                     outcome = "error"
-                    Log.w(TAG, "Palette extraction failed for songId=${job.songId}", error)
+                    NativeLogger.warnLog(TAG, "Palette extraction failed for songId=${job.songId}", error)
                     completeJobOnMain(job) {
                         it.error(
                             "palette_extraction_failed",
@@ -271,7 +272,7 @@ class NativePaletteBridge(
             recordQueueDepth()
         } catch (error: RejectedExecutionException) {
             val rejected = queueRejectedCount.incrementAndGet()
-            Log.w(TAG, "Palette queue rejected songId=${job.songId} count=$rejected", error)
+            NativeLogger.warnLog(TAG, "Palette queue rejected songId=${job.songId} count=$rejected", error)
             completeJobOnMain(job) {
                 it.error("palette_busy", "Palette extraction queue is busy", null)
             }
@@ -305,7 +306,7 @@ class NativePaletteBridge(
                         null,
                     )
                 } catch (error: Exception) {
-                    Log.w(TAG, "Failed to complete palette request during dispose", error)
+                    NativeLogger.warnLog(TAG, "Failed to complete palette request during dispose", error)
                 }
             }
         }
@@ -336,7 +337,7 @@ class NativePaletteBridge(
             val rejected = queueRejectedCount.get()
             val averageMs = totalDuration / completed.coerceAtLeast(1L)
             val queueDepth = (executor as? ThreadPoolExecutor)?.queue?.size ?: -1
-            Log.d(
+            NativeLogger.debugLog(
                 TAG,
                 "metrics extractions=$completed coalesced=$coalesced " +
                     "failures=${extractionFailureCount.get()} queueRejected=$rejected " +
@@ -420,7 +421,7 @@ class NativePaletteBridge(
         } catch (error: RejectedExecutionException) {
             // dispose() may shut down the watchdog between post() and schedule().
             // The normal Handler callback remains responsible for completion.
-            Log.d(TAG, "Palette callback watchdog unavailable", error)
+            NativeLogger.debugLog(TAG, "Palette callback watchdog unavailable", error)
             null
         }
 
@@ -455,7 +456,7 @@ class NativePaletteBridge(
         try {
             completion(request.result)
         } catch (error: Exception) {
-            Log.w(TAG, fallbackMessage ?: "Failed to deliver palette result", error)
+            NativeLogger.warnLog(TAG, fallbackMessage ?: "Failed to deliver palette result", error)
         } finally {
             synchronized(lifecycleLock) {
                 if (job.completed &&
