@@ -27,8 +27,9 @@ if [ "$actual_flutter" != "$EXPECTED_FLUTTER" ]; then
 fi
 
 header "Flutter Precache"
-# Android + web (Chrome tests) + Linux desktop (headless Xvfb tests).
-"$FLUTTER_BIN" precache --android --web --linux --no-ios
+# Only fetch artifacts used by this workspace. Linux desktop artifacts are
+# large and not required for Android builds or Chrome-based web tests.
+"$FLUTTER_BIN" precache --android --web --no-ios
 
 header "Git safe directories"
 git config --global --add safe.directory "${FLUTTER_HOME:-/opt/flutter}" || true
@@ -40,9 +41,8 @@ flutter.sdk=${FLUTTER_HOME:-/opt/flutter}
 sdk.dir=${ANDROID_SDK_ROOT:-/opt/android-sdk}
 EOF
 
-header "Android Licenses"
-yes | sdkmanager --licenses >/dev/null 2>&1 || true
-
+# Android licenses are accepted while building the image; avoid re-running
+# sdkmanager during post-create.
 header "Flutter Packages"
 "$FLUTTER_BIN" pub get
 
@@ -50,7 +50,10 @@ header "Native Runtime Packages"
 (cd native_audio_runtime && dart pub get)
 
 header "Dart Global Tools"
-dart pub global activate coverage 1.16.0
+# The pub cache is a persistent named volume; skip activation when already ready.
+if ! dart pub global list 2>/dev/null | grep -qx 'coverage 1.16.0'; then
+  dart pub global activate coverage 1.16.0
+fi
 
 header "Native Toolchain"
 clang --version | head -1
@@ -76,9 +79,8 @@ yamllint --version
 gh --version | head -1
 git lfs version
 
-header "Gradle Check"
-(cd android && ./gradlew --version --no-daemon)
-
+# Avoid launching a Gradle JVM just to print its version; builds/tests will
+# perform this check naturally when Gradle is first needed.
 header "Flutter Doctor"
 "$FLUTTER_BIN" doctor || true
 
