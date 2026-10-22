@@ -1244,16 +1244,16 @@ class MainActivity : FlutterActivity() {
         return try {
             contentResolver.openFileDescriptor(contentUri, "rw")
         } catch (e: SecurityException) {
-            Log.w("MainActivity", "openReplayGainWriteFd($songId): SecurityException — ${e.message}")
+            NativeLogger.warnLog("MainActivity", "openReplayGainWriteFd($songId): SecurityException — ${e.message}")
             null
         } catch (e: java.io.FileNotFoundException) {
-            Log.w("MainActivity", "openReplayGainWriteFd($songId): file not found — ${e.message}")
+            NativeLogger.warnLog("MainActivity", "openReplayGainWriteFd($songId): file not found — ${e.message}")
             null
         } catch (e: java.io.IOException) {
-            Log.w("MainActivity", "openReplayGainWriteFd($songId): I/O error — ${e.message}")
+            NativeLogger.warnLog("MainActivity", "openReplayGainWriteFd($songId): I/O error — ${e.message}")
             null
         } catch (e: Exception) {
-            Log.w("MainActivity", "openReplayGainWriteFd($songId): ${e.javaClass.simpleName} — ${e.message}")
+            NativeLogger.warnLog("MainActivity", "openReplayGainWriteFd($songId): ${e.javaClass.simpleName} — ${e.message}")
             null
         }
     }
