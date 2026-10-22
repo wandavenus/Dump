@@ -115,6 +115,7 @@
 #include "dsp_processor.h"
 #include "dsp_stream.h"
 #include "native_audio_runtime_internal.h"
+#include "native_audio_runtime.h"
 
 #if defined(__aarch64__)
 #include "neon_kernels.h"
