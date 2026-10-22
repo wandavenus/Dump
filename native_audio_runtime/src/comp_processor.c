@@ -18,7 +18,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define COMP_TAG "NarCompProcessor"
-#define COMP_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, COMP_TAG, __VA_ARGS__)
+#define COMP_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, COMP_TAG, __VA_ARGS__); } while (0)
 #else
 #define COMP_LOG(...) ((void)0)
 #endif

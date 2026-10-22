@@ -1,5 +1,6 @@
 package dev.wndavenz.music.effects
 
+import dev.wndavenz.music.events.NativeLogger
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
@@ -67,7 +68,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val supported = inputAudioFormat.channelCount == 2 &&
             (inputAudioFormat.encoding == C.ENCODING_PCM_16BIT || inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT)
-        Log.i(LOG_TAG, "onConfigure encoding=${inputAudioFormat.encoding} channels=${inputAudioFormat.channelCount} supported=$supported")
+        NativeLogger.infoLog(LOG_TAG, "onConfigure encoding=${inputAudioFormat.encoding} channels=${inputAudioFormat.channelCount} supported=$supported")
         return if (supported) inputAudioFormat else AudioProcessor.AudioFormat.NOT_SET
     }
 

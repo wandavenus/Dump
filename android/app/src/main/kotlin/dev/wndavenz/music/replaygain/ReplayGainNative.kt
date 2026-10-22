@@ -1,5 +1,7 @@
 package dev.wndavenz.music.replaygain
 
+import dev.wndavenz.music.events.NativeLogger
+
 /**
  * Raw JNI surface for `libreplaygain_native.so` (libebur128 + TagLib).
  *
@@ -39,6 +41,9 @@ object ReplayGainNative {
             if (failed) return false
             try {
                 System.loadLibrary("replaygain_native")
+                NativeLogger.registerLoggingSetter("replaygain_native") { enabled ->
+                    nativeSetLoggingEnabled(enabled)
+                }
                 loaded = true
             } catch (t: Throwable) {
                 loadError = t
@@ -47,6 +52,8 @@ object ReplayGainNative {
         }
         return loaded
     }
+
+    private external fun nativeSetLoggingEnabled(enabled: Boolean)
 
     val isAvailable: Boolean get() = loaded
     val lastLoadError: Throwable? get() = loadError

@@ -12,6 +12,8 @@ class LogService {
   static final ValueNotifier<bool> errorsOnly = ValueNotifier(false);
   static final ValueNotifier<bool> verboseEnabled = ValueNotifier(false);
   static final ValueNotifier<bool> liveTailEnabled = ValueNotifier(true);
+  static const MethodChannel _nativeLoggingChannel =
+      MethodChannel('musicplayer/logging');
 
   /// True setelah [init] selesai. Digunakan oleh zone handler di main()
   /// untuk memutuskan apakah aman memanggil [error] atau harus fallback
@@ -26,16 +28,31 @@ class LogService {
     errorsOnly.value = prefs.getBool('log_errors_only') ?? false;
     verboseEnabled.value = prefs.getBool('log_verbose') ?? false;
     liveTailEnabled.value = prefs.getBool('log_live_tail') ?? true;
+    await _syncNativeLoggingEnabled(loggingEnabled.value);
     isInitialized = true;
   }
 
   // ── Settings ────────────────────────────────────────────────────────────────
 
   static Future<void> setLoggingEnabled(bool value) async {
+    // Flip the in-memory/native gates before awaiting disk I/O so new log calls
+    // stop immediately rather than waiting for SharedPreferences.
     loggingEnabled.value = value;
+    if (!value) clear();
+    await _syncNativeLoggingEnabled(value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('log_enabled', value);
-    if (!value) clear();
+  }
+
+  static Future<void> _syncNativeLoggingEnabled(bool value) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _nativeLoggingChannel.invokeMethod<void>('setEnabled', value);
+    } on MissingPluginException {
+      // The in-app Dart gate still applies if native logging is unavailable.
+    } on PlatformException {
+      // Never allow diagnostics wiring to interfere with playback/settings.
+    }
   }
 
   static Future<void> setErrorsOnly(bool value) async {

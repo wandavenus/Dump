@@ -98,7 +98,7 @@ Future<void> main() async {
       }
       NativeLogBridge.init();
       FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details);
+        if (LogService.loggingEnabled.value) FlutterError.presentError(details);
         LogService.error(
           'Flutter',
           details.exceptionAsString(),
@@ -143,7 +143,7 @@ Future<void> main() async {
           stackTrace: stack.toString(),
         );
       } else {
-        debugPrint('[Zone/pre-init] $error\n$stack');
+        if (LogService.loggingEnabled.value) debugPrint('[Zone/pre-init] $error\n$stack');
       }
     },
   );

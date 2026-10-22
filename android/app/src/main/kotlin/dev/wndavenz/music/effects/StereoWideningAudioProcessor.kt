@@ -1,5 +1,6 @@
 package dev.wndavenz.music.effects
 
+import dev.wndavenz.music.events.NativeLogger
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
@@ -55,7 +56,7 @@ class StereoWideningAudioProcessor : BaseAudioProcessor() {
             inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
             inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
         )
-        Log.i(
+        NativeLogger.infoLog(
             LOG_TAG,
             "onConfigure encoding=${inputAudioFormat.encoding} (PCM_FLOAT=${C.ENCODING_PCM_FLOAT}) " +
                 "channels=${inputAudioFormat.channelCount} supported=$supported",

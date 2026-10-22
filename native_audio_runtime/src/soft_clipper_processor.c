@@ -16,7 +16,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define SC_TAG "NarSoftClipProcessor"
-#define SC_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, SC_TAG, __VA_ARGS__)
+#define SC_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, SC_TAG, __VA_ARGS__); } while (0)
 #else
 #define SC_LOG(...) ((void)0)
 #endif

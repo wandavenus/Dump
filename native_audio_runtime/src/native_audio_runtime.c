@@ -12,7 +12,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define NAR_LOG_TAG "NativeAudioRuntime"
-#define NAR_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, NAR_LOG_TAG, __VA_ARGS__)
+#define NAR_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, NAR_LOG_TAG, __VA_ARGS__); } while (0)
 #else
 #include <stdio.h>
 #define NAR_LOG(...) ((void)0)  // No noisy stdout/stderr logging off-device.
@@ -32,6 +32,7 @@ typedef enum {
 
 static _Atomic NarState _state = NAR_STATE_UNINITIALIZED;
 static _Atomic int32_t _last_status = NATIVE_RUNTIME_OK;
+static _Atomic int32_t _logging_enabled = 0;
 
 static const char* const kVersion = "0.1.0-phase8.5";
 
@@ -108,6 +109,14 @@ static void nar_unlock(void) { pthread_mutex_unlock(&_module_lock); }
 // unresolved at dlopen() time (matches the header's "defined once" contract).
 void nar_runtime_set_last_status(int32_t status) {
   atomic_store(&_last_status, status);
+}
+
+FFI_PLUGIN_EXPORT void native_runtime_set_logging_enabled(int32_t enabled) {
+  atomic_store_explicit(&_logging_enabled, enabled != 0, memory_order_relaxed);
+}
+
+FFI_PLUGIN_EXPORT int32_t native_runtime_is_logging_enabled(void) {
+  return atomic_load_explicit(&_logging_enabled, memory_order_relaxed);
 }
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────

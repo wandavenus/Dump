@@ -2,6 +2,7 @@
 // rationale (runtime dlopen/dlsym against libaaudio.so, no build-time link).
 
 #include "aaudio_probe.h"
+#include "native_audio_runtime.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -10,7 +11,7 @@
 #include <android/log.h>
 #include <dlfcn.h>
 #define AAP_LOG_TAG "AAudioProbe"
-#define AAP_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, AAP_LOG_TAG, __VA_ARGS__)
+#define AAP_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, AAP_LOG_TAG, __VA_ARGS__); } while (0)
 #else
 #define AAP_LOG(...) ((void)0)
 #endif

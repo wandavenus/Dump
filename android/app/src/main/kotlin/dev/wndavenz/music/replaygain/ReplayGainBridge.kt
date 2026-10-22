@@ -75,7 +75,7 @@ class ReplayGainBridge(
             // F3: file changed (or vanished) mid-scan — do not cache the stale
             // measurement. Result is still returned; the Dart identity guard
             // decides whether to discard it.
-            Log.w(TAG, "scanTrack: file changed during scan, not caching: $path")
+            NativeLogger.warnLog(TAG, "scanTrack: file changed during scan, not caching: $path")
         }
 
         return mapOf(
@@ -103,7 +103,7 @@ class ReplayGainBridge(
             val mtime = MetadataCacheDb.mtime(path)
             val before = mtimeBefore[path]
             if (before == null || before == 0L || before != mtime) {
-                Log.w(TAG, "scanAlbum: file changed during scan, not caching: $path")
+                NativeLogger.warnLog(TAG, "scanAlbum: file changed during scan, not caching: $path")
                 return@forEach
             }
             val existing = metadataCacheDb.getByPath(path, mtime)
@@ -376,7 +376,7 @@ class ReplayGainBridge(
     }
 
     private fun logError(msg: String) {
-        Log.e(TAG, msg)
+        NativeLogger.errorLog(TAG, msg)
         NativeLogger.emit("error", "ReplayGain", msg)
     }
 

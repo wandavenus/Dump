@@ -5,6 +5,8 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cstdarg>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -27,6 +29,25 @@
 #include <xiphcomment.h>
 
 namespace replaygain {
+
+namespace {
+std::atomic<bool> gReplayGainLoggingEnabled{false};
+}
+
+// Shared with replaygain_jni.cpp; defaults OFF before Dart applies preferences.
+void setLoggingEnabled(bool enabled) {
+    gReplayGainLoggingEnabled.store(enabled, std::memory_order_relaxed);
+}
+
+// stderr is redirected to Logcat on Android, so keep this native diagnostic
+// behind the same application-wide toggle and avoid even formatting when OFF.
+void nativeReplayGainLog(const char* format, ...) {
+    if (!gReplayGainLoggingEnabled.load(std::memory_order_relaxed)) return;
+    va_list args;
+    va_start(args, format);
+    std::vfprintf(stderr, format, args);
+    va_end(args);
+}
 
 namespace {
 
@@ -250,8 +271,7 @@ public:
     // ENFILE errors on MIUI are visible in logcat (stderr → logcat on Android).
     explicit FsyncGuard(int original_fd) : dup_fd_(::dup(original_fd)) {
         if (dup_fd_ < 0) {
-            std::fprintf(stderr,
-                         "[ReplayGainTagWriter] FsyncGuard: dup(%d) failed — "
+            nativeReplayGainLog("[ReplayGainTagWriter] FsyncGuard: dup(%d) failed — "
                          "fsync and post-write verify will be skipped\n",
                          original_fd);
         }
@@ -268,8 +288,7 @@ public:
     void Sync() {
         if (dup_fd_ < 0) return;
         if (::fsync(dup_fd_) != 0) {
-            std::fprintf(stderr,
-                         "[ReplayGainTagWriter] fsync(%d) failed: %s — "
+            nativeReplayGainLog("[ReplayGainTagWriter] fsync(%d) failed: %s — "
                          "write may not be durable if power is lost\n",
                          dup_fd_, std::strerror(errno));
         }

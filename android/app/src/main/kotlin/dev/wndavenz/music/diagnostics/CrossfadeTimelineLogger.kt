@@ -37,6 +37,11 @@ object CrossfadeTimelineLogger {
      * Call this as the very first thing inside beginCrossfade().
      */
     fun begin(label: String = "") {
+        if (!NativeLogger.isEnabled) {
+            active = false
+            epochMs = 0L
+            return
+        }
         epochMs = System.currentTimeMillis()
         active  = true
         val thread = Thread.currentThread().name
@@ -52,6 +57,7 @@ object CrossfadeTimelineLogger {
      *               Pass null when no player context is available.
      */
     fun stamp(label: String, player: ExoPlayer? = null) {
+        if (!NativeLogger.isEnabled) return
         val wall    = System.currentTimeMillis()
         val rel     = if (active) wall - epochMs else -1L
         val thread  = Thread.currentThread().name
@@ -78,6 +84,7 @@ object CrossfadeTimelineLogger {
      * (e.g. the moment both players are audible during fade).
      */
     fun stampDual(label: String, newPlayer: ExoPlayer?, oldPlayer: ExoPlayer?) {
+        if (!NativeLogger.isEnabled) return
         val wall    = System.currentTimeMillis()
         val rel     = if (active) wall - epochMs else -1L
         val thread  = Thread.currentThread().name
@@ -104,6 +111,11 @@ object CrossfadeTimelineLogger {
      * Call after all onCrossfadeComplete() sub-operations finish.
      */
     fun end(label: String = "") {
+        if (!NativeLogger.isEnabled) {
+            active = false
+            epochMs = 0L
+            return
+        }
         val wall = System.currentTimeMillis()
         val rel  = if (active) wall - epochMs else -1L
         val thread = Thread.currentThread().name

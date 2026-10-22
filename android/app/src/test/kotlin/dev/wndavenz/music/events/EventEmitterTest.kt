@@ -42,6 +42,7 @@ class EventEmitterTest {
 
     @After
     fun tearDown() {
+        NativeLogger.setEnabled(false)
         registeredStreams.forEach { name ->
             EventEmitter.handler(name).onCancel(null)
         }
@@ -211,11 +212,20 @@ class EventEmitterTest {
     // D. NativeLogger
     // ═════════════════════════════════════════════════════════════════════════
 
-    @Test fun `D01 NativeLogger emit with no subscriber does not throw`() {
-        NativeLogger.emit("info", "Test", "no subscriber — safe no-op")
+    @Test fun `D01 NativeLogger defaults to disabled and suppresses events`() {
+        NativeLogger.setEnabled(false)
+        val sink = FakeSink()
+        val handler = NativeLogger.handler()
+        handler.onListen(null, sink)
+
+        NativeLogger.emit("info", "Test", "suppressed while disabled")
+
+        assertEquals(0, sink.events.size)
+        handler.onCancel(null)
     }
 
     @Test fun `D02 NativeLogger emit after subscribe delivers structured map`() {
+        NativeLogger.setEnabled(true)
         // NativeLogger.emit() posts to the main looper by default, which is never
         // drained in JVM unit tests. Override with a synchronous dispatcher so the
         // sink call executes inline before the assertions run.
@@ -238,6 +248,7 @@ class EventEmitterTest {
     }
 
     @Test fun `D03 NativeLogger emit after cancel delivers nothing`() {
+        NativeLogger.setEnabled(true)
         val sink = FakeSink()
         val handler = NativeLogger.handler()
         handler.onListen(null, sink)
@@ -246,5 +257,21 @@ class EventEmitterTest {
         NativeLogger.emit("info", "Test", "after cancel")
 
         assertEquals(0, sink.events.size)
+    }
+
+    @Test fun `D04 queued event is suppressed if logging is disabled before dispatch`() {
+        val queued = mutableListOf<Runnable>()
+        NativeLogger.dispatcher = { queued.add(it) }
+        NativeLogger.setEnabled(true)
+        val sink = FakeSink()
+        val handler = NativeLogger.handler()
+        handler.onListen(null, sink)
+
+        NativeLogger.emit("info", "Test", "queued")
+        NativeLogger.setEnabled(false)
+        queued.forEach { it.run() }
+
+        assertEquals(0, sink.events.size)
+        handler.onCancel(null)
     }
 }
