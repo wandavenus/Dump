@@ -258,4 +258,20 @@ class EventEmitterTest {
 
         assertEquals(0, sink.events.size)
     }
+
+    @Test fun `D04 queued event is suppressed if logging is disabled before dispatch`() {
+        val queued = mutableListOf<Runnable>()
+        NativeLogger.dispatcher = { queued.add(it) }
+        NativeLogger.setEnabled(true)
+        val sink = FakeSink()
+        val handler = NativeLogger.handler()
+        handler.onListen(null, sink)
+
+        NativeLogger.emit("info", "Test", "queued")
+        NativeLogger.setEnabled(false)
+        queued.forEach { it.run() }
+
+        assertEquals(0, sink.events.size)
+        handler.onCancel(null)
+    }
 }
