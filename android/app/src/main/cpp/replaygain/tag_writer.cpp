@@ -250,8 +250,7 @@ public:
     // ENFILE errors on MIUI are visible in logcat (stderr → logcat on Android).
     explicit FsyncGuard(int original_fd) : dup_fd_(::dup(original_fd)) {
         if (dup_fd_ < 0) {
-            std::fprintf(stderr,
-                         "[ReplayGainTagWriter] FsyncGuard: dup(%d) failed — "
+            nativeReplayGainLog("[ReplayGainTagWriter] FsyncGuard: dup(%d) failed — "
                          "fsync and post-write verify will be skipped\n",
                          original_fd);
         }
@@ -268,8 +267,7 @@ public:
     void Sync() {
         if (dup_fd_ < 0) return;
         if (::fsync(dup_fd_) != 0) {
-            std::fprintf(stderr,
-                         "[ReplayGainTagWriter] fsync(%d) failed: %s — "
+            nativeReplayGainLog("[ReplayGainTagWriter] fsync(%d) failed: %s — "
                          "write may not be durable if power is lost\n",
                          dup_fd_, std::strerror(errno));
         }
