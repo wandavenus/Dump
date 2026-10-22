@@ -17,6 +17,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
+import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.automix.AutomixAnalysis
 import dev.wndavenz.music.metadata.ExoMetadataReader
@@ -165,6 +166,7 @@ class MainActivity : FlutterActivity() {
         // Capture URI from the intent that cold-started the app.
         pendingOpenFileUri = extractAudioUri(intent)
 
+        setupLoggingChannel(flutterEngine)
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
@@ -230,6 +232,31 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    // ── App-wide logging gate ──────────────────────────────────────────────────
+
+    private fun setupLoggingChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "musicplayer/logging",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "setEnabled" -> {
+                    val enabled = call.arguments as? Boolean
+                    if (enabled == null) {
+                        result.error("invalid_args", "enabled must be a boolean", null)
+                    } else {
+                        NativeLogger.setEnabled(enabled)
+                        result.success(null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+        // The safe native default is OFF until SharedPreferences has been read
+        // and Dart explicitly applies the user's persisted logging preference.
+        NativeLogger.setEnabled(false)
     }
 
     // ── Native palette channel ─────────────────────────────────────────────────
