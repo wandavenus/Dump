@@ -27,6 +27,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         private const val PARAMETER_EPSILON = 0.0005f
 
         @JvmStatic private external fun nativeCreate(sampleRate: Int, channels: Int): Long
+        @JvmStatic private external fun nativeSetLoggingEnabled(enabled: Boolean)
         @JvmStatic private external fun nativeDestroy(handle: Long)
         @JvmStatic private external fun nativeReset(handle: Long)
         @JvmStatic private external fun nativeSetPitchSemitones(handle: Long, semitones: Float)
@@ -41,6 +42,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             NativeLogger.emit("info", "Stretch", "[Stretch] Loading native library stretch_native...")
             runCatching {
                 System.loadLibrary("stretch_native")
+                NativeLogger.registerLoggingSetter("stretch_native") { enabled ->
+                    nativeSetLoggingEnabled(enabled)
+                }
                 NativeLogger.infoLog(LOG_TAG, "Native library loaded successfully")
                 NativeLogger.emit("info", "Stretch", "[Stretch] Native library loaded successfully")
                 true
