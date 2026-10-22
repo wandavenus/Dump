@@ -23,7 +23,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define XF_TAG "NarCrossfeedProcessor"
-#define XF_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, XF_TAG, __VA_ARGS__)
+#define XF_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, XF_TAG, __VA_ARGS__); } while (0)
 #else
 #define XF_LOG(...) ((void)0)
 #endif
