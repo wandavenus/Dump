@@ -9,6 +9,7 @@
 //                                       for the full struct layout.
 
 #include "dsp_pipeline.h"
+#include "native_audio_runtime.h"
 
 #include <stdatomic.h>
 #include <string.h>
@@ -20,8 +21,7 @@
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define NAR_DSP_TAG "NarDspPipeline"
-#define NAR_DSP_LOG(...) \
-  __android_log_print(ANDROID_LOG_DEBUG, NAR_DSP_TAG, __VA_ARGS__)
+#define NAR_DSP_LOG(...) do { if (native_runtime_is_logging_enabled()) __android_log_print(ANDROID_LOG_DEBUG, NAR_DSP_TAG, __VA_ARGS__); } while (0)
 #else
 #define NAR_DSP_LOG(...) ((void)0)
 #endif
