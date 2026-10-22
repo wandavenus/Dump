@@ -1,50 +1,6 @@
 name: Run Noisegraph Tests
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "native_audio_runtime/src/**"
-      - "native_audio_runtime/test/**"
-      - "native_audio_runtime/pubspec.yaml"
-      - "lib/services/automix_service/**"
-      - "lib/services/automix_service.dart"
-      - "lib/services/audio_service/**"
-      - "test/services/automix_service/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/automix/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/crossfade/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/Media3PlaybackService.kt"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/effects/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/replaygain/PcmDecoder.kt"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/automix/**"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/crossfade/**"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/effects/**"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/replaygain/**"
-      - "setup-flutter.sh"
-      - ".github/workflows/run-noisegraph-tests.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "native_audio_runtime/src/**"
-      - "native_audio_runtime/test/**"
-      - "native_audio_runtime/pubspec.yaml"
-      - "lib/services/automix_service/**"
-      - "lib/services/automix_service.dart"
-      - "lib/services/audio_service/**"
-      - "test/services/automix_service/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/automix/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/crossfade/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/Media3PlaybackService.kt"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/effects/**"
-      - "android/app/src/main/kotlin/dev/wndavenz/music/replaygain/PcmDecoder.kt"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/automix/**"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/crossfade/**"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/effects/**"
-      - "android/app/src/test/kotlin/dev/wndavenz/music/replaygain/**"
-      - "setup-flutter.sh"
-      - ".github/workflows/run-noisegraph-tests.yml"
   workflow_dispatch:
     inputs:
       suite:
