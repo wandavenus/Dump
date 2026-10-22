@@ -1,5 +1,6 @@
 package dev.wndavenz.music
 
+import dev.wndavenz.music.events.NativeLogger
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -204,11 +205,11 @@ class FallbackBitmapLoader(
      */
     private fun tryEmbedded(uri: Uri): Bitmap? {
         val albumId = parseAlbumId(uri) ?: run {
-            Log.d(TAG, "Cannot parse albumId from $uri")
+            NativeLogger.debugLog(TAG, "Cannot parse albumId from $uri")
             return null
         }
         val songIds = songIdsForAlbum(albumId) ?: run {
-            Log.d(TAG, "No MediaStore track found for albumId=$albumId")
+            NativeLogger.debugLog(TAG, "No MediaStore track found for albumId=$albumId")
             return null
         }
 
@@ -234,10 +235,10 @@ class FallbackBitmapLoader(
                 val bmp = decodeCapped(bytes)
                 if (bmp != null) return bmp
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to read cached artwork for albumId=$albumId songId=$songId: ${e.message}")
+                NativeLogger.warnLog(TAG, "Failed to read cached artwork for albumId=$albumId songId=$songId: ${e.message}")
             }
         }
-        Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
+        NativeLogger.debugLog(TAG, "No artwork cached/extracted for albumId=$albumId")
         return null
     }
 
@@ -266,7 +267,7 @@ class FallbackBitmapLoader(
                 ids.ifEmpty { null }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "MediaStore query failed for albumId=$albumId: ${e.message}")
+            NativeLogger.warnLog(TAG, "MediaStore query failed for albumId=$albumId: ${e.message}")
             null
         }
     }
@@ -281,7 +282,7 @@ class FallbackBitmapLoader(
             mmr.setDataSource(context, uri)
             mmr.embeddedPicture
         } catch (e: Exception) {
-            Log.d(TAG, "Embedded extraction failed for songId=$songId: ${e.message}")
+            NativeLogger.debugLog(TAG, "Embedded extraction failed for songId=$songId: ${e.message}")
             null
         } finally {
             // Always release, even if setDataSource()/embeddedPicture throws.
@@ -324,7 +325,7 @@ class FallbackBitmapLoader(
             } ?: return null
             BitmapUtils.normalizeSquare(decoded, MAX_PX)
         } catch (e: Exception) {
-            Log.d(TAG, "URI load failed ($uri): ${e.message} — trying embedded fallback")
+            NativeLogger.debugLog(TAG, "URI load failed ($uri): ${e.message} — trying embedded fallback")
             null
         }
     }
