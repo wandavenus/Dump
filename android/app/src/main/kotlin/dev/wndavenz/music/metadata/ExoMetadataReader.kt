@@ -1,5 +1,6 @@
 package dev.wndavenz.music.metadata
 
+import dev.wndavenz.music.events.NativeLogger
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -119,7 +120,7 @@ object ExoMetadataReader {
 
         builder.build().also { tags ->
             if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(
+                NativeLogger.debugLog(
                     TAG,
                     "Read ${file.name}: " +
                         "rg=${tags.rgTrackGain} " +
@@ -131,10 +132,10 @@ object ExoMetadataReader {
     }
 
         } catch (e: TimeoutException) {
-            Log.w(TAG, "MetadataRetriever timed out for: $path")
+            NativeLogger.warnLog(TAG, "MetadataRetriever timed out for: $path")
             AudioTags()
         } catch (e: Exception) {
-            Log.w(TAG, "MetadataRetriever failed for $path: ${e.message}")
+            NativeLogger.warnLog(TAG, "MetadataRetriever failed for $path: ${e.message}")
             AudioTags()
         }
     }
