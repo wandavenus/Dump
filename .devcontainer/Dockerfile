@@ -44,12 +44,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN java -version 2>&1 | grep -q 21
 
 # ── Google Chrome (Flutter web tests + `flutter run -d chrome`) ───────────────
-RUN curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" \
-        -o /tmp/google-chrome.deb
-
+# Download, install, and cleanup in the same layer to avoid retaining the .deb.
 # hadolint ignore=DL3008,DL3015
-RUN apt-get update \
-    && apt-get install -y /tmp/google-chrome.deb \
+RUN curl -fsSL "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" \
+        -o /tmp/google-chrome.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends /tmp/google-chrome.deb \
     && rm -f /tmp/google-chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
