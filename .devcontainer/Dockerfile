@@ -71,7 +71,7 @@ RUN ARCHIVE="flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
     && URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/${ARCHIVE}" \
     && EXPECTED_SHA="$(curl -fsSL "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json" \
         | jq -r --arg archive "$ARCHIVE" \
-            'first(.releases[] | select(.archive == $archive) | .sha256) // empty')" \
+            'first(.releases[] | select(.archive | endswith($archive)) | .sha256) // empty')" \
     && test -n "$EXPECTED_SHA" \
     && curl -fsSL "$URL" -o /tmp/flutter.tar.xz \
     && echo "${EXPECTED_SHA}  /tmp/flutter.tar.xz" | sha256sum -c - \
