@@ -1,7 +1,7 @@
 {
     // ─────────────────────────────────────────────────────────────────────────
     // Dev Container — Flutter Android (GitHub Codespaces)
-    // Flutter 3.44.5 · Java 21 · Android SDK (platform-35, NDK 28.2, CMake 3.22.1)
+    // Flutter 3.47.7 · Java 21 · Android SDK (platform-36, NDK 28.2, CMake 3.22.1)
     // ─────────────────────────────────────────────────────────────────────────
     "name": "Flutter Android",
 
@@ -19,6 +19,9 @@
         "FLUTTER_HOME": "/opt/flutter",
         "ANDROID_HOME": "/opt/android-sdk",
         "ANDROID_SDK_ROOT": "/opt/android-sdk",
+        "ANDROID_NDK_HOME": "/opt/android-sdk/ndk/28.2.13676358",
+        "ANDROID_NDK_ROOT": "/opt/android-sdk/ndk/28.2.13676358",
+        "ANDROID_NDK": "/opt/android-sdk/ndk/28.2.13676358",
         "PUB_CACHE": "/opt/pub-cache",
         "CCACHE_DIR": "/home/vscode/.ccache",
         "GRADLE_USER_HOME": "/home/vscode/.gradle",
@@ -42,12 +45,22 @@
             "source": "musicplayer-ccache",
             "target": "/home/vscode/.ccache",
             "type": "volume"
+        },
+        // Dart/Flutter package cache
+        {
+            "source": "musicplayer-pub-cache",
+            "target": "/opt/pub-cache",
+            "type": "volume"
         }
     ],
 
-    // ── Post-creation setup ────────────────────────────────────────────────────
-    // Runs once after the container is created (not on every start).
-    "postCreateCommand": "bash .devcontainer/postCreate.sh",
+    // ── Setup otomatis ────────────────────────────────────────────────────────
+    // postCreate: setup penuh setelah rebuild.
+    // postStart/postAttach: cek cepat; kalau toolchain rusak (mis. Codespaces
+    // jatuh ke recovery container Alpine), setup penuh dijalankan otomatis.
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "postStartCommand": "bash .devcontainer/setup.sh --quick",
+    "postAttachCommand": "bash .devcontainer/setup.sh --quick",
 
     // ── VS Code customizations ────────────────────────────────────────────────
     "customizations": {
