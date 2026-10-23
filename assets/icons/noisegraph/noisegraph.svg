@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="ngGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1f2b"/>
+      <stop offset="1" stop-color="#0b0d13"/>
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#ngGrad)"/>
+  <g stroke="url(#waveGrad)" stroke-width="46" stroke-linecap="round" fill="none">
+    <path d="M 250 600 q 40 -120 80 0 t 80 0 t 80 0"/>
+    <path d="M 430 600 q 40 -140 80 0 t 80 0 t 80 0"/>
+    <path d="M 610 600 q 40 -160 80 0 t 80 0 t 80 0"/>
+    <path d="M 790 600 q 40 -140 80 0 t 80 0"/>
+  </g>
+  <circle cx="512" cy="512" r="70" fill="#0b0d13"/>
+  <circle cx="512" cy="512" r="40" fill="#38bdf8"/>
+</svg>
