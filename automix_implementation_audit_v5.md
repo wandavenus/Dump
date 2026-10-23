@@ -2,10 +2,10 @@
 
 **Status:** Audit lanjutan atas v4, dipicu oleh laporan transisi A→B yang terdengar terpotong pada jalur *early handover*. Dua bug **Tinggi** ditemukan dan diperbaiki.
 **Repository:** `wandavenus/Dump`
-**Basis kode:** `e8dd52b8` — "update container"
-**Perubahan kode/test:** 9 berkas (8 diubah, 1 baru), +221/−10, tidak termasuk `GeneratedPluginRegistrant.java` yang sudah berubah sebelum audit ini. Dokumentasi diperbarui di `docs/automix-production-wiring.md` dan v4 diberi pointer ke dokumen ini.
-**Metode:** penelusuran call-site Dart → MethodChannel → Kotlin → `CrossfadeController` → `ExoPlayer`/Media3, pembacaan test yang ada, lalu penambahan regression test dan eksekusi suite Flutter/Kotlin.
-**Batasan:** tidak ada perangkat/emulator atau capture PCM pada audit ini. Penyebab ditetapkan dari urutan eksekusi kode dan state yang terbukti saling bertabrakan; kualitas audible akhir tetap memerlukan listening test.
+**Basis kode:** `e8dd52b8` + patch perbaikan AutoMix `55fa5adf`
+**Perubahan kode/test:** 11 berkas (8 diubah, 3 baru), tidak termasuk `GeneratedPluginRegistrant.java` yang sudah berubah sebelum audit ini. Dokumentasi diperbarui di `docs/automix-production-wiring.md` dan v4 diberi pointer ke dokumen ini.
+**Metode:** penelusuran call-site Dart → MethodChannel → Kotlin → `CrossfadeController` → `ExoPlayer`/Media3, pembacaan test yang ada, regression test Flutter/Kotlin, lalu render PCM offline 48 kHz dan pengukuran independen dengan FFmpeg `astats`.
+**Batasan:** tidak ada perangkat/emulator atau capture output AudioFlinger. Validasi audio dilakukan offline dari sinyal 48 kHz dan envelope produksi; scheduling ExoPlayer/AudioFlinger serta kualitas audible di perangkat tetap memerlukan listening test.
 
 ## Ringkasan eksekutif
 
@@ -108,7 +108,8 @@ Seluruh pemeriksaan dijalankan di lingkungan ini setelah perubahan.
 |---|---|---|
 | Analyzer Dart | `dart analyze lib/services/automix_service/service.dart test/services/automix_service/automix_start_test.dart` | `No issues found!` |
 | Suite AutoMix Dart | `flutter test test/services/automix_service` | 124 test lulus |
-| Suite Kotlin penuh | `./gradlew :app:testDebugUnitTest` | `BUILD SUCCESSFUL`; 430 test, 0 failure, 0 error |
+| Suite Kotlin penuh | `./gradlew :app:testDebugUnitTest` | `BUILD SUCCESSFUL`; 431 test, 0 failure, 0 error |
+| Regresi audio FFmpeg + JVM | `tools/automix_ffmpeg_regression.sh` | `RESULT: PASS` |
 | Whitespace | `git diff --check` | Lulus |
 
 Test regresi baru yang dijalankan di dalam suite tersebut:
@@ -121,11 +122,34 @@ Test regresi baru yang dijalankan di dalam suite tersebut:
 | `ActivePlayerProxyTest` G09/G10 | Copy volume default tetap aman; jalur crossfade tidak menimpa gain |
 | `automix_start_test.dart` re-engage | Durasi sama tidak dikirim ulang; durasi berbeda dikirim sekali |
 
+### Validasi audio offline (FFmpeg + JVM render)
+
+`tools/automix_ffmpeg_regression.sh` menjalankan rantai berikut:
+
+1. FFmpeg membuat dua sinyal sumber 48 kHz mono, 32-bit float, durasi 4 detik: A 220 Hz/0,5 dan B 330 Hz/0,4. Fase dipilih agar sample pada 1,7 detik bernilai A=−0,5 dan B=+0,4, sehingga hard cut pada skenario lama deterministik.
+2. `AutomixFadeRenderTest` membaca WAV sumber tersebut, menerapkan `AutomixGainEnvelope` produksi pada tick 16 ms, dan menulis WAV hasil render untuk jalur saat ini serta dua model regresi lama.
+3. FFmpeg `astats` mengukur peak level dan max sample-to-sample difference secara independen dari kode Kotlin.
+
+Hasil aktual:
+
+| Render | max sample step | Peak | Interpretasi |
+|---|---:|---:|---|
+| `current_envelope_gamma1.wav` | 0,019556 | −6,0206 dBFS | Kontinu; tidak ada lompatan sebesar klik |
+| `current_envelope_gamma135_trims.wav` | 0,018705 | −6,0206 dBFS | Kurva/trim lain juga kontinu |
+| `legacy_midfade_cancel.wav` | 0,525177 | −6,0206 dBFS | Model bug AM5-01 terdeteksi sebagai hard cut |
+| `legacy_volume_copy.wav` | 0,399793 | −0,9153 dBFS | Model bug AM5-02 terdeteksi; peak tick pertama 5,1 dB di atas jalur saat ini |
+
+Ambang yang dipakai: jalur saat ini `< 0,05` max sample step; kedua model lama `> 0,25` dan `> 0,20`; semua peak `≤ 0 dBFS`; format `pcm_f32le/48000 Hz/mono`; durasi 4 detik. Semua ambang lulus.
+
+Artefak tersimpan di `build/automix-audio-regression/` (WAV, waveform PNG, `metrics.txt`). Model `legacy_*` adalah simulasi fault path lama, bukan rekaman output perangkat; nilainya berfungsi sebagai kontrol sensitivitas metrik, bukan bukti kondisi lapangan.
+
+Render ini menguji `AutomixGainEnvelope` (jalur fallback Kotlin). Saat AutoMix crossfade aktif dan `setAutoMixCrossfadeGains` tersedia, envelope per-deck diterapkan di native C/NEON; jalur native tersebut tidak dirender oleh harness ini. Sinyal sumber juga berupa sine deterministik, bukan musik, sehingga metrik ini mengukur continuity dan peak, bukan persepsi musikal.
+
 ## Risiko residual
 
-1. **Belum ada validasi perangkat.** Tidak ada listening test, log `CrossfadeTimelineLogger` dari perangkat, atau capture PCM sebelum/sesudah. Unit test membuktikan urutan state dan tidak adanya cancel/volume copy, tetapi bukan kualitas audible akhir.
+1. **Belum ada validasi perangkat.** Validasi offline sudah mengukur sample continuity dan peak dari `AutomixGainEnvelope` Kotlin, tetapi belum menguji jalur native C/NEON per-deck, listening test, log `CrossfadeTimelineLogger` dari perangkat, atau capture output AudioFlinger. Scheduling ExoPlayer, buffer AudioTrack, dan perilaku main thread pada perangkat lambat belum tercakup.
 2. **Durasi nol di tengah fade tetap hard-stop.** Ini disengaja: `sec <= 0` berarti pengguna/UI mematikan crossfade. Jika UI mengirim nol secara tidak sengaja saat AutoMix aktif, gejalanya masih dapat berupa potongan. Guard Dart hanya menghindari pengiriman nilai yang sama; nilai nol yang eksplisit tetap diteruskan.
-3. **Keterlambatan tick pertama.** Dengan `copyVolume = false`, jika main thread tertahan setelah `play()`, B tetap mute sampai fade mulai menaikkan gain-nya. Gejala yang tersisa adalah jeda/keheningan singkat, bukan blip volume penuh. Ini lebih aman secara perceptual, tetapi belum diukur pada perangkat lambat.
+3. **Keterlambatan tick pertama.** Dengan `copyVolume = false`, jika main thread tertahan setelah `play()`, B tetap mute sampai fade mulai menaikkan gain-nya. Render offline menunjukkan sisa gejala berupa keheningan singkat, bukan blip volume penuh; durasi jeda pada perangkat nyata belum diukur.
 4. **Kualitas cue early handover tetap heuristik.** Perbaikan ini menghilangkan hard cut, bukan menjamin bahwa titik handover 30–65 detik selalu tepat secara musikal. Pemilihan drop/breakdown tetap bergantung pada confidence analyzer dan live tracker.
 5. **Batas true-peak bus.** Dua deck masih disumkan downstream oleh AudioFlinger tanpa limiter bus bersama. Per-deck limiter bersifat kausal dan bukan jaminan true-peak end-to-end; ini batasan lama yang tidak berubah pada audit ini.
 6. **Guard Dart bergantung pada `automixActive`.** Caller lain tetap dapat mengirim durasi; karena itu guard native adalah lapisan yang harus dipertahankan. Menghapus guard native dan hanya mengandalkan Dart akan membuka kembali bug ini.
@@ -139,12 +163,14 @@ Test regresi baru yang dijalankan di dalam suite tersebut:
 - `android/app/src/test/kotlin/dev/wndavenz/music/transport/TransportCommandsTest.kt` (baru)
 - `android/app/src/test/kotlin/dev/wndavenz/music/ActivePlayerProxyTest.kt`
 - `android/app/src/test/kotlin/dev/wndavenz/music/crossfade/CrossfadeControllerTest.kt`
+- `android/app/src/test/kotlin/dev/wndavenz/music/automix/AutomixFadeRenderTest.kt` (baru)
+- `tools/automix_ffmpeg_regression.sh` (baru)
 - `lib/services/automix_service/service.dart`
 - `test/services/automix_service/automix_start_test.dart`
 - `docs/automix-production-wiring.md`
 
-`android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java` juga tampak berubah di working tree, tetapi perubahan itu sudah ada sebelum audit ini dan tidak terkait AutoMix.
+`android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java` ikut terbawa di commit patch, tetapi perubahannya sudah ada sebelum audit ini dan tidak terkait AutoMix.
 
 ## Kesimpulan
 
-Kedua penyebab hard cut pada early handover sudah ditutup di lapisan yang berbeda: Dart berhenti mengirim ulang durasi yang tidak berubah, native tidak lagi membatalkan fade aktif saat menerima durasi positif, dan promosi deck tidak lagi menyalin volume deck keluar. Regression test mengunci urutan-urutan tersebut. Langkah berikutnya yang masih diperlukan adalah validasi audible di perangkat, idealnya dengan log timeline fade dan capture PCM pada transisi early handover.
+Kedua penyebab hard cut pada early handover sudah ditutup di lapisan yang berbeda: Dart berhenti mengirim ulang durasi yang tidak berubah, native tidak lagi membatalkan fade aktif saat menerima durasi positif, dan promosi deck tidak lagi menyalin volume deck keluar. Regression test mengunci urutan-urutan tersebut. Validasi offline 48 kHz dengan FFmpeg `astats` menunjukkan jalur saat ini tidak memiliki lompatan sample sebesar klik, sementara dua model bug lama terdeteksi dengan jelas. Langkah berikutnya yang masih diperlukan adalah validasi audible di perangkat, idealnya dengan log timeline fade dan capture output AudioFlinger pada transisi early handover.
