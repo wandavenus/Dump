@@ -7,11 +7,13 @@ import dev.wndavenz.music.events.NativeLogger
  *
  * ## Why reflection
  *
- * The FFmpeg decoder AAR ships as `org.jellyfin.media3:media3-ffmpeg-decoder`
- * on Maven Central — a community prebuilt maintained by the Jellyfin project
- * that includes `libffmpegJNI.so` for all ABIs including arm64-v8a. It is a
- * fork of `androidx.media3:media3-decoder-ffmpeg` (which is NOT on any public
- * Maven repository) built from the same source, licensed GPL v3.
+ * The decoder AAR is built in this repository by `android/build-ffmpeg-jni.sh`
+ * from the Apache-2.0 Media3 `decoder_ffmpeg` extension, with FFmpeg configured
+ * without GPL/version3/nonfree components (LGPL). It includes
+ * `libffmpegJNI.so` for arm64-v8a and is consumed as the `:decoder-ffmpeg`
+ * Gradle module. The community prebuilt that was used before
+ * (`org.jellyfin.media3:media3-ffmpeg-decoder`) is declared GPL-3.0 and must
+ * not be reintroduced — see `docs/FFMPEG_DECODER_LGPL.md`.
  *
  * Reflection is kept rather than a direct import so this file compiles and
  * runs cleanly even if the dependency is ever removed: `Class.forName`
@@ -23,9 +25,10 @@ import dev.wndavenz.music.events.NativeLogger
  *
  * `FfmpegLibrary.isAvailable()` returns true only if the class exists AND the
  * native `libffmpegJNI.so` was successfully `System.loadLibrary`'d. A missing
- * class (module not vendored) and a present-but-unloadable native lib both
- * collapse to `available = false` here — callers only need "can I use it or
- * not", not the specific reason.
+ * class (AAR not part of the build) and a present-but-unloadable native lib
+ * both collapse to `available = false` here — callers only need "can I use it
+ * or not", not the specific reason. `moduleLinked` in [queryStatus] still
+ * distinguishes the two for diagnostics.
  */
 object FfmpegCapabilityProbe {
 

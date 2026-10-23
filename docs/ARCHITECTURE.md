@@ -125,7 +125,7 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 
 ### Native Android (Kotlin, package `dev.wndavenz.music`)
 - **Media3 / ExoPlayer 1.11.1** — engine playback.
-- **FFmpeg decoder** — `org.jellyfin.media3:media3-ffmpeg-decoder` (AAR prebuilt, GPL v3) untuk format uncommon.
+- **FFmpeg decoder** — AAR lokal `android/decoder-ffmpeg` (wrapper Media3 1.11.1 + FFmpeg **LGPL**, tanpa komponen GPL) untuk format uncommon; dibangun oleh `android/build-ffmpeg-jni.sh` — lihat `docs/FFMPEG_DECODER_LGPL.md`.
 - **Kotlin JVM toolchain 21**, `compileSdk 36`, `ndkVersion 28.2.13676358`.
 - **AndroidX** — `palette` (MMCQ color quantization), `media3-*`.
 
@@ -760,7 +760,7 @@ README menyatakan app **fokus pada Xiaomi Mi 9T, MIUI 12.1.4, Android 11, Snapdr
 - **Loudness vs ReplayGain** sengaja dua processor: metadata (stateless) vs real-time measurement.
 - **Changelog wajib** diisi tiap perubahan (`changelog_data.dart`) — bukan opsional.
 - **Watermark** default tersembunyi; teks & default diatur di `watermark_service.dart`.
-- **Paket FFmpeg** berlisensi **GPL v3** (Jellyfin AAR) — perhatikan konsekuensi distribusi.
+- **Paket FFmpeg** dibangun sendiri sebagai **LGPL** (tanpa komponen GPL) dan dikemas sebagai AAR lokal; kewajiban distribusi: sertakan teks LGPL + sumber FFmpeg/wrapper (`docs/FFMPEG_DECODER_LGPL.md`).
 
 ### 27.3 State vs UI
 - Pattern dominan: `ValueNotifier`/`ValueListenableBuilder` (bukan Provider/Bloc). Service menyiarkan state; UI rebuild granular.

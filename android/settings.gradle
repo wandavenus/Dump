@@ -44,6 +44,20 @@ plugins {
 
 include ":app"
 
-// Phase 9 — FFmpeg decoder is now sourced from Jellyfin's prebuilt AAR on
-// Maven Central (org.jellyfin.media3:media3-ffmpeg-decoder). No local
-// :decoder-ffmpeg sub-module is needed. See app/build.gradle dependencies.
+// Phase 9 — FFmpeg decoder extension, built in-repo as an LGPL artifact.
+// media3-decoder-ffmpeg is not published on any Maven repository, and the
+// community prebuilt (org.jellyfin.media3:media3-ffmpeg-decoder) is declared
+// GPL-3.0, which conflicts with this app's "All Rights Reserved" LICENSE.
+// android/build-ffmpeg-jni.sh produces the AAR from androidx/media source with
+// an FFmpeg configuration that has no GPL/version3/nonfree component; the AAR
+// is committed under android/decoder-ffmpeg/libs/ so normal builds need no NDK.
+// See docs/FFMPEG_DECODER_LGPL.md.
+def ffmpegDecoderAar = new File(settingsDir, "decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar")
+gradle.ext.ffmpegDecoderAarPresent = ffmpegDecoderAar.exists()
+if (gradle.ext.ffmpegDecoderAarPresent) {
+    include ":decoder-ffmpeg"
+} else {
+    gradle.logger.lifecycle("FFmpeg decoder AAR not found at ${ffmpegDecoderAar}\n" +
+            "  Building without the extension (ALAC/DTS/TrueHD/Vorbis/Opus fall back to MediaCodec).\n" +
+            "  Run android/build-ffmpeg-jni.sh to enable it — see docs/FFMPEG_DECODER_LGPL.md.")
+}

@@ -1,0 +1,15 @@
+// Thin Gradle wrapper around the locally built LGPL Media3 FFmpeg decoder AAR.
+//
+// The AAR is produced by android/build-ffmpeg-jni.sh and committed at
+// libs/media3-decoder-ffmpeg-release.aar. It contains the Apache-2.0 Media3
+// `decoder_ffmpeg` wrapper plus libffmpegJNI.so built from an FFmpeg
+// configuration without GPL/version3/nonfree components.
+//
+// android/settings.gradle only includes this module when the AAR exists, so a
+// fresh checkout without it still configures; android/app/build.gradle then
+// reports MEDIA3_FFMPEG_DECODER_LINKED=false and release builds fail on
+// verifyFfmpegDecoderAar with instructions.
+//
+// See docs/FFMPEG_DECODER_LGPL.md.
+configurations.maybeCreate("default")
+artifacts.add("default", file("libs/media3-decoder-ffmpeg-release.aar"))

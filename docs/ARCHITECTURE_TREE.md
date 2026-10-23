@@ -312,7 +312,8 @@ src/test/kotlin/…  9 unit test (ActivePlayerProxy · NativePaletteBridge ·
 ```
 
 **Media3 1.11.1** dipakai lewat 6 artifact: `exoplayer · session · ui · extractor · inspector · container`.
-`org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1` (GPL v3) di-exclude transitive-nya.
+`decoder_ffmpeg` dibangun dari androidx/media 1.11.1 + FFmpeg LGPL dan dipakai sebagai
+`project(':decoder-ffmpeg')` dari AAR lokal (`android/decoder-ffmpeg`) — lihat `docs/FFMPEG_DECODER_LGPL.md`.
 
 ---
 

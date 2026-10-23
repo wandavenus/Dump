@@ -35,8 +35,8 @@ description: Upgrade 1.11.0-rc01 → 1.11.0 stable is a one-line version bump, f
 - Spurious `onMediaItemTransition()` during seek within one item fixed (#3248).
 - `MediaNotificationManager` deadlock/`IllegalStateException` + timeline merge crash fixes.
 
-## Jellyfin FFmpeg decoder
-- `org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1` (latest, built on Media3 1.9.0) stays compatible: media3 stable APIs are binary-compatible; transitive deps already excluded so Gradle resolves to pinned 1.11.0. This combination ran fine on rc01.
+## FFmpeg decoder (historical)
+- Until 1.5.41 the app used `org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1` (built on Media3 1.9.0, GPL-3.0). It stayed binary-compatible with 1.11.x, but the GPL license conflicted with the repo LICENSE. Since 1.5.42 the decoder is the in-repo LGPL AAR (`project(':decoder-ffmpeg')`, built from androidx/media 1.11.1) — see `docs/FFMPEG_DECODER_LGPL.md`.
 
 ## Cleanup done
 - `android/app/build.gradle` comments (lines ~33, ~150) updated from "pinned 1.10.1" → "pinned stable versions" (comment-only, 2/2 lines).

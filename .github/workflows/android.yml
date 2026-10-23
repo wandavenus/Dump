@@ -117,6 +117,27 @@ jobs:
 
           rm -f /tmp/release-key-validation.jks
 
+      - name: Build LGPL FFmpeg decoder AAR
+        run: |
+          AAR=android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar
+          if [ -f "$AAR" ]; then
+            echo "Committed decoder AAR found — nothing to build."
+            exit 0
+          fi
+
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          NDK="$SDK/ndk/28.2.13676358"
+          if [ ! -d "$NDK" ]; then
+            SDKMANAGER="$(command -v sdkmanager || find "$SDK" -maxdepth 4 -name sdkmanager 2>/dev/null | head -1)"
+            if [ -z "$SDKMANAGER" ]; then
+              echo "::error::sdkmanager not found; cannot install NDK 28.2.13676358."
+              exit 1
+            fi
+            "$SDKMANAGER" "ndk;28.2.13676358"
+          fi
+
+          bash android/build-ffmpeg-jni.sh "$NDK"
+
       - name: Build release APK
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/release-keystore.jks

@@ -1,75 +1,85 @@
 #!/usr/bin/env bash
-# build-ffmpeg-jni.sh — FALLBACK ONLY (do not run for normal builds)
+# build-ffmpeg-jni.sh — builds the LGPL Media3 FFmpeg decoder extension AAR.
 #
-# ⚠️  PRODUCTION BUILD PATH: the app consumes the Jellyfin prebuilt AAR
-#     (org.jellyfin.media3:media3-ffmpeg-decoder) declared in
-#     android/app/build.gradle. The local :decoder-ffmpeg sub-module is NOT
-#     included by android/settings.gradle and is NOT used by normal builds.
+# This script is the ONLY supported source of `libffmpegJNI.so` for this app.
+# The community prebuilt `org.jellyfin.media3:media3-ffmpeg-decoder` is declared
+# GPL-3.0 by its publisher, which conflicts with this repository's
+# "All Rights Reserved" LICENSE. We therefore build the Apache-2.0 Media3
+# `decoder_ffmpeg` wrapper ourselves against an FFmpeg configured WITHOUT any
+# GPL / version3 / nonfree component. See docs/FFMPEG_DECODER_LGPL.md.
 #
-#     Run this script ONLY as a fallback if the Jellyfin AAR becomes
-#     unavailable (see .agents/memory/ffmpeg-decoder-phase9.md). It builds
-#     the Media3 FFmpeg decoder extension as a local Gradle module at
-#     android/decoder-ffmpeg/ from the androidx/media source tree.
+# What it produces
+# ────────────────
+#   android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar
+#       Media3 <MEDIA3_TAG> `decoder_ffmpeg` wrapper + libffmpegJNI.so built
+#       from FFmpeg <FFMPEG_BRANCH>. The AAR is committed so release builds
+#       stay reproducible without an NDK; `abiFilters "arm64-v8a"` in
+#       android/app/build.gradle drops every ABI except arm64.
 #
-#     After running it you MUST manually re-wire the module before it takes
-#     effect (the automated wiring was removed when the Jellyfin AAR
-#     replaced it):
-#       1. Add `include ":decoder-ffmpeg"` to android/settings.gradle
-#       2. Replace the Jellyfin dependency in android/app/build.gradle with
-#          `implementation project(':decoder-ffmpeg')`
-#     Also note the module is built against media3 $MEDIA3_TAG, which may
-#     differ from the app's pinned media3 version — verify on first use.
-#
-# Why this script exists
-# ──────────────────────
-# androidx.media3:media3-decoder-ffmpeg is NOT published on any public Maven
-# repository. The AAR (Java/Kotlin wrapper + native libffmpegJNI.so) must be
-# built from the androidx/media source tree using Android NDK.
+#   build/ffmpeg-decoder-lgpl/
+#       LGPL compliance bundle: FFmpeg source tarball, wrapper source tarball,
+#       LGPL v2.1 + Apache-2.0 license texts, the upstream build script and a
+#       BUILD_INFO.txt with exact revisions/decoders/AAR checksum. Attach this
+#       bundle to every release that ships the AAR.
 #
 # Prerequisites
 # ─────────────
-#   - Android NDK r25c or newer
-#     Download: https://developer.android.com/ndk/downloads
-#   - Java 17+ (same JDK used for the main project)
-#   - git, curl, tar, make, yasm or nasm
+#   - Android NDK r26+ (tested configuration upstream; the repo pins
+#     28.2.13676358 for the app build — any r26+ works here)
+#   - Android SDK with CMake 3.21+ (needed by the wrapper's CMake build)
+#   - JDK 17+ (JDK 21, same as the app build)
+#   - git, make, tar, curl
 #   - Linux or macOS host
 #
 # Usage
 # ─────
-#   bash android/build-ffmpeg-jni.sh /path/to/android-ndk-r25c
+#   bash android/build-ffmpeg-jni.sh /path/to/ndk/28.2.13676358
 #
-#   Or set ANDROID_NDK_HOME and run without args:
-#   export ANDROID_NDK_HOME=/path/to/ndk
-#   bash android/build-ffmpeg-jni.sh
+#   Or set ANDROID_NDK_HOME and run without arguments:
+#     export ANDROID_NDK_HOME=/path/to/ndk
+#     bash android/build-ffmpeg-jni.sh
 #
-# Output
-# ──────
-#   android/decoder-ffmpeg/          ← Gradle sub-module (gitignored)
-#     build.gradle
-#     libs/
-#       media3-decoder-ffmpeg-release.aar  ← AAR with libffmpegJNI.so inside
+# Overrides (env vars)
+# ────────────────────
+#   MEDIA3_TAG     androidx/media tag to build (default 1.11.1, must match
+#                  media3_version in android/app/build.gradle)
+#   FFMPEG_BRANCH  FFmpeg branch to build (default release/6.0, the branch
+#                  Media3 1.11.1 is tested against)
+#   ANDROID_API    API level for the native code (default 27 = app minSdk)
+#   DECODERS       space-separated FFmpeg decoder names to enable
+#                  (default "alac dca mlp truehd vorbis opus")
 #
 # After the script completes, rebuild the APK:
 #   flutter build apk --release
 #
-# To verify FFmpeg is active, check the debug log for:
+# Verify on device (debug log):
 #   Ffmpeg: available=true supported=ALAC
 
 set -euo pipefail
 
-MEDIA3_TAG="1.10.1"
-TARGET_ABI="arm64-v8a"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUTPUT_MODULE="$SCRIPT_DIR/decoder-ffmpeg"
-TMP_DIR="${TMPDIR:-/tmp}/media3-ffmpeg-build-$MEDIA3_TAG"
-REPO_DIR="$TMP_DIR/media3"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ── 0. Resolve NDK path ───────────────────────────────────────────────────────
+MEDIA3_TAG="${MEDIA3_TAG:-1.11.1}"
+FFMPEG_BRANCH="${FFMPEG_BRANCH:-release/6.0}"
+ANDROID_API="${ANDROID_API:-27}"
+# Formato yang tidak punya decoder MediaCodec yang layak di perangkat target.
+# Semuanya tersedia di FFmpeg tanpa komponen GPL.
+# shellcheck disable=SC2206
+DECODERS=(${DECODERS:-alac dca mlp truehd vorbis opus})
+
+TMP_DIR="${TMPDIR:-/tmp}/musicplayer-ffmpeg-decoder-$MEDIA3_TAG"
+MEDIA3_DIR="$TMP_DIR/media3"
+FFMPEG_MODULE_PATH="$MEDIA3_DIR/libraries/decoder_ffmpeg/src/main"
+JNI_DIR="$FFMPEG_MODULE_PATH/jni"
+OUT_AAR="$ROOT/android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar"
+COMPLIANCE_DIR="$ROOT/build/ffmpeg-decoder-lgpl"
+
+# ── 0. Resolve NDK + SDK ─────────────────────────────────────────────────────
 NDK_PATH="${1:-${ANDROID_NDK_HOME:-${ANDROID_NDK:-}}}"
 if [ -z "$NDK_PATH" ] || [ ! -d "$NDK_PATH" ]; then
     echo "ERROR: Android NDK not found."
     echo ""
-    echo "Usage:  bash android/build-ffmpeg-jni.sh /path/to/android-ndk-r25c"
+    echo "Usage:  bash android/build-ffmpeg-jni.sh /path/to/ndk"
     echo "        (or set ANDROID_NDK_HOME env var)"
     echo ""
     echo "Download NDK: https://developer.android.com/ndk/downloads"
@@ -77,108 +87,199 @@ if [ -z "$NDK_PATH" ] || [ ! -d "$NDK_PATH" ]; then
 fi
 echo "✓ NDK: $NDK_PATH"
 
-# ── 1. Clone androidx/media @ 1.10.1 (shallow) ───────────────────────────────
+SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+if [ -z "$SDK_DIR" ] || [ ! -d "$SDK_DIR" ]; then
+    # NDK usually lives inside the SDK; derive it when the env var is unset.
+    SDK_DIR="$(cd "$NDK_PATH/../.." 2>/dev/null && pwd || true)"
+fi
+if [ -z "$SDK_DIR" ] || [ ! -d "$SDK_DIR" ]; then
+    echo "ERROR: Android SDK not found. Set ANDROID_SDK_ROOT/ANDROID_HOME."
+    exit 1
+fi
+echo "✓ SDK: $SDK_DIR"
+
+HOST_PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+if [ ! -d "$NDK_PATH/toolchains/llvm/prebuilt/$HOST_PLATFORM" ]; then
+    HOST_PLATFORM="$(ls "$NDK_PATH/toolchains/llvm/prebuilt" | head -1)"
+fi
+if [ -z "$HOST_PLATFORM" ]; then
+    echo "ERROR: no LLVM toolchain found under $NDK_PATH/toolchains/llvm/prebuilt"
+    exit 1
+fi
+echo "✓ Host toolchain: $HOST_PLATFORM"
+
+# ── 1. Checkout the pinned androidx/media source ─────────────────────────────
 mkdir -p "$TMP_DIR"
-if [ -d "$REPO_DIR/.git" ]; then
-    echo "✓ Repository already cloned at $REPO_DIR"
+if [ -d "$MEDIA3_DIR/.git" ]; then
+    echo "✓ Reusing checkout at $MEDIA3_DIR"
+    git -C "$MEDIA3_DIR" fetch --depth 1 origin "refs/tags/$MEDIA3_TAG:refs/tags/$MEDIA3_TAG"
+    git -C "$MEDIA3_DIR" checkout -f "$MEDIA3_TAG"
 else
     echo "[1/5] Cloning androidx/media @ $MEDIA3_TAG ..."
-    git clone --depth 1 \
-        --branch "$MEDIA3_TAG" \
-        https://github.com/androidx/media.git \
-        "$REPO_DIR"
+    git clone --depth 1 --branch "$MEDIA3_TAG" \
+        https://github.com/androidx/media.git "$MEDIA3_DIR"
 fi
 
-JNI_DIR="$REPO_DIR/libraries/decoder_ffmpeg/src/main/jni"
 if [ ! -d "$JNI_DIR" ]; then
     echo "ERROR: JNI directory not found at $JNI_DIR"
     echo "The Media3 repo layout may have changed. Inspect the repo manually."
     exit 1
 fi
 
-# ── 2. Build FFmpeg native libs (arm64, ALAC-only) ───────────────────────────
-echo "[2/5] Building FFmpeg static libs (ALAC only, $TARGET_ABI) ..."
-cd "$JNI_DIR"
-bash build_ffmpeg.sh "$NDK_PATH" arm64 \
-    --disable-everything \
-    --enable-decoder=alac \
-    --enable-demuxer=mov \
-    --enable-demuxer=caf \
-    --enable-parser=alac \
-    --enable-protocol=file
-
-# ── 3. ndk-build → libffmpegJNI.so ───────────────────────────────────────────
-echo "[3/5] ndk-build for $TARGET_ABI ..."
-"$NDK_PATH/ndk-build" \
-    NDK="$NDK_PATH" \
-    APP_BUILD_SCRIPT="$JNI_DIR/Android.mk" \
-    NDK_PROJECT_PATH=null \
-    APP_ABI="$TARGET_ABI" \
-    APP_OPTIM=release \
-    APP_PLATFORM=android-29 \
-    NDK_OUT="$TMP_DIR/obj" \
-    NDK_LIBS_OUT="$TMP_DIR/libs" \
-    -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-
-SO_SRC="$TMP_DIR/libs/$TARGET_ABI/libffmpegJNI.so"
-if [ ! -f "$SO_SRC" ]; then
-    echo "ERROR: libffmpegJNI.so not found at $SO_SRC after ndk-build"
+# ── 2. FFmpeg source (pinned branch) ─────────────────────────────────────────
+echo "[2/5] FFmpeg $FFMPEG_BRANCH ..."
+# This script passes the Media3 1.11.x build_ffmpeg.sh argument order
+# (<module-path> <ndk> <host> <api> <decoder...>). Older tags used a different
+# one; fail early instead of letting configure run against the wrong paths.
+if ! grep -q 'FFMPEG_MODULE_PATH="\$1"' "$JNI_DIR/build_ffmpeg.sh"; then
+    echo "ERROR: $JNI_DIR/build_ffmpeg.sh has an unexpected argument order."
+    echo "This script targets the Media3 1.11.x build_ffmpeg.sh signature."
+    echo "Inspect the tag or adapt the invocation before continuing."
     exit 1
 fi
-echo "✓ libffmpegJNI.so: $(du -h "$SO_SRC" | cut -f1)"
 
-# ── 4. Build the AAR via Gradle ───────────────────────────────────────────────
-echo "[4/5] Building Media3 FFmpeg decoder AAR via Gradle ..."
-cd "$REPO_DIR"
+if [ ! -d "$JNI_DIR/ffmpeg" ]; then
+    git clone --depth 1 --branch "$FFMPEG_BRANCH" \
+        https://github.com/FFmpeg/FFmpeg.git "$JNI_DIR/ffmpeg"
+fi
+FFMPEG_REV="$(git -C "$JNI_DIR/ffmpeg" rev-parse HEAD)"
 
-# Copy the .so into the jniLibs location the Gradle module expects
-SO_DEST="$REPO_DIR/libraries/decoder_ffmpeg/src/main/jniLibs/$TARGET_ABI/libffmpegJNI.so"
-mkdir -p "$(dirname "$SO_DEST")"
-cp "$SO_SRC" "$SO_DEST"
+# ── 3. Build FFmpeg static libs (all ABIs, upstream script) ──────────────────
+# Upstream builds armeabi-v7a, arm64-v8a, x86 and x86_64 in one pass and the
+# wrapper's CMake project links whichever ABIs Gradle asks for — building all
+# four keeps `assembleRelease` working without patching the upstream module.
+# x86/x86_64 are configured with --disable-asm, so no nasm/yasm is required.
+# No --enable-gpl / --enable-version3 / --enable-nonfree flag exists in
+# build_ffmpeg.sh: the result is LGPL. Step 4 verifies this in config.h.
+echo "[3/5] Building FFmpeg static libs for API $ANDROID_API (decoders: ${DECODERS[*]}) ..."
+(
+    cd "$JNI_DIR"
+    bash build_ffmpeg.sh \
+        "$FFMPEG_MODULE_PATH" \
+        "$NDK_PATH" \
+        "$HOST_PLATFORM" \
+        "$ANDROID_API" \
+        "${DECODERS[@]}"
+)
 
-# Build the release AAR for the decoder_ffmpeg module only
-./gradlew \
-    :libraries:decoder_ffmpeg:assembleRelease \
-    -PandroidNdkVersion="$(basename "$NDK_PATH")" \
-    --no-daemon
+# ── 3b. License guard: refuse to package a GPL/version3/nonfree build ────────
+CONFIG_H="$JNI_DIR/ffmpeg/config.h"
+if [ ! -f "$CONFIG_H" ]; then
+    echo "ERROR: $CONFIG_H missing after configure — FFmpeg build did not run."
+    exit 1
+fi
+for flag in GPL VERSION3 NONFREE; do
+    if grep -qE "^#define CONFIG_${flag} 1" "$CONFIG_H"; then
+        echo "ERROR: FFmpeg was configured with CONFIG_${flag}=1."
+        echo "This AAR must stay LGPL; refusing to produce a redistributable artifact."
+        exit 1
+    fi
+done
+for decoder in "${DECODERS[@]}"; do
+    upper="$(printf '%s' "$decoder" | tr '[:lower:]' '[:upper:]')"
+    if ! grep -qE "^#define CONFIG_${upper}_DECODER 1" "$CONFIG_H"; then
+        echo "ERROR: decoder '$decoder' is not enabled in the FFmpeg build."
+        exit 1
+    fi
+done
+echo "✓ License guard: CONFIG_GPL/VERSION3/NONFREE are all 0; requested decoders enabled"
 
-AAR_SRC="$REPO_DIR/libraries/decoder_ffmpeg/build/outputs/aar/decoder_ffmpeg-release.aar"
+# ── 4. Build the wrapper AAR (CMake/JNI + jniLibs packaging) ─────────────────
+echo "[4/5] Building :libraries:decoder_ffmpeg:assembleRelease ..."
+cat > "$MEDIA3_DIR/local.properties" <<EOF
+sdk.dir=$SDK_DIR
+ndk.dir=$NDK_PATH
+EOF
+
+(
+    cd "$MEDIA3_DIR"
+    ./gradlew :libraries:decoder_ffmpeg:assembleRelease \
+        --no-daemon --console=plain
+)
+
+AAR_SRC="$MEDIA3_DIR/libraries/decoder_ffmpeg/build/outputs/aar/decoder_ffmpeg-release.aar"
 if [ ! -f "$AAR_SRC" ]; then
-    # Some versions use a different output name; try to find it
-    AAR_SRC="$(find "$REPO_DIR/libraries/decoder_ffmpeg/build/outputs/aar" -name '*release*.aar' 2>/dev/null | head -1)"
+    AAR_SRC="$(find "$MEDIA3_DIR/libraries/decoder_ffmpeg/build/outputs/aar" \
+        -name '*release*.aar' 2>/dev/null | head -1)"
 fi
 if [ -z "$AAR_SRC" ] || [ ! -f "$AAR_SRC" ]; then
     echo "ERROR: release AAR not found after Gradle build."
-    echo "Check output of 'assembleRelease' above for errors."
+    echo "Check the output of 'assembleRelease' above for errors."
     exit 1
 fi
-echo "✓ AAR: $(du -h "$AAR_SRC" | cut -f1)"
 
-# ── 5. Assemble the local Gradle module ───────────────────────────────────────
-echo "[5/5] Writing android/decoder-ffmpeg/ local module ..."
-mkdir -p "$OUTPUT_MODULE/libs"
-cp "$AAR_SRC" "$OUTPUT_MODULE/libs/media3-decoder-ffmpeg-release.aar"
+mkdir -p "$(dirname "$OUT_AAR")"
+cp "$AAR_SRC" "$OUT_AAR"
+echo "✓ AAR: $OUT_AAR ($(du -h "$OUT_AAR" | cut -f1))"
 
-# Minimal build.gradle for the wrapper module
-cat > "$OUTPUT_MODULE/build.gradle" << 'GRADLE'
-// android/decoder-ffmpeg/build.gradle
-//
-// Thin wrapper that exposes the locally-built media3-decoder-ffmpeg AAR
-// (with libffmpegJNI.so embedded) as a Gradle project dependency.
-// Generated by android/build-ffmpeg-jni.sh — do not edit manually.
-configurations.maybeCreate("default")
-artifacts.add("default", file("libs/media3-decoder-ffmpeg-release.aar"))
-GRADLE
+# ── 5. LGPL compliance bundle ────────────────────────────────────────────────
+echo "[5/5] Writing LGPL compliance bundle ..."
+rm -rf "$COMPLIANCE_DIR"
+mkdir -p "$COMPLIANCE_DIR"
+
+tar -czf "$COMPLIANCE_DIR/ffmpeg-$FFMPEG_BRANCH.tar.gz" \
+    -C "$JNI_DIR" \
+    --exclude='ffmpeg/.git' \
+    --exclude='ffmpeg/android-libs' \
+    --exclude='ffmpeg/**/*.o' \
+    --exclude='ffmpeg/**/*.a' \
+    ffmpeg
+
+tar -czf "$COMPLIANCE_DIR/media3-decoder_ffmpeg-$MEDIA3_TAG.tar.gz" \
+    -C "$MEDIA3_DIR/libraries" \
+    --exclude='decoder_ffmpeg/build' \
+    decoder_ffmpeg
+
+cp "$JNI_DIR/ffmpeg/COPYING.LGPLv2.1" "$COMPLIANCE_DIR/COPYING.LGPLv2.1"
+cp "$MEDIA3_DIR/LICENSE" "$COMPLIANCE_DIR/LICENSE.Apache-2.0"
+cp "$JNI_DIR/build_ffmpeg.sh" "$COMPLIANCE_DIR/build_ffmpeg.sh"
+
+NDK_REVISION="$(sed -n 's/^Pkg\.Revision *= *//p' "$NDK_PATH/source.properties" 2>/dev/null || echo unknown)"
+AAR_SHA256="$(sha256sum "$OUT_AAR" | cut -d' ' -f1)"
+cat > "$COMPLIANCE_DIR/BUILD_INFO.txt" <<EOF
+FFmpeg decoder extension — build provenance
+===========================================
+
+Built at      : $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+Media3 tag    : $MEDIA3_TAG (androidx/media libraries/decoder_ffmpeg, Apache-2.0)
+FFmpeg branch : $FFMPEG_BRANCH
+FFmpeg commit : $FFMPEG_REV (LGPL v2.1+, no GPL/version3/nonfree components)
+Decoders      : ${DECODERS[*]}
+Android API   : $ANDROID_API
+NDK           : $NDK_PATH (r$NDK_REVISION)
+Host          : $HOST_PLATFORM
+
+Artifact      : android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar
+SHA-256       : $AAR_SHA256
+Contains      : Media3 decoder_ffmpeg wrapper classes (Apache-2.0) and
+                libffmpegJNI.so for armeabi-v7a/arm64-v8a/x86/x86_64, which
+                statically includes the FFmpeg libraries listed above.
+
+How to relink / rebuild
+-----------------------
+1. Extract ffmpeg-$FFMPEG_BRANCH.tar.gz into
+   libraries/decoder_ffmpeg/src/main/jni/ffmpeg of the same Media3 tag.
+2. Run this repository's android/build-ffmpeg-jni.sh with the same
+   MEDIA3_TAG / FFMPEG_BRANCH / ANDROID_API / DECODERS values.
+   The script invokes media3-decoder_ffmpeg-$MEDIA3_TAG.tar.gz's
+   build_ffmpeg.sh (also bundled) and then assembles the AAR.
+
+The FFmpeg components in this artifact are licensed under LGPL v2.1 or later
+(COPYING.LGPLv2.1). The wrapper is Apache-2.0 (LICENSE.Apache-2.0). No GPL,
+version3 or nonfree component is enabled (verified from config.h at build
+time).
+EOF
 
 echo ""
-echo "✓ Done!  android/decoder-ffmpeg/ is ready."
-echo "  AAR size: $(du -h "$OUTPUT_MODULE/libs/media3-decoder-ffmpeg-release.aar" | cut -f1)"
+echo "✓ Done."
+echo "  AAR        : $OUT_AAR"
+echo "  Compliance : $COMPLIANCE_DIR"
 echo ""
-echo "⚠️  FALLBACK MODULE — not wired into the build by default."
-echo "Next steps (manual, required):"
-echo "  1. Add include \":decoder-ffmpeg\" to android/settings.gradle"
-echo "  2. Replace the Jellyfin AAR dependency in android/app/build.gradle"
-echo "     with: implementation project(':decoder-ffmpeg')"
+echo "Next steps:"
+echo "  1. Commit android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar"
+echo "     so release builds do not need an NDK."
+echo "  2. Attach the compliance bundle to the release that ships this APK"
+echo "     (LGPL obligation — see docs/FFMPEG_DECODER_LGPL.md)."
 echo "  3. flutter build apk --release"
 echo ""
 echo "Verify in the debug log:"

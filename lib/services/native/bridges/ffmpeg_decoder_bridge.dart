@@ -134,17 +134,24 @@ class FfmpegDecoderInfo {
 ///
 /// ## Build-time state
 ///
-/// The native FFmpeg decoder is sourced from the Jellyfin prebuilt AAR
-/// (`org.jellyfin.media3:media3-ffmpeg-decoder`, Maven Central) and is
-/// **unconditionally on the classpath** — see `android/app/build.gradle`.
-/// There is no `ffmpegDecoderEnabled` flag and no local NDK build step; the
-/// old plan documented in `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md`
-/// (vendoring `androidx.media3:media3-decoder-ffmpeg` as a local Gradle
-/// module built against the NDK) was superseded before that approach ever
-/// shipped. [isAvailable] now only reflects the runtime check —
+/// The native decoder ships as a locally built **LGPL** AAR at
+/// `android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar`, produced by
+/// `android/build-ffmpeg-jni.sh` from the Apache-2.0 Media3 `decoder_ffmpeg`
+/// wrapper at the same tag as `media3_version`, with FFmpeg configured without
+/// GPL/version3/nonfree components. The community prebuilt
+/// (`org.jellyfin.media3:media3-ffmpeg-decoder`) is declared GPL-3.0 —
+/// incompatible with this app's "All Rights Reserved" LICENSE — and is not
+/// used. See `docs/FFMPEG_DECODER_LGPL.md`.
+///
+/// The AAR is committed, so normal builds need no NDK. `android/settings.gradle`
+/// includes the `:decoder-ffmpeg` module only when the AAR exists;
+/// `MEDIA3_FFMPEG_DECODER_LINKED` records that during the build, and release
+/// builds fail unless the AAR is present (or `-PallowMissingFfmpegDecoder=true`
+/// is passed). [isAvailable] still reflects the runtime check —
 /// `FfmpegLibrary.isAvailable()` — i.e. whether `libffmpegJNI.so` actually
-/// loaded on the device. A `false` result on a real device means the native
-/// library failed to load, not that the module is missing from the build.
+/// loaded on the device: `false` with `moduleLinked == true` means the native
+/// library failed to load, while `moduleLinked == false` means the module was
+/// not part of the build at all.
 class FfmpegDecoderBridge implements NativeModule {
   FfmpegDecoderBridge._();
 

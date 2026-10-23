@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.42',
+    date: '23 Oktober 2026',
+    changes: [
+      'Decoder FFmpeg sekarang dibangun sendiri dari sumber Media3 1.11.1 dengan FFmpeg LGPL (tanpa komponen GPL), menggantikan AAR Jellyfin GPL-3.0: konflik lisensi pada APK hilang dan versi decoder selaras dengan Media3 aplikasi.',
+      'Build rilis menolak dibuat tanpa AAR decoder tersebut, karena perangkat target tidak punya decoder ALAC platform; status decoder tetap dilaporkan lewat MEDIA3_FFMPEG_DECODER_LINKED.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.41',
     date: '22 Oktober 2026',
     changes: [

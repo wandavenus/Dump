@@ -14,6 +14,7 @@
 - Kotlin tests: `cd android && ./gradlew :app:testDebugUnitTest`; one class with `--tests "dev.wndavenz.music.queue.QueueManagerTest"`. Needs JDK 21, Android SDK 36, NDK 28.2.13676358, CMake 3.22.1.
 - Native C/FFI tests: `cd native_audio_runtime && dart test` (Dart >=3.11 and a working `clang`; the native-assets hook compiles `src/*.c`).
 - AutoMix offline audio regression: `tools/automix_ffmpeg_regression.sh` (requires `ffmpeg`, `ffprobe`, Java).
+- FFmpeg decoder AAR (LGPL, only when changing `media3_version` or decoder scope): `bash android/build-ffmpeg-jni.sh <ndk-path>` → commit `android/decoder-ffmpeg/libs/*.aar`. Release builds fail without it. See `docs/FFMPEG_DECODER_LGPL.md`.
 - APK (CI): `flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=build/debug-info`. `setup-flutter.sh` / `build-apk.sh` are Replit-specific (`/home/runner/...`) — don't assume they work in Termux/Codespaces.
 - This Termux workspace has `dart`/`clang` but no Flutter or Java; use the devcontainer/CI/Replit for Flutter and Gradle work.
 - Web preview: `node server.js` serves prebuilt `build/web`; rebuild only when explicitly asked with `flutter build web --release --base-href /`.
@@ -26,6 +27,7 @@
 - DSP is C in `native_audio_runtime/src` (FFI on host, JNI on Android): the audio thread does no allocation/logging, cross-thread knobs are atomic, and DSP failures must fail open.
 - New C files must be listed in `native_audio_runtime/hook/build.dart` (the build source of truth, not Gradle); `native_dsp_jni.c` is Android-only. `android/app/src/main/cpp/CMakeLists.txt` builds the separate ReplayGain/TagLib/Stretch JNI modules.
 - Native Parametric EQ was removed; the Band EQ uses Android's system Equalizer. Don't reintroduce a second EQ backend.
+- The FFmpeg decoder must stay the in-repo LGPL build (`android/decoder-ffmpeg`). Never reintroduce the GPL Jellyfin AAR or `ffmpeg_kit_flutter*`.
 - App state is `ValueNotifier` + `Stream` + `setState`; there is no Provider/Bloc/Riverpod.
 - Startup order in `lib/main/main.dart` is deliberate (LogService → permissions → warmups → audio init). Don't add awaited platform-channel calls that can block startup.
 - Web guards are intentional: e.g. `MediaStoreService.getSongs()` throws `MissingPluginException` on web; treat it as an empty library.

@@ -37,14 +37,19 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 
-// Phase 9 — FFmpeg decoder extension via Jellyfin's prebuilt AAR.
-// androidx.media3:media3-decoder-ffmpeg is NOT on Google Maven. Jellyfin
-// maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
-// Maven Central that includes prebuilt libffmpegJNI.so for all ABIs (including
-// arm64-v8a). Their build is based on Media3 1.9.0; we exclude their transitive
-// media3 deps so Gradle resolves everything to our pinned stable versions.
-// License: GPL v3 (https://www.gnu.org/licenses/gpl-3.0.txt).
+// Phase 9 — FFmpeg decoder extension, built in-repo as an LGPL artifact.
+// androidx.media3:media3-decoder-ffmpeg is NOT on any Maven repository, and the
+// community prebuilt (org.jellyfin.media3:media3-ffmpeg-decoder) is declared
+// GPL-3.0 — incompatible with this app's "All Rights Reserved" LICENSE.
+// android/build-ffmpeg-jni.sh builds the Apache-2.0 wrapper from androidx/media
+// at the same tag as media3_version below, with FFmpeg configured without
+// GPL/version3/nonfree components. See docs/FFMPEG_DECODER_LGPL.md.
 def media3_version = "1.11.1"
+
+// android/settings.gradle sets this after checking for the committed AAR.
+def ffmpegDecoderPresent =
+    gradle.ext.has("ffmpegDecoderAarPresent") && gradle.ext.ffmpegDecoderAarPresent
+def allowMissingFfmpegDecoder = project.hasProperty("allowMissingFfmpegDecoder")
 
 android {
     namespace "dev.wndavenz.music"
@@ -86,8 +91,9 @@ android {
             abiFilters "arm64-v8a" // Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
 
-        // Jellyfin AAR is always on the classpath via Maven Central.
-        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "true"
+        // True only when the in-repo LGPL decoder AAR is on the classpath.
+        // Reported by FfmpegCapabilityProbe and the Dart bridge diagnostics.
+        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "${ffmpegDecoderPresent}"
 
         // Native ReplayGain module (libebur128 + TagLib, fetched via CMake
         // FetchContent — see src/main/cpp/CMakeLists.txt). No prebuilt .so
@@ -172,13 +178,11 @@ dependencies {
     implementation "androidx.media3:media3-extractor:$media3_version"
     implementation "androidx.media3:media3-inspector:$media3_version"
     implementation "androidx.media3:media3-container:$media3_version"
-    // Phase 9 — Jellyfin prebuilt FFmpeg decoder (ALAC + other formats).
-    // Excludes Jellyfin's transitive media3 deps (1.9.0) so Gradle resolves
-    // everything to our pinned stable versions. The arm64-v8a .so is extracted
-    // automatically from the AAR; other ABIs are stripped by abiFilters above.
-    implementation('org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1') {
-        exclude group: 'androidx.media3', module: 'media3-decoder'
-        exclude group: 'androidx.media3', module: 'media3-exoplayer'
+    // Phase 9 — in-repo LGPL FFmpeg decoder extension (ALAC/DTS/TrueHD/Vorbis/
+    // Opus). The AAR is built by android/build-ffmpeg-jni.sh; abiFilters above
+    // drops every ABI except arm64-v8a from whatever the AAR carries.
+    if (ffmpegDecoderPresent) {
+        implementation project(':decoder-ffmpeg')
     }
 
     // Native palette extraction — MMCQ quantization via Android's Palette library.
@@ -189,4 +193,26 @@ dependencies {
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:2.4.20'
     testImplementation 'org.mockito:mockito-core:5.24.0'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:6.4.0'
+}
+
+// Release builds must ship the decoder: the target device has no usable
+// platform ALAC decoder, so silently releasing without it ships a player that
+// cannot open lossless files. Override deliberately with
+// -PallowMissingFfmpegDecoder=true (or the ORG_GRADLE_PROJECT_ equivalent).
+tasks.register("verifyFfmpegDecoderAar") {
+    doLast {
+        if (!ffmpegDecoderPresent && !allowMissingFfmpegDecoder) {
+            throw new GradleException(
+                "FFmpeg decoder AAR missing: " +
+                "android/decoder-ffmpeg/libs/media3-decoder-ffmpeg-release.aar. " +
+                "Build it with android/build-ffmpeg-jni.sh <ndk-path> " +
+                "(docs/FFMPEG_DECODER_LGPL.md), commit the AAR, or pass " +
+                "-PallowMissingFfmpegDecoder=true to release without " +
+                "ALAC/DTS/TrueHD support."
+            )
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn("verifyFfmpegDecoderAar")
 }

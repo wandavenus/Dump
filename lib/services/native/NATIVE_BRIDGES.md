@@ -21,8 +21,9 @@ FFI at all. Decoding for formats Media3 can demux but can't decode natively
 official `androidx.media3:media3-decoder-ffmpeg` extension, running inside
 `Media3PlaybackService.kt`'s ExoPlayer instance. `FfmpegDecoderBridge` is now a
 Kotlin/JNI bridge (its own small MethodChannel + EventChannel pair) rather than
-an FFI bridge — see `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` for the full
-design and why `ffmpeg_kit_flutter` (retired Jan/Apr 2025) was rejected.
+an FFI bridge — see `docs/FFMPEG_DECODER_LGPL.md` for the build/wiring design,
+why the GPL Jellyfin AAR was dropped, and why `ffmpeg_kit_flutter` (retired
+Jan/Apr 2025) was rejected.
 `native_audio_runtime` remains exclusively the DSP runtime; it was not
 touched by this phase.
 
@@ -91,10 +92,12 @@ All native access goes through `PlaybackManager`.
   formats Media3 can demux but has no on-device MediaCodec decoder for
 - Out of scope: APE, WavPack, TAK, Monkey's Audio (no Media3 container
   `Extractor` exists for these at all — separate, larger follow-up)
-- **Status:** Architecture + real code complete; native `.so` not vendored in
-  this environment (no Android NDK) — `isAvailable` is `false` until someone
-  completes the build in `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` and sets
-  `ffmpegDecoderEnabled=true`
+- **Status:** Architecture + real code complete. The decoder AAR is built by
+  `android/build-ffmpeg-jni.sh` (LGPL) and committed at
+  `android/decoder-ffmpeg/libs/`; `android/settings.gradle` includes the module
+  only when that AAR exists, and release builds are gated on it. `isAvailable`
+  is `false` when the AAR is absent from the build or `libffmpegJNI.so` fails
+  to load — see `docs/FFMPEG_DECODER_LGPL.md`
 
 ---
 
@@ -178,21 +181,22 @@ When ready to implement real DSP (Phase 4+):
 ## FFmpeg Decoder Integration (Phase 9 — implemented)
 
 Full design, rejected alternatives (`ffmpeg_kit_flutter*` — retired Jan/Apr
-2025), the reflection-based capability probe, Gradle wiring, and the human
-runbook for vendoring the actual `.so` on a machine with an Android NDK all
-live in **`docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md`**. Summary:
+2025), licensing rationale, the reflection-based capability probe and the AAR
+build runbook all live in **`docs/FFMPEG_DECODER_LGPL.md`**. Summary:
 
 - Media3's own `androidx.media3:media3-decoder-ffmpeg` extension
   (`FfmpegAudioRenderer`) is used — never `ffmpeg_kit_flutter` or a custom
-  CMake build. `DefaultRenderersFactory`'s `EXTENSION_RENDERER_MODE_ON` +
+  CMake build. `DefaultRenderersFactory`'s `EXTENSION_RENDERER_MODE_PREFER` +
   `setEnableDecoderFallback(true)` (already present in
-  `Media3PlaybackService.kt` from an earlier phase) makes ExoPlayer try
-  built-in decoders first and fall back to the extension automatically —
-  **no `RenderersFactory` code changes were needed for this phase.**
-- The module isn't on Maven Central; it's vendored as an optional local
-  Gradle module (`android/decoder-ffmpeg/`, guarded in `settings.gradle` +
-  `build.gradle` behind `ffmpegDecoderEnabled` in `local.properties`) so a
-  build with the module absent still succeeds.
+  `Media3PlaybackService.kt` from an earlier phase) gives the extension
+  priority over MediaCodec and keeps fallback enabled — **no
+  `RenderersFactory` code changes were needed for this phase.**
+- The wrapper isn't on Maven Central, and the community prebuilt is GPL-3.0.
+  It is built in-repo by `android/build-ffmpeg-jni.sh` against FFmpeg with no
+  GPL/version3/nonfree component, committed at
+  `android/decoder-ffmpeg/libs/*.aar`, and included as a local Gradle module
+  only when that AAR exists (`settings.gradle`); release builds fail on
+  `verifyFfmpegDecoderAar` when it is missing.
 - `FfmpegCapabilityProbe.kt` looks up `FfmpegLibrary` by reflection, so
   `Media3PlaybackService.kt` compiles whether or not the module is present.
 - PCM from `FfmpegAudioRenderer` flows through the exact same
