@@ -1,6 +1,7 @@
 # Audit Implementasi AutoMix — v4 final (2026-10-21)
 
 **Status:** Audit akhir atas basis `c36eaf2` ditambah patch working tree. Dokumen v3 (`automix_implementation_audit_v3.md`) tetap disimpan sebagai riwayat; status di v4 ini menggantikan status v3.
+**Tindak lanjut:** Dua regresi jalur early handover yang ditemukan setelah v4 dicatat dan diperbaiki di `automix_implementation_audit_v5.md` (2026-10-23).
 **Repository:** `wandavenus/Dump`
 **Basis kode:** `c36eaf2` — "Fix AutoMix 145 BPM downbeat estimation"
 **Perubahan working tree:** 10 berkas, +269/−28 (tanpa churn format)

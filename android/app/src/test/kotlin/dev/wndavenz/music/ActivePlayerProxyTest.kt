@@ -659,6 +659,25 @@ class ActivePlayerProxyTest {
         verify(p2, org.mockito.kotlin.times(1)).addListener(listener)
     }
 
+    @Test fun `G09 switchTo by default carries the user volume`() {
+        val proxy = buildProxy()
+
+        proxy.switchTo(p2)
+
+        verify(p2).volume = 0.8f
+    }
+
+    @Test fun `G10 switchTo copyVolume=false leaves the deck gain untouched`() {
+        val proxy = buildProxy()
+
+        proxy.switchTo(p2, copyVolume = false)
+
+        // Crossfade promotion: the controller already muted the standby and
+        // owns the per-deck fade envelope, so the proxy must not overwrite it.
+        verify(p2, never()).volume = any()
+        assertSame(p2, proxy.wrappedPlayer)
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // H. Transport command lambda delegation
     // ═════════════════════════════════════════════════════════════════════════

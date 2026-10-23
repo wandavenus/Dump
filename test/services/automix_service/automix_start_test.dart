@@ -109,6 +109,39 @@ void main() {
     expect(targets.first['downbeatOffsetMs'], 31800.0);
   });
 
+  test('re-engaging AutoMix does not resend an unchanged duration', () async {
+    AutomixService.automixEnabled.value = true;
+    AudioEffectsService.crossfadeDuration.value = 4.0;
+
+    // First engagement replaces the user's value, so the native call is real.
+    expect(await AutomixService.engageCrossfadeForTesting(4.0), isTrue);
+    await pumpEventQueue();
+    var calls = playbackCalls
+        .where((call) => call.method == 'setCrossfadeDuration')
+        .toList();
+    expect(calls, hasLength(1));
+    expect((calls.single.arguments as Map<Object?, Object?>)['duration'], 4.0);
+
+    // A track advance replans the next pair, usually with the same duration.
+    // That must not touch the live crossfade.
+    playbackCalls.clear();
+    expect(await AutomixService.engageCrossfadeForTesting(4.0), isTrue);
+    await pumpEventQueue();
+    calls = playbackCalls
+        .where((call) => call.method == 'setCrossfadeDuration')
+        .toList();
+    expect(calls, isEmpty);
+
+    // A genuinely different duration is still forwarded for the next blend.
+    expect(await AutomixService.engageCrossfadeForTesting(6.0), isTrue);
+    await pumpEventQueue();
+    calls = playbackCalls
+        .where((call) => call.method == 'setCrossfadeDuration')
+        .toList();
+    expect(calls, hasLength(1));
+    expect((calls.single.arguments as Map<Object?, Object?>)['duration'], 6.0);
+  });
+
   test('same-ID queue never engages the AutoMix transition', () async {
     final result = await AutomixService.startAutomix([
       song(101),

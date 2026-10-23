@@ -1657,8 +1657,17 @@ class AutomixService {
         if (!_isAutoMixGenerationCurrent(generation)) return false;
         await prefs.setDouble('automixSavedCrossfade', _savedCrossfade!);
         if (!_isAutoMixGenerationCurrent(generation)) return false;
-        await AudioEffectsService.setCrossfade(seconds);
-        if (!_isAutoMixGenerationCurrent(generation)) return false;
+        // A track advance replans the next pair, usually with the same
+        // duration. Re-sending it would reconfigure a live fade, so skip the
+        // native round-trip unless the value actually changed. A different
+        // duration is still sent; native applies it to the next transition.
+        final unchanged =
+            automixActive.value &&
+            (AudioEffectsService.crossfadeDuration.value - seconds).abs() < 0.01;
+        if (!unchanged) {
+          await AudioEffectsService.setCrossfade(seconds);
+          if (!_isAutoMixGenerationCurrent(generation)) return false;
+        }
       }
       automixActive.value = true;
       return true;
@@ -1668,6 +1677,11 @@ class AutomixService {
       return false;
     }
   }
+
+  /// Test-only entry point for the crossfade engagement guard.
+  @visibleForTesting
+  static Future<bool> engageCrossfadeForTesting(double seconds) =>
+      _engageCrossfade(seconds);
 
   static Future<bool> _restoreCrossfade() async {
     final saved = _savedCrossfade;
