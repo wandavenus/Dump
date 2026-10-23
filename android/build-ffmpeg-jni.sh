@@ -175,10 +175,20 @@ for flag in GPL VERSION3 NONFREE; do
         exit 1
     fi
 done
+# FFmpeg writes per-component flags (including CONFIG_*_DECODER) to
+# config_components.h, not config.h. Check that file or every valid decoder
+# will be falsely reported as disabled after a successful build.
+COMPONENT_CONFIG_H="$JNI_DIR/ffmpeg/config_components.h"
+if [ ! -f "$COMPONENT_CONFIG_H" ]; then
+    echo "ERROR: $COMPONENT_CONFIG_H missing after configure — cannot verify decoder selection."
+    exit 1
+fi
 for decoder in "${DECODERS[@]}"; do
     upper="$(printf '%s' "$decoder" | tr '[:lower:]' '[:upper:]')"
-    if ! grep -qE "^#define CONFIG_${upper}_DECODER 1" "$CONFIG_H"; then
+    if ! grep -qE "^#define CONFIG_${upper}_DECODER 1" "$COMPONENT_CONFIG_H"; then
         echo "ERROR: decoder '$decoder' is not enabled in the FFmpeg build."
+        echo "Config checked: $COMPONENT_CONFIG_H"
+        echo "Inspect $JNI_DIR/ffmpeg/ffbuild/config.log for configure diagnostics."
         exit 1
     fi
 done
