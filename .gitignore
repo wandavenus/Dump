@@ -112,3 +112,8 @@ migrate_working_dir/
 *.jks
 *.keystore
 android/key.properties
+# Widget Preview related
+.widget_preview/
+
+# Test/coverage artifacts
+coverage/
