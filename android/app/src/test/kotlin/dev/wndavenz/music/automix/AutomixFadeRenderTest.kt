@@ -278,7 +278,17 @@ class AutomixFadeRenderTest {
             val size = buffer.getInt(offset + 4)
             require(size >= 0) { "negative WAV chunk size ${file.name}" }
             if (id == "fmt ") {
-                format = buffer.getShort(offset + 8).toInt()
+                // FFmpeg >= 6.1 writes 32-bit float mono as
+                // WAVE_FORMAT_EXTENSIBLE (0xFFFE) with the IEEE-float GUID
+                // (0x0003) in the SubFormat field instead of the legacy
+                // plain WAVE_FORMAT_IEEE_FLOAT tag. Accept both encodings
+                // while still requiring the effective format to be float.
+                val declaredFormat = buffer.getShort(offset + 8).toInt() and 0xFFFF
+                format = if (declaredFormat == 0xFFFE) {
+                    buffer.getShort(offset + 8 + 24).toInt() and 0xFFFF
+                } else {
+                    declaredFormat
+                }
                 channels = buffer.getShort(offset + 10).toInt()
                 sampleRate = buffer.getInt(offset + 12)
                 bitsPerSample = buffer.getShort(offset + 22).toInt()
