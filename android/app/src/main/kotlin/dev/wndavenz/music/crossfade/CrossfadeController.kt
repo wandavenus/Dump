@@ -654,6 +654,11 @@ class CrossfadeController(
         CrossfadeTimelineLogger.stamp("beginCrossfade: ActivePlayerProxy.switchTo(standby) START", standby)
         switchSessionPlayer(standby)
         CrossfadeTimelineLogger.stamp("beginCrossfade: ActivePlayerProxy.switchTo(standby) DONE", standby)
+        // Defence in depth: the production proxy is told not to carry the
+        // outgoing volume onto the promoted deck, but any alternative session
+        // switch must not be able to un-mute the incoming track before the
+        // first equal-power tick. Re-assert silence after promotion.
+        standby.volume = 0f
 
         // Audio focus was validated before any queue/player mutation above.
         if (standby.playbackState != Player.STATE_READY) {

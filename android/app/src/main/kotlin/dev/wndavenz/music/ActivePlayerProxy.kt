@@ -87,8 +87,14 @@ internal class ActivePlayerProxy(
      * MediaController clients).  Our per-ExoPlayer listeners (registered directly on the
      * ExoPlayer instance via attachPlayerListener) are NOT in this list, so the synthetic
      * events do NOT re-trigger our onMediaItemTransition handler in Media3PlaybackService.
+     *
+     * @param copyVolume true (default) carries the user volume across engine swaps
+     *   such as Bit-Perfect Mode. Crossfade promotion passes false: the controller
+     *   owns both decks' gains and has already muted the incoming deck, so copying
+     *   the outgoing deck's full volume here would make the incoming track audible
+     *   before the first equal-power tick (and permanently if a tick is delayed).
      */
-    fun switchTo(newPlayer: ExoPlayer) {
+    fun switchTo(newPlayer: ExoPlayer, copyVolume: Boolean = true) {
         if (newPlayer === _current) return
         val snapshot = registeredListeners.toList()
         snapshot.forEach { _current.removeListener(it) }
@@ -97,11 +103,10 @@ internal class ActivePlayerProxy(
         // clean player, or a restored pre-bit-perfect player) starts at its own
         // default volume (1.0 / stale), so without this copy a volume < 1.0 set
         // by the user jumps to full volume on switch and is only recovered the
-        // next time the slider is touched. Copying old → new is safe for the
-        // crossfade path too: beginCrossfade() zeroes the standby before
-        // switchTo() and the equal-power fade re-owns the volume on its very
-        // next tick (~16 ms), so the interim value is inaudible.
-        newPlayer.volume = _current.volume.coerceIn(0f, 1f)
+        // next time the slider is touched.
+        if (copyVolume) {
+            newPlayer.volume = _current.volume.coerceIn(0f, 1f)
+        }
         _current = newPlayer
         snapshot.forEach { _current.addListener(it) }
 

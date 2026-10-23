@@ -444,6 +444,20 @@ class TransportCommands(
 
             "setCrossfadeDuration" -> {
                 val sec = (call.argument<Number>("duration")?.toFloat() ?: 0f).coerceAtLeast(0f)
+                // A positive duration update during a live fade only affects the
+                // NEXT transition. Tearing the fade down here would silence the
+                // outgoing deck and jump the incoming deck to full volume in the
+                // middle of the blend — especially audible during an early
+                // AutoMix hand-over, where the fade starts 30-65 s before EOF.
+                // Dart re-engages AutoMix on every track advance, so this path is
+                // routinely hit with the same (or next pair's) duration.
+                if (crossfadeController.crossfadeInProgress && sec > 0f) {
+                    crossfadeController.setDuration(sec)
+                    offloadManager.onCrossfadeDurationChanged(sec)
+                    log("verbose", "setCrossfadeDuration: ${sec}s (active fade preserved)")
+                    result.success(null)
+                    return
+                }
                 val wasCrossfading = crossfadeController.crossfadeInProgress
                 val promotedIndex  = preloadManager.preloadedQueueIndex
                 crossfadeController.setDuration(sec)

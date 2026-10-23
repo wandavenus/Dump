@@ -493,7 +493,10 @@ class Media3PlaybackService : MediaSessionService() {
                 // CRIT-01 fix: update the proxy's wrapped player instead of calling
                 // session.setPlayer(). The MediaSession stays bound to activePlayerProxy
                 // permanently; listeners are migrated to the new ExoPlayer by switchTo().
-                try { activePlayerProxy.switchTo(newPlayer) }
+                // Crossfade gains are owned by CrossfadeController: the incoming deck
+                // was explicitly muted before promotion, so do not copy the outgoing
+                // deck's full volume back onto it (that produced a pre-fade blip).
+                try { activePlayerProxy.switchTo(newPlayer, copyVolume = false) }
                 catch (e: Exception) {
                     NativeLogger.emit("warn", "Media3", "ActivePlayerProxy.switchTo failed: ${e.message}")
                 }

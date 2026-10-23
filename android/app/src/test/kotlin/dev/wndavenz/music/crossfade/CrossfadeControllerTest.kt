@@ -81,6 +81,7 @@ class CrossfadeControllerTest {
         automixEnabled: Boolean = false,
         transitionStartMs: Long? = null,
         transitionLeadMs: Long? = null,
+        onSwitchSession: (ExoPlayer) -> Unit = {},
     ): CrossfadeController {
         activePlayerState = activePlayer
         return CrossfadeController(
@@ -88,7 +89,10 @@ class CrossfadeControllerTest {
             getActivePlayer      = { activePlayerState },
             getStandbyPlayer     = { standbyPlayer },
             setActivePlayer      = { activePlayerState = it; setActivePlayerCalls++ },
-            switchSessionPlayer  = { switchSessionCalls++ },
+            switchSessionPlayer  = { player ->
+                switchSessionCalls++
+                onSwitchSession(player)
+            },
             preloadManager       = mockPreloadManager,
             getVolumeBeforeDuck  = { volumeBeforeDuck },
             hasAudioFocus        = { hasAudioFocus },
@@ -545,6 +549,7 @@ class CrossfadeControllerTest {
     private fun makeControllerWithImmediateTrigger(
         rebuildPromotedQueue: () -> Unit = {},
         volumeBeforeDuck: Float = 1f,
+        onSwitchSession: (ExoPlayer) -> Unit = {},
     ): CrossfadeController {
         // 3 s fade, 2.8 s remaining → inside the (crossMs + 250) window
         whenever(mockActivePlayer.duration).thenReturn(10_000L)
@@ -552,6 +557,7 @@ class CrossfadeControllerTest {
         return makeController(
             rebuildPromotedQueue = rebuildPromotedQueue,
             volumeBeforeDuck = volumeBeforeDuck,
+            onSwitchSession = onSwitchSession,
         ).also { it.setDuration(3f) }
     }
 
@@ -659,6 +665,27 @@ class CrossfadeControllerTest {
         assertEquals("completion callback restores the full native queue", 1, crossfadeCompleteCalls)
         verify(mockActivePlayer).stop()
         verify(mockActivePlayer).clearMediaItems()
+    }
+
+    @Test fun `F13 promoted standby stays muted even if session switch copies volume`() {
+        // Simulate an ActivePlayerProxy implementation that carries the outgoing
+        // deck's full volume onto the promoted standby. The controller must
+        // re-assert silence before the first equal-power tick.
+        val ctrl = makeControllerWithImmediateTrigger(
+            onSwitchSession = { player -> player.volume = 1f },
+        )
+
+        ctrl.maybeCrossfadeOut()
+
+        val appliedVolumes = argumentCaptor<Float>()
+        verify(mockStandbyPlayer, atLeastOnce()).volume = appliedVolumes.capture()
+        assertEquals(
+            "incoming deck must not become audible before the fade starts",
+            0f,
+            appliedVolumes.lastValue,
+            0.001f,
+        )
+        assertTrue(ctrl.crossfadeInProgress)
     }
 
     @Test fun `F08 cancel after beginCrossfade resets all flags`() {
