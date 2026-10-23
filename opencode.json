@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["GEMINI.md", ".agents/rules/*.md"],
+  "mcp": {
+    "servers": {
+      "dart": {
+        "type": "local",
+        "command": ["dart", "mcp-server"],
+        "cwd": ".",
+        "timeout": {
+          "startup": 90000
+        }
+      }
+    }
+  }
+}

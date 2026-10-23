@@ -63,3 +63,27 @@ This file contains team-shared architectural patterns, development workflows, co
 ## 5. Private Notes & Memory Guideline
 
 - For personal configuration, local machine paths, or private workflows, use the **Private Project Memory** directory (`.gemini/tmp/dump/memory/`) instead of committing them here.
+
+---
+
+## 6. AI Agent Rules
+
+Persistent rules for AI assistants working in this repo. Canonical copy:
+`.agents/rules/flutter-hot-reload.md`, synced from
+[flutter/agent-plugins](https://github.com/flutter/agent-plugins/blob/main/rules/flutter-hot-reload.md).
+
+### Proactive Flutter Hot Reload
+
+Whenever you edit or modify any `.dart` file under `lib/`:
+
+1. **Skip when:**
+   - The file is outside `lib/` (for example `test/**`, `integration_test/**`,
+     `benchmark/**`, `test_driver/**`, or `example/**`).
+   - The change only affects comments, docstrings, or whitespace.
+2. **Discover & connect:** find running app instances with the Dart MCP server
+   (`dtd`, `list_running_apps`, or `vm_service`).
+3. **Trigger:**
+   - Call `hot_reload` immediately after changes to UI widgets (including
+     `build` methods of stateful widgets) or simple methods.
+   - Call `hot_restart` if fundamental logic, state initialization
+     (`initState`), global/static state, or `main()` changed.

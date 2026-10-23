@@ -1,3 +1,15 @@
+## Android skills
+
+[View on GitHub](https://github.com/android/skills/tree/main/performance/r8-analyzer)
+
+### R8 Analyzer
+
+Use the R8 Analyzer [Android skill](https://developer.android.com/tools/agents/android-skills) to analyze build files and identify redundant, broad, or subsumed [keep rules](https://developer.android.com/topic/performance/app-optimization/keep-rules-overview). To install the skill from the [Android CLI](https://developer.android.com/tools/agents/android-cli), run:
+
+    android skills add r8-analyzer
+
+<br />
+
 For the best user experience, you should optimize your app to make it as small
 and fast as possible. Our app optimizer, called R8, streamlines your app by
 removing unused code and resources, rewriting code to optimize runtime
@@ -11,9 +23,6 @@ performance, and more. To your users, this means:
 > [!IMPORTANT]
 > **Important:** You should always enable optimization for your app's release build; however, you probably don't want to enable it for tests or libraries. For more information about using R8 with tests, see [Test and troubleshoot the
 > optimization](https://developer.android.com/topic/performance/app-optimization/test-and-troubleshoot-the-optimization). For more information about enabling R8 from libraries, see [Optimization for library authors](https://developer.android.com/topic/performance/app-optimization/library-optimization).
-
-> [!IMPORTANT]
-> **Important:** We released an agent skill that you can use to improve your app performance with R8. Try out the skill from the [Android skills repository](https://github.com/android/skills).
 
 ## R8 optimization overview
 
@@ -180,6 +189,8 @@ removed.
 To enable the new optimized resource shrinking pipeline for AGP 8.12 or 8.13,
 add the following to your project's `gradle.properties` file:
 
+    android.r8.optimizedResourceShrinking=true
+
 If you are using AGP 9.0.0 or a newer version, you don't need to set
 `android.r8.optimizedResourceShrinking=true`. Optimized resource shrinking is
 automatically applied when `isShrinkResources = true` is enabled in your build
@@ -190,7 +201,7 @@ configuration.
 To enable R8 to use its [full optimization capabilities](https://developer.android.com/topic/performance/app-optimization/full-mode), remove the
 following line from your project's `gradle.properties` file, if it exists:
 
-`bash android.enableR8.fullMode=false # Remove this line from your codebase.`
+    android.enableR8.fullMode=false
 
 Note that enabling app optimization makes stack traces difficult to understand,
 especially if R8 renames class or method names. To get stack traces that
@@ -228,3 +239,14 @@ the Android Gradle Plugin (AGP) and the R8 compiler.
 | 8.6 | **Improved retracing:** Includes filename and line number retracing by default for all `minSdk` levels (previously required `minSdk` 26+ in version 8.2). Updating R8 helps ensure that stack traces from obfuscated builds are readily and clearly readable. This version improves how line numbers and source files are mapped, making it easier for tools like the Android Studio Logcat to automatically retrace crashes to the original source code. |
 | 8.0 | **Full mode by default:** [R8 full mode](https://developer.android.com/topic/performance/app-optimization/full-mode) provides significantly more powerful optimization. It is enabled by default. You can opt out using `android.enableR8.fullMode=false`. |
 | 7.0 | **Full mode available:** Introduced as an opt-in feature using `android.enableR8.fullMode=true`. Full mode applies more powerful optimizations by making stricter assumptions about how your code uses reflection and other dynamic features. While it reduces app size and improves performance, it might require additional keep rules to prevent necessary code from being stripped. |
+
+## Use R8 with other build systems
+
+While AGP is the recommended and officially supported build system for Android
+apps, you might use an alternative build system like [Bazel](https://bazel.build/). If
+you're using Bazel, you can integrate R8 into your build pipeline to shrink,
+obfuscate, and optimize your app.
+
+For information about optimizing an Android app using Bazel, see Bazel's
+[`rules_android` documentation](https://github.com/bazelbuild/rules_android/tree/main/docs/r8-optimization.md). Note that Bazel isn't
+[officially supported](https://developer.android.com/build#other-build-systems) for Android app development.

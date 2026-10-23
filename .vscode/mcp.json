@@ -7,5 +7,10 @@
 			"password": true
 		}
 	],
-	"servers": {}
+	"servers": {
+		"dart": {
+			"command": "dart",
+			"args": ["mcp-server"]
+		}
+	}
 }
