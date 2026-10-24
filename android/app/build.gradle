@@ -114,9 +114,10 @@ android {
 
     packaging {
         resources {
+            // Keep third-party license and notice files in the APK so users can
+            // inspect the notices required by bundled open-source components.
+            // Exclude only non-license metadata that can safely be omitted.
             excludes += [
-                "META-INF/LICENSE*",
-                "META-INF/NOTICE*",
                 "META-INF/DEPENDENCIES",
                 "META-INF/*.version",
                 "META-INF/AL2.0",
