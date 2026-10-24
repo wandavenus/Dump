@@ -19,6 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Install pinned Android NDK
+        run: bash scripts/ci/install-android-ndk.sh
+
       - name: Set up JDK 21
         uses: actions/setup-java@v6
         with:
