@@ -811,12 +811,15 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               : 0.0;
 
                           // Keep the hairline on the collapsed artwork in both
-                          // background modes. Fluid keeps it on the expanded
-                          // artwork too; Artwork Blur fades it out as the sheet
-                          // opens. The lyrics/queue thumbnail has no hairline.
+                          // background modes. Fluid keeps it on expanded artwork
+                          // and the lyrics/queue thumbnail. Artwork Blur hides it
+                          // on the expanded artwork, but restores it as the artwork
+                          // transitions into the small overlay thumbnail.
                           final hairlineOpacity =
-                              ((isArtworkBlurStyle ? 1.0 - t : 1.0) *
-                                      (1.0 - effectiveOverlayT))
+                              (isArtworkBlurStyle
+                                      ? (1.0 - t) * (1.0 - effectiveOverlayT) +
+                                            effectiveOverlayT
+                                      : 1.0)
                                   .clamp(0.0, 1.0)
                                   .toDouble();
                           final hairlineColor =
