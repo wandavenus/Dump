@@ -2,6 +2,8 @@ name: CI checks
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -19,6 +21,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Validate native build scripts
+        run: |
+          bash -n android/build-ffmpeg-jni.sh
+          bash -n scripts/ci/install-android-ndk.sh
+
+      - name: Install pinned Android NDK
+        run: bash scripts/ci/install-android-ndk.sh
 
       - name: Set up Java
         uses: actions/setup-java@v6
@@ -46,3 +56,16 @@ jobs:
           chmod +x android/gradlew
           cd android
           ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Build debug APK including FFmpeg JNI
+        run: flutter build apk --debug --target-platform android-arm64 --no-pub
+
+      - name: Verify FFmpeg JNI and license notices are packaged
+        working-directory: android
+        run: |
+          APK="../build/app/outputs/flutter-apk/app-debug.apk"
+          test -f "$APK"
+          unzip -Z -1 "$APK" | grep -Fx "lib/arm64-v8a/libffmpegJNI.so"
+          unzip -Z -1 "$APK" | grep -Fx "assets/licenses/COPYING.LGPLv2.1"
+          unzip -Z -1 "$APK" | grep -Fx "assets/licenses/LICENSE-2.0.txt"
+          unzip -Z -1 "$APK" | grep -Fx "assets/licenses/THIRD_PARTY_NOTICES.txt"

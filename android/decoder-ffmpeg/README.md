@@ -43,8 +43,11 @@ bash android/build-ffmpeg-jni.sh --clean    # rebuild FFmpeg from scratch
 
 Gradle runs the same script from `:decoder-ffmpeg:buildFfmpegJni`, wired into
 `preBuild`, so a normal `flutter build apk` produces the `.so` on first use.
-The build is cached under `.ffmpeg-build/` and reused until the script or
-`ffmpeg_jni.cc` changes.
+Gradle tracks the FFmpeg tag, Android API, pinned NDK, ABI, script, and JNI
+source as task inputs. The script fingerprints the source revision, configure
+arguments, compiler/toolchain, enabled decoder set, and build recipe; static
+archives are rebuilt when that fingerprint changes instead of trusting only
+the presence of `libavcodec.a`.
 
 Defaults: FFmpeg `n8.1.3`, arm64-v8a, Android API 27, decoders ALAC, DCA
 (DTS/DTS-HD), TrueHD/MLP, Vorbis, and Opus. Override the tag with
@@ -53,7 +56,11 @@ Defaults: FFmpeg `n8.1.3`, arm64-v8a, Android API 27, decoders ALAC, DCA
 ## License notes
 
 - Wrapper sources: Apache License 2.0, © The Android Open Source Project.
-- FFmpeg binaries: LGPL-2.1-or-later, built without GPL, nonfree, or version-3
-  components. Distributing an APK that contains `libffmpegJNI.so` still requires
-  complying with the LGPL (license text, attribution, and a source offer for the
-  exact FFmpeg tag).
+- FFmpeg native component: built from FFmpeg `n8.1.3` with GPL, nonfree, and
+  version-3 components disabled. Full LGPL-2.1 text and third-party notices are
+  packaged under `assets/licenses/` in the APK.
+- Source: `https://github.com/FFmpeg/FFmpeg/tree/n8.1.3`; the build script and
+  JNI integration source are included in this repository.
+- This is not legal approval. Because FFmpeg static archives are linked into
+  `libffmpegJNI.so`, review source availability, replacement/relinking, and
+  distribution obligations before publishing.

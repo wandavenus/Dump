@@ -34,6 +34,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Install pinned Android NDK
+        run: bash scripts/ci/install-android-ndk.sh
+
       - name: Setup Java
         uses: actions/setup-java@v6
         with:
