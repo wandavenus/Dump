@@ -10,7 +10,6 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://github.com/flutter/flutter',
       summary: 'Framework UI dan runtime aplikasi.',
-      licenseUrl: null,
     ),
     _ThirdPartyLicense(
       name: 'Dart',
@@ -36,7 +35,6 @@ class OpenSourceLicensePage extends StatelessWidget {
       source: 'https://github.com/androidx/media/tree/1.11.1/libraries/decoder_ffmpeg',
       summary: 'Wrapper JNI yang menghubungkan Media3 dengan decoder FFmpeg.',
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
-      detailsAsset: 'android/decoder-ffmpeg/src/main/assets/licenses/LICENSE-2.0.txt',
     ),
     _ThirdPartyLicense(
       name: 'FFmpeg',
