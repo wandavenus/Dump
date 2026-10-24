@@ -17,6 +17,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://github.com/dart-lang/sdk',
       summary: 'Bahasa dan runtime untuk kode aplikasi.',
+      licenseUrl: 'https://opensource.org/license/bsd-3-clause',
     ),
     _ThirdPartyLicense(
       name: 'AndroidX Media3 (ExoPlayer)',
