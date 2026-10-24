@@ -57,6 +57,8 @@ class CrossfadeControllerTest {
     private var refreshNotifCalls     = 0
     private var crossfadeStartingCalls = 0
     private var crossfadeCancelledCalls = 0
+    private var nativeArmCalls = 0
+    private var nativeResetCalls = 0
     private val resetAutoMixTempoMultiplierPlayers = mutableListOf<ExoPlayer>()
     private var testClockMs = 1_000L
     private val pendingHandlerTasks = ArrayDeque<Runnable>()
@@ -82,6 +84,9 @@ class CrossfadeControllerTest {
         transitionStartMs: Long? = null,
         transitionLeadMs: Long? = null,
         onSwitchSession: (ExoPlayer) -> Unit = {},
+        nativeArmSucceeds: Boolean = false,
+        nativeConfigured: Boolean = false,
+        nativeProcessed: Boolean = false,
     ): CrossfadeController {
         activePlayerState = activePlayer
         return CrossfadeController(
@@ -116,6 +121,13 @@ class CrossfadeControllerTest {
             refreshNotification  = { refreshNotifCalls++ },
             onCrossfadeStarting  = { crossfadeStartingCalls++ },
             onCrossfadeCancelled = { crossfadeCancelledCalls++ },
+            armAutoMixCrossfade = { _, _, _, _, _, _, _, _ ->
+                nativeArmCalls++
+                nativeArmSucceeds
+            },
+            isAutoMixFadeConfigured = { _, _ -> nativeConfigured },
+            hasAutoMixFadeProcessed = { _, _ -> nativeProcessed },
+            resetAutoMixCrossfade = { nativeResetCalls++ },
             resetAutoMixTempoMultiplier = { resetAutoMixTempoMultiplierPlayers.add(it) },
             monotonicClockMs     = { testClockMs },
         )
@@ -147,6 +159,8 @@ class CrossfadeControllerTest {
         crossfadeCompleteCalls  = 0; emitAllCalls            = 0
         refreshNotifCalls       = 0; crossfadeStartingCalls  = 0
         crossfadeCancelledCalls = 0
+        nativeArmCalls          = 0
+        nativeResetCalls        = 0
         resetAutoMixTempoMultiplierPlayers.clear()
 
         // Sensible defaults for active player
@@ -550,6 +564,9 @@ class CrossfadeControllerTest {
         rebuildPromotedQueue: () -> Unit = {},
         volumeBeforeDuck: Float = 1f,
         onSwitchSession: (ExoPlayer) -> Unit = {},
+        nativeArmSucceeds: Boolean = false,
+        nativeConfigured: Boolean = false,
+        nativeProcessed: Boolean = false,
     ): CrossfadeController {
         // 3 s fade, 2.8 s remaining → inside the (crossMs + 250) window
         whenever(mockActivePlayer.duration).thenReturn(10_000L)
@@ -558,6 +575,9 @@ class CrossfadeControllerTest {
             rebuildPromotedQueue = rebuildPromotedQueue,
             volumeBeforeDuck = volumeBeforeDuck,
             onSwitchSession = onSwitchSession,
+            nativeArmSucceeds = nativeArmSucceeds,
+            nativeConfigured = nativeConfigured,
+            nativeProcessed = nativeProcessed,
         ).also { it.setDuration(3f) }
     }
 
@@ -595,6 +615,41 @@ class CrossfadeControllerTest {
         val ctrl = makeControllerWithImmediateTrigger()
         ctrl.maybeCrossfadeOut()
         assertEquals(1, crossfadeStartingCalls)
+    }
+
+    @Test fun `F06a native fade is reset when configuration proof is missing`() {
+        val ctrl = makeControllerWithImmediateTrigger(
+            nativeArmSucceeds = true,
+            nativeConfigured = false,
+        )
+
+        ctrl.maybeCrossfadeOut()
+
+        assertEquals(1, nativeArmCalls)
+        assertEquals(2, nativeResetCalls)
+        assertTrue(ctrl.crossfadeInProgress)
+    }
+
+    @Test fun `F06b proven native fade leaves master volumes neutral during ticks`() {
+        val ctrl = makeControllerWithImmediateTrigger(
+            nativeArmSucceeds = true,
+            nativeConfigured = true,
+            nativeProcessed = true,
+        )
+        ctrl.maybeCrossfadeOut()
+
+        // First tick observes the native process proof; the next tick confirms
+        // that Kotlin does not apply a second fade envelope through volume.
+        pendingHandlerTasks.removeLast().run()
+        testClockMs += 1_000L
+        pendingHandlerTasks.removeLast().run()
+
+        val outgoingVolumes = argumentCaptor<Float>()
+        verify(mockActivePlayer, atLeastOnce()).volume = outgoingVolumes.capture()
+        val incomingVolumes = argumentCaptor<Float>()
+        verify(mockStandbyPlayer, atLeastOnce()).volume = incomingVolumes.capture()
+        assertEquals(1f, outgoingVolumes.lastValue, 0.001f)
+        assertEquals(1f, incomingVolumes.lastValue, 0.001f)
     }
 
     @Test fun `F07 second maybeCrossfadeOut call when already in progress is ignored`() {

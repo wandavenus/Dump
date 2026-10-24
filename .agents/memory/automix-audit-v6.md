@@ -12,7 +12,7 @@ Current status and remaining priorities:
 3. **Fixed:** native AutoMix transition application now uses the same first-two-target list for validation and metadata storage; regression coverage is in `Media3PlaybackServiceAutomixBoundaryTest`.
 4. **Fixed:** hydrated/copy-with `AutomixSettings` reject malformed, non-finite, fractional, and extreme tolerance/beat values; invalid values return to defaults. Coverage is in `automix_settings_test.dart`.
 5. **Fixed:** `analyzeLibrary()` now refuses to start while the idle sweep owns the decoder/progress state; a deterministic race harness is still desirable for the timer/power-state path.
-6. `P2`: `CrossfadeController.nativeFadeAvailable` is hard-coded false, so production uses Kotlin 16 ms volume ticks while the C/NEON fade path is dead and its docs overstate runtime coverage.
+6. **In progress:** the former hard-coded `nativeFadeAvailable=false` path is now wired to the separate timeline-safe `AutomixFadeAudioProcessor` on both decks, with configuration and first-process proof before activation. Device/build validation remains open; see `native-automix-fade.md` and `docs/native-automix-fade-audit.md`.
 7. `P2`: reduce serial synchronous stat/cache work in the replan path.
 
-Local verification after the fixes: focused and full Kotlin unit tests pass; AutoMix Dart tests (including the new settings suite), Dart analyzer, native Dart suite, FFmpeg envelope regression, and `git diff --check` pass. Device-level Mi 9T/AudioFlinger capture is still open.
+Local verification after the fixes: full Android unit tests, Kotlin compilation, AutoMix Dart tests, Dart analyzer, native Dart suite, standalone native C fade regression, debug/release ARM64 APK builds, release-symbol inspection, and `git diff --check` pass. Representative benchmark and device-level Mi 9T/AudioFlinger capture remain open.

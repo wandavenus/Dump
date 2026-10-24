@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.45',
+    date: '24 Oktober 2026',
+    changes: [
+      'Crossfade Media3 kini memiliki jalur fade native sample-level berbasis timeline PCM untuk dua deck; bila konfigurasi, pemrosesan aktual, atau JNI gagal, playback otomatis kembali ke envelope Kotlin tanpa menggandakan gain.',
+      'Native AutoMix fade sekarang terpasang di chain PCM_FLOAT, mereset state saat seek, pergantian track, pembatalan, dan pelepasan player, serta menyanitasi sample non-finite sebelum sink audio.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.44',
     date: '24 Oktober 2026',
     changes: [
