@@ -374,19 +374,18 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            SelectableText(
-              license.source,
-              style: TextStyle(
-                color: c.secondaryLabel,
-                fontSize: 13,
-                height: 1.45,
+            GestureDetector(
+              onTap: () => _openUrl(license.source),
+              child: Text(
+                license.source,
+                style: const TextStyle(
+                  color: Color(0xFFF92D48),
+                  fontSize: 13,
+                  height: 1.45,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Color(0xFFF92D48),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _openUrl(license.source),
-              icon: const Icon(CupertinoIcons.link),
-              label: Text(l.licenseSource),
             ),
             const SizedBox(height: 24),
             if (license.licenseDocuments.isEmpty)
