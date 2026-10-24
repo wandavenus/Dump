@@ -27,7 +27,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       source: 'https://github.com/androidx/media/tree/1.11.1',
       summary: 'Playback audio, ekstraksi media, dan sesi media Android.',
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
-      detailsAsset: 'android/decoder-ffmpeg/src/main/assets/licenses/LICENSE-2.0.txt',
+      detailsAsset: null,
     ),
     _ThirdPartyLicense(
       name: 'Media3 FFmpeg decoder wrapper',
@@ -208,7 +208,9 @@ class OpenSourceLicensePage extends StatelessWidget {
                 Expanded(
                   child: fullText == null
                       ? SelectableText(
-                          context.l10n.licenseNoFullText,
+                          license.licenseUrl == null
+                              ? context.l10n.licenseNoFullText
+                              : '${context.l10n.licenseNoFullText}\n\n${license.licenseUrl}',
                           style: TextStyle(color: c.secondaryLabel),
                         )
                       : SingleChildScrollView(
