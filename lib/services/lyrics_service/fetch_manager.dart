@@ -88,24 +88,18 @@ class LyricsFetchManager {
     if (memResult != null) {
       LogService.verbose(
         'FetchManager',
-        'Memory cache hit: "${query.title}" [${memResult.quality.displayName}]',
+        'Memory cache hit [${memResult.quality.displayName}]',
       );
       return memResult;
     }
 
     // 2. Failure TTL — jangan coba lagi jika baru-baru ini gagal total
     if (LyricsCacheManager.instance.isRecentlyFailed(key)) {
-      LogService.verbose(
-        'FetchManager',
-        'Failure TTL active: "${query.title}" — skip',
-      );
+      LogService.verbose('FetchManager', 'Failure TTL active — skip');
       return null;
     }
 
-    LogService.log(
-      'FetchManager',
-      'Fetching: "${query.title}" — ${query.artist}',
-    );
+    LogService.verbose('FetchManager', 'Fetching lyrics');
 
     // 3. Disk cache
     if (!token.isCancelled) {
@@ -114,7 +108,7 @@ class LyricsFetchManager {
         LyricsCacheManager.instance.putMemory(key, diskResult);
         LogService.verbose(
           'FetchManager',
-          'Disk cache hit: "${query.title}" [${diskResult.quality.displayName}]',
+          'Disk cache hit [${diskResult.quality.displayName}]',
         );
         return diskResult;
       }
@@ -126,9 +120,9 @@ class LyricsFetchManager {
       try {
         final result = await provider.fetch(query, token);
         if (result != null && result.isNotEmpty) {
-          LogService.log(
+          LogService.verbose(
             'FetchManager',
-            '${provider.name}: "${query.title}" — ${result.lines.length} lines'
+            '${provider.name}: ${result.lines.length} lines'
                 ' [${result.quality.displayName}] (${sw.elapsedMilliseconds}ms)',
           );
           LyricsCacheManager.instance.putMemory(key, result);
@@ -154,9 +148,9 @@ class LyricsFetchManager {
     if (token.isCancelled) return null;
 
     if (onlineResult != null && onlineResult.isNotEmpty) {
-      LogService.log(
+      LogService.verbose(
         'FetchManager',
-        'Online result: "${query.title}" — ${onlineResult.lines.length} lines'
+        'Online result: ${onlineResult.lines.length} lines'
             ' [${onlineResult.quality.displayName}]'
             ' from ${onlineResult.providerName}'
             ' (${sw.elapsedMilliseconds}ms)',
@@ -172,9 +166,9 @@ class LyricsFetchManager {
 
     // 6. Tidak ditemukan — catat failure TTL
     LyricsCacheManager.instance.markFailed(key);
-    LogService.warn(
+    LogService.verbose(
       'FetchManager',
-      'Not found: "${query.title}" — ${query.artist} (${sw.elapsedMilliseconds}ms)',
+      'Not found (${sw.elapsedMilliseconds}ms)',
     );
     return null;
   }

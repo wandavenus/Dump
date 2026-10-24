@@ -39,18 +39,15 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
         val isLibraryAvailable: Boolean = run {
             NativeLogger.infoLog(LOG_TAG, "Loading native library stretch_native...")
-            NativeLogger.emit("info", "Stretch", "[Stretch] Loading native library stretch_native...")
             runCatching {
                 System.loadLibrary("stretch_native")
                 NativeLogger.registerLoggingSetter("stretch_native") { enabled ->
                     nativeSetLoggingEnabled(enabled)
                 }
                 NativeLogger.infoLog(LOG_TAG, "Native library loaded successfully")
-                NativeLogger.emit("info", "Stretch", "[Stretch] Native library loaded successfully")
                 true
             }.getOrElse { e ->
-                NativeLogger.warnLog(LOG_TAG, "Failed to load stretch_native.so: $e")
-                NativeLogger.emit("error", "Stretch", "[Stretch] Failed to load stretch_native.so: ${e.message}")
+                NativeLogger.errorLog(LOG_TAG, "Failed to load stretch_native.so: $e")
                 false
             }
         }
@@ -164,12 +161,12 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val h = nativeCreate(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         if (h == 0L) {
             nativeProcessingHealthy = false
-            NativeLogger.warnLog(LOG_TAG, "native stretch init failed — speed/pitch bypassed for this format")
-            NativeLogger.emit(
-                "warn", "Stretch",
-                "[Stretch] onConfigure -> NOT_SET reason=\"nativeCreate returned 0\" " +
-                    "sampleRate=${inputAudioFormat.sampleRate} channels=${inputAudioFormat.channelCount} " +
-                    "libraryAvailable=$isLibraryAvailable active=false",
+            NativeLogger.warnLog(
+                LOG_TAG,
+                "native stretch init failed — speed/pitch bypassed: " +
+                    "sampleRate=${inputAudioFormat.sampleRate} " +
+                    "channels=${inputAudioFormat.channelCount} " +
+                    "libraryAvailable=$isLibraryAvailable",
             )
             return AudioProcessor.AudioFormat.NOT_SET
         }

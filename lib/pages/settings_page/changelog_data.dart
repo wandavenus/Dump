@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.42',
+    date: '23 Oktober 2026',
+    changes: [
+      'Audit logging: pesan log kini meredaksi path dan URI, kategori dinormalisasi, dan buffer menyimpan warning/error lebih lama.',
+      'Log viewer kembali memperbarui live tail setelah buffer penuh; error Flutter dan Dart tetap dilaporkan walau logging dimatikan.',
+      'Call site Dart, Kotlin, dan native dirapikan agar log verbose tidak membanjiri diagnostik dan tidak memuat judul lagu atau path pribadi.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.41',
     date: '22 Oktober 2026',
     changes: [

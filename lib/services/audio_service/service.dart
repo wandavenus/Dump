@@ -105,7 +105,6 @@ class AudioService {
           ),
         );
         if (ps == ProcessingState.completed && !_isLoading) {
-          LogService.verbose('AudioService', 'Track completed (queue ended)');
           _onTrackCompleted();
         }
       }),
@@ -477,10 +476,9 @@ class AudioService {
       ),
     );
 
-    LogService.log(
+    LogService.verbose(
       'AudioService',
-      'Native → [${index + 1}/${_playlist.length}]: '
-          '"${song.title}" — ${song.artist}',
+      'Native track [${index + 1}/${_playlist.length}] songId=${song.id}',
     );
 
     if (index != prevIndex) unawaited(HistoryService.trackPlay(song));
@@ -562,7 +560,9 @@ class AudioService {
         'playSongAt ignored — already loading',
       );
       if (rethrowOnError) {
-        throw StateError('playSongAt cannot start while another load is active');
+        throw StateError(
+          'playSongAt cannot start while another load is active',
+        );
       }
       return;
     }
@@ -609,8 +609,7 @@ class AudioService {
       _previousSong = selectedSong;
       LogService.log(
         'AudioService',
-        'Now playing [${index + 1}/${immutable.length}]: '
-            '"${selectedSong.title}" — ${selectedSong.artist}',
+        'Now playing [${index + 1}/${immutable.length}] songId=${selectedSong.id}',
       );
       unawaited(HistoryService.trackPlay(selectedSong));
     } on Object catch (e, st) {
@@ -716,7 +715,7 @@ class AudioService {
     unawaited(_ReplayGainApplicator.apply(song));
     LogService.log(
       'AudioService',
-      'Queue jump → [${index + 1}]: "${song.title}"',
+      'Queue jump → [${index + 1}] songId=${song.id}',
     );
   }
 
@@ -733,7 +732,6 @@ class AudioService {
     // Optimistic UI update — native confirms via repeatModeStream.
     _setState(playbackState.value.copyWith(loopMode: next));
     await PlaybackManager.setRepeatMode(next.name);
-    LogService.log('AudioService', 'Loop mode → ${next.name}');
   }
 
   static Future<void> toggleShuffle() async {
@@ -743,7 +741,6 @@ class AudioService {
     // Optimistic UI update — native confirms via shuffleModeStream.
     _setState(playbackState.value.copyWith(shuffleEnabled: next));
     await PlaybackManager.setShuffleMode(next);
-    LogService.log('AudioService', 'Shuffle → ${next ? "on" : "off"}');
   }
 
   // ── Queue mutations (native owns the queue) ───────────────────────────────
@@ -759,9 +756,9 @@ class AudioService {
     }
     _queueMutationGuard(
       () => PlaybackManager.insertNext(song),
-      'insertNext "${song.title}"',
+      'insertNext songId=${song.id}',
     );
-    LogService.log('AudioService', 'Queued next: "${song.title}"');
+    LogService.log('AudioService', 'Queued next songId=${song.id}');
   }
 
   /// Append [song] at the end of the queue.
@@ -773,11 +770,11 @@ class AudioService {
     }
     _queueMutationGuard(
       () => PlaybackManager.appendToQueue(song),
-      'appendToQueue "${song.title}"',
+      'appendToQueue songId=${song.id}',
     );
     LogService.log(
       'AudioService',
-      'Queued at end: "${song.title}" (${_playlist.length})',
+      'Queued at end songId=${song.id} (${_playlist.length})',
     );
   }
 
@@ -791,10 +788,9 @@ class AudioService {
   ) {
     unawaited(
       mutation().catchError((Object e, StackTrace st) {
-        LogService.log(
+        LogService.warn(
           'AudioService',
           'Queue mutation failed ($label) — re-syncing from native: $e',
-          level: LogLevel.warning,
           stackTrace: st.toString(),
         );
         unawaited(syncFromNative());
@@ -873,7 +869,9 @@ class AudioService {
       throw StateError('Active track changed during AutoMix queue reorder');
     }
     final latestTail = _playlist.skip(latestIndex + 1).toList(growable: false);
-    final latestTailIds = latestTail.map((song) => song.id).toList(growable: false);
+    final latestTailIds = latestTail
+        .map((song) => song.id)
+        .toList(growable: false);
     if (automixIdsMatch(latestTailIds, orderedIds)) {
       // Native's queue event already applied this exact reorder locally.
       return;

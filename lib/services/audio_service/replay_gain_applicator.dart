@@ -90,7 +90,7 @@ class _ReplayGainApplicator {
         PlaybackManager.setNativeReplayGainBypass(true);
         LogService.verbose(
           'ReplayGainApplicator',
-          'No metadata for "${song.title}" — bypass',
+          'No metadata songId=${song.id} — bypass',
         );
         return;
       }
@@ -115,13 +115,13 @@ class _ReplayGainApplicator {
 
       LogService.verbose(
         'ReplayGainApplicator',
-        '"${song.title}": ${gainDb.toStringAsFixed(2)} dB '
+        'songId=${song.id}: ${gainDb.toStringAsFixed(2)} dB '
             '(peak=${peakLinear > 0 ? peakLinear.toStringAsFixed(3) : "n/a"}, '
             'clip=$useClip, src=${data.source.label})',
       );
     } on Object catch (e, st) {
       // Fail-open: never let a ReplayGain failure block playback.
-      LogService.error(
+      LogService.warn(
         'ReplayGainApplicator',
         'Skipped (fail-open): $e',
         stackTrace: st.toString(),

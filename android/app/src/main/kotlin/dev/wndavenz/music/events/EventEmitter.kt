@@ -103,6 +103,19 @@ object NativeLogger {
     val isEnabled: Boolean get() = enabled
     private val loggingSetters = ConcurrentHashMap<String, (Boolean) -> Unit>()
 
+    private val uriPattern = Regex(
+        """(?i)\b(?:content|file|https?|rtsp|ftp)://\S+""",
+    )
+
+    private val absolutePathPattern = Regex(
+        """(?i)(?<![\w])/(?:storage|sdcard|data|mnt|proc|system|vendor|odm|product|run|tmp|var|opt|home|root|android|apex|dev|sys|etc|usr|local)(?:/[^\s<>"'|,;)\]}]*)?(?![\w])""",
+    )
+
+    /** Hide device paths and URIs before either logcat or the Flutter sink sees them. */
+    fun redact(message: String): String = message
+        .replace(uriPattern, "<uri>")
+        .replace(absolutePathPattern, "<path>")
+
     /**
      * Set the application-wide logging gate. Updates are visible to audio/JNI
      * threads without locks; registered native libraries receive the same state.
@@ -125,26 +138,33 @@ object NativeLogger {
     // App-owned Logcat output shares the same gate as the in-app log viewer.
     fun debugLog(tag: String, message: String, throwable: Throwable? = null) {
         if (!enabled) return
-        if (throwable == null) android.util.Log.d(tag, message)
-        else android.util.Log.d(tag, message, throwable)
+        val safe = redact(message)
+        if (throwable == null) android.util.Log.d(tag, safe)
+        else android.util.Log.d(tag, safe, throwable)
     }
 
     fun infoLog(tag: String, message: String, throwable: Throwable? = null) {
         if (!enabled) return
-        if (throwable == null) android.util.Log.i(tag, message)
-        else android.util.Log.i(tag, message, throwable)
+        val safe = redact(message)
+        if (throwable == null) android.util.Log.i(tag, safe)
+        else android.util.Log.i(tag, safe, throwable)
+        emit("info", tag, safe)
     }
 
     fun warnLog(tag: String, message: String, throwable: Throwable? = null) {
         if (!enabled) return
-        if (throwable == null) android.util.Log.w(tag, message)
-        else android.util.Log.w(tag, message, throwable)
+        val safe = redact(message)
+        if (throwable == null) android.util.Log.w(tag, safe)
+        else android.util.Log.w(tag, safe, throwable)
+        emit("warn", tag, safe)
     }
 
     fun errorLog(tag: String, message: String, throwable: Throwable? = null) {
         if (!enabled) return
-        if (throwable == null) android.util.Log.e(tag, message)
-        else android.util.Log.e(tag, message, throwable)
+        val safe = redact(message)
+        if (throwable == null) android.util.Log.e(tag, safe)
+        else android.util.Log.e(tag, safe, throwable)
+        emit("error", tag, safe)
     }
 
     // @Volatile: emit() is now called from arbitrary background threads (audio/
@@ -194,7 +214,11 @@ object NativeLogger {
      */
     fun emit(level: String, category: String, message: String) {
         if (!enabled) return
-        val payload = mapOf("level" to level, "category" to category, "message" to message)
+        val payload = mapOf(
+            "level" to level,
+            "category" to category,
+            "message" to redact(message),
+        )
         dispatcher {
             // A log queued while enabled must not leak after the user switches
             // the toggle OFF before the main-looper callback runs.

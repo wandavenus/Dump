@@ -52,16 +52,24 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
         final previewIds = resolved.take(6).map((s) => s.id).toList();
         unawaited(ArtworkRepository.instance.prefetch(previewIds));
       }
-    } on Exception catch (e) {
-      LogService.error('SmartPlaylistCard', 'load error: $e');
+    } on Exception catch (e, st) {
+      LogService.error(
+        'SmartPlaylistCard',
+        'load error: $e',
+        stackTrace: st.toString(),
+      );
     }
   }
 
   Future<void> _playSongAt(int index) async {
     try {
       await AudioService.playSongAt(playlist: _songs, index: index);
-    } on Exception catch (e) {
-      LogService.error('SmartPlaylistCard', 'playSongAt error: $e');
+    } on Exception catch (e, st) {
+      LogService.error(
+        'SmartPlaylistCard',
+        'playSongAt error: $e',
+        stackTrace: st.toString(),
+      );
     }
   }
 

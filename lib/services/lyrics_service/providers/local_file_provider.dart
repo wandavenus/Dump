@@ -88,7 +88,7 @@ class LocalFileProvider implements LyricsProvider {
 
       LogService.verbose(
         'LocalFileProvider',
-        'Found $filePath — ${parsed.lines.length} lines [${parsed.quality.displayName}]',
+        'Found local lyrics — ${parsed.lines.length} lines [${parsed.quality.displayName}]',
       );
       return LyricsProviderResult(
         lines: parsed.lines,

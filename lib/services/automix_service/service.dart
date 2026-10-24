@@ -1799,7 +1799,7 @@ class AutomixService {
       res = r;
     } on PlatformException catch (e) {
       if (e.code == 'scan_busy') {
-        LogService.verbose('Automix', 'analysis channel busy: $path');
+        LogService.verbose('Automix', 'analysis channel busy');
         throw const _AutomixAnalysisBusy();
       }
       return null;

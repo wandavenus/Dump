@@ -1,3 +1,4 @@
+- [Log audit 2026-10-23](log-service-persistent.md) — audit seluruh call site log Dart/Kotlin/C; lihat `log_audit.md` di root untuk temuan P0/P1/P2 dan status perbaikannya.
  - [Notification artwork audit lessons](notification-artwork-audit-lessons.md) — async completion must validate current track identity; shared main/worker caches need synchronization and in-flight deduplication.
 - [Memory Update Protocol](memory-update-protocol.md) — WAJIB: update memory di akhir setiap sesi kerja yang mengubah repo (file baru, refactor, param baru, arsitektur berubah, dll).
 - [AutoMix automatic controls](automix-automatic-controls.md) — AutoMix audio transitions should adjust themselves; do not require manual mix tuning for each transition.
@@ -61,7 +62,7 @@
 - [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart.
 - [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info.
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
-- [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
+- [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled/errorsOnly/verbose/liveTail persist; max 5000 entri dengan priority eviction, redaksi path/URI, logRevision untuk live tail, dan kategori dinormalisasi.
 - [ReplayGain architecture](replay-gain.md) — LoudnessData model + ReplayGainService (tags via ExoPlayer MetadataRetriever + MetadataCacheDb SQLite); scan→cache; LoudnessSourceResolver; target Android 10+ MIUI 11+.
 - [Media3 transport controls](media3-transport.md) — notification buttons via addAction()+setShowActionsInCompactView(0,1,2); PendingIntent→onStartCommand ACTION_PLAY_PAUSE/SKIP_NEXT/SKIP_PREV; stopWithTask=false+MEDIA_BUTTON filter in manifest; syncFromNative() called from main.dart+app_state.dart.
 - [Media3 audio processor package layout](media3-package-migration.md) — processors split across common.audio + exoplayer.audio in 1.11.0 (NOT all moved); DefaultAudioProcessorChain still public nested in DefaultAudioSink; verify via sources.jar not guessing.

@@ -98,7 +98,10 @@ Future<void> main() async {
       }
       NativeLogBridge.init();
       FlutterError.onError = (FlutterErrorDetails details) {
-        if (LogService.loggingEnabled.value) FlutterError.presentError(details);
+        // Always keep the release console report. The toggle only controls
+        // the in-app ring buffer; hiding framework errors made release
+        // failures impossible to diagnose.
+        FlutterError.presentError(details);
         LogService.error(
           'Flutter',
           details.exceptionAsString(),
@@ -106,6 +109,13 @@ Future<void> main() async {
         );
       };
       PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        FlutterError.presentError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'PlatformDispatcher',
+          ),
+        );
         LogService.error(
           'Dart',
           error.toString(),
@@ -143,7 +153,9 @@ Future<void> main() async {
           stackTrace: stack.toString(),
         );
       } else {
-        LogService.debugPrintIfEnabled('[Zone/pre-init] $error\n$stack');
+        // Pre-init: the ring buffer is not ready, but the error must still be
+        // visible in release logs.
+        debugPrint('[Zone/pre-init] $error\n$stack');
       }
     },
   );
