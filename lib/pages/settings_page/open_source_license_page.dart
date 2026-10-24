@@ -9,9 +9,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: 'SDK',
       license: 'BSD 3-Clause',
       source: 'https://github.com/flutter/flutter',
-      summary: 'Framework UI dan runtime aplikasi.',
+      summaryKey: _LicenseSummary.flutter,
       licenseDocuments: [
-        _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-BSD-3-Clause.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.bsd3Clause, assetPath: 'assets/licenses/flutter-BSD-3-Clause.txt'),
       ],
     ),
     _ThirdPartyLicense(
@@ -19,9 +19,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: 'SDK',
       license: 'BSD 3-Clause',
       source: 'https://github.com/dart-lang/sdk',
-      summary: 'Bahasa dan runtime untuk kode aplikasi.',
+      summaryKey: _LicenseSummary.dart,
       licenseDocuments: [
-        _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/dart-BSD-3-Clause.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.bsd3Clause, assetPath: 'assets/licenses/dart-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
     ),
@@ -30,9 +30,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '1.11.1',
       license: 'Apache License 2.0',
       source: 'https://github.com/androidx/media/tree/1.11.1',
-      summary: 'Playback audio, ekstraksi media, dan sesi media Android.',
+      summaryKey: _LicenseSummary.media3,
       licenseDocuments: [
-        _LicenseDocument(label: 'Apache License 2.0', assetPath: 'assets/licenses/Apache-2.0.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.apache20, assetPath: 'assets/licenses/Apache-2.0.txt'),
       ],
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
     ),
@@ -41,9 +41,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '1.11.1',
       license: 'Apache License 2.0',
       source: 'https://github.com/androidx/media/tree/1.11.1/libraries/decoder_ffmpeg',
-      summary: 'Wrapper JNI yang menghubungkan Media3 dengan decoder FFmpeg.',
+      summaryKey: _LicenseSummary.media3Ffmpeg,
       licenseDocuments: [
-        _LicenseDocument(label: 'Apache License 2.0', assetPath: 'assets/licenses/Apache-2.0.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.apache20, assetPath: 'assets/licenses/Apache-2.0.txt'),
       ],
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
     ),
@@ -52,9 +52,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '8.1.3',
       license: 'GNU LGPL 2.1 or later',
       source: 'https://github.com/FFmpeg/FFmpeg/tree/n8.1.3',
-      summary: 'Library native untuk mendekode format audio tambahan. Build aplikasi mematikan komponen GPL dan nonfree.',
+      summaryKey: _LicenseSummary.ffmpeg,
       licenseDocuments: [
-        _LicenseDocument(label: 'GNU Lesser General Public License 2.1', assetPath: 'assets/licenses/ffmpeg-LGPL-2.1.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.lgpl21, assetPath: 'assets/licenses/ffmpeg-LGPL-2.1.txt'),
       ],
       licenseUrl: 'https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html',
     ),
@@ -63,9 +63,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '1.2.6',
       license: 'MIT',
       source: 'https://github.com/jiixyj/libebur128/tree/v1.2.6',
-      summary: 'Analisis loudness sesuai EBU R128 / ITU-R BS.1770.',
+      summaryKey: _LicenseSummary.ebur128,
       licenseDocuments: [
-        _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/libebur128-MIT.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mit, assetPath: 'assets/licenses/libebur128-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
     ),
@@ -74,10 +74,10 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '2.3',
       license: 'LGPL 2.1 or MPL 1.1',
       source: 'https://github.com/taglib/taglib/tree/v2.3',
-      summary: 'Membaca dan menulis metadata tag audio. Tersedia di bawah LGPL 2.1 atau MPL 1.1.',
+      summaryKey: _LicenseSummary.tagLib,
       licenseDocuments: [
-        _LicenseDocument(label: 'GNU Lesser General Public License 2.1', assetPath: 'assets/licenses/taglib-LGPL-2.1.txt'),
-        _LicenseDocument(label: 'Mozilla Public License 1.1', assetPath: 'assets/licenses/taglib-MPL-1.1.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.lgpl21, assetPath: 'assets/licenses/taglib-LGPL-2.1.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mpl11, assetPath: 'assets/licenses/taglib-MPL-1.1.txt'),
       ],
       licenseUrl: 'https://www.mozilla.org/en-US/MPL/1.1/',
     ),
@@ -86,9 +86,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '1.2.0',
       license: 'MIT',
       source: 'https://github.com/Signalsmith-Audio/signalsmith-stretch/tree/1.2.0',
-      summary: 'Pemrosesan time-stretch dan pitch-shift audio.',
+      summaryKey: _LicenseSummary.signalsmithStretch,
       licenseDocuments: [
-        _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/signalsmith-stretch-MIT.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mit, assetPath: 'assets/licenses/signalsmith-stretch-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
     ),
@@ -97,9 +97,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '0.1.2',
       license: 'MIT',
       source: 'https://github.com/Signalsmith-Audio/linear/tree/0.1.2',
-      summary: 'Utilitas DSP dan FFT yang digunakan Signalsmith Stretch.',
+      summaryKey: _LicenseSummary.signalsmithLinear,
       licenseDocuments: [
-        _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/signalsmith-linear-MIT.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mit, assetPath: 'assets/licenses/signalsmith-linear-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
     ),
@@ -108,9 +108,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '1.1.0',
       license: 'Apache License 2.0',
       source: 'https://developer.android.com/jetpack/androidx/releases/palette',
-      summary: 'Ekstraksi palet warna dari artwork.',
+      summaryKey: _LicenseSummary.palette,
       licenseDocuments: [
-        _LicenseDocument(label: 'Apache License 2.0', assetPath: 'assets/licenses/Apache-2.0.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.apache20, assetPath: 'assets/licenses/Apache-2.0.txt'),
       ],
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
     ),
@@ -119,9 +119,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '0.2.4',
       license: 'MIT',
       source: 'https://pub.dev/packages/audio_session',
-      summary: 'Konfigurasi sesi audio lintas platform.',
+      summaryKey: _LicenseSummary.audioSession,
       licenseDocuments: [
-        _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/audio-session-MIT.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mit, assetPath: 'assets/licenses/audio-session-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
     ),
@@ -130,9 +130,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '12.0.3',
       license: 'MIT',
       source: 'https://pub.dev/packages/permission_handler',
-      summary: 'Meminta dan memeriksa izin sistem.',
+      summaryKey: _LicenseSummary.permissionHandler,
       licenseDocuments: [
-        _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/permission-handler-MIT.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mit, assetPath: 'assets/licenses/permission-handler-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
     ),
@@ -141,9 +141,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '2.5.3',
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/shared_preferences',
-      summary: 'Penyimpanan preferensi lokal.',
+      summaryKey: _LicenseSummary.sharedPreferences,
       licenseDocuments: [
-        _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.bsd3Clause, assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
     ),
@@ -152,9 +152,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '2.1.5',
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/path_provider',
-      summary: 'Akses lokasi penyimpanan standar platform.',
+      summaryKey: _LicenseSummary.pathProvider,
       licenseDocuments: [
-        _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.bsd3Clause, assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
     ),
@@ -163,9 +163,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '6.3.2',
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/url_launcher',
-      summary: 'Membuka tautan menggunakan aplikasi platform.',
+      summaryKey: _LicenseSummary.urlLauncher,
       licenseDocuments: [
-        _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.bsd3Clause, assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
     ),
@@ -174,9 +174,9 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '0.20.2',
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/intl',
-      summary: 'Format tanggal, angka, dan dukungan lokalisasi.',
+      summaryKey: _LicenseSummary.intl,
       licenseDocuments: [
-        _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/intl-BSD-3-Clause.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.bsd3Clause, assetPath: 'assets/licenses/intl-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
     ),
@@ -185,11 +185,11 @@ class OpenSourceLicensePage extends StatelessWidget {
       version: '11.0.0',
       license: 'MIT · CC BY 4.0 · SIL OFL 1.1',
       source: 'https://pub.dev/packages/font_awesome_flutter',
-      summary: 'Kode paket berlisensi MIT; ikon Font Awesome berlisensi CC BY 4.0 dan font-nya SIL OFL 1.1.',
+      summaryKey: _LicenseSummary.fontAwesomeFlutter,
       licenseDocuments: [
-        _LicenseDocument(label: 'MIT License (package code)', assetPath: 'assets/licenses/font-awesome-flutter-MIT.txt'),
-        _LicenseDocument(label: 'Creative Commons Attribution 4.0 International (icons)', assetPath: 'assets/licenses/font-awesome-CC-BY-4.0.txt'),
-        _LicenseDocument(label: 'SIL Open Font License 1.1 (fonts)', assetPath: 'assets/licenses/font-awesome-OFL-1.1.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.mitPackageCode, assetPath: 'assets/licenses/font-awesome-flutter-MIT.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.ccByIcons, assetPath: 'assets/licenses/font-awesome-CC-BY-4.0.txt'),
+        _LicenseDocument(label: _LicenseDocumentLabel.oflFonts, assetPath: 'assets/licenses/font-awesome-OFL-1.1.txt'),
       ],
       licenseUrl: 'https://fontawesome.com/license/free',
     ),
@@ -208,6 +208,7 @@ class OpenSourceLicensePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final l = context.l10n;
+    final brandColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -217,9 +218,9 @@ class OpenSourceLicensePage extends StatelessWidget {
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).maybePop(),
-          child: const Icon(
+          child: Icon(
             CupertinoIcons.arrow_left,
-            color: Color(0xFFF92D48),
+            color: brandColor,
             size: 28,
           ),
         ),
@@ -247,7 +248,7 @@ class OpenSourceLicensePage extends StatelessWidget {
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    '${license.license} · ${license.version}\n${license.summary}',
+                    '${license.license} · ${license.version}\n${license.summaryKey.resolve(context)}',
                     style: TextStyle(color: c.secondaryLabel, fontSize: 13, height: 1.4),
                   ),
                 ),
@@ -264,12 +265,84 @@ class OpenSourceLicensePage extends StatelessWidget {
   }
 }
 
+enum _LicenseSummary {
+  flutter,
+  dart,
+  media3,
+  media3Ffmpeg,
+  ffmpeg,
+  ebur128,
+  tagLib,
+  signalsmithStretch,
+  signalsmithLinear,
+  palette,
+  audioSession,
+  permissionHandler,
+  sharedPreferences,
+  pathProvider,
+  urlLauncher,
+  intl,
+  fontAwesomeFlutter,
+}
+
+extension _LicenseSummaryLocalization on _LicenseSummary {
+  String resolve(BuildContext context) {
+    final l = context.l10n;
+    return switch (this) {
+      _LicenseSummary.flutter => l.licenseSummaryFlutter,
+      _LicenseSummary.dart => l.licenseSummaryDart,
+      _LicenseSummary.media3 => l.licenseSummaryMedia3,
+      _LicenseSummary.media3Ffmpeg => l.licenseSummaryMedia3Ffmpeg,
+      _LicenseSummary.ffmpeg => l.licenseSummaryFfmpeg,
+      _LicenseSummary.ebur128 => l.licenseSummaryEbur128,
+      _LicenseSummary.tagLib => l.licenseSummaryTaglib,
+      _LicenseSummary.signalsmithStretch => l.licenseSummarySignalsmithStretch,
+      _LicenseSummary.signalsmithLinear => l.licenseSummarySignalsmithLinear,
+      _LicenseSummary.palette => l.licenseSummaryPalette,
+      _LicenseSummary.audioSession => l.licenseSummaryAudioSession,
+      _LicenseSummary.permissionHandler => l.licenseSummaryPermissionHandler,
+      _LicenseSummary.sharedPreferences => l.licenseSummarySharedPreferences,
+      _LicenseSummary.pathProvider => l.licenseSummaryPathProvider,
+      _LicenseSummary.urlLauncher => l.licenseSummaryUrlLauncher,
+      _LicenseSummary.intl => l.licenseSummaryIntl,
+      _LicenseSummary.fontAwesomeFlutter => l.licenseSummaryFontAwesomeFlutter,
+    };
+  }
+}
+
+enum _LicenseDocumentLabel {
+  bsd3Clause,
+  apache20,
+  lgpl21,
+  mit,
+  mpl11,
+  mitPackageCode,
+  ccByIcons,
+  oflFonts,
+}
+
+extension _LicenseDocumentLabelLocalization on _LicenseDocumentLabel {
+  String resolve(BuildContext context) {
+    final l = context.l10n;
+    return switch (this) {
+      _LicenseDocumentLabel.bsd3Clause => l.licenseDocBsd3,
+      _LicenseDocumentLabel.apache20 => l.licenseDocApache20,
+      _LicenseDocumentLabel.lgpl21 => l.licenseDocLgpl21,
+      _LicenseDocumentLabel.mit => l.licenseDocMit,
+      _LicenseDocumentLabel.mpl11 => l.licenseDocMpl11,
+      _LicenseDocumentLabel.mitPackageCode => l.licenseDocMitPackageCode,
+      _LicenseDocumentLabel.ccByIcons => l.licenseDocCcByIcons,
+      _LicenseDocumentLabel.oflFonts => l.licenseDocOflFonts,
+    };
+  }
+}
+
 class _ThirdPartyLicense {
   final String name;
   final String version;
   final String license;
   final String source;
-  final String summary;
+  final _LicenseSummary summaryKey;
   final String? licenseUrl;
   final List<_LicenseDocument> licenseDocuments;
 
@@ -278,7 +351,7 @@ class _ThirdPartyLicense {
     required this.version,
     required this.license,
     required this.source,
-    required this.summary,
+    required this.summaryKey,
     this.licenseUrl,
     this.licenseDocuments = const [],
   });
@@ -287,7 +360,7 @@ class _ThirdPartyLicense {
 class _LicenseDocument {
   const _LicenseDocument({required this.label, required this.assetPath});
 
-  final String label;
+  final _LicenseDocumentLabel label;
   final String assetPath;
 }
 
@@ -307,6 +380,7 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final l = context.l10n;
+    final brandColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -316,9 +390,9 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).maybePop(),
-          child: const Icon(
+          child: Icon(
             CupertinoIcons.arrow_left,
-            color: Color(0xFFF92D48),
+            color: brandColor,
             size: 28,
           ),
         ),
@@ -355,7 +429,7 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(
-                license.summary,
+                license.summaryKey.resolve(context),
                 style: TextStyle(
                   color: c.primaryLabel,
                   fontSize: 15,
@@ -378,12 +452,12 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
               onTap: () => _openUrl(license.source),
               child: Text(
                 license.source,
-                style: const TextStyle(
-                  color: Color(0xFFF92D48),
+                style: TextStyle(
+                  color: brandColor,
                   fontSize: 13,
                   height: 1.45,
                   decoration: TextDecoration.underline,
-                  decorationColor: Color(0xFFF92D48),
+                  decorationColor: brandColor,
                 ),
               ),
             ),
@@ -399,7 +473,7 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
               ),
             for (final document in license.licenseDocuments) ...[
               Text(
-                document.label,
+                document.label.resolve(context),
                 style: TextStyle(
                   color: c.primaryLabel,
                   fontSize: 16,
@@ -447,12 +521,12 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
                   onTap: () => _openUrl(license.licenseUrl!),
                   child: Text(
                     l.licenseViewFullText,
-                    style: const TextStyle(
-                      color: Color(0xFFF92D48),
+                    style: TextStyle(
+                      color: brandColor,
                       fontSize: 14,
                       height: 1.45,
                       decoration: TextDecoration.underline,
-                      decorationColor: Color(0xFFF92D48),
+                      decorationColor: brandColor,
                     ),
                   ),
                 ),
