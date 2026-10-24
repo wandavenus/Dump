@@ -77,8 +77,6 @@ class OpenSourceLicensePage extends StatelessWidget {
       summary: 'Membaca dan menulis metadata tag audio. Tersedia di bawah LGPL 2.1 atau MPL 1.1.',
       licenseDocuments: const [
         _LicenseDocument(label: 'GNU Lesser General Public License 2.1', assetPath: 'assets/licenses/taglib-LGPL-2.1.txt'),
-      ],,
-      licenseDocuments: const [
         _LicenseDocument(label: 'Mozilla Public License 1.1', assetPath: 'assets/licenses/taglib-MPL-1.1.txt'),
       ],
       licenseUrl: 'https://www.mozilla.org/en-US/MPL/1.1/',
