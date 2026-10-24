@@ -55,12 +55,15 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon
+          ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Build debug APK including FFmpeg JNI
+        run: flutter build apk --debug --target-platform android-arm64 --no-pub
 
       - name: Verify FFmpeg JNI and license notices are packaged
         working-directory: android
         run: |
-          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APK="../build/app/outputs/flutter-apk/app-debug.apk"
           test -f "$APK"
           unzip -Z -1 "$APK" | grep -Fx "lib/arm64-v8a/libffmpegJNI.so"
           unzip -Z -1 "$APK" | grep -Fx "assets/licenses/COPYING.LGPLv2.1"
