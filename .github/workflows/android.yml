@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install pinned Android NDK
+        run: bash scripts/ci/install-android-ndk.sh
+
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -130,6 +133,15 @@ jobs:
           --no-pub
           --obfuscate
           --split-debug-info=build/debug-info
+
+      - name: Verify FFmpeg JNI and license notices are packaged
+        run: |
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          test -f "$APK"
+          unzip -Z -1 "$APK" | grep -Fx "lib/arm64-v8a/libffmpegJNI.so"
+          unzip -Z -1 "$APK" | grep -Fx "assets/licenses/COPYING.LGPLv2.1"
+          unzip -Z -1 "$APK" | grep -Fx "assets/licenses/LICENSE-2.0.txt"
+          unzip -Z -1 "$APK" | grep -Fx "assets/licenses/THIRD_PARTY_NOTICES.txt"
 
       - name: Rename APK
         run: |
