@@ -50,11 +50,7 @@ ANDROID_API="${ANDROID_API:-27}"
 TARGET_ABI="arm64-v8a"
 EXPECTED_NDK_VERSION="28.2.13676358"
 
-# Keep this list aligned with the Kotlin capability probe.
-ENABLED_DECODERS=(alac dca truehd mlp vorbis opus)
-
-# Containers first, then lossless/hi-res audio. This matches the formats the
-# Kotlin capability probe advertises (FfmpegCapabilityProbe.PROBE_MIME_TYPES).
+# Keep this list aligned with FfmpegCapabilityProbe.PROBE_MIME_TYPES.
 ENABLED_DECODERS=(alac dca truehd mlp vorbis opus)
 
 FORCE_LINK=false
@@ -72,11 +68,6 @@ for arg in "$@"; do
         *) echo "Unknown argument: $arg (use --help)" >&2; exit 2 ;;
     esac
 done
-
-if [ "$CLEAN" = true ]; then
-    echo "Removing cached FFmpeg build tree and JNI library ..."
-    rm -rf "$MODULE_DIR/.ffmpeg-build" "$SO_DIR"
-fi
 
 if [[ ! "$FFMPEG_TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
     echo "ERROR: invalid FFMPEG_TAG '$FFMPEG_TAG'." >&2
