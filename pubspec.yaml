@@ -50,6 +50,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/search/
+    - assets/licenses/
 
   shaders:
     - assets/shaders/fluid.frag
