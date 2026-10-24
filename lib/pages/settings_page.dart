@@ -60,3 +60,4 @@ part 'settings_page/changelog_data.dart';
 part 'settings_page/changelog_page.dart';
 part 'settings_page/bug_report_page.dart';
 part 'settings_page/language_section.dart';
+part 'settings_page/open_source_license_page.dart';
