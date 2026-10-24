@@ -42,6 +42,8 @@ MODULE_DIR="$SCRIPT_DIR/decoder-ffmpeg"
 JNI_SOURCE="$MODULE_DIR/src/main/jni/ffmpeg_jni.cc"
 SO_DIR="$MODULE_DIR/src/main/jniLibs/arm64-v8a"
 SO_PATH="$SO_DIR/libffmpegJNI.so"
+SO_TMP="$SO_PATH.tmp.$"
+trap 'rm -f "$SO_TMP"' EXIT
 LICENSE_DIR="$MODULE_DIR/src/main/assets/licenses"
 CACHE_DIR="$MODULE_DIR/.ffmpeg-build"
 
@@ -276,28 +278,27 @@ mkdir -p "$SO_DIR"
     -Wl,-Bsymbolic \
     -Wl,--gc-sections \
     -Wl,--no-undefined \
-    -o "$SO_PATH"
+    -o "$SO_TMP"
 
-"$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$SO_PATH"
+"$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$SO_TMP"
 
-echo "[4/4] Verifying $SO_PATH ..."
-if ! "$TOOLCHAIN/bin/llvm-nm" -D "$SO_PATH" | awk '$NF == "JNI_OnLoad" { found=1 } END { exit !found }'; then
+echo "[4/4] Verifying temporary native artifact ..."
+if ! "$TOOLCHAIN/bin/llvm-nm" -D "$SO_TMP" | awk '$NF == "JNI_OnLoad" { found=1 } END { exit !found }'; then
     echo "ERROR: JNI_OnLoad is not exported from libffmpegJNI.so." >&2
-    rm -f "$SO_PATH"
     exit 1
 fi
-if "$TOOLCHAIN/bin/llvm-readelf" -d "$SO_PATH" | grep -q "libc++_shared"; then
+if "$TOOLCHAIN/bin/llvm-readelf" -d "$SO_TMP" | grep -q "libc++_shared"; then
     echo "ERROR: libffmpegJNI.so unexpectedly depends on libc++_shared.so." >&2
-    rm -f "$SO_PATH"
     exit 1
 fi
 for decoder in "${ENABLED_DECODERS[@]}"; do
-    if ! strings "$SO_PATH" | grep -F "ff_${decoder}_decoder" >/dev/null; then
+    if ! strings "$SO_TMP" | grep -F "ff_${decoder}_decoder" >/dev/null; then
         echo "ERROR: decoder '$decoder' is missing from libffmpegJNI.so." >&2
-        rm -f "$SO_PATH"
         exit 1
     fi
 done
+# Replace the previous usable library only after the new artifact passes all checks.
+mv "$SO_TMP" "$SO_PATH"
 mkdir -p "$CACHE_DIR"
 printf '%s\n' "$OUTPUT_FINGERPRINT" > "$OUTPUT_STAMP"
 
