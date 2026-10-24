@@ -441,11 +441,20 @@ class _ThirdPartyLicenseDetailPage extends StatelessWidget {
             ],
             if (license.licenseUrl != null) ...[
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: CupertinoButton.filled(
-                  onPressed: () => _openUrl(license.licenseUrl!),
-                  child: Text(l.licenseViewFullText),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => _openUrl(license.licenseUrl!),
+                  child: Text(
+                    l.licenseViewFullText,
+                    style: const TextStyle(
+                      color: Color(0xFFF92D48),
+                      fontSize: 14,
+                      height: 1.45,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFFF92D48),
+                    ),
+                  ),
                 ),
               ),
             ],
