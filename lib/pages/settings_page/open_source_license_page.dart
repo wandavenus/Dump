@@ -10,7 +10,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://github.com/flutter/flutter',
       summary: 'Framework UI dan runtime aplikasi.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-BSD-3-Clause.txt'),
       ],
     ),
@@ -20,7 +20,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://github.com/dart-lang/sdk',
       summary: 'Bahasa dan runtime untuk kode aplikasi.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/dart-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
@@ -31,7 +31,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'Apache License 2.0',
       source: 'https://github.com/androidx/media/tree/1.11.1',
       summary: 'Playback audio, ekstraksi media, dan sesi media Android.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'Apache License 2.0', assetPath: 'assets/licenses/Apache-2.0.txt'),
       ],
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
@@ -42,7 +42,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'Apache License 2.0',
       source: 'https://github.com/androidx/media/tree/1.11.1/libraries/decoder_ffmpeg',
       summary: 'Wrapper JNI yang menghubungkan Media3 dengan decoder FFmpeg.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'Apache License 2.0', assetPath: 'assets/licenses/Apache-2.0.txt'),
       ],
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
@@ -53,7 +53,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'GNU LGPL 2.1 or later',
       source: 'https://github.com/FFmpeg/FFmpeg/tree/n8.1.3',
       summary: 'Library native untuk mendekode format audio tambahan. Build aplikasi mematikan komponen GPL dan nonfree.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'GNU Lesser General Public License 2.1', assetPath: 'assets/licenses/ffmpeg-LGPL-2.1.txt'),
       ],
       licenseUrl: 'https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html',
@@ -64,7 +64,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'MIT',
       source: 'https://github.com/jiixyj/libebur128/tree/v1.2.6',
       summary: 'Analisis loudness sesuai EBU R128 / ITU-R BS.1770.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/libebur128-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
@@ -75,7 +75,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'LGPL 2.1 or MPL 1.1',
       source: 'https://github.com/taglib/taglib/tree/v2.3',
       summary: 'Membaca dan menulis metadata tag audio. Tersedia di bawah LGPL 2.1 atau MPL 1.1.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'GNU Lesser General Public License 2.1', assetPath: 'assets/licenses/taglib-LGPL-2.1.txt'),
         _LicenseDocument(label: 'Mozilla Public License 1.1', assetPath: 'assets/licenses/taglib-MPL-1.1.txt'),
       ],
@@ -87,7 +87,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'MIT',
       source: 'https://github.com/Signalsmith-Audio/signalsmith-stretch/tree/1.2.0',
       summary: 'Pemrosesan time-stretch dan pitch-shift audio.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/signalsmith-stretch-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
@@ -98,7 +98,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'MIT',
       source: 'https://github.com/Signalsmith-Audio/linear/tree/0.1.2',
       summary: 'Utilitas DSP dan FFT yang digunakan Signalsmith Stretch.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/signalsmith-linear-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
@@ -109,7 +109,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'Apache License 2.0',
       source: 'https://developer.android.com/jetpack/androidx/releases/palette',
       summary: 'Ekstraksi palet warna dari artwork.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'Apache License 2.0', assetPath: 'assets/licenses/Apache-2.0.txt'),
       ],
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
@@ -120,7 +120,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'MIT',
       source: 'https://pub.dev/packages/audio_session',
       summary: 'Konfigurasi sesi audio lintas platform.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/audio-session-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
@@ -131,7 +131,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'MIT',
       source: 'https://pub.dev/packages/permission_handler',
       summary: 'Meminta dan memeriksa izin sistem.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'MIT License', assetPath: 'assets/licenses/permission-handler-MIT.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/mit',
@@ -142,7 +142,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/shared_preferences',
       summary: 'Penyimpanan preferensi lokal.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
@@ -153,7 +153,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/path_provider',
       summary: 'Akses lokasi penyimpanan standar platform.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
@@ -164,7 +164,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/url_launcher',
       summary: 'Membuka tautan menggunakan aplikasi platform.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/flutter-packages-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
@@ -175,7 +175,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://pub.dev/packages/intl',
       summary: 'Format tanggal, angka, dan dukungan lokalisasi.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'BSD 3-Clause License', assetPath: 'assets/licenses/intl-BSD-3-Clause.txt'),
       ],
       licenseUrl: 'https://opensource.org/license/bsd-3-clause',
@@ -186,7 +186,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'MIT · CC BY 4.0 · SIL OFL 1.1',
       source: 'https://pub.dev/packages/font_awesome_flutter',
       summary: 'Kode paket berlisensi MIT; ikon Font Awesome berlisensi CC BY 4.0 dan font-nya SIL OFL 1.1.',
-      licenseDocuments: const [
+      licenseDocuments: [
         _LicenseDocument(label: 'MIT License (package code)', assetPath: 'assets/licenses/font-awesome-flutter-MIT.txt'),
         _LicenseDocument(label: 'Creative Commons Attribution 4.0 International (icons)', assetPath: 'assets/licenses/font-awesome-CC-BY-4.0.txt'),
         _LicenseDocument(label: 'SIL Open Font License 1.1 (fonts)', assetPath: 'assets/licenses/font-awesome-OFL-1.1.txt'),
