@@ -85,12 +85,18 @@ if [ "$CLEAN" = true ]; then
 fi
 
 # ── 0. Resolve NDK ─────────────────────────────────────────────────────────
+SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+PINNED_NDK_PATH=""
+if [ -n "$SDK_ROOT" ] && [ -d "$SDK_ROOT/ndk/$EXPECTED_NDK_VERSION" ]; then
+    PINNED_NDK_PATH="$SDK_ROOT/ndk/$EXPECTED_NDK_VERSION"
+fi
 NDK_PATH="${ANDROID_NDK_HOME:-${ANDROID_NDK:-}}"
+if [ -n "$NDK_PATH" ] && [ -n "$PINNED_NDK_PATH" ] && [ "$NDK_PATH" != "$PINNED_NDK_PATH" ]; then
+    echo "WARN: ignoring NDK override '$NDK_PATH'; using pinned $PINNED_NDK_PATH." >&2
+    NDK_PATH="$PINNED_NDK_PATH"
+fi
 if [ -z "$NDK_PATH" ]; then
-    SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-    if [ -n "$SDK_ROOT" ] && [ -d "$SDK_ROOT/ndk/$EXPECTED_NDK_VERSION" ]; then
-        NDK_PATH="$SDK_ROOT/ndk/$EXPECTED_NDK_VERSION"
-    fi
+    NDK_PATH="$PINNED_NDK_PATH"
 fi
 if [ -z "$NDK_PATH" ] || [ ! -d "$NDK_PATH" ]; then
     echo "ERROR: Android NDK $EXPECTED_NDK_VERSION not found." >&2
