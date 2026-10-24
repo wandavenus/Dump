@@ -71,6 +71,11 @@ compile_commands.json
 *.a
 *.so
 
+# Locally compiled FFmpeg static libraries / JNI output.
+# Regenerate with android/build-ffmpeg-jni.sh.
+android/decoder-ffmpeg/.ffmpeg-build/
+android/decoder-ffmpeg/src/main/jniLibs/
+
 *.ninja
 *.ninja_deps
 *.ninja_log

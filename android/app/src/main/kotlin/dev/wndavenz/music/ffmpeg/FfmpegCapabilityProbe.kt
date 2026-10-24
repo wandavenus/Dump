@@ -7,14 +7,15 @@ import dev.wndavenz.music.events.NativeLogger
  *
  * ## Why reflection
  *
- * The FFmpeg decoder AAR ships as `org.jellyfin.media3:media3-ffmpeg-decoder`
- * on Maven Central — a community prebuilt maintained by the Jellyfin project
- * that includes `libffmpegJNI.so` for all ABIs including arm64-v8a. It is a
- * fork of `androidx.media3:media3-decoder-ffmpeg` (which is NOT on any public
- * Maven repository) built from the same source, licensed GPL v3.
+ * The decoder ships as the local `:decoder-ffmpeg` module: Media3's
+ * `androidx.media3.decoder.ffmpeg` wrapper classes (vendored from
+ * androidx/media 1.11.1, Apache 2.0) plus `libffmpegJNI.so`, which
+ * `android/build-ffmpeg-jni.sh` cross-compiles from FFmpeg source with
+ * `--disable-gpl` (LGPL-2.1-or-later). The former Jellyfin prebuilt AAR
+ * (`org.jellyfin.media3:media3-ffmpeg-decoder`, GPL v3) is no longer used.
  *
  * Reflection is kept rather than a direct import so this file compiles and
- * runs cleanly even if the dependency is ever removed: `Class.forName`
+ * runs cleanly even if the decoder module is ever removed: `Class.forName`
  * returning null and `isAvailable()` returning false both collapse to
  * `available = false` — callers get a single yes/no answer and ExoPlayer
  * falls back to the platform MediaCodec ALAC decoder automatically.

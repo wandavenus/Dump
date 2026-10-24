@@ -37,14 +37,13 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 
-// Phase 9 — FFmpeg decoder extension via Jellyfin's prebuilt AAR.
-// androidx.media3:media3-decoder-ffmpeg is NOT on Google Maven. Jellyfin
-// maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
-// Maven Central that includes prebuilt libffmpegJNI.so for all ABIs (including
-// arm64-v8a). Their build is based on Media3 1.9.0; we exclude their transitive
-// media3 deps so Gradle resolves everything to our pinned stable versions.
-// License: GPL v3 (https://www.gnu.org/licenses/gpl-3.0.txt).
-def media3_version = "1.11.1"
+// Phase 9 — FFmpeg decoder extension built locally as a JNI library.
+// androidx.media3:media3-decoder-ffmpeg is NOT published on Maven Central, and
+// the Jellyfin prebuilt AAR (GPL v3) is no longer used. The :decoder-ffmpeg
+// module compiles the Media3 wrapper (Apache 2.0) and packages
+// libffmpegJNI.so built by android/build-ffmpeg-jni.sh from FFmpeg source with
+// --disable-gpl (LGPL only).
+def media3_version = rootProject.ext.media3Version
 
 android {
     namespace "dev.wndavenz.music"
@@ -86,7 +85,9 @@ android {
             abiFilters "arm64-v8a" // Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
 
-        // Jellyfin AAR is always on the classpath via Maven Central.
+        // The :decoder-ffmpeg module is always on the classpath. Whether the
+        // native library actually loads is reported at runtime by
+        // FfmpegCapabilityProbe.queryStatus().available.
         buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "true"
 
         // Native ReplayGain module (libebur128 + TagLib, fetched via CMake
@@ -172,14 +173,10 @@ dependencies {
     implementation "androidx.media3:media3-extractor:$media3_version"
     implementation "androidx.media3:media3-inspector:$media3_version"
     implementation "androidx.media3:media3-container:$media3_version"
-    // Phase 9 — Jellyfin prebuilt FFmpeg decoder (ALAC + other formats).
-    // Excludes Jellyfin's transitive media3 deps (1.9.0) so Gradle resolves
-    // everything to our pinned stable versions. The arm64-v8a .so is extracted
-    // automatically from the AAR; other ABIs are stripped by abiFilters above.
-    implementation('org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1') {
-        exclude group: 'androidx.media3', module: 'media3-decoder'
-        exclude group: 'androidx.media3', module: 'media3-exoplayer'
-    }
+    // Phase 9 — locally built FFmpeg decoder (ALAC/DTS/TrueHD/Vorbis/Opus).
+    // The module's libffmpegJNI.so is produced from the pinned FFmpeg source
+    // tree by android/build-ffmpeg-jni.sh; arm64-v8a is the only packaged ABI.
+    implementation project(':decoder-ffmpeg')
 
     // Native palette extraction — MMCQ quantization via Android's Palette library.
     // Replaces palette_generator_plus (Dart-side extraction).
