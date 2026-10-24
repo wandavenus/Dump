@@ -10,6 +10,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://github.com/flutter/flutter',
       summary: 'Framework UI dan runtime aplikasi.',
+      licenseUrl: null,
     ),
     _ThirdPartyLicense(
       name: 'Dart',
@@ -17,6 +18,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       license: 'BSD 3-Clause',
       source: 'https://github.com/dart-lang/sdk',
       summary: 'Bahasa dan runtime untuk kode aplikasi.',
+      licenseUrl: null,
     ),
     _ThirdPartyLicense(
       name: 'AndroidX Media3 (ExoPlayer)',
@@ -141,6 +143,7 @@ class OpenSourceLicensePage extends StatelessWidget {
       summary: 'Ikon Font Awesome untuk UI.',
       licenseUrl: 'https://opensource.org/license/mit',
     ),
+
   ];
 
   Future<void> _showLicense(BuildContext context, _ThirdPartyLicense license) async {
