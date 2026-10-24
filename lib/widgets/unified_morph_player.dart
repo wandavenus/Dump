@@ -809,6 +809,21 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     .clamp(0.0, 1.0)
                                     .toDouble()
                               : 0.0;
+
+                          // Keep the hairline on the collapsed artwork in both
+                          // background modes. Fluid keeps it on the expanded
+                          // artwork too; Artwork Blur fades it out as the sheet
+                          // opens. The lyrics/queue thumbnail has no hairline.
+                          final hairlineOpacity =
+                              ((isArtworkBlurStyle ? 1.0 - t : 1.0) *
+                                      (1.0 - effectiveOverlayT))
+                                  .clamp(0.0, 1.0)
+                                  .toDouble();
+                          final hairlineColor =
+                              Theme.of(context).brightness == Brightness.dark
+                              ? kArtworkHairlineDarkColor
+                              : kArtworkHairlineLightColor;
+
                           final artworkWithFade = SongArtwork(
                             songId: song.id,
                             size: artSize,
@@ -916,6 +931,32 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                                       0.78,
                                                       1.0,
                                                     ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      // Draw the shared hairline above the artwork
+                                      // and its status-bar gradient so the edge stays
+                                      // crisp throughout the morph animation.
+                                      if (hairlineOpacity > 0.0)
+                                        Positioned.fill(
+                                          child: IgnorePointer(
+                                            child: Opacity(
+                                              opacity: hairlineOpacity,
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        finalRadius,
+                                                      ),
+                                                  border: Border.all(
+                                                    color: hairlineColor,
+                                                    width:
+                                                        kArtworkHairlineWidth,
+                                                    strokeAlign: BorderSide
+                                                        .strokeAlignInside,
                                                   ),
                                                 ),
                                               ),
