@@ -143,104 +143,11 @@ class OpenSourceLicensePage extends StatelessWidget {
 
   ];
 
-  Future<void> _showLicense(BuildContext context, _ThirdPartyLicense license) async {
-    String? fullText;
-    if (license.detailsAsset != null) {
-      try {
-        fullText = await rootBundle.loadString(license.detailsAsset!);
-      } on Object {
-        fullText = null;
-      }
-    }
-    if (!context.mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final c = AppColors.of(sheetContext);
-        return SafeArea(
-          child: Container(
-            height: MediaQuery.sizeOf(sheetContext).height * 0.82,
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            decoration: BoxDecoration(
-              color: Theme.of(sheetContext).scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  license.name,
-                  style: TextStyle(
-                    color: c.primaryLabel,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${license.license} · ${license.version}',
-                  style: TextStyle(color: c.secondaryLabel, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () async {
-                    final uri = Uri.tryParse(license.source);
-                    if (uri != null) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    }
-                  },
-                  child: Text(
-                    '${context.l10n.licenseSource}: ${license.source}',
-                    style: const TextStyle(
-                      color: Color(0xFFF92D48),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: fullText == null
-                      ? SelectableText(
-                          license.licenseUrl == null
-                              ? context.l10n.licenseNoFullText
-                              : '${context.l10n.licenseNoFullText}\n\n${license.licenseUrl}',
-                          style: TextStyle(color: c.secondaryLabel),
-                        )
-                      : SingleChildScrollView(
-                          child: SelectableText(
-                            fullText,
-                            style: TextStyle(
-                              color: c.primaryLabel,
-                              fontSize: 12,
-                              height: 1.45,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 12),
-                if (license.licenseUrl != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: CupertinoButton.filled(
-                      onPressed: () async {
-                        final uri = Uri.tryParse(license.licenseUrl!);
-                        if (uri != null) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      },
-                      child: Text(context.l10n.licenseViewFullText),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+  void _showLicense(BuildContext context, _ThirdPartyLicense license) {
+    Navigator.of(context).push(
+      ZoomFadeRoute<void>(
+        page: _ThirdPartyLicenseDetailPage(license: license),
+      ),
     );
   }
 
@@ -323,3 +230,173 @@ class _ThirdPartyLicense {
     this.detailsAsset,
   });
 }
+
+class _ThirdPartyLicenseDetailPage extends StatelessWidget {
+  const _ThirdPartyLicenseDetailPage({required this.license});
+
+  final _ThirdPartyLicense license;
+
+  Future<String>? get _bundledLicenseText => license.detailsAsset == null
+      ? null
+      : rootBundle.loadString(license.detailsAsset!);
+
+  Future<void> _openUrl(String value) async {
+    final uri = Uri.tryParse(value);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final l = context.l10n;
+    final licenseText = _bundledLicenseText;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: FadingTitleAppBar(
+        title: license.name,
+        scrollOffset: 100,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
+        actions: const [],
+      ),
+      body: ResponsivePageBody(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+          children: [
+            Text(
+              license.name,
+              style: TextStyle(
+                color: c.primaryLabel,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              license.license,
+              style: TextStyle(
+                color: c.primaryLabel,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${l.licenseVersion}: ${license.version}',
+              style: TextStyle(color: c.secondaryLabel, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            const HeaderDivider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                license.summary,
+                style: TextStyle(
+                  color: c.primaryLabel,
+                  fontSize: 15,
+                  height: 1.55,
+                ),
+              ),
+            ),
+            const HeaderDivider(),
+            const SizedBox(height: 20),
+            Text(
+              l.licenseSource,
+              style: TextStyle(
+                color: c.primaryLabel,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              license.source,
+              style: TextStyle(
+                color: c.secondaryLabel,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _openUrl(license.source),
+              icon: const Icon(CupertinoIcons.link),
+              label: Text(l.licenseSource),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              l.licenseViewFullText,
+              style: TextStyle(
+                color: c.primaryLabel,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (licenseText != null)
+              FutureBuilder<String>(
+                future: licenseText,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return Text(
+                      l.licenseNoFullText,
+                      style: TextStyle(
+                        color: c.secondaryLabel,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    );
+                  }
+                  return SelectableText(
+                    snapshot.data!,
+                    style: TextStyle(
+                      color: c.primaryLabel,
+                      fontSize: 12,
+                      height: 1.5,
+                      fontFamily: 'monospace',
+                    ),
+                  );
+                },
+              )
+            else
+              Text(
+                l.licenseNoFullText,
+                style: TextStyle(
+                  color: c.secondaryLabel,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+            if (license.licenseUrl != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton.filled(
+                  onPressed: () => _openUrl(license.licenseUrl!),
+                  child: Text(l.licenseViewFullText),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
