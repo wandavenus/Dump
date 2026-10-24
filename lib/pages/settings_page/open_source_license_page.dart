@@ -84,7 +84,6 @@ class OpenSourceLicensePage extends StatelessWidget {
       source: 'https://developer.android.com/jetpack/androidx/releases/palette',
       summary: 'Ekstraksi palet warna dari artwork.',
       licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
-      detailsAsset: 'android/decoder-ffmpeg/src/main/assets/licenses/LICENSE-2.0.txt',
     ),
     _ThirdPartyLicense(
       name: 'audio_session',
@@ -186,6 +185,22 @@ class OpenSourceLicensePage extends StatelessWidget {
                   '${license.license} · ${license.version}',
                   style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                 ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final uri = Uri.tryParse(license.source);
+                    if (uri != null) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Text(
+                    '${context.l10n.licenseSource}: ${license.source}',
+                    style: const TextStyle(
+                      color: Color(0xFFF92D48),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Expanded(
                   child: fullText == null
@@ -206,20 +221,19 @@ class OpenSourceLicensePage extends StatelessWidget {
                         ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: CupertinoButton.filled(
-                    onPressed: license.licenseUrl == null
-                        ? null
-                        : () async {
-                            final uri = Uri.tryParse(license.licenseUrl!);
-                            if (uri != null) {
-                              await launchUrl(uri, mode: LaunchMode.externalApplication);
-                            }
-                          },
-                    child: Text(context.l10n.licenseViewFullText),
+                if (license.licenseUrl != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: CupertinoButton.filled(
+                      onPressed: () async {
+                        final uri = Uri.tryParse(license.licenseUrl!);
+                        if (uri != null) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      child: Text(context.l10n.licenseViewFullText),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
