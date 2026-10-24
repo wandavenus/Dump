@@ -950,6 +950,48 @@ abstract class AppLocalizations {
   /// **'About App'**
   String get aboutApp;
 
+  /// No description provided for @openSourceLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'Open-source license'**
+  String get openSourceLicense;
+
+  /// No description provided for @openSourceLicenseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Licenses and attributions for third-party components used by Noisegraph.'**
+  String get openSourceLicenseDescription;
+
+  /// No description provided for @licensePageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Noisegraph uses open-source components. Full license texts and source information are listed below.'**
+  String get licensePageDescription;
+
+  /// No description provided for @licenseViewFullText.
+  ///
+  /// In en, this message translates to:
+  /// **'View full license text'**
+  String get licenseViewFullText;
+
+  /// No description provided for @licenseNoFullText.
+  ///
+  /// In en, this message translates to:
+  /// **'The full license text is not bundled in this app.'**
+  String get licenseNoFullText;
+
+  /// No description provided for @licenseSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get licenseSource;
+
+  /// No description provided for @licenseVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get licenseVersion;
+
   /// No description provided for @changelogTitle.
   ///
   /// In en, this message translates to:

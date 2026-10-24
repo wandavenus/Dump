@@ -8,6 +8,23 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
+ * Process-wide fail-open latch for the optional AutoMix tone JNI surface.
+ * Loading the shared library does not guarantee that every tone symbol exists
+ * in an older or partially compatible APK, so one linkage failure disables all
+ * later tone calls for this process.
+ */
+internal class AutomixToneNativeAvailability {
+    @Volatile
+    private var available: Boolean = true
+
+    fun canUse(libraryAvailable: Boolean): Boolean = libraryAvailable && available
+
+    fun markUnavailable() {
+        available = false
+    }
+}
+
+/**
  * Small, per-deck tone stage for AutoMix: a low-band (bass swap) gain and a
  * high-band (tail filter-out) gain.
  *
@@ -27,6 +44,8 @@ class AutomixToneAudioProcessor(
     private val streamSlot: Int,
 ) : BaseAudioProcessor() {
     companion object {
+        private val nativeAvailability = AutomixToneNativeAvailability()
+
         @JvmStatic
         private external fun nativeConfigureTone(
             streamSlot: Int,
@@ -71,19 +90,21 @@ class AutomixToneAudioProcessor(
         private external fun nativeResetTone(streamSlot: Int): Int
 
         internal fun setNativeFadeGain(streamSlot: Int, gain: Float): Boolean {
-            if (!NativeDspAudioProcessor.isLibraryAvailable) return false
+            if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return false
             return try {
                 nativeSetFadeGain(streamSlot, normalizeGain(gain)) == 1
             } catch (_: LinkageError) {
+                nativeAvailability.markUnavailable()
                 false
             }
         }
 
         internal fun setNativeTruePeakLimit(streamSlot: Int, ceiling: Float): Boolean {
-            if (!NativeDspAudioProcessor.isLibraryAvailable) return false
+            if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return false
             return try {
                 nativeSetTruePeakLimit(streamSlot, normalizeTruePeakCeiling(ceiling)) == 1
             } catch (_: LinkageError) {
+                nativeAvailability.markUnavailable()
                 false
             }
         }
@@ -96,7 +117,7 @@ class AutomixToneAudioProcessor(
             outgoingTrim: Float,
             incomingTrim: Float,
         ): Boolean {
-            if (!NativeDspAudioProcessor.isLibraryAvailable) return false
+            if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return false
             return try {
                 nativeSetCrossfadeGains(
                     outgoingSlot,
@@ -107,6 +128,7 @@ class AutomixToneAudioProcessor(
                     incomingTrim,
                 ) == 1
             } catch (_: LinkageError) {
+                nativeAvailability.markUnavailable()
                 false
             }
         }
@@ -125,33 +147,45 @@ class AutomixToneAudioProcessor(
         get() = channelCount > 0
 
     fun setBassGain(gain: Float) {
-        if (NativeDspAudioProcessor.isLibraryAvailable) {
+        if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return
+        try {
             nativeSetBassGain(streamSlot, normalizeGain(gain))
+        } catch (_: LinkageError) {
+            nativeAvailability.markUnavailable()
         }
     }
 
     fun setMidGain(gain: Float) {
-        if (NativeDspAudioProcessor.isLibraryAvailable) {
+        if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return
+        try {
             nativeSetMidGain(streamSlot, normalizeGain(gain))
+        } catch (_: LinkageError) {
+            nativeAvailability.markUnavailable()
         }
     }
 
     fun setHighGain(gain: Float) {
-        if (NativeDspAudioProcessor.isLibraryAvailable) {
+        if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return
+        try {
             nativeSetHighGain(streamSlot, normalizeGain(gain))
+        } catch (_: LinkageError) {
+            nativeAvailability.markUnavailable()
         }
     }
 
     /** True-peak ceiling for this deck; 0 starts the native release and then bypasses. */
     fun setTruePeakLimit(ceiling: Float) {
-        if (NativeDspAudioProcessor.isLibraryAvailable) {
+        if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return
+        try {
             nativeSetTruePeakLimit(streamSlot, normalizeTruePeakCeiling(ceiling))
+        } catch (_: LinkageError) {
+            nativeAvailability.markUnavailable()
         }
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         channelCount = 0
-        if (!NativeDspAudioProcessor.isLibraryAvailable ||
+        if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable) ||
             inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT ||
             inputAudioFormat.channelCount !in 1..8 ||
             inputAudioFormat.sampleRate <= 0
@@ -160,12 +194,17 @@ class AutomixToneAudioProcessor(
         }
 
         val configuredChannelCount = inputAudioFormat.channelCount
-        if (nativeConfigureTone(
+        val configured = try {
+            nativeConfigureTone(
                 streamSlot,
                 inputAudioFormat.sampleRate,
                 configuredChannelCount,
-            ) != 1
-        ) {
+            ) == 1
+        } catch (_: LinkageError) {
+            nativeAvailability.markUnavailable()
+            false
+        }
+        if (!configured) {
             channelCount = 0
             return AudioProcessor.AudioFormat.NOT_SET
         }
@@ -195,15 +234,19 @@ class AutomixToneAudioProcessor(
         output.put(input)
         output.flip()
 
-        if (NativeDspAudioProcessor.isLibraryAvailable) {
+        if (nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) {
             // BaseAudioProcessor provides a direct output buffer. C processes
             // it in-place, with the stereo path vectorized using ARM64 NEON.
-            nativeProcessTone(
-                output,
-                alignedBytes / frameBytes,
-                channelCount,
-                streamSlot,
-            )
+            try {
+                nativeProcessTone(
+                    output,
+                    alignedBytes / frameBytes,
+                    channelCount,
+                    streamSlot,
+                )
+            } catch (_: LinkageError) {
+                nativeAvailability.markUnavailable()
+            }
         }
         inputBuffer.position(inputBuffer.limit())
     }
@@ -222,8 +265,11 @@ class AutomixToneAudioProcessor(
         if (gain.isFinite()) gain.coerceIn(0f, 1f) else 1f
 
     private fun resetNativeState() {
-        if (NativeDspAudioProcessor.isLibraryAvailable) {
+        if (!nativeAvailability.canUse(NativeDspAudioProcessor.isLibraryAvailable)) return
+        try {
             nativeResetTone(streamSlot)
+        } catch (_: LinkageError) {
+            nativeAvailability.markUnavailable()
         }
     }
 }
