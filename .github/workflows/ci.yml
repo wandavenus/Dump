@@ -22,6 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Validate native build scripts
+        run: |
+          bash -n android/build-ffmpeg-jni.sh
+          bash -n scripts/ci/install-android-ndk.sh
+
       - name: Install pinned Android NDK
         run: bash scripts/ci/install-android-ndk.sh
 
