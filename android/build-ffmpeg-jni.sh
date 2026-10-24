@@ -281,8 +281,7 @@ mkdir -p "$SO_DIR"
 "$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$SO_PATH"
 
 echo "[4/4] Verifying $SO_PATH ..."
-if ! "$TOOLCHAIN/bin/llvm-nm" -D "$SO_PATH" | grep -E '[[:space:]]JNI_OnLoad
- >/dev/null; then
+if ! "$TOOLCHAIN/bin/llvm-nm" -D "$SO_PATH" | grep -F "JNI_OnLoad" >/dev/null; then
     echo "ERROR: JNI_OnLoad is not exported from libffmpegJNI.so." >&2
     rm -f "$SO_PATH"
     exit 1
