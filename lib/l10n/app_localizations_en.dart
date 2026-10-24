@@ -496,6 +496,82 @@ class AppLocalizationsEn extends AppLocalizations {
   String get licenseVersion => 'Version';
 
   @override
+  String get licenseSummaryFlutter => "UI framework and application runtime.";
+
+  @override
+  String get licenseSummaryDart => "Programming language and runtime for application code.";
+
+  @override
+  String get licenseSummaryMedia3 => "Audio playback, media extraction, and Android media sessions.";
+
+  @override
+  String get licenseSummaryMedia3Ffmpeg => "JNI wrapper connecting Media3 to the FFmpeg decoder.";
+
+  @override
+  String get licenseSummaryFfmpeg => "Native library for decoding additional audio formats. The app build disables GPL and nonfree components.";
+
+  @override
+  String get licenseSummaryEbur128 => "Loudness analysis compliant with EBU R128 / ITU-R BS.1770.";
+
+  @override
+  String get licenseSummaryTaglib => "Reads and writes audio metadata tags. Available under LGPL 2.1 or MPL 1.1.";
+
+  @override
+  String get licenseSummarySignalsmithStretch => "Audio time-stretching and pitch-shifting.";
+
+  @override
+  String get licenseSummarySignalsmithLinear => "DSP and FFT utilities used by Signalsmith Stretch.";
+
+  @override
+  String get licenseSummaryPalette => "Extracts color palettes from artwork.";
+
+  @override
+  String get licenseSummaryAudioSession => "Cross-platform audio session configuration.";
+
+  @override
+  String get licenseSummaryPermissionHandler => "Requests and checks system permissions.";
+
+  @override
+  String get licenseSummarySharedPreferences => "Local preference storage.";
+
+  @override
+  String get licenseSummaryPathProvider => "Access to standard platform storage locations.";
+
+  @override
+  String get licenseSummaryUrlLauncher => "Opens links using platform applications.";
+
+  @override
+  String get licenseSummaryIntl => "Date and number formatting, plus localization support.";
+
+  @override
+  String get licenseSummaryFontAwesomeFlutter => "Package code is licensed under MIT; Font Awesome icons use CC BY 4.0 and its fonts use SIL OFL 1.1.";
+
+  @override
+  String get licenseDocBsd3 => "BSD 3-Clause License";
+
+  @override
+  String get licenseDocApache20 => "Apache License 2.0";
+
+  @override
+  String get licenseDocLgpl21 => "GNU Lesser General Public License 2.1";
+
+  @override
+  String get licenseDocMit => "MIT License";
+
+  @override
+  String get licenseDocMpl11 => "Mozilla Public License 1.1";
+
+  @override
+  String get licenseDocMitPackageCode => "MIT License (package code)";
+
+  @override
+  String get licenseDocCcByIcons => "Creative Commons Attribution 4.0 International (icons)";
+
+  @override
+  String get licenseDocOflFonts => "SIL Open Font License 1.1 (fonts)";
+
+
+  @override
   String get changelogTitle => 'Changelog';
 
   @override

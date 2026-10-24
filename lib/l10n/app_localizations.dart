@@ -991,6 +991,31 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version'**
   String get licenseVersion;
+  String get licenseSummaryFlutter;
+  String get licenseSummaryDart;
+  String get licenseSummaryMedia3;
+  String get licenseSummaryMedia3Ffmpeg;
+  String get licenseSummaryFfmpeg;
+  String get licenseSummaryEbur128;
+  String get licenseSummaryTaglib;
+  String get licenseSummarySignalsmithStretch;
+  String get licenseSummarySignalsmithLinear;
+  String get licenseSummaryPalette;
+  String get licenseSummaryAudioSession;
+  String get licenseSummaryPermissionHandler;
+  String get licenseSummarySharedPreferences;
+  String get licenseSummaryPathProvider;
+  String get licenseSummaryUrlLauncher;
+  String get licenseSummaryIntl;
+  String get licenseSummaryFontAwesomeFlutter;
+  String get licenseDocBsd3;
+  String get licenseDocApache20;
+  String get licenseDocLgpl21;
+  String get licenseDocMit;
+  String get licenseDocMpl11;
+  String get licenseDocMitPackageCode;
+  String get licenseDocCcByIcons;
+  String get licenseDocOflFonts;
 
   /// No description provided for @changelogTitle.
   ///
