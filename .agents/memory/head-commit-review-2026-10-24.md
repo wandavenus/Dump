@@ -3,7 +3,7 @@ name: HEAD diff review 2026-10-24
 description: Review commit b622c84 wiring native AutoMix fade.
 ---
 
-Review report: `head_commit_review_2026-10-24.md`.
+Review report: `fade_audit.md`.
 
 Findings:
 
