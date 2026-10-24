@@ -31,4 +31,8 @@ if [ "$ACTUAL_NDK_VERSION" != "$EXPECTED_NDK_VERSION" ]; then
     echo "ERROR: expected NDK $EXPECTED_NDK_VERSION, found '${ACTUAL_NDK_VERSION:-unknown}'." >&2
     exit 1
 fi
+# Select the exact NDK for both Android Gradle Plugin and the native build script.
+echo "ndk.dir=$NDK_DIR" >> "$GITHUB_WORKSPACE/android/local.properties"
+echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+echo "ANDROID_NDK=$NDK_DIR" >> "$GITHUB_ENV"
 echo "Android NDK $ACTUAL_NDK_VERSION ready at $NDK_DIR."
