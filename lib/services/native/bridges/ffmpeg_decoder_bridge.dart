@@ -9,11 +9,11 @@ import '../../log_service.dart';
 /// Capability snapshot reported by the native FFmpeg decoder module.
 ///
 /// [available] reflects `FfmpegLibrary.isAvailable()` on the Kotlin side,
-/// which is only true when the `media3-decoder-ffmpeg` module was vendored
-/// AND its native `.so` loaded successfully at runtime. [moduleLinked]
-/// distinguishes "class not found" (module not vendored at all) from
-/// "class found but native lib failed to load" — useful for diagnostics,
-/// but callers almost always just want [available].
+/// which is only true when `libffmpegJNI.so` from the local `:decoder-ffmpeg`
+/// module loaded successfully at runtime. [moduleLinked] distinguishes
+/// "wrapper class not on the classpath" from "class found but native lib
+/// failed to load" — useful for diagnostics, but callers almost always just
+/// want [available].
 class FfmpegDecoderCapabilities {
   final bool available;
   final bool moduleLinked;
@@ -101,19 +101,20 @@ class FfmpegDecoderInfo {
       'isFfmpeg=$isFfmpegDecoder, ${initializationDurationMs}ms)';
 }
 
-/// Dedicated abstraction over the official Media3 FFmpeg decoder extension.
+/// Dedicated abstraction over the locally built Media3 FFmpeg decoder
+/// extension.
 ///
 /// ## Phase 9 architecture
 ///
 /// Decoding itself never touches Dart or the `native_audio_runtime` FFI
-/// package — it runs entirely inside ExoPlayer via Google's own
-/// `androidx.media3:media3-decoder-ffmpeg` extension (`FfmpegAudioRenderer`),
-/// registered automatically by `DefaultRenderersFactory`'s
-/// `EXTENSION_RENDERER_MODE_ON` + `setEnableDecoderFallback(true)` (already
-/// configured in `Media3PlaybackService.kt`). PCM produced by that renderer
-/// flows through the exact same `NativeDspAudioProcessor` chain as PCM from
-/// any built-in decoder — the DSP pipeline (`native_audio_runtime`) requires
-/// no changes and is untouched by this module.
+/// package — it runs entirely inside ExoPlayer via Media3's FFmpeg extension
+/// (`FfmpegAudioRenderer`), registered automatically by
+/// `DefaultRenderersFactory`'s `EXTENSION_RENDERER_MODE_PREFER` +
+/// `setEnableDecoderFallback(true)` (already configured in
+/// `Media3PlaybackService.kt`). PCM produced by that renderer flows through the
+/// exact same `NativeDspAudioProcessor` chain as PCM from any built-in decoder
+/// — the DSP pipeline (`native_audio_runtime`) requires no changes and is
+/// untouched by this module.
 ///
 /// This class exists so that **all** Dart-side code — `PlaybackManager`
 /// included — talks to a single, stable API for FFmpeg decoder status,
@@ -134,17 +135,17 @@ class FfmpegDecoderInfo {
 ///
 /// ## Build-time state
 ///
-/// The native FFmpeg decoder is sourced from the Jellyfin prebuilt AAR
-/// (`org.jellyfin.media3:media3-ffmpeg-decoder`, Maven Central) and is
-/// **unconditionally on the classpath** — see `android/app/build.gradle`.
-/// There is no `ffmpegDecoderEnabled` flag and no local NDK build step; the
-/// old plan documented in `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md`
-/// (vendoring `androidx.media3:media3-decoder-ffmpeg` as a local Gradle
-/// module built against the NDK) was superseded before that approach ever
-/// shipped. [isAvailable] now only reflects the runtime check —
+/// The native FFmpeg decoder is built from source in
+/// `android/decoder-ffmpeg/`: the Media3 wrapper classes are vendored from
+/// androidx/media 1.11.1 (Apache 2.0) and `libffmpegJNI.so` is produced by
+/// `android/build-ffmpeg-jni.sh` (LGPL, `--disable-gpl`). The module is
+/// **unconditionally on the classpath** — see `android/app/build.gradle` — and
+/// Gradle builds the `.so` on first use. There is no `ffmpegDecoderEnabled`
+/// flag. [isAvailable] reflects the runtime check —
 /// `FfmpegLibrary.isAvailable()` — i.e. whether `libffmpegJNI.so` actually
 /// loaded on the device. A `false` result on a real device means the native
-/// library failed to load, not that the module is missing from the build.
+/// library failed to load or was not built, not that the module is missing
+/// from the classpath.
 class FfmpegDecoderBridge implements NativeModule {
   FfmpegDecoderBridge._();
 

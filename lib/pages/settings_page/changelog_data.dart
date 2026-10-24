@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.43',
+    date: '24 Oktober 2026',
+    changes: [
+      'Decoder FFmpeg kini dibangun lokal sebagai JNI (libffmpegJNI.so, FFmpeg 8.1.3, LGPL) dan tidak lagi memakai AAR Jellyfin GPL; dukungan ALAC, DTS/DTS-HD, TrueHD, Vorbis, dan Opus tetap sama.',
+      'Build Android mengompilasi FFmpeg arm64-v8a otomatis saat pertama kali dibutuhkan; bila native library gagal dimuat, playback tetap fallback ke decoder MediaCodec platform.',
+      'Perbaikan build: LogService.warn kini menerima stackTrace opsional seperti LogService.error, sehingga pemanggil logging dapat menyertakan jejak error.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.42',
     date: '23 Oktober 2026',
     changes: [

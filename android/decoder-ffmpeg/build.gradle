@@ -1,0 +1,72 @@
+// Local Media3 FFmpeg decoder extension.
+//
+// This module replaces the former Jellyfin prebuilt AAR
+// (org.jellyfin.media3:media3-ffmpeg-decoder) with a locally built
+// libffmpegJNI.so. The Java wrapper classes under src/main/java are vendored
+// verbatim from androidx/media 1.11.1 (Apache 2.0); the native library is
+// compiled by android/build-ffmpeg-jni.sh from FFmpeg's own source tree with
+// --disable-gpl, so no GPL component is linked.
+//
+// The .so is generated, not committed. Gradle runs the build script once on
+// the first build (or after ffmpeg_jni.cc changes); subsequent builds reuse
+// the cached artifact.
+plugins {
+    id "com.android.library"
+}
+
+android {
+    namespace "androidx.media3.decoder.ffmpeg"
+    compileSdk 36
+    ndkVersion "28.2.13676358"
+
+    defaultConfig {
+        minSdk 27
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += "src/main/java"
+            jniLibs.srcDirs += "src/main/jniLibs"
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    // Public API surface: FfmpegAudioRenderer extends DecoderAudioRenderer and
+    // FfmpegAudioDecoder extends SimpleDecoder.
+    api "androidx.media3:media3-exoplayer:${rootProject.ext.media3Version}"
+    api "androidx.media3:media3-decoder:${rootProject.ext.media3Version}"
+
+    // Compile-time-only annotations used by the vendored sources.
+    compileOnly "androidx.annotation:annotation:1.9.1"
+    compileOnly "org.checkerframework:checker-qual:3.13.0"
+}
+
+def ffmpegJniScript = rootProject.file("build-ffmpeg-jni.sh")
+def ffmpegJniSource = file("src/main/jni/ffmpeg_jni.cc")
+def ffmpegJniLibrary = file("src/main/jniLibs/arm64-v8a/libffmpegJNI.so")
+
+tasks.register("buildFfmpegJni", Exec) {
+    description = "Builds libffmpegJNI.so from the pinned FFmpeg source tree."
+    group = "build"
+
+    workingDir rootProject.projectDir
+    commandLine "bash", ffmpegJniScript.absolutePath, "--force-link"
+
+    inputs.files(ffmpegJniScript, ffmpegJniSource)
+    outputs.file(ffmpegJniLibrary)
+}
+
+// Package the native decoder before the variant's jniLibs are merged.
+tasks.named("preBuild").configure {
+    dependsOn("buildFfmpegJni")
+}

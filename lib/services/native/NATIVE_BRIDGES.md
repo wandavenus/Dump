@@ -17,14 +17,15 @@ Bluetooth, etc.) for DSP; DSP is never routed through Kotlin/JNI.
 
 **Phase 9 update:** `FfmpegDecoderBridge` no longer uses `native_audio_runtime`
 FFI at all. Decoding for formats Media3 can demux but can't decode natively
-(ALAC, DTS, TrueHD, Vorbis/Opus edge cases) is handled entirely by Google's own
-official `androidx.media3:media3-decoder-ffmpeg` extension, running inside
-`Media3PlaybackService.kt`'s ExoPlayer instance. `FfmpegDecoderBridge` is now a
-Kotlin/JNI bridge (its own small MethodChannel + EventChannel pair) rather than
-an FFI bridge — see `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` for the full
-design and why `ffmpeg_kit_flutter` (retired Jan/Apr 2025) was rejected.
-`native_audio_runtime` remains exclusively the DSP runtime; it was not
-touched by this phase.
+(ALAC, DTS, TrueHD, Vorbis/Opus edge cases) is handled by Media3's FFmpeg
+extension (`FfmpegAudioRenderer`), built locally as the `:decoder-ffmpeg`
+Android module and running inside `Media3PlaybackService.kt`'s ExoPlayer
+instance. `FfmpegDecoderBridge` is now a Kotlin/JNI bridge (its own small
+MethodChannel + EventChannel pair) rather than an FFI bridge. The native
+library (`libffmpegJNI.so`) is compiled by `android/build-ffmpeg-jni.sh` from
+FFmpeg source with `--disable-gpl`; the former Jellyfin prebuilt AAR (GPL v3)
+is no longer used. `native_audio_runtime` remains exclusively the DSP runtime;
+it was not touched by this phase.
 
 ---
 
@@ -38,7 +39,7 @@ lib/services/native/
 │   └── native_module_status.dart   NativeModuleStatus enum
 ├── bridges/
 │   ├── native_dsp_bridge.dart      NativeDspBridge  — C++ DSP stub (FFI)
-│   └── ffmpeg_decoder_bridge.dart  FfmpegDecoderBridge — Media3 FFmpeg extension (Kotlin/JNI, own channel pair)
+│   └── ffmpeg_decoder_bridge.dart  FfmpegDecoderBridge — local FFmpeg JNI extension (Kotlin/JNI, own channel pair)
 ├── native_module_registry.dart     Central module registry
 └── NATIVE_BRIDGES.md               This file
 ```
@@ -57,7 +58,7 @@ AudioService
 PlaybackManager  ◄─── single entry point for ALL native access
     ├── Media3PlaybackBridge   (active — ExoPlayer)
     ├── NativeDspBridge        (stub — future C++ DSP, FFI)
-    └── FfmpegDecoderBridge    (active — Media3 FFmpeg extension, Kotlin/JNI)
+    └── FfmpegDecoderBridge    (active — local FFmpeg JNI extension, Kotlin/JNI)
            │
            ▼
     NativeModuleRegistry  (lifecycle manager)
@@ -84,17 +85,17 @@ All native access goes through `PlaybackManager`.
 ### FfmpegDecoderBridge
 - Own MethodChannel `musicplayer/ffmpeg_decoder` (capability query) + EventChannel
   `musicplayer/ffmpeg_decoder_events` (per-track decoder selection diagnostics)
-- Decoding itself happens inside ExoPlayer via the official
-  `androidx.media3:media3-decoder-ffmpeg` extension — Dart never touches raw
+- Decoding itself happens inside ExoPlayer via the local `:decoder-ffmpeg`
+  module (Media3 wrapper + `libffmpegJNI.so`) — Dart never touches raw
   audio; this bridge only reports status
 - Covers (Phase 9 scope): ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus edge cases —
   formats Media3 can demux but has no on-device MediaCodec decoder for
 - Out of scope: APE, WavPack, TAK, Monkey's Audio (no Media3 container
   `Extractor` exists for these at all — separate, larger follow-up)
-- **Status:** Architecture + real code complete; native `.so` not vendored in
-  this environment (no Android NDK) — `isAvailable` is `false` until someone
-  completes the build in `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` and sets
-  `ffmpegDecoderEnabled=true`
+- **Status:** Architecture + real code complete. `libffmpegJNI.so` is built
+  from FFmpeg source by `android/build-ffmpeg-jni.sh`; `FfmpegLibrary.isAvailable()`
+  reports whether it loaded on the device, and ExoPlayer falls back to platform
+  MediaCodec when it does not.
 
 ---
 
@@ -177,24 +178,23 @@ When ready to implement real DSP (Phase 4+):
 
 ## FFmpeg Decoder Integration (Phase 9 — implemented)
 
-Full design, rejected alternatives (`ffmpeg_kit_flutter*` — retired Jan/Apr
-2025), the reflection-based capability probe, Gradle wiring, and the human
-runbook for vendoring the actual `.so` on a machine with an Android NDK all
-live in **`docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md`**. Summary:
+Summary:
 
-- Media3's own `androidx.media3:media3-decoder-ffmpeg` extension
-  (`FfmpegAudioRenderer`) is used — never `ffmpeg_kit_flutter` or a custom
-  CMake build. `DefaultRenderersFactory`'s `EXTENSION_RENDERER_MODE_ON` +
-  `setEnableDecoderFallback(true)` (already present in
-  `Media3PlaybackService.kt` from an earlier phase) makes ExoPlayer try
-  built-in decoders first and fall back to the extension automatically —
+- Media3's FFmpeg extension wrapper (`FfmpegAudioRenderer`, Apache 2.0) is
+  vendored in `android/decoder-ffmpeg/` and linked against a locally built
+  `libffmpegJNI.so` — never `ffmpeg_kit_flutter` and never the Jellyfin GPL AAR.
+  `DefaultRenderersFactory`'s `EXTENSION_RENDERER_MODE_PREFER` +
+  `setEnableDecoderFallback(true)` makes ExoPlayer prefer the extension and
+  fall back to platform MediaCodec automatically when it is unavailable —
   **no `RenderersFactory` code changes were needed for this phase.**
-- The module isn't on Maven Central; it's vendored as an optional local
-  Gradle module (`android/decoder-ffmpeg/`, guarded in `settings.gradle` +
-  `build.gradle` behind `ffmpegDecoderEnabled` in `local.properties`) so a
-  build with the module absent still succeeds.
+- The module is part of the normal Gradle build (`include ":decoder-ffmpeg"`),
+  not an optional flag. `android/build-ffmpeg-jni.sh` cross-compiles FFmpeg
+  `n8.1.3` for arm64-v8a with `--disable-gpl --disable-nonfree
+  --disable-version3` (LGPL-2.1-or-later) and the `preBuild` task runs it on
+  first use. Generated artifacts stay under `.ffmpeg-build/` and `jniLibs/`.
 - `FfmpegCapabilityProbe.kt` looks up `FfmpegLibrary` by reflection, so
-  `Media3PlaybackService.kt` compiles whether or not the module is present.
+  `Media3PlaybackService.kt` compiles even if the module is removed and a
+  missing/unloadable library collapses to `available = false`.
 - PCM from `FfmpegAudioRenderer` flows through the exact same
   `NativeDspAudioProcessor` chain as any built-in decoder — DSP pipeline
   unchanged.

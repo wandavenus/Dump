@@ -187,8 +187,8 @@ class LogService {
   static void verbose(String category, String message) =>
       log(category, message, level: LogLevel.verbose);
 
-  static void warn(String category, String message) =>
-      log(category, message, level: LogLevel.warning);
+  static void warn(String category, String message, {String? stackTrace}) =>
+      log(category, message, level: LogLevel.warning, stackTrace: stackTrace);
 
   static void error(String category, String message, {String? stackTrace}) =>
       log(category, message, level: LogLevel.error, stackTrace: stackTrace);

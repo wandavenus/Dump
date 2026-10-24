@@ -95,6 +95,11 @@ selesai.**
 
   Opsi "beli lisensi komersial FFmpeg" praktis tidak tersedia. Wajib review hukum sebelum rilis.
 - **Status:** terkonfirmasi dari konfigurasi + metadata artefak (bukan opini runtime).
+- **Update 2026-10-24:** rekomendasi **(b) diterapkan** — decoder kini dibangun
+  lokal dari FFmpeg `n8.1.3` dengan `--disable-gpl --disable-nonfree
+  --disable-version3` (LGPL-2.1-or-later) lewat `android/decoder-ffmpeg/` +
+  `android/build-ffmpeg-jni.sh`; AAR Jellyfin dihapus. Temuan di atas
+  dipertahankan sebagai catatan historis.
 
 #### C2. Notis lisensi pihak ketiga dibuang dari APK
 

@@ -1,3 +1,10 @@
+ext {
+    // Single source of truth for the Media3 version used by :app and the
+    // local :decoder-ffmpeg extension. Keep in sync with the FFmpeg wrapper
+    // sources under android/decoder-ffmpeg/src/main/java.
+    media3Version = "1.11.1"
+}
+
 allprojects {
     repositories {
         google()
