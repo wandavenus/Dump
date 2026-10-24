@@ -11,7 +11,7 @@
 # The script cross-compiles FFmpeg from source for arm64-v8a only (the app's
 # only supported ABI) and links ffmpeg_jni.cc against the static libraries.
 # FFmpeg is configured with --disable-gpl --disable-nonfree --disable-version3,
-# so the resulting binary contains LGPL-2.1-or-later code only.
+# FFmpeg components are built from LGPL-2.1-or-later code; see packaged notices.
 #
 # Gradle runs this script automatically from the :decoder-ffmpeg preBuild task
 # when the .so is missing or its inputs changed. You can also run it manually:
@@ -21,7 +21,7 @@
 #   bash android/build-ffmpeg-jni.sh --clean      # discard all cached output
 #
 # Environment overrides:
-#   ANDROID_NDK_HOME / ANDROID_NDK   NDK path (default: newest NDK in SDK)
+#   ANDROID_NDK_HOME / ANDROID_NDK   optional path to the pinned NDK
 #   FFMPEG_TAG                       FFmpeg git tag (default: n8.1.3)
 #
 # Prerequisites: Android NDK 28.2.13676358, git, make, bash, a Linux or macOS
@@ -125,7 +125,7 @@ if [ ! -f "$JNI_SOURCE" ]; then
     echo "ERROR: JNI source not found: $JNI_SOURCE" >&2
     exit 1
 fi
-if [ ! -f "$LICENSE_DIR/COPYING.LGPLv2.1" ] || [ ! -f "$LICENSE_DIR/THIRD_PARTY_NOTICES.txt" ]; then
+if [ ! -f "$LICENSE_DIR/COPYING.LGPLv2.1" ] || [ ! -f "$LICENSE_DIR/LICENSE-2.0.txt" ] || [ ! -f "$LICENSE_DIR/THIRD_PARTY_NOTICES.txt" ]; then
     echo "ERROR: bundled third-party license notices are missing from $LICENSE_DIR." >&2
     exit 1
 fi
@@ -281,7 +281,7 @@ mkdir -p "$SO_DIR"
 "$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$SO_PATH"
 
 echo "[4/4] Verifying $SO_PATH ..."
-if ! "$TOOLCHAIN/bin/llvm-nm" -D "$SO_PATH" | grep -F "JNI_OnLoad" >/dev/null; then
+if ! "$TOOLCHAIN/bin/llvm-nm" -D "$SO_PATH" | awk '$NF == "JNI_OnLoad" { found=1 } END { exit !found }'; then
     echo "ERROR: JNI_OnLoad is not exported from libffmpegJNI.so." >&2
     rm -f "$SO_PATH"
     exit 1
