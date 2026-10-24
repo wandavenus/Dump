@@ -61,6 +61,7 @@ void main(List<String> args) async {
         'src/automix_analyzer.c', // AutoMix PCM feature extraction
         'src/automix_live_tracker.c', // Per-stream live beat tracking
         'src/automix_planner.c', // AutoMix deterministic queue planner
+        'src/automix_fade_processor.c', // Sample-timeline AutoMix fade stage
         'src/automix_tone_processor.c', // Per-stream AutoMix tone DSP
         // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
         // System.loadLibrary("native_audio_runtime") on Android; it is the

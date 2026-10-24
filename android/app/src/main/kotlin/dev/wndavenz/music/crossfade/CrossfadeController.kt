@@ -135,12 +135,20 @@ class CrossfadeController(
     private val setAutoMixTruePeakLimit: (ExoPlayer, Float) -> Unit = { _, _ -> },
     // Gentle high-band filter-out on the outgoing deck's tail: 1.0 = transparent.
     private val setAutoMixTailFilter: (ExoPlayer, Float) -> Unit = { _, _ -> },
-    // Native per-sample equal-power envelope; player.volume remains the master
-    // volume control. False keeps the existing Kotlin volume-ramp fallback.
-    private val setAutoMixCrossfadeGains:
-        (ExoPlayer, ExoPlayer, Float, Float, Float, Float) -> Boolean =
-        { _, _, _, _, _, _ -> false },
+    // Native per-sample equal-power envelope. The controller arms an absolute
+    // media-timeline plan on both physical deck processors; player.volume stays
+    // the master volume control. A failed arm/configuration falls back to the
+    // existing Kotlin volume envelope.
+    private val armAutoMixCrossfade:
+        (ExoPlayer, ExoPlayer, Long, Long, Long, Float, Float, Float) -> Boolean =
+        { _, _, _, _, _, _, _, _ -> false },
+    private val isAutoMixFadeConfigured: (ExoPlayer, ExoPlayer) -> Boolean =
+        { _, _ -> false },
+    private val hasAutoMixFadeProcessed: (ExoPlayer, ExoPlayer) -> Boolean =
+        { _, _ -> false },
+    private val resetAutoMixCrossfade: (ExoPlayer) -> Unit = { },
     private val setAutoMixFadeGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
+    private val setAutoMixTimelinePosition: (ExoPlayer, Long) -> Unit = { _, _ -> },
     private val onCrossfadeCancelled: () -> Unit = {},
 ) {
     companion object {
@@ -411,6 +419,7 @@ class CrossfadeController(
             setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
+            resetAutoMixCrossfade(it)
         }
         promotionOwner?.let {
             setAutoMixBassGain(it, 1f)
@@ -421,6 +430,7 @@ class CrossfadeController(
             setAutoMixTruePeakLimit(it, 0f)
             setAutoMixTailFilter(it, 1f)
             setAutoMixFadeGain(it, 1f)
+            resetAutoMixCrossfade(it)
         }
 
         // K1 fix: capture the mid-fade state BEFORE clearing the flags below. A
@@ -545,12 +555,13 @@ class CrossfadeController(
         // one shared headroom scale. Reset stale native envelopes before fading.
         setAutoMixFadeGain(current, 1f)
         setAutoMixFadeGain(standby, 1f)
-        val nativeFadeAvailable = false
+        var nativeFadeAvailable: Boolean
+        val nativeOutgoingStartMs = current.currentPosition.coerceAtLeast(0L)
+        val nativeIncomingStartMs = standby.currentPosition.coerceAtLeast(0L)
 
         // True-peak limiting is a per-deck safety net for the AutoMix overlap.
-        // It is intentionally independent of nativeFadeAvailable (which stays
-        // false), and is disabled for ordinary crossfades so normal playback
-        // remains bit-transparent.
+        // It is intentionally independent of nativeFadeAvailable and is disabled
+        // for ordinary crossfades so normal playback remains bit-transparent.
         val limiterCeiling = if (isAutomixTransitionEnabled()) {
             AUTOMIX_TRUE_PEAK_CEILING
         } else {
@@ -666,6 +677,28 @@ class CrossfadeController(
             standby.prepare()
             CrossfadeTimelineLogger.stamp("beginCrossfade: standby.prepare() DONE", standby)
         }
+
+        // Arm only after both sinks have had a chance to configure their float
+        // processors, but before the standby starts producing audible output.
+        // If configuration or symbol resolution is incomplete, immediately
+        // reset the plan and retain the Kotlin volume fallback.
+        setAutoMixTimelinePosition(standby, nativeIncomingStartMs)
+        val nativeFadeArmed = armAutoMixCrossfade(
+            current,
+            standby,
+            nativeOutgoingStartMs,
+            nativeIncomingStartMs,
+            actualFadeMs,
+            fadeGamma,
+            outgoingTrim,
+            incomingTrim,
+        )
+        nativeFadeAvailable = nativeFadeArmed &&
+            isAutoMixFadeConfigured(current, standby)
+        if (!nativeFadeAvailable && nativeFadeArmed) {
+            resetAutoMixCrossfade(current)
+            resetAutoMixCrossfade(standby)
+        }
         CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() START (focus granted)", standby)
         standby.play()
         CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() DONE", standby)
@@ -766,6 +799,7 @@ class CrossfadeController(
         var step = 0
         var lastPhaseLockAt: Long? = null
         var nativeFadeActive = nativeFadeEnabled
+        var nativeFadeObserved = false
         // Beat-aligned bass swap: one short transfer on a musical boundary,
         // positioned on the outgoing deck's source-media timeline.
         val bassSwapWindow = if (applyBassSwap) {
@@ -826,6 +860,8 @@ class CrossfadeController(
                     setAutoMixTailFilter(oldPlayer, 1f)
                     setAutoMixFadeGain(newPlayer, 1f)
                     setAutoMixFadeGain(oldPlayer, 1f)
+                    resetAutoMixCrossfade(newPlayer)
+                    resetAutoMixCrossfade(oldPlayer)
                     // A mid-fade abort is a cancel: restore BOTH deck volumes
                     // (the promoted deck may have been left at a partial
                     // fade-in value), drop the preloaded index that belonged to
@@ -891,13 +927,15 @@ class CrossfadeController(
                     setAutoMixTruePeakLimit(oldPlayer, 0f)
                     setAutoMixTailFilter(newPlayer, 1f)
                     setAutoMixTailFilter(oldPlayer, 1f)
+                    resetAutoMixCrossfade(newPlayer)
+                    resetAutoMixCrossfade(oldPlayer)
                     // ── Crossfade complete ─────────────────────────────────────
                     CrossfadeTimelineLogger.stampDual(
                         "runEqualPowerFade: COMPLETE (ticks=$step) — about to stop old player",
                         newPlayer, oldPlayer)
 
                     val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
-                    setActiveQueueIndex(nextIndex) 
+                    setActiveQueueIndex(nextIndex)
                     setAutoMixFadeGain(newPlayer, 1f)
                     newPlayer.volume = targetVol
                     // Silence the outgoing deck before tearing its output down.
@@ -914,6 +952,8 @@ class CrossfadeController(
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: oldPlayer.clearMediaItems() START", oldPlayer)
                     try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
                     setAutoMixFadeGain(oldPlayer, 1f)
+                    resetAutoMixCrossfade(newPlayer)
+                    resetAutoMixCrossfade(oldPlayer)
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: old player stopped+cleared", oldPlayer)
 
                     CrossfadeTimelineLogger.stamp("runEqualPowerFade: setActivePlayer(newPlayer)", newPlayer)
@@ -1154,18 +1194,29 @@ class CrossfadeController(
                 // silenced at the end anyway) while the incoming trim is
                 // released over the last quarter so the promoted deck ends at
                 // its own level — no step when the fade completes.
-                val nativeApplied = nativeFadeActive && setAutoMixCrossfadeGains(
-                    oldPlayer,
-                    newPlayer,
-                    t,
-                    fadeGamma,
-                    outgoingTrim,
-                    incomingTrim,
-                )
-                if (nativeFadeActive && !nativeApplied) {
-                    setAutoMixFadeGain(oldPlayer, 1f)
-                    setAutoMixFadeGain(newPlayer, 1f)
+                // Native activation is fail-open. The first audio-thread process
+                // call is the proof that the configured processor is actually in
+                // Media3's PCM chain; if it is not observed by the first Handler
+                // tick, disarm both decks before falling back to Kotlin volume.
+                if (nativeFadeActive && !nativeFadeObserved) {
+                    nativeFadeObserved = hasAutoMixFadeProcessed(oldPlayer, newPlayer)
+                    if (nativeFadeObserved) {
+                        log("Native fade active: both deck processors are processing PCM")
+                    }
+                    if (!nativeFadeObserved && step > 0) {
+                        resetAutoMixCrossfade(oldPlayer)
+                        resetAutoMixCrossfade(newPlayer)
+                        nativeFadeActive = false
+                        log("Native fade process proof missing; using Kotlin fallback")
+                    }
+                }
+                if (nativeFadeActive && nativeFadeObserved &&
+                    !isAutoMixFadeConfigured(oldPlayer, newPlayer)
+                ) {
+                    resetAutoMixCrossfade(oldPlayer)
+                    resetAutoMixCrossfade(newPlayer)
                     nativeFadeActive = false
+                    log("Native fade became unavailable; using Kotlin fallback")
                 }
                 if (nativeFadeActive) {
                     // Keep ExoPlayer's volume as the master/user/audio-focus

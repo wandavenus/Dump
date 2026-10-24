@@ -167,6 +167,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val playerReverbProcessors = IdentityHashMap<ExoPlayer, ReverbAudioProcessor>() // Reverb
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
     private val playerAutomixToneProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.AutomixToneAudioProcessor>()
+    private val playerAutomixFadeProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.AutomixFadeAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
     // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
@@ -185,6 +186,7 @@ class Media3PlaybackService : MediaSessionService() {
     // native state, unlike the shared-global NativeDspAudioProcessor pipeline).
     private lateinit var stretchManager: dev.wndavenz.music.effects.StretchManager
     private lateinit var automixToneManager: dev.wndavenz.music.effects.AutomixToneManager
+    private lateinit var automixFadeManager: dev.wndavenz.music.effects.AutomixFadeManager
 
     // AutoMix target metadata keyed by stable MediaStore song ID. These are
     // hints only; unknown/low-confidence features fall back to ordinary fade.
@@ -295,6 +297,7 @@ class Media3PlaybackService : MediaSessionService() {
         reverbManager = ReverbManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
         automixToneManager = dev.wndavenz.music.effects.AutomixToneManager()
+        automixFadeManager = dev.wndavenz.music.effects.AutomixFadeManager()
 
         // Create primary player — always physical stream slot 0.
         primaryPlayer = createConfiguredPlayer(streamSlot = 0)
@@ -482,7 +485,11 @@ class Media3PlaybackService : MediaSessionService() {
                 stretchManager.setAutoMixTempoMultiplier(slot, multiplier)
                 // Seek the silent standby only when both decks have confident
                 // phase metadata; otherwise keep the incoming intro intact.
-                automixBeatSeekMsFor(standby)?.let { standby.seekTo(it) }
+                val beatSeekMs = automixBeatSeekMsFor(standby)
+                beatSeekMs?.let { standby.seekTo(it) }
+                if (::automixFadeManager.isInitialized) {
+                    automixFadeManager.setTimelinePosition(slot, beatSeekMs ?: 0L)
+                }
             },
             // Same target for the later pre-warm: prewarmStandby() must not
             // rewind a beat-aligned standby to 0 before the fade starts.
@@ -726,22 +733,44 @@ class Media3PlaybackService : MediaSessionService() {
             },
             // Outgoing-tail high-band gain (1 = transparent, 0 = high band gone).
             setAutoMixTailFilter = { p, gain -> applyAutomixTailFilter(p, gain) },
-            // Set the equal-power curve on both physical DSP slots. The native
-            // tone processor applies the envelope per sample; player.volume stays
-            // responsible for master volume and audio-focus ducking.
-            setAutoMixCrossfadeGains = { outgoing, incoming, progress, gamma, outTrim, inTrim ->
+            // Arm the independent sample-timeline fade processor on both physical
+            // deck slots. player.volume remains the master/user/focus control.
+            armAutoMixCrossfade = { outgoing, incoming, startMs, incomingStartMs,
+                                    durationMs, gamma, outTrim, inTrim ->
                 val outgoingSlot = playerSlotOf(outgoing)
                 val incomingSlot = playerSlotOf(incoming)
                 outgoingSlot >= 0 && incomingSlot >= 0 &&
-                    ::automixToneManager.isInitialized &&
-                    automixToneManager.setCrossfadeGains(
+                    ::automixFadeManager.isInitialized &&
+                    automixFadeManager.arm(
                         outgoingSlot,
                         incomingSlot,
-                        progress,
+                        startMs,
+                        incomingStartMs,
+                        durationMs,
                         gamma,
                         outTrim,
                         inTrim,
                     )
+            },
+            isAutoMixFadeConfigured = { outgoing, incoming ->
+                val outgoingSlot = playerSlotOf(outgoing)
+                val incomingSlot = playerSlotOf(incoming)
+                outgoingSlot >= 0 && incomingSlot >= 0 &&
+                    ::automixFadeManager.isInitialized &&
+                    automixFadeManager.isReady(outgoingSlot, incomingSlot)
+            },
+            hasAutoMixFadeProcessed = { outgoing, incoming ->
+                val outgoingSlot = playerSlotOf(outgoing)
+                val incomingSlot = playerSlotOf(incoming)
+                outgoingSlot >= 0 && incomingSlot >= 0 &&
+                    ::automixFadeManager.isInitialized &&
+                    automixFadeManager.hasProcessed(outgoingSlot, incomingSlot)
+            },
+            resetAutoMixCrossfade = { player ->
+                val slot = playerSlotOf(player)
+                if (slot >= 0 && ::automixFadeManager.isInitialized) {
+                    automixFadeManager.reset(slot)
+                }
             },
             setAutoMixFadeGain = { player, gain ->
                 val slot = playerSlotOf(player)
@@ -755,6 +784,12 @@ class Media3PlaybackService : MediaSessionService() {
                 val slot = playerSlotOf(player)
                 if (slot >= 0 && ::automixToneManager.isInitialized) {
                     automixToneManager.setTruePeakLimit(slot, ceiling)
+                }
+            },
+            setAutoMixTimelinePosition = { player, positionMs ->
+                val slot = playerSlotOf(player)
+                if (slot >= 0 && ::automixFadeManager.isInitialized) {
+                    automixFadeManager.setTimelinePosition(slot, positionMs)
                 }
             },
             onCrossfadeCancelled = {
@@ -1443,6 +1478,9 @@ class Media3PlaybackService : MediaSessionService() {
         val automixToneProc: dev.wndavenz.music.effects.AutomixToneAudioProcessor =
             if (::automixToneManager.isInitialized) automixToneManager.createProcessor(streamSlot)
             else dev.wndavenz.music.effects.AutomixToneAudioProcessor(streamSlot)
+        val automixFadeProc: dev.wndavenz.music.effects.AutomixFadeAudioProcessor =
+            if (::automixFadeManager.isInitialized) automixFadeManager.createProcessor(streamSlot)
+            else dev.wndavenz.music.effects.AutomixFadeAudioProcessor(streamSlot)
 
         // Custom DefaultRenderersFactory that injects the custom processor chain.
         //
@@ -1480,7 +1518,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,AutoMixTone,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,AutoMixTone,AutoMixFade,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1492,7 +1530,8 @@ class Media3PlaybackService : MediaSessionService() {
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
                     // Reverb → Stretch (speed+pitch) → AutoMix tone/true-peak →
-                    // ToInt16 → SilenceSkip. ToFloat guarantees the custom DSP/
+                    // sample-timeline AutoMix fade → ToInt16 → SilenceSkip.
+                    // ToFloat guarantees the custom DSP/
                     // widening/reverb/stretch stages always see PCM_FLOAT
                     // (transparent no-op if the decoder already emits float);
                     // ToInt16 converts back before Media3's own internal
@@ -1515,7 +1554,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, automixToneProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, automixToneProc, automixFadeProc, toInt16Proc
                         )
                     )
                     .build()
@@ -1617,6 +1656,9 @@ class Media3PlaybackService : MediaSessionService() {
         }
         if (::automixToneManager.isInitialized) {
             playerAutomixToneProcessors[player] = automixToneProc
+        }
+        if (::automixFadeManager.isInitialized) {
+            playerAutomixFadeProcessors[player] = automixFadeProc
         }
 
         return player
@@ -1811,6 +1853,13 @@ class Media3PlaybackService : MediaSessionService() {
                 }
 
                 if (!crossfadeController.crossfadeInProgress && p.currentMediaItemIndex >= 0) {
+                    val slot = playerSlotOf(p)
+                    if (slot >= 0 && ::automixFadeManager.isInitialized) {
+                        automixFadeManager.setTimelinePosition(
+                            slot,
+                            p.currentPosition.coerceAtLeast(0L),
+                        )
+                    }
                     queueManager.setActiveQueueIndex(p.currentMediaItemIndex)
                     crossfadeController.resetPromotionState()
                     // BP-06: also skip the force-preload while Bit-Perfect Mode is
@@ -1956,6 +2005,13 @@ class Media3PlaybackService : MediaSessionService() {
             ) {
                 if (!isActiveEvent()) return
                 if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                    val slot = playerSlotOf(p)
+                    if (slot >= 0 && ::automixFadeManager.isInitialized) {
+                        automixFadeManager.setTimelinePosition(
+                            slot,
+                            newPosition.positionMs.coerceAtLeast(0L),
+                        )
+                    }
                     transportState.emitAll()
                     NativeLogger.emit(
                         "verbose", "Media3",
@@ -2258,6 +2314,7 @@ class Media3PlaybackService : MediaSessionService() {
         playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
         // AutoMix tone processor is per-deck and must leave the registry on release.
         playerAutomixToneProcessors.remove(p)?.let { automixToneManager.removeProcessor(it) }
+        playerAutomixFadeProcessors.remove(p)?.let { automixFadeManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.
         lastAudioMimeType.remove(p)
     }

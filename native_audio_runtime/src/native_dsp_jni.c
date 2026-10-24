@@ -31,6 +31,7 @@
 #include "dsp_pipeline.h"
 #include "native_audio_runtime.h"
 #include "automix_tone_processor.h"
+#include "automix_fade_processor.h"
 #include "automix_live_tracker.h"
 
 // Java class: dev.wndavenz.music.effects.NativeDspAudioProcessor
@@ -195,6 +196,122 @@ Java_dev_wndavenz_music_effects_AutomixToneAudioProcessor_nativeResetTone(
   (void)env;
   (void)clazz;
   return (jint)nar_automix_tone_reset((int32_t)stream_slot);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeConfigureFade(
+    JNIEnv* env, jclass clazz, jint stream_slot, jint sample_rate,
+    jint channel_count) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_fade_configure(
+      (int32_t)stream_slot, (int32_t)sample_rate, (int32_t)channel_count);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeSetTimelinePositionMs(
+    JNIEnv* env, jclass clazz, jint stream_slot, jlong position_ms) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_fade_set_timeline_position_ms(
+      (int32_t)stream_slot, (int64_t)position_ms);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeArmFade(
+    JNIEnv* env, jclass clazz, jint stream_slot, jlong start_position_ms,
+    jlong duration_ms, jfloat gamma, jfloat outgoing_trim,
+    jfloat incoming_trim, jint direction) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_fade_arm(
+      (int32_t)stream_slot, (int64_t)start_position_ms, (int64_t)duration_ms,
+      gamma, outgoing_trim, incoming_trim, (int32_t)direction);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeDisarmFade(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_fade_disarm((int32_t)stream_slot);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeResetFade(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  return (jint)nar_automix_fade_reset((int32_t)stream_slot);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeProcessFade(
+    JNIEnv* env, jclass clazz, jobject buffer, jint frame_count,
+    jint channel_count, jint stream_slot) {
+  (void)clazz;
+  if (buffer == NULL || frame_count <= 0 || channel_count <= 0) return 0;
+  const int64_t required_bytes =
+      (int64_t)frame_count * (int64_t)channel_count * (int64_t)sizeof(float);
+  if (required_bytes <= 0 ||
+      (*env)->GetDirectBufferCapacity(env, buffer) < required_bytes) {
+    return 0;
+  }
+  float* data = (float*)(*env)->GetDirectBufferAddress(env, buffer);
+  if (data == NULL) return 0;
+  return (jint)nar_automix_fade_process(
+      data, (int32_t)frame_count, (int32_t)channel_count,
+      (int32_t)stream_slot);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeIsConfigured(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  NarAutomixFadeStatus status;
+  return nar_automix_fade_get_status((int32_t)stream_slot, &status) == 1 &&
+      status.configured != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeHasFailed(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  NarAutomixFadeStatus status;
+  return nar_automix_fade_get_status((int32_t)stream_slot, &status) == 1 &&
+      status.failed != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeGetProcessedFrames(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  NarAutomixFadeStatus status;
+  if (nar_automix_fade_get_status((int32_t)stream_slot, &status) != 1) return 0;
+  return (jlong)status.processed_frames;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeGetProcessCalls(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  NarAutomixFadeStatus status;
+  if (nar_automix_fade_get_status((int32_t)stream_slot, &status) != 1) return 0;
+  return (jlong)status.process_calls;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_wndavenz_music_effects_AutomixFadeAudioProcessor_nativeGetCurrentGain(
+    JNIEnv* env, jclass clazz, jint stream_slot) {
+  (void)env;
+  (void)clazz;
+  NarAutomixFadeStatus status;
+  if (nar_automix_fade_get_status((int32_t)stream_slot, &status) != 1) return 1.0f;
+  return status.current_gain;
 }
 
 

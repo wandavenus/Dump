@@ -1,6 +1,7 @@
 #include "automix_native.h"
 #include "automix_phase_lock.h"
 #include "automix_tone_processor.h"
+#include "automix_fade_processor.h"
 #include "automix_live_tracker.h"
 
 #include <assert.h>
@@ -1065,6 +1066,49 @@ static void test_native_crossfade_targets_are_per_stream(void) {
 
   assert(nar_automix_tone_set_crossfade_gains(
              0, 0, 0.5f, 1.0f, 1.0f, 1.0f) == 0);
+}
+
+static void test_native_fade_timeline_and_sanitization(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t first_block_frames = 48000;
+  const int32_t second_block_frames = 48000;
+  float* first = (float*)malloc((size_t)first_block_frames * sizeof(float));
+  float* second = (float*)malloc((size_t)second_block_frames * sizeof(float));
+  assert(first != NULL && second != NULL);
+  for (int32_t i = 0; i < first_block_frames; ++i) first[i] = 1.0f;
+  for (int32_t i = 0; i < second_block_frames; ++i) second[i] = 1.0f;
+
+  assert(nar_automix_fade_configure(0, sample_rate, 1) == 1);
+  assert(nar_automix_fade_set_timeline_position_ms(0, 0) == 1);
+  assert(nar_automix_fade_arm(
+             0, 1000, 1000, 1.0f, 1.0f, 1.0f,
+             NAR_AUTOMIX_FADE_OUTGOING) == 1);
+  assert(nar_automix_fade_process(
+             first, first_block_frames, 1, 0) == 1);
+  assert(fabsf(first[0] - 1.0f) < 1e-6f);
+  assert(nar_automix_fade_process(
+             second, second_block_frames, 1, 0) == 1);
+  assert(second[0] > 0.99f);
+  assert(second[second_block_frames / 2] < 0.8f);
+  assert(second[second_block_frames - 1] < 0.01f);
+
+  NarAutomixFadeStatus status;
+  assert(nar_automix_fade_get_status(0, &status) == 1);
+  assert(status.configured == 1);
+  assert(status.failed == 0);
+  assert(status.process_calls == 2);
+  assert(status.processed_frames == 96000);
+
+  float incoming[] = {NAN, INFINITY, -INFINITY, 0.5f};
+  assert(nar_automix_fade_set_timeline_position_ms(0, 0) == 1);
+  assert(nar_automix_fade_process(incoming, 4, 1, 0) == 1);
+  assert(incoming[0] == 0.0f);
+  assert(incoming[1] == 0.0f);
+  assert(incoming[2] == 0.0f);
+  assert(isfinite(incoming[3]));
+
+  free(first);
+  free(second);
 }
 
 static double rms_range(const float* samples, int32_t start, int32_t count) {
@@ -2447,6 +2491,7 @@ int main(void) {
   test_edge_cases_silence_and_noise();
   test_native_crossfade_curve();
   test_native_crossfade_targets_are_per_stream();
+  test_native_fade_timeline_and_sanitization();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
   test_true_peak_limiter_is_transparent_by_default();
