@@ -165,7 +165,7 @@ class ReplayGainService {
     } on Exception catch (e) {
       LogService.verbose(
         'ReplayGain',
-        'Tag read failed for "${song.title}": $e',
+        'Tag read failed for songId=${song.id}: $e',
       );
       return {};
     }
@@ -442,9 +442,9 @@ class ReplayGainService {
       if (integratedLufs != null && !integratedLufs.isFinite) return null;
       final afterScan = await _fileIdentity(song.path);
       if (afterScan != before) {
-        LogService.warn(
+        LogService.verbose(
           'ReplayGain',
-          '_scanTrackResult "${song.title}" discarded: file changed during scan',
+          '_scanTrackResult songId=${song.id} discarded: file changed during scan',
         );
         return null;
       }
@@ -458,13 +458,16 @@ class ReplayGainService {
         identity: before,
       );
     } on PlatformException catch (e) {
-      LogService.warn(
+      LogService.verbose(
         'ReplayGain',
-        '_scanTrackResult "${song.title}": ${e.code} – ${e.message}',
+        '_scanTrackResult songId=${song.id}: ${e.code} – ${e.message}',
       );
       return null;
     } on Object catch (e) {
-      LogService.warn('ReplayGain', '_scanTrackResult "${song.title}": $e');
+      LogService.verbose(
+        'ReplayGain',
+        '_scanTrackResult songId=${song.id}: $e',
+      );
       return null;
     }
   }
@@ -887,30 +890,32 @@ class ReplayGainService {
           current.mtimeMs != expectedFileMtimeMs) {
         LogService.warn(
           'ReplayGain',
-          'writeReplayGain "${song.title}" rejected: stale scan',
+          'writeReplayGain songId=${song.id} rejected: stale scan',
         );
         return false;
       }
     }
     try {
-      final raw = await _channel
-          .invokeMapMethod<String, dynamic>('writeReplayGain', {
-            'path': song.path,
-            'songId': song.id,
-            'trackGainDb': trackGainDb,
-            'trackPeak': trackPeak,
-            'integratedLufs': trackIntegratedLufs,
-            'fileSize': ?expectedFileSize,
-            'fileMtimeMs': ?expectedFileMtimeMs,
-            'albumGainDb': ?albumGainDb,
-            'albumPeak': ?albumPeak,
-            'albumIntegratedLufs': ?albumIntegratedLufs,
-          });
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'writeReplayGain',
+        {
+          'path': song.path,
+          'songId': song.id,
+          'trackGainDb': trackGainDb,
+          'trackPeak': trackPeak,
+          'integratedLufs': trackIntegratedLufs,
+          'fileSize': ?expectedFileSize,
+          'fileMtimeMs': ?expectedFileMtimeMs,
+          'albumGainDb': ?albumGainDb,
+          'albumPeak': ?albumPeak,
+          'albumIntegratedLufs': ?albumIntegratedLufs,
+        },
+      );
       final success = raw?['success'] == true;
       if (!success) {
         LogService.warn(
           'ReplayGain',
-          'writeReplayGain "${song.title}" failed: ${raw?['error']}',
+          'writeReplayGain songId=${song.id} failed: ${raw?['error']}',
         );
       } else {
         // Tags on disk changed -> invalidate so the next resolve() re-reads
@@ -921,7 +926,7 @@ class ReplayGainService {
     } on PlatformException catch (e) {
       LogService.warn(
         'ReplayGain',
-        'writeReplayGain "${song.title}": ${e.code} – ${e.message}',
+        'writeReplayGain songId=${song.id}: ${e.code} – ${e.message}',
       );
       return false;
     }
@@ -942,7 +947,7 @@ class ReplayGainService {
       if (!success) {
         LogService.warn(
           'ReplayGain',
-          'removeReplayGainTags "${song.title}" failed: ${raw?['error']}',
+          'removeReplayGainTags songId=${song.id} failed: ${raw?['error']}',
         );
       } else {
         await invalidate(song.id);
@@ -951,7 +956,7 @@ class ReplayGainService {
     } on PlatformException catch (e) {
       LogService.warn(
         'ReplayGain',
-        'removeReplayGainTags "${song.title}": ${e.code} – ${e.message}',
+        'removeReplayGainTags songId=${song.id}: ${e.code} – ${e.message}',
       );
       return false;
     }

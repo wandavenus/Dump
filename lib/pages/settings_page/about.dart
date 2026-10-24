@@ -13,9 +13,9 @@ class _AboutSection extends StatelessWidget {
         const SizedBox(height: 6),
         SettingsActionRow(
           title: l.reportBug,
-          onTap: () => Navigator.of(
-            context,
-          ).push(ZoomFadeRoute<void>(page: const BugReportPage())),
+          onTap: () =>
+              Navigator.of(context)
+                  .push(ZoomFadeRoute<void>(page: const BugReportPage())),
         ),
         SettingsActionRow(
           title: l.support,
@@ -45,9 +45,9 @@ class _AboutSection extends StatelessWidget {
         ),
         SettingsActionRow(
           title: l.aboutApp,
-          onTap: () => Navigator.of(
-            context,
-          ).push(ZoomFadeRoute<void>(page: const AboutAppPage())),
+          onTap: () =>
+              Navigator.of(context)
+                  .push(ZoomFadeRoute<void>(page: const AboutAppPage())),
         ),
         const SettingsDivider(),
         const _AboutFooter(),
@@ -105,31 +105,24 @@ Future<void> _confirmSaveQris(
 
   File? tempFile;
   try {
+    LogService.log(tag, 'Saving QRIS image');
+
     // ── 1. Cek & minta izin galeri ─────────────────────────────────────────
-    LogService.log(tag, 'Checking gallery access…');
     if (!await Gal.hasAccess()) {
-      LogService.log(tag, 'No access — requesting…');
       final granted = await Gal.requestAccess();
       if (!granted) {
-        LogService.log(
-          tag,
-          'Permission denied by user',
-          level: LogLevel.warning,
-        );
+        LogService.warn(tag, 'Gallery permission denied by user');
         showSnack(l.qrisGalleryDenied);
         return;
       }
     }
-    LogService.log(tag, 'Permission granted');
 
     // ── 2. Load asset & validasi ───────────────────────────────────────────
-    LogService.log(tag, 'Loading asset qris_support.webp…');
     final byteData = await rootBundle.load('assets/images/qris_support.webp');
     final bytes = byteData.buffer.asUint8List(
       byteData.offsetInBytes,
       byteData.lengthInBytes,
     );
-    LogService.log(tag, 'Asset loaded — ${bytes.length} bytes');
     if (bytes.isEmpty) {
       throw Exception('Asset kosong (0 bytes)');
     }
@@ -137,22 +130,18 @@ Future<void> _confirmSaveQris(
     // ── 3. Tulis ke temporary file ─────────────────────────────────────────
     final tmpDir = await getTemporaryDirectory();
     tempFile = File('${tmpDir.path}/qris_wndavenz.webp');
-    LogService.log(tag, 'Writing temp file: ${tempFile.path}');
     await tempFile.writeAsBytes(bytes, flush: true);
 
     // ── 4. Validasi temp file ──────────────────────────────────────────────
     final exists = tempFile.existsSync();
     final size = exists ? tempFile.lengthSync() : 0;
-    LogService.log(tag, 'Temp file — exists=$exists size=$size');
     if (!exists || size <= 0) {
       throw Exception('Temp file tidak valid (exists=$exists size=$size)');
     }
 
     // ── 5. Simpan ke galeri via Gal.putImage ───────────────────────────────
-    LogService.log(tag, 'Calling Gal.putImage…');
     await Gal.putImage(tempFile.path);
-    LogService.log(tag, 'Gal.putImage() selesai — sukses');
-
+    LogService.log(tag, 'QRIS image saved');
     showSnack(l.qrisSavedToGallery);
   } on GalException catch (e, st) {
     // Tangani setiap tipe GalException secara spesifik
@@ -176,7 +165,6 @@ Future<void> _confirmSaveQris(
     try {
       if (tempFile != null && tempFile.existsSync()) {
         await tempFile.delete();
-        LogService.log(tag, 'Temp file dihapus');
       }
     } on Object catch (_) {}
   }

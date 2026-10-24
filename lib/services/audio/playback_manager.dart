@@ -149,7 +149,7 @@ class PlaybackManager {
     } on Exception catch (e) {
       // NativeDspPipeline.initialize() may throw from FFI/dlopen failures,
       // MissingPluginException, or other platform-level errors — all non-fatal.
-      LogService.log(
+      LogService.warn(
         'PlaybackManager',
         'Native DSP pipeline unavailable (non-fatal): $e',
       );
@@ -437,11 +437,10 @@ class PlaybackManager {
     if (NativeDspPipeline.instance.isInitialized) return true;
     if (!_dspUnavailableWarned) {
       _dspUnavailableWarned = true;
-      LogService.log(
+      LogService.warn(
         'PlaybackManager',
         'Native DSP pipeline unavailable — DSP calls are no-ops from here on '
             '(fail-open). First skipped call: $callSite',
-        level: LogLevel.warning,
       );
     }
     return false;

@@ -46,7 +46,7 @@ class OpenFileService {
       }
     } on Exception catch (e) {
       // PlatformException, MissingPluginException, etc.
-      LogService.error('OpenFileService', 'getInitialUri failed: $e');
+      LogService.warn('OpenFileService', 'getInitialUri failed: $e');
     }
   }
 
@@ -69,7 +69,7 @@ class OpenFileService {
   }
 
   static Future<void> _playUri(String uri) async {
-    LogService.verbose('OpenFileService', 'Opening: $uri');
+    LogService.verbose('OpenFileService', 'Opening external media');
     try {
       // Convert content:// or file:// URI to a playable path/uri string.
       final String path;
@@ -102,8 +102,12 @@ class OpenFileService {
 
       // Expand the player sheet so the user sees the preview player immediately.
       PlayerSheetController.open();
-    } on Exception catch (e) {
-      LogService.error('OpenFileService', 'Failed to play URI $uri: $e');
+    } on Exception catch (e, st) {
+      LogService.error(
+        'OpenFileService',
+        'Failed to play external URI: $e',
+        stackTrace: st.toString(),
+      );
     }
   }
 }

@@ -38,14 +38,14 @@ class _LogPageState extends State<LogPage> {
     _categoryFilter = widget.initialCategory;
     _liveTail = LogService.liveTailEnabled.value;
     LogService.liveTailEnabled.addListener(_onLiveTailChanged);
-    LogService.logCount.addListener(_onNewLog);
+    LogService.logRevision.addListener(_onNewLog);
   }
 
   @override
   void dispose() {
     _newLogDebounce?.cancel();
     LogService.liveTailEnabled.removeListener(_onLiveTailChanged);
-    LogService.logCount.removeListener(_onNewLog);
+    LogService.logRevision.removeListener(_onNewLog);
     _searchCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();

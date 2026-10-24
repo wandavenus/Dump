@@ -212,10 +212,11 @@ class MediaStoreService {
       ReplayGainService.clearCache();
       unawaited(_persist(parsedSongs));
       return parsedSongs;
-    } on TimeoutException catch (_) {
+    } on TimeoutException catch (error, stackTrace) {
       LogService.error(
         'MediaStore',
-        'getSongs timed out waiting for native response',
+        'getSongs timed out waiting for native response: $error',
+        stackTrace: stackTrace.toString(),
       );
       _lastFailedReconcile = DateTime.now();
       return const <LocalSong>[];
@@ -439,8 +440,12 @@ class MediaStoreService {
           .invokeMethod<bool>('deleteSong', {'songId': songId})
           .timeout(const Duration(seconds: 8));
       return result ?? false;
-    } on TimeoutException catch (error) {
-      LogService.error('MediaStore', 'deleteSong timed out: $error');
+    } on TimeoutException catch (error, stackTrace) {
+      LogService.error(
+        'MediaStore',
+        'deleteSong timed out: $error',
+        stackTrace: stackTrace.toString(),
+      );
       return false;
     } on PlatformException catch (error, stackTrace) {
       LogService.error(
@@ -467,8 +472,12 @@ class MediaStoreService {
   static Future<void> setActiveQueueIds(List<int> songIds) async {
     try {
       await _channel.invokeMethod<void>('setActiveQueueIds', {'ids': songIds});
-    } on Exception catch (e) {
-      LogService.error('MediaStore', 'setActiveQueueIds error: $e');
+    } on Exception catch (e, st) {
+      LogService.warn(
+        'MediaStore',
+        'setActiveQueueIds error: $e',
+        stackTrace: st.toString(),
+      );
     }
   }
 
@@ -481,10 +490,11 @@ class MediaStoreService {
       await _channel.invokeMethod<void>('deleteArtworkCache', {
         'songId': songId,
       });
-    } on Exception catch (e) {
-      LogService.error(
+    } on Exception catch (e, st) {
+      LogService.warn(
         'MediaStore',
         'deleteArtworkCache error songId=$songId: $e',
+        stackTrace: st.toString(),
       );
     }
   }

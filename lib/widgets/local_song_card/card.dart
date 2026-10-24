@@ -21,8 +21,12 @@ class LocalSongCard extends StatelessWidget {
       onTap: () async {
         try {
           await AudioService.playSongAt(playlist: playlist, index: index);
-        } on Exception catch (e) {
-          LogService.error('LocalSongCard', 'playSongAt error: $e');
+        } on Exception catch (e, st) {
+          LogService.error(
+            'LocalSongCard',
+            'playSongAt error: $e',
+            stackTrace: st.toString(),
+          );
         }
       },
       onLongPress: () => _showContextMenu(context),

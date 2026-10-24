@@ -274,4 +274,30 @@ class EventEmitterTest {
         assertEquals(0, sink.events.size)
         handler.onCancel(null)
     }
+
+    @Test fun `D05 redact hides URIs and absolute device paths`() {
+        assertEquals(
+            "opened <path> via <uri>",
+            NativeLogger.redact("opened /storage/emulated/0/Music/song.mp3 via content://media/1"),
+        )
+        assertEquals(
+            "failed <uri> for <path>",
+            NativeLogger.redact("failed https://example.com/a?b=c for /data/user/0/app/files/x"),
+        )
+    }
+
+    @Test fun `D06 emit redacts message before delivering it`() {
+        NativeLogger.setEnabled(true)
+        NativeLogger.dispatcher = { it.run() }
+        val sink = FakeSink()
+        val handler = NativeLogger.handler()
+        handler.onListen(null, sink)
+
+        NativeLogger.emit("info", "Test", "scan /storage/emulated/0/Music")
+
+        @Suppress("UNCHECKED_CAST")
+        val event = sink.events[0] as Map<String, String>
+        assertEquals("scan <path>", event["message"])
+        handler.onCancel(null)
+    }
 }

@@ -161,8 +161,12 @@ class _NewMusicCell extends StatelessWidget {
       onTap: () async {
         try {
           await AudioService.playSongAt(playlist: allSongs, index: globalIndex);
-        } on Exception catch (e) {
-          LogService.error('NewMusicCell', 'playSongAt: $e');
+        } on Exception catch (e, st) {
+          LogService.error(
+            'NewMusicCell',
+            'playSongAt: $e',
+            stackTrace: st.toString(),
+          );
         }
       },
       child: SizedBox(

@@ -138,12 +138,7 @@ class MediaCapabilitiesService {
     _flushAcousticEnginePush();
     unawaited(_applyAll());
 
-    LogService.log(
-      'MediaCap',
-      'Initialized — '
-          'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value} '
-          'reverb=${reverbEnabled.value}@${reverbIntensity.value}',
-    );
+    LogService.log('MediaCap', 'Initialized');
   }
 
   // Cold-start race fix — same root cause as AudioEffectsService.applyAll():
@@ -186,7 +181,7 @@ class MediaCapabilitiesService {
         strength: stereoWideningStrength.value,
       ),
     );
-    LogService.log('MediaCap', 'stereoWidening: $value');
+    LogService.verbose('MediaCap', 'stereoWidening: $value');
   }
 
   /// Item 8: Adjust stereo width.  [strength] is clamped to [0.0, 1.0].
@@ -198,7 +193,7 @@ class MediaCapabilitiesService {
     if (stereoWideningEnabled.value) {
       unawaited(PlaybackManager.setStereoWidening(enabled: true, strength: v));
     }
-    LogService.log('MediaCap', 'stereoStrength: $v');
+    LogService.verbose('MediaCap', 'stereoStrength: $v');
   }
 
   /// Reverb: Toggle the reverb effect. Sends current [reverbIntensity]
@@ -213,7 +208,7 @@ class MediaCapabilitiesService {
         intensity: reverbIntensity.value,
       ),
     );
-    LogService.log('MediaCap', 'reverb: $value');
+    LogService.verbose('MediaCap', 'reverb: $value');
   }
 
   /// Reverb: Adjust reverb strength. [value] is clamped to [0.0, 1.0].
@@ -225,7 +220,7 @@ class MediaCapabilitiesService {
     if (reverbEnabled.value) {
       unawaited(PlaybackManager.setReverb(enabled: true, intensity: v));
     }
-    LogService.log('MediaCap', 'reverbIntensity: $v');
+    LogService.verbose('MediaCap', 'reverbIntensity: $v');
   }
 
   /// Explicit on/off toggle for the Acoustic Engine. Pushes to the native
@@ -244,7 +239,7 @@ class MediaCapabilitiesService {
       enabled: value,
       intensity: acousticEngineIntensity.value,
     );
-    LogService.log('MediaCap', 'acousticEngine: $value');
+    LogService.verbose('MediaCap', 'acousticEngine: $value');
   }
 
   /// Single entry point for the Acoustic Engine slider.
@@ -276,7 +271,7 @@ class MediaCapabilitiesService {
     }
 
     _scheduleAcousticEnginePush(enable, v);
-    LogService.log(
+    LogService.verbose(
       'MediaCap',
       'acousticEngineIntensity: $v (enabled: $enable)',
     );

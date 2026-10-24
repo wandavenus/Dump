@@ -271,7 +271,7 @@ class Media3PlaybackService : MediaSessionService() {
                 transportState.stopPositionTicker()
                 audioFocusManager.abandon()
                 transportState.emitAll()
-                NativeLogger.emit("info", "Media3", "Noisy event: headphones unplugged → paused")
+                NativeLogger.emit("info", "Media3", "Audio output disconnected — paused")
             }
         }
     }
@@ -2036,7 +2036,7 @@ class Media3PlaybackService : MediaSessionService() {
                     "  decoderInitCount=${counters.decoderInitCount}" +
                     "  decoderReleaseCount=${counters.decoderReleaseCount}", p)
                 NativeLogger.emit(
-                    "warn", "Media3",
+                    "verbose", "Media3",
                     "AudioRenderer DISABLED isActive=$active" +
                     "  thread=${Thread.currentThread().name}")
             }
@@ -2140,7 +2140,7 @@ class Media3PlaybackService : MediaSessionService() {
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioDecoderReleased: isActive=$active decoder=$decoderName", p)
                 NativeLogger.emit(
-                    "warn", "Media3",
+                    "verbose", "Media3",
                     "AudioDecoder RELEASED isActive=$active decoder=$decoderName" +
                     "  thread=${Thread.currentThread().name}")
             }
@@ -2193,7 +2193,7 @@ class Media3PlaybackService : MediaSessionService() {
                     "  sampleRate=${audioTrackConfig.sampleRate}" +
                     "  offload=${audioTrackConfig.offload}", p)
                 NativeLogger.emit(
-                    "warn", "Media3",
+                    "verbose", "Media3",
                     "AudioTrack RELEASED isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding} ${audioTrackConfig.sampleRate}Hz" +
                     "  thread=${Thread.currentThread().name}")

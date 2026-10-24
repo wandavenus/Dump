@@ -45,7 +45,7 @@ object CrossfadeTimelineLogger {
         epochMs = System.currentTimeMillis()
         active  = true
         val thread = Thread.currentThread().name
-        NativeLogger.emit("info", TAG,
+        NativeLogger.emit("verbose", TAG,
             "═══ CROSSFADE BEGIN  wall=${epochMs}ms  thread=$thread  $label ═══")
     }
 
@@ -68,7 +68,7 @@ object CrossfadeTimelineLogger {
         val idx     = player?.currentMediaItemIndex ?: -1
         val session = player?.audioSessionId  ?: 0
 
-        NativeLogger.emit("info", TAG,
+        NativeLogger.emit("verbose", TAG,
             "[+${rel}ms | wall=${wall}ms] $label" +
             " | thread=$thread" +
             " | state=$state pos=${pos}ms pwr=$pwr idx=$idx session=$session")
@@ -99,7 +99,7 @@ object CrossfadeTimelineLogger {
         val oPwr    = oldPlayer?.playWhenReady   ?: false
         val oSession= oldPlayer?.audioSessionId  ?: 0
 
-        NativeLogger.emit("info", TAG,
+        NativeLogger.emit("verbose", TAG,
             "[+${rel}ms | wall=${wall}ms] $label" +
             " | thread=$thread" +
             " | NEW(state=$nState pos=${nPos}ms pwr=$nPwr session=$nSession)" +
@@ -119,7 +119,7 @@ object CrossfadeTimelineLogger {
         val wall = System.currentTimeMillis()
         val rel  = if (active) wall - epochMs else -1L
         val thread = Thread.currentThread().name
-        NativeLogger.emit("info", TAG,
+        NativeLogger.emit("verbose", TAG,
             "═══ CROSSFADE END  [+${rel}ms | wall=${wall}ms]  thread=$thread  $label ═══")
         active  = false
         epochMs = 0L

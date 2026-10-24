@@ -38,13 +38,13 @@ class NativeModuleRegistry {
     for (final m in _modules) {
       try {
         await m.initialize();
-        LogService.log(
+        LogService.verbose(
           'NativeModuleRegistry',
           '${m.displayName} (${m.moduleId}) — '
               '${m.isAvailable ? 'available' : 'unavailable (stub)'}',
         );
       } on Object catch (e, st) {
-        LogService.log(
+        LogService.warn(
           'NativeModuleRegistry',
           '${m.displayName} init error: $e',
           stackTrace: st.toString(),

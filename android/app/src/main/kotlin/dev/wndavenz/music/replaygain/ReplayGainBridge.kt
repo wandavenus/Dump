@@ -377,7 +377,6 @@ class ReplayGainBridge(
 
     private fun logError(msg: String) {
         NativeLogger.errorLog(TAG, msg)
-        NativeLogger.emit("error", "ReplayGain", msg)
     }
 
     private fun dbToLinear(db: Double): Double =

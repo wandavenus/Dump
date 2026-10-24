@@ -40,7 +40,6 @@ import 'package:path_provider/path_provider.dart';
 //   • On non-Android / web: returns the hardcoded fallback palette
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 class NativePaletteService {
   NativePaletteService._();
 
@@ -92,15 +91,12 @@ class NativePaletteService {
           cacheVersion =
               await _channel.invokeMethod<int>('getCacheVersion') ??
               cacheVersion;
-        } on PlatformException catch (e, st) {
-          LogService.debugPrintIfEnabled(
-            '[NativePaletteService] native cache version unavailable: '
-            '$e\n$st',
-          );
-        } on MissingPluginException catch (e, st) {
-          LogService.debugPrintIfEnabled(
-            '[NativePaletteService] native cache version plugin unavailable: '
-            '$e\n$st',
+        } on PlatformException catch (e) {
+          LogService.verbose('Palette', 'Native cache version unavailable: $e');
+        } on MissingPluginException catch (e) {
+          LogService.verbose(
+            'Palette',
+            'Native cache version plugin unavailable: $e',
           );
         }
       }
@@ -128,10 +124,10 @@ class NativePaletteService {
         // get something reasonable until the next real extraction.
         _cache.put(songId, padded);
       }
-    } on Exception catch (e, st) {
+    } on Exception catch (e) {
       // Corrupt or unreadable cache — start fresh, never crash startup.
       // IOException, FormatException, etc. all extend Exception.
-      LogService.debugPrintIfEnabled('[NativePaletteService] warmUp failed: $e\n$st');
+      LogService.verbose('Palette', 'warmUp failed: $e');
     }
   }
 
@@ -182,10 +178,10 @@ class NativePaletteService {
       final tmp = File('$path.tmp');
       await tmp.writeAsString(jsonEncode(map));
       await tmp.rename(path);
-    } on Exception catch (e, st) {
+    } on Exception catch (e) {
       // Best-effort — a failed save just means palettes recompute next launch.
       // IOException, FormatException, etc. all extend Exception.
-      LogService.debugPrintIfEnabled('[NativePaletteService] persist failed: $e\n$st');
+      LogService.warn('Palette', 'persist failed: $e');
     }
   }
 
@@ -260,23 +256,23 @@ class NativePaletteService {
               return colors;
             }
           }
-        } on PlatformException catch (e, st) {
+        } on PlatformException catch (e) {
           if (e.code == 'palette_busy') {
             // Give the shared native artwork queue time to drain instead of
             // immediately adding another request to a saturated queue.
             retryDelay = const Duration(milliseconds: 240);
           }
           if (attempt == 1) {
-            LogService.debugPrintIfEnabled(
-              '[NativePaletteService] extraction failed for '
-              'songId=$songId: $e\n$st',
+            LogService.verbose(
+              'Palette',
+              'extraction failed for songId=$songId: $e',
             );
           }
-        } on Exception catch (e, st) {
+        } on Exception catch (e) {
           if (attempt == 1) {
-            LogService.debugPrintIfEnabled(
-              '[NativePaletteService] extraction failed for '
-              'songId=$songId: $e\n$st',
+            LogService.verbose(
+              'Palette',
+              'extraction failed for songId=$songId: $e',
             );
           }
         }

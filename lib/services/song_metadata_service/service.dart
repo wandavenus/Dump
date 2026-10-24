@@ -220,10 +220,9 @@ class SongMetadataService {
       );
       return result ?? {};
     } on Exception catch (e) {
-      LogService.log(
+      LogService.warn(
         'SongMetadata',
-        'getAudioMetadata failed: $e',
-        level: LogLevel.warning,
+        'getAudioMetadata failed songId=${song.id}: $e',
       );
       return {};
     }
@@ -237,10 +236,9 @@ class SongMetadataService {
       );
       return result ?? {};
     } on Exception catch (e) {
-      LogService.log(
+      LogService.warn(
         'SongMetadata',
-        'getSongExtendedTags failed: $e',
-        level: LogLevel.warning,
+        'getSongExtendedTags failed songId=${song.id}: $e',
       );
       return {};
     }

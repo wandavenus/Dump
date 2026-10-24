@@ -77,7 +77,7 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     try {
       program = await ui.FragmentProgram.fromAsset('assets/shaders/fluid.frag');
     } on Exception catch (e) {
-      LogService.debugPrintIfEnabled('fluid.frag failed to load: $e');
+      LogService.warn('Shader', 'fluid.frag failed to load: $e');
       return;
     }
     if (!mounted) return;

@@ -44,7 +44,7 @@ class LoudnessSourceResolver {
     if (result.hasData) {
       LogService.verbose(
         'LoudnessResolver',
-        '"${song.title}": ${result.gainDb.toStringAsFixed(2)} dB '
+        'songId=${song.id}: ${result.gainDb.toStringAsFixed(2)} dB '
             '(${result.source.label}, mode=${mode.name})',
       );
     }

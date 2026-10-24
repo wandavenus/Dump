@@ -108,7 +108,7 @@ class AudioOffloadManager(
      */
     fun setForceDisabled(disabled: Boolean) {
         NativeLogger.emit(
-            "info", "AudioOffload",
+            "verbose", "AudioOffload",
             "setForceDisabled($disabled) received — NOTE: Media3 1.1.0 removed " +
             "experimentalSetOffloadSchedulingEnabled(); scheduling is now managed " +
             "internally by Media3 when the OS grants offload.  This call has no effect.",
@@ -125,14 +125,14 @@ class AudioOffloadManager(
         crossfadeDuration = durationSec
         if (durationSec > 0f) {
             NativeLogger.emit(
-                "info", "AudioOffload",
+                "verbose", "AudioOffload",
                 "Offload eligibility note: crossfade enabled (${durationSec}s) — " +
                 "dual-player overlap and 16 ms volume ticks prevent hardware offload; " +
                 "OS will reject or de-offload if granted.",
             )
         } else {
             NativeLogger.emit(
-                "info", "AudioOffload",
+                "verbose", "AudioOffload",
                 "Offload eligibility note: crossfade disabled — " +
                 "OS may grant offload if no software effects are attached " +
                 "and the audio format is DSP-supported on this device.",
@@ -147,7 +147,7 @@ class AudioOffloadManager(
     fun onCrossfadeStarting() {
         crossfadeActive = true
         NativeLogger.emit(
-            "info", "AudioOffload",
+            "verbose", "AudioOffload",
             "Offload eligibility note: crossfade ACTIVE — dual-player overlap in progress; " +
             "OS will de-offload primary player if it had been granted.",
         )
@@ -163,13 +163,13 @@ class AudioOffloadManager(
         val dur = getCrossfadeDurationSec()
         if (dur > 0f) {
             NativeLogger.emit(
-                "info", "AudioOffload",
+                "verbose", "AudioOffload",
                 "Offload eligibility note: post-promotion — crossfade still enabled (${dur}s); " +
                 "dual-player overlap will continue blocking hardware offload.",
             )
         } else {
             NativeLogger.emit(
-                "info", "AudioOffload",
+                "verbose", "AudioOffload",
                 "Offload eligibility note: post-promotion — crossfade=0; " +
                 "OS may now grant offload on the promoted player if format and effects allow.",
             )

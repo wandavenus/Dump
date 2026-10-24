@@ -354,21 +354,21 @@ class AudioEffectsService {
   static Future<void> setReplayGainMode(ReplayGainMode mode) async {
     replayGainMode.value = mode;
     await _saveInt('replayGainMode', mode.index);
-    LogService.log('AudioEffects', 'ReplayGain mode: ${mode.name}');
+    LogService.verbose('AudioEffects', 'ReplayGain mode: ${mode.name}');
   }
 
   static Future<void> setReplayGainPreamp(double db) async {
     final v = db.clamp(-15.0, 15.0);
     replayGainPreamp.value = v;
     await _saveDouble('replayGainPreamp', v);
-    LogService.log('AudioEffects', 'ReplayGain preamp: $v dB');
+    LogService.verbose('AudioEffects', 'ReplayGain preamp: $v dB');
   }
 
   static Future<void> setClippingProtection(bool enabled) async {
     clippingProtection.value = enabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('rgClipProtect', enabled);
-    LogService.log('AudioEffects', 'Clipping protection: $enabled');
+    LogService.verbose('AudioEffects', 'Clipping protection: $enabled');
   }
 
   // ── Loudness Normalization (Phase 8.5) ─────────────────────────────────────
@@ -387,12 +387,15 @@ class AudioEffectsService {
       // Disable the system LoudnessEnhancer when native normalization is on.
       unawaited(PlaybackManager.setLoudnessEnabled(false));
       unawaited(PlaybackManager.setLoudnessTargetGain(0.0));
-      LogService.log(
+      LogService.verbose(
         'AudioEffects',
         'System LoudnessEnhancer disabled — native Loudness Norm is now active',
       );
     }
-    LogService.log('AudioEffects', 'Loudness Norm: ${enabled ? 'ON' : 'OFF'}');
+    LogService.verbose(
+      'AudioEffects',
+      'Loudness Norm: ${enabled ? 'ON' : 'OFF'}',
+    );
   }
 
   static Future<void> setLoudnessNormTarget(double lufs) async {
@@ -400,7 +403,7 @@ class AudioEffectsService {
     loudnessNormTarget.value = v;
     await _saveDouble('lnTarget', v);
     PlaybackManager.setNativeLoudnessNormTargetLufs(v);
-    LogService.log(
+    LogService.verbose(
       'AudioEffects',
       'Loudness target: ${v.toStringAsFixed(1)} LUFS',
     );
@@ -418,7 +421,7 @@ class AudioEffectsService {
         sampleRate: _nativeSampleRate.toDouble(),
       );
     }
-    LogService.log('AudioEffects', 'Crossfeed: ${enabled ? 'ON' : 'OFF'}');
+    LogService.verbose('AudioEffects', 'Crossfeed: ${enabled ? 'ON' : 'OFF'}');
   }
 
   static Future<void> setCrossfeedAmount(double amount) async {
@@ -431,7 +434,10 @@ class AudioEffectsService {
         sampleRate: _nativeSampleRate.toDouble(),
       );
     }
-    LogService.log('AudioEffects', 'Crossfeed amount: ${v.toStringAsFixed(2)}');
+    LogService.verbose(
+      'AudioEffects',
+      'Crossfeed amount: ${v.toStringAsFixed(2)}',
+    );
   }
 
   // ── Compressor (Phase 6) ─────────────────────────────────────────────────────
@@ -455,7 +461,7 @@ class AudioEffectsService {
     await _saveBool('compEnabled', enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
     if (enabled) _pushCompressorParams();
-    LogService.log('AudioEffects', 'Compressor: ${enabled ? 'ON' : 'OFF'}');
+    LogService.verbose('AudioEffects', 'Compressor: ${enabled ? 'ON' : 'OFF'}');
   }
 
   static Future<void> setCompressorThreshold(double db) async {
@@ -463,7 +469,7 @@ class AudioEffectsService {
     compressorThreshold.value = v;
     await _saveDouble('compThreshold', v);
     if (compressorEnabled.value) _pushCompressorParams();
-    LogService.log('AudioEffects', 'Compressor threshold: $v dB');
+    LogService.verbose('AudioEffects', 'Compressor threshold: $v dB');
   }
 
   /// Attack time in ms — how fast the compressor engages once the signal
@@ -473,7 +479,7 @@ class AudioEffectsService {
     compressorAttackMs.value = v;
     await _saveDouble('compAttackMs', v);
     if (compressorEnabled.value) _pushCompressorParams();
-    LogService.log('AudioEffects', 'Compressor attack: $v ms');
+    LogService.verbose('AudioEffects', 'Compressor attack: $v ms');
   }
 
   /// Release time in ms — how fast gain reduction recovers. Range [1, 2000].
@@ -482,7 +488,7 @@ class AudioEffectsService {
     compressorReleaseMs.value = v;
     await _saveDouble('compReleaseMs', v);
     if (compressorEnabled.value) _pushCompressorParams();
-    LogService.log('AudioEffects', 'Compressor release: $v ms');
+    LogService.verbose('AudioEffects', 'Compressor release: $v ms');
   }
 
   /// Knee width in dB — 0 = hard knee (abrupt), higher = softer transition
@@ -492,7 +498,7 @@ class AudioEffectsService {
     compressorKneeDb.value = v;
     await _saveDouble('compKneeDb', v);
     if (compressorEnabled.value) _pushCompressorParams();
-    LogService.log('AudioEffects', 'Compressor knee: $v dB');
+    LogService.verbose('AudioEffects', 'Compressor knee: $v dB');
   }
 
   /// Ratio drives the compressor's on/off state directly — 1:1 is the
@@ -508,7 +514,7 @@ class AudioEffectsService {
     await _saveBool('compEnabled', enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
     if (enabled) _pushCompressorParams();
-    LogService.log(
+    LogService.verbose(
       'AudioEffects',
       'Compressor ratio: ${v.toStringAsFixed(1)}:1',
     );
@@ -529,7 +535,7 @@ class AudioEffectsService {
     await _saveBool('limEnabled', enabled);
     PlaybackManager.setNativeLimiterBypass(!enabled);
     if (enabled) _pushLimiterParams();
-    LogService.log('AudioEffects', 'Limiter: ${enabled ? 'ON' : 'OFF'}');
+    LogService.verbose('AudioEffects', 'Limiter: ${enabled ? 'ON' : 'OFF'}');
   }
 
   /// Gain-recovery time in ms after the limiter engages. Range [1, 1000].
@@ -538,7 +544,7 @@ class AudioEffectsService {
     limiterReleaseMs.value = v;
     await _saveDouble('limReleaseMs', v);
     if (limiterEnabled.value) _pushLimiterParams();
-    LogService.log('AudioEffects', 'Limiter release: $v ms');
+    LogService.verbose('AudioEffects', 'Limiter release: $v ms');
   }
 
   /// The ceiling slider drives on/off directly — `0.0` dB (top of the
@@ -554,7 +560,7 @@ class AudioEffectsService {
     await _saveBool('limEnabled', enabled);
     PlaybackManager.setNativeLimiterBypass(!enabled);
     if (enabled) _pushLimiterParams();
-    LogService.log('AudioEffects', 'Limiter threshold: $v dB');
+    LogService.verbose('AudioEffects', 'Limiter threshold: $v dB');
   }
 
   // ── Native Preamp (Gain Processor, dsp.gain) ─────────────────────────────
@@ -570,7 +576,7 @@ class AudioEffectsService {
     final enabled = v != 0.0;
     PlaybackManager.setNativeGainBypass(!enabled);
     if (enabled) PlaybackManager.setNativeGainDb(v);
-    LogService.log('AudioEffects', 'Native Preamp: $v dB');
+    LogService.verbose('AudioEffects', 'Native Preamp: $v dB');
   }
 
   // ── Soft Clipper (Phase 6) ───────────────────────────────────────────────────
@@ -584,7 +590,10 @@ class AudioEffectsService {
         softClipperThreshold.value,
       );
     }
-    LogService.log('AudioEffects', 'Soft Clipper: ${enabled ? 'ON' : 'OFF'}');
+    LogService.verbose(
+      'AudioEffects',
+      'Soft Clipper: ${enabled ? 'ON' : 'OFF'}',
+    );
   }
 
   /// The threshold slider drives on/off directly — `0.0` dB (top of the
@@ -603,7 +612,7 @@ class AudioEffectsService {
     if (enabled) {
       PlaybackManager.setNativeSoftClipperThresholdDb(v);
     }
-    LogService.log('AudioEffects', 'Soft Clipper threshold: $v dB');
+    LogService.verbose('AudioEffects', 'Soft Clipper threshold: $v dB');
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
@@ -623,7 +632,7 @@ class AudioEffectsService {
     await _saveBool('eqEnabled', value);
     unawaited(PlaybackManager.setEqualizerEnabled(value));
     if (value) _sendRoomPresetEq(roomPreset.value);
-    LogService.log('AudioEffects', 'EQ enabled: $value');
+    LogService.verbose('AudioEffects', 'EQ enabled: $value');
   }
 
   /// Returns engine-agnostic EQ parameters, or null if the active engine
@@ -666,7 +675,7 @@ class AudioEffectsService {
     final preset = roomPresets[i];
     if (equalizerEnabled.value) _sendRoomPresetEq(i);
 
-    LogService.log('AudioEffects', 'Room preset: ${preset['name']}');
+    LogService.verbose('AudioEffects', 'Room preset: ${preset['name']}');
   }
 
   static void _sendRoomPresetEq(int index) {
@@ -759,7 +768,7 @@ class AudioEffectsService {
       unawaited(_writeEqBand(i, clamped));
       await prefs.setDouble('eqBand_$i', clamped);
     }
-    LogService.log(
+    LogService.verbose(
       'AudioEffects',
       'EQ preset: ${eqPresets[presetIndex]['name']}',
     );
@@ -771,7 +780,7 @@ class AudioEffectsService {
     crossfadeDuration.value = seconds;
     await _saveDouble('crossfade', seconds);
     unawaited(PlaybackManager.setCrossfadeDuration(seconds));
-    LogService.log('AudioEffects', 'Crossfade: ${seconds}s');
+    LogService.verbose('AudioEffects', 'Crossfade: ${seconds}s');
   }
 
   // ── Pitch Shift ───────────────────────────────────────────────────────────
@@ -791,7 +800,7 @@ class AudioEffectsService {
     _lastPreviewPitch = semitones;
     await _saveDouble('pitch', semitones);
     _sendPitch(semitones);
-    LogService.log('AudioEffects', 'Pitch: $semitones semitones');
+    LogService.verbose('AudioEffects', 'Pitch: $semitones semitones');
   }
 
   /// Updates pitch during a drag at most once per 32 ms. Persistence happens
@@ -845,7 +854,7 @@ class AudioEffectsService {
     _lastPreviewSpeed = v;
     await _saveDouble('speed', v);
     _sendSpeed(v);
-    LogService.log('AudioEffects', 'Speed: ${v}x');
+    LogService.verbose('AudioEffects', 'Speed: ${v}x');
   }
 
   /// Updates speed during a drag at most once per 32 ms. Persistence happens
@@ -891,7 +900,7 @@ class AudioEffectsService {
     await _saveInt('bassBoost', v);
     unawaited(PlaybackManager.setBassBoost(v));
     unawaited(PlaybackManager.setBassBoostEnabled(v > 0));
-    LogService.log('AudioEffects', 'BassBoost: $v');
+    LogService.verbose('AudioEffects', 'BassBoost: $v');
   }
 
   // ── Bit-Perfect Mode ─────────────────────────────────────────────────────
@@ -1016,7 +1025,7 @@ class AudioEffectsService {
     lyricsPath.value = path.trim();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('lyricsPath', path.trim());
-    LogService.log('AudioEffects', 'Lyrics path: ${path.trim()}');
+    LogService.verbose('AudioEffects', 'Lyrics folder updated');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
