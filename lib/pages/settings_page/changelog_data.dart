@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.44',
+    date: '24 Oktober 2026',
+    changes: [
+      'AutoMix kini benar-benar menguras output PCM sampai decoder mengirim EOS; tail parsial tidak lagi dianggap sebagai analisis ekor lengkap.',
+      'Jalur tone JNI AutoMix sekarang fail-open terhadap native library lama atau simbol yang tidak cocok: setelah linkage error, efek tone dilewati dan playback tetap transparan.',
+      'Boundary native AutoMix kini hanya menerima dua target deck aktif; settings AutoMix yang rusak atau ekstrem kembali ke nilai aman sebelum masuk planner native.',
+      'Scan library manual tidak lagi berjalan bersamaan dengan idle sweep AutoMix, sehingga decoder dan progress analisis tidak diperebutkan dua pekerjaan.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.43',
     date: '24 Oktober 2026',
     changes: [

@@ -65,6 +65,11 @@ import dev.wndavenz.music.effects.StereoWidthManager
 import dev.wndavenz.music.effects.ReverbManager
 import dev.wndavenz.music.effects.ReverbAudioProcessor
 
+/** Native AutoMix owns one active transition pair; ignore any later payloads. */
+internal fun automixTargetsForActiveDecks(
+    targets: List<Map<String, Any?>>,
+): List<Map<String, Any?>> = targets.take(2)
+
 /**
  * Thin orchestration layer.
  *
@@ -2412,7 +2417,8 @@ class Media3PlaybackService : MediaSessionService() {
         // AutoMix only makes sense for two distinct, ID-identified decks.
         // Empty/same-ID target sets intentionally fall back to an ordinary
         // crossfade; keep the limiter, live tracker, and cue maps disarmed.
-        val targetIds = targets.take(2).map { (it["id"] as? Number)?.toLong() }
+        val activeTargets = automixTargetsForActiveDecks(targets)
+        val targetIds = activeTargets.map { (it["id"] as? Number)?.toLong() }
         val usableTargets = targetIds.size == 2 &&
             targetIds[0] != null &&
             targetIds[1] != null &&
@@ -2446,7 +2452,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixBandOverlapGainsByIncomingSongId.clear()
 
         if (transitionActive) {
-            for (target in targets) {
+            for (target in activeTargets) {
                 val parsed = ParsedAutomixTransitionTarget.fromMap(target) ?: continue
                 val id = parsed.id
                 automixTempoMultiplierBySongId[id] = parsed.multiplier

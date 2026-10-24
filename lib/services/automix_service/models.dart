@@ -41,13 +41,34 @@ class AutomixChordEvent {
 }
 
 const List<String> _automixPitchNames = <String>[
-  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
+  'C',
+  'C#',
+  'D',
+  'D#',
+  'E',
+  'F',
+  'F#',
+  'G',
+  'G#',
+  'A',
+  'A#',
+  'B',
 ];
 // Must mirror the chordQualities table in AutomixAnalysisBridge.kt, which
 // mirrors the quality ids produced by nar_automix_analyze_chords.
 const Set<String> _automixChordQualities = <String>{
-  'maj', 'min', 'dim', 'aug', '7', 'maj7', 'min7', 'sus4',
-  'sus2', 'm7b5', 'dim7', 'aug7',
+  'maj',
+  'min',
+  'dim',
+  'aug',
+  '7',
+  'maj7',
+  'min7',
+  'sus4',
+  'sus2',
+  'm7b5',
+  'dim7',
+  'aug7',
 };
 
 /// Parses native or cached chord rows defensively. Malformed/low-confidence
@@ -61,27 +82,37 @@ List<AutomixChordEvent> automixChordEventsFromValue(Object? raw) {
     final root = item['rootPitchClass'] ?? item['r'];
     final quality = item['quality'] ?? item['q'];
     final confidence = item['confidence'] ?? item['c'];
-    if (time is! num || root is! num || quality is! String || confidence is! num) {
+    if (time is! num ||
+        root is! num ||
+        quality is! String ||
+        confidence is! num) {
       continue;
     }
     final startMs = time.toDouble();
     final rootValue = root.toDouble();
     final confidenceValue = confidence.toDouble();
-    if (!startMs.isFinite || startMs < 0 ||
-        !rootValue.isFinite || rootValue != rootValue.roundToDouble() ||
-        rootValue < 0 || rootValue > 11 ||
+    if (!startMs.isFinite ||
+        startMs < 0 ||
+        !rootValue.isFinite ||
+        rootValue != rootValue.roundToDouble() ||
+        rootValue < 0 ||
+        rootValue > 11 ||
         !_automixChordQualities.contains(quality) ||
-        !confidenceValue.isFinite || confidenceValue < 0.08 || confidenceValue > 1) {
+        !confidenceValue.isFinite ||
+        confidenceValue < 0.08 ||
+        confidenceValue > 1) {
       continue;
     }
     final rootPc = rootValue.toInt();
-    events.add(AutomixChordEvent(
-      startMs: startMs,
-      rootPitchClass: rootPc,
-      root: _automixPitchNames[rootPc],
-      quality: quality,
-      confidence: confidenceValue,
-    ));
+    events.add(
+      AutomixChordEvent(
+        startMs: startMs,
+        rootPitchClass: rootPc,
+        root: _automixPitchNames[rootPc],
+        quality: quality,
+        confidence: confidenceValue,
+      ),
+    );
   }
   events.sort((a, b) => a.startMs.compareTo(b.startMs));
   return List<AutomixChordEvent>.unmodifiable(events);
@@ -257,7 +288,8 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final camelotValue = rawCamelotNumber is num
       ? rawCamelotNumber.toDouble()
       : null;
-  final camelotNumber = camelotValue != null &&
+  final camelotNumber =
+      camelotValue != null &&
           camelotValue.isFinite &&
           camelotValue == camelotValue.roundToDouble() &&
           camelotValue >= 1 &&
@@ -268,8 +300,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final parsedCamelotMinor = rawCamelotMinor is bool ? rawCamelotMinor : null;
   // A key is usable only when its wheel position and confidence are both valid.
   // Keep the minor/major flag and confidence from surviving a rejected number.
-  final hasConfidentKey =
-      camelotNumber != null && rawKeyConfidence >= 0.25;
+  final hasConfidentKey = camelotNumber != null && rawKeyConfidence >= 0.25;
   final start = finiteValue('segmentStartSeconds');
   final seconds = finiteValue('segmentSeconds');
   final beatOffset = nonNegativeValue('beatOffsetMs');
@@ -278,17 +309,14 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final endBpm = positiveBpm('endBpm');
 
   return AutomixSegmentFeatures(
-    startSeconds: start != null && start >= 0
-        ? start
-        : fallbackStartSeconds,
+    startSeconds: start != null && start >= 0 ? start : fallbackStartSeconds,
     seconds: seconds != null && seconds > 0 ? seconds : fallbackSeconds,
     bpm: bpm != null && bpm > 0 && bpmConfidence >= 0.15 ? bpm : null,
     bpmConfidence: bpm != null && bpm > 0 && bpmConfidence >= 0.15
         ? bpmConfidence
         : 0,
-    alternateBpm: bpmConfidence >= 0.15 &&
-            rawAlternateBpm != null &&
-            rawAlternateBpm > 0
+    alternateBpm:
+        bpmConfidence >= 0.15 && rawAlternateBpm != null && rawAlternateBpm > 0
         ? rawAlternateBpm
         : null,
     beatOffsetMs: bpm != null && bpm > 0 && bpmConfidence >= 0.20
@@ -629,7 +657,22 @@ class AutomixSettings {
     this.crossfadeBeats = 16,
     this.avoidArtistRepeat = true,
     this.harmonicFilter = false,
-  });
+  }) : assert(bpmTolerancePercent >= 0.5 && bpmTolerancePercent <= 25.0),
+       assert(crossfadeBeats >= 1 && crossfadeBeats <= 64);
+
+  static double _sanitizeBpmTolerance(Object? raw) {
+    final value = raw is num ? raw.toDouble() : 6.0;
+    if (!value.isFinite || value < 0.5 || value > 25.0) return 6.0;
+    return value;
+  }
+
+  static int _sanitizeCrossfadeBeats(Object? raw) {
+    final value = raw is num ? raw.toDouble() : 16.0;
+    if (!value.isFinite || value != value.roundToDouble()) return 16;
+    final beats = value.toInt();
+    if (beats < 1 || beats > 64) return 16;
+    return beats;
+  }
 
   /// [AutomixProfile] used to balance transition weights.
   final AutomixProfile profile;
@@ -660,8 +703,12 @@ class AutomixSettings {
     bool? harmonicFilter,
   }) => AutomixSettings(
     profile: profile ?? this.profile,
-    bpmTolerancePercent: bpmTolerancePercent ?? this.bpmTolerancePercent,
-    crossfadeBeats: crossfadeBeats ?? this.crossfadeBeats,
+    bpmTolerancePercent: _sanitizeBpmTolerance(
+      bpmTolerancePercent ?? this.bpmTolerancePercent,
+    ),
+    crossfadeBeats: _sanitizeCrossfadeBeats(
+      crossfadeBeats ?? this.crossfadeBeats,
+    ),
     avoidArtistRepeat: avoidArtistRepeat ?? this.avoidArtistRepeat,
     harmonicFilter: harmonicFilter ?? this.harmonicFilter,
   );
@@ -675,14 +722,21 @@ class AutomixSettings {
   };
 
   factory AutomixSettings.fromMap(Map<dynamic, dynamic> map) {
+    final rawProfile = map['profile'];
     return AutomixSettings(
       profile:
-          AutomixProfile.values.asNameMap()[(map['profile'] as String?)] ??
+          AutomixProfile.values.asNameMap()[rawProfile is String
+              ? rawProfile
+              : null] ??
           AutomixProfile.dj,
-      bpmTolerancePercent: (map['bpmTolerance'] as num?)?.toDouble() ?? 6.0,
-      crossfadeBeats: (map['beats'] as num?)?.toInt() ?? 16,
-      avoidArtistRepeat: map['avoidArtistRepeat'] as bool? ?? true,
-      harmonicFilter: map['harmonicFilter'] as bool? ?? false,
+      bpmTolerancePercent: _sanitizeBpmTolerance(map['bpmTolerance']),
+      crossfadeBeats: _sanitizeCrossfadeBeats(map['beats']),
+      avoidArtistRepeat: map['avoidArtistRepeat'] is bool
+          ? map['avoidArtistRepeat'] as bool
+          : true,
+      harmonicFilter: map['harmonicFilter'] is bool
+          ? map['harmonicFilter'] as bool
+          : false,
     );
   }
 }

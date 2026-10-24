@@ -473,6 +473,30 @@ class AppLocalizationsId extends AppLocalizations {
   String get aboutApp => 'Tentang App';
 
   @override
+  String get openSourceLicense => 'Lisensi sumber terbuka';
+
+  @override
+  String get openSourceLicenseDescription =>
+      'Lisensi dan atribusi komponen pihak ketiga yang digunakan Noisegraph.';
+
+  @override
+  String get licensePageDescription =>
+      'Noisegraph menggunakan komponen sumber terbuka. Lisensi lengkap dan informasi sumber dicantumkan di bawah ini.';
+
+  @override
+  String get licenseViewFullText => 'Lihat teks lisensi lengkap';
+
+  @override
+  String get licenseNoFullText =>
+      'Teks lisensi belum disertakan dalam aplikasi ini.';
+
+  @override
+  String get licenseSource => 'Sumber';
+
+  @override
+  String get licenseVersion => 'Versi';
+
+  @override
   String get changelogTitle => 'Changelog';
 
   @override

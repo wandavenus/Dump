@@ -250,7 +250,8 @@ class AutomixService {
     List<int> tailIds,
   ) {
     final nextIndex = state.nextTrackIndex;
-    final nextTrackId = nextIndex != null && nextIndex >= 0 && nextIndex < queue.length
+    final nextTrackId =
+        nextIndex != null && nextIndex >= 0 && nextIndex < queue.length
         ? queue[nextIndex].id
         : -1;
     return '${state.currentSong?.id}:${queue.length}:${state.shuffleEnabled}'
@@ -377,7 +378,8 @@ class AutomixService {
     final ordered = <AutomixTrackFeatures>[current, ...upcoming];
     final exitBpm = automixExitBpm(current);
     final exitConfidence = automixExitBpmConfidence(current);
-    final reference = _tempoInRange(exitBpm) &&
+    final reference =
+        _tempoInRange(exitBpm) &&
             exitConfidence >= 0.35 &&
             automixTempoStabilityAllowsPull(current.outroTempoStability)
         ? exitBpm
@@ -406,18 +408,18 @@ class AutomixService {
       final beatOffsetMs = isOutgoing
           ? (useTailGrid ? features.tailBeatOffsetMs : null)
           : (useLocalIntroGrid
-              ? features.introBeatOffsetMs
-              : features.beatOffsetMs);
+                ? features.introBeatOffsetMs
+                : features.beatOffsetMs);
       final downbeatOffsetMs = isOutgoing
           ? (useTailGrid
-              ? (useLocalTailGrid ? null : features.tailDownbeatOffsetMs)
-              : null)
+                ? (useLocalTailGrid ? null : features.tailDownbeatOffsetMs)
+                : null)
           : (useLocalIntroGrid ? null : features.downbeatOffsetMs);
       final confidence = isOutgoing
           ? automixExitBpmConfidence(features)
           : (useLocalIntroGrid
-              ? features.startBpmConfidence
-              : features.bpmConfidence);
+                ? features.startBpmConfidence
+                : features.bpmConfidence);
       final confidentBpm = confidence >= 0.35 && _tempoInRange(bpm)
           ? bpm
           : null;
@@ -481,8 +483,7 @@ class AutomixService {
           // against the actual duration reported by the outgoing player.
           target['transitionStartMs'] = cue.transitionStartMs;
           final outgoingDurationMs = previous.durationSeconds * 1000.0;
-          final transitionLeadMs =
-              outgoingDurationMs - cue.transitionStartMs!;
+          final transitionLeadMs = outgoingDurationMs - cue.transitionStartMs!;
           if (outgoingDurationMs.isFinite &&
               outgoingDurationMs > 0 &&
               transitionLeadMs.isFinite &&
@@ -523,7 +524,9 @@ class AutomixService {
         playbackSnapshot.currentSong?.id != queue[currentIndex].id ||
         !automixQueueSnapshotMatches(
           queue.map((song) => song.id).toList(growable: false),
-          playbackSnapshot.currentPlaylist.map((song) => song.id).toList(growable: false),
+          playbackSnapshot.currentPlaylist
+              .map((song) => song.id)
+              .toList(growable: false),
         )) {
       _scheduleReplanRetry();
       return;
@@ -564,9 +567,14 @@ class AutomixService {
           postLoadState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
           !automixQueueSnapshotMatches(
             queue.map((song) => song.id).toList(growable: false),
-            postLoadState.currentPlaylist.map((song) => song.id).toList(growable: false),
+            postLoadState.currentPlaylist
+                .map((song) => song.id)
+                .toList(growable: false),
           )) {
-        LogService.verbose('Automix', 'playback queue changed during feature loading; dropping stale targets');
+        LogService.verbose(
+          'Automix',
+          'playback queue changed during feature loading; dropping stale targets',
+        );
         _scheduleReplanRetry();
         return;
       }
@@ -586,13 +594,17 @@ class AutomixService {
       var plannedFeatures = nearFeatures.skip(1).toList(growable: false);
       double? plannedCrossfadeSeconds;
 
-      final preserveQueueOrder = playbackSnapshot.shuffleEnabled ||
+      final preserveQueueOrder =
+          playbackSnapshot.shuffleEnabled ||
           tailIds.toSet().length != tailIds.length;
       if (preserveQueueOrder) {
         // Shuffle owns its permutation, and duplicate IDs cannot be safely
         // permuted by the ID-based native queue API.
         _plannedTail = tailIds;
-      } else if (!automixPlanContinues(_plannedTail ?? const <int>[], tailIds)) {
+      } else if (!automixPlanContinues(
+        _plannedTail ?? const <int>[],
+        tailIds,
+      )) {
         // Sequence the ENTIRE remaining queue in a single pass (capped): the
         // order the listener hears is decided once, not re-decided before every
         // transition. Far tracks score from cached analysis only — resolving
@@ -633,7 +645,9 @@ class AutomixService {
             latestState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
             !automixQueueSnapshotMatches(
               queue.map((song) => song.id).toList(growable: false),
-              latestState.currentPlaylist.map((song) => song.id).toList(growable: false),
+              latestState.currentPlaylist
+                  .map((song) => song.id)
+                  .toList(growable: false),
             )) {
           LogService.verbose(
             'Automix',
@@ -689,11 +703,15 @@ class AutomixService {
             ];
             if (postReorderState.currentSong?.id != currentSong.id ||
                 postReorderState.currentIndex != currentIndex ||
-                postReorderState.shuffleEnabled != playbackSnapshot.shuffleEnabled ||
-                postReorderState.nextTrackIndex != playbackSnapshot.nextTrackIndex ||
+                postReorderState.shuffleEnabled !=
+                    playbackSnapshot.shuffleEnabled ||
+                postReorderState.nextTrackIndex !=
+                    playbackSnapshot.nextTrackIndex ||
                 !automixQueueSnapshotMatches(
                   expectedQueueAfterReorder,
-                  postReorderState.currentPlaylist.map((song) => song.id).toList(growable: false),
+                  postReorderState.currentPlaylist
+                      .map((song) => song.id)
+                      .toList(growable: false),
                 )) {
               _scheduleReplanRetry();
               LogService.verbose(
@@ -850,12 +868,18 @@ class AutomixService {
           shuffleEnabled: analysisState.shuffleEnabled,
           nextTrackIndex: analysisState.nextTrackIndex,
         ),
-      ...automixPlanWindow<LocalSong>(queue, currentIndex, _analysisLookahead).skip(1),
+      ...automixPlanWindow<LocalSong>(
+        queue,
+        currentIndex,
+        _analysisLookahead,
+      ).skip(1),
     ];
     final candidates = <LocalSong>[];
     final seenCandidateIds = <int>{};
     for (final song in candidateWindow) {
-      if (seenCandidateIds.add(song.id) && needsAnalysis(song)) candidates.add(song);
+      if (seenCandidateIds.add(song.id) && needsAnalysis(song)) {
+        candidates.add(song);
+      }
     }
     // The playing file is analyzed last: a second decoder pass over the file
     // ExoPlayer is reading right now must never delay the incoming track.
@@ -935,7 +959,11 @@ class AutomixService {
           shuffleEnabled: state.shuffleEnabled,
           nextTrackIndex: state.nextTrackIndex,
         ),
-      ...automixPlanWindow<LocalSong>(queue, state.currentIndex, _analysisLookahead).skip(1),
+      ...automixPlanWindow<LocalSong>(
+        queue,
+        state.currentIndex,
+        _analysisLookahead,
+      ).skip(1),
       queue[state.currentIndex],
     ];
     var pending = false;
@@ -1098,13 +1126,15 @@ class AutomixService {
       _dspReady.remove(id);
       _dspReadyIdentity.remove(id);
     }
-    if (_dspUnavailable.contains(id) && _dspUnavailableIdentity[id] != identity) {
+    if (_dspUnavailable.contains(id) &&
+        _dspUnavailableIdentity[id] != identity) {
       _dspUnavailable.remove(id);
       _dspUnavailableIdentity.remove(id);
       _dspFailureAttempts.remove(id);
       _dspRetryAt.remove(id);
     }
-    if (_featuresIdentity.containsKey(id) && _featuresIdentity[id] != identity) {
+    if (_featuresIdentity.containsKey(id) &&
+        _featuresIdentity[id] != identity) {
       _featuresCache.remove(id);
       _featuresIdentity.remove(id);
     }
@@ -1119,9 +1149,12 @@ class AutomixService {
       return true;
     }
     final identity = _refreshDspStatusFor(song);
-    final ready = identity.isNotEmpty && _dspReady.contains(song.id) &&
+    final ready =
+        identity.isNotEmpty &&
+        _dspReady.contains(song.id) &&
         _dspReadyIdentity[song.id] == identity;
-    final unavailable = _dspUnavailable.contains(song.id) &&
+    final unavailable =
+        _dspUnavailable.contains(song.id) &&
         _dspUnavailableIdentity[song.id] == identity;
     if (ready) return false;
     if (unavailable) {
@@ -1149,7 +1182,8 @@ class AutomixService {
   static void _markDspUnavailable(LocalSong song, String identity) {
     _dspReady.remove(song.id);
     _dspReadyIdentity.remove(song.id);
-    final sameSource = _dspUnavailable.contains(song.id) &&
+    final sameSource =
+        _dspUnavailable.contains(song.id) &&
         _dspUnavailableIdentity[song.id] == identity;
     final attempts = sameSource ? (_dspFailureAttempts[song.id] ?? 0) + 1 : 1;
     _dspUnavailable.add(song.id);
@@ -1461,7 +1495,6 @@ class AutomixService {
       return -1;
     }
 
-
     if (automixActive.value) {
       // This one-shot entry does not retain a snapshot of the live native
       // targets, so it must not overwrite a transition owned by an active run.
@@ -1531,7 +1564,10 @@ class AutomixService {
       final targets = automixImmediateTransitionTargets(
         _buildNativeTargets(
           sequencedFeatures.first,
-          sequencedFeatures.skip(1).take(_targetHorizon).toList(growable: false),
+          sequencedFeatures
+              .skip(1)
+              .take(_targetHorizon)
+              .toList(growable: false),
         ),
       );
       if (!automixHasUsableTransitionTargets(targets)) {
@@ -1550,10 +1586,7 @@ class AutomixService {
         return -1;
       }
       if (!_isAutoMixGenerationCurrent(generation)) return -1;
-      await AudioService.setAutomixTransition(
-        enabled: true,
-        targets: targets,
-      );
+      await AudioService.setAutomixTransition(enabled: true, targets: targets);
       if (!_isAutoMixGenerationCurrent(generation)) return -1;
       await AudioService.playSongAt(
         playlist: sequenced,
@@ -1663,7 +1696,8 @@ class AutomixService {
         // duration is still sent; native applies it to the next transition.
         final unchanged =
             automixActive.value &&
-            (AudioEffectsService.crossfadeDuration.value - seconds).abs() < 0.01;
+            (AudioEffectsService.crossfadeDuration.value - seconds).abs() <
+                0.01;
         if (!unchanged) {
           await AudioEffectsService.setCrossfade(seconds);
           if (!_isAutoMixGenerationCurrent(generation)) return false;
@@ -1814,9 +1848,8 @@ class AutomixService {
       fallbackSeconds: maxSeconds,
     );
     final rawFileSeconds = (res['fileSeconds'] as num?)?.toDouble();
-    final fileSeconds = rawFileSeconds != null &&
-            rawFileSeconds.isFinite &&
-            rawFileSeconds > 0
+    final fileSeconds =
+        rawFileSeconds != null && rawFileSeconds.isFinite && rawFileSeconds > 0
         ? rawFileSeconds
         : 0.0;
     // Older native bridges do not report reachedEof. Treat that as unknown,
@@ -1886,11 +1919,7 @@ class AutomixService {
     var tailAnalyzed = false;
     final tailStart = fileSeconds - windowSeconds;
     if (tailStart > 0) {
-      final tail = await _analyzeWindow(
-        song.path,
-        tailStart,
-        windowSeconds,
-      );
+      final tail = await _analyzeWindow(song.path, tailStart, windowSeconds);
       if (tail != null) {
         segments.add(tail.$1);
         // A full tail buffer alone does not prove this is the real EOF when
@@ -1920,11 +1949,7 @@ class AutomixService {
         )) {
           return;
         }
-        final middle = await _analyzeWindow(
-          song.path,
-          start,
-          windowSeconds,
-        );
+        final middle = await _analyzeWindow(song.path, start, windowSeconds);
         if (middle != null) segments.add(middle.$1);
       }
 
@@ -2025,7 +2050,10 @@ class AutomixService {
     // 2. Native DSP, in bounded windows that cover the whole file.
     final analysis = await _analyzeSegments(song);
     if (identity.isNotEmpty && _identityForSong(song) != identity) {
-      LogService.verbose('Automix', 'source changed during DSP decode for ${song.id}; discarding stale features');
+      LogService.verbose(
+        'Automix',
+        'source changed during DSP decode for ${song.id}; discarding stale features',
+      );
       return null;
     }
     final segments = analysis.$1;
@@ -2050,7 +2078,10 @@ class AutomixService {
       tailSegmentAnalyzed: analysis.$3,
     );
     if (identity.isNotEmpty && _identityForSong(song) != identity) {
-      LogService.verbose('Automix', 'source changed before cache commit for ${song.id}; discarding stale features');
+      LogService.verbose(
+        'Automix',
+        'source changed before cache commit for ${song.id}; discarding stale features',
+      );
       return null;
     }
 
@@ -2098,7 +2129,9 @@ class AutomixService {
       );
       return;
     }
-    if (_analysisFuture != null) return; // already running
+    if (_analysisFuture != null || _sweepRunning) {
+      return; // another analysis owner is running
+    }
     _analysisCancelled = false;
 
     analysisProgress.value = AutomixAnalysisProgress(
@@ -2200,11 +2233,16 @@ class AutomixService {
   static bool _sweepRunning = false;
 
   @visibleForTesting
-  static bool get hasPendingLibrarySweepForTesting => _sweepTimer?.isActive ?? false;
+  static bool get hasPendingLibrarySweepForTesting =>
+      _sweepTimer?.isActive ?? false;
 
   /// Arms (or re-arms) the idle sweep. Safe to call repeatedly.
   static void _scheduleLibrarySweep([Duration delay = _sweepInterval]) {
-    if (kIsWeb || !automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
+    if (kIsWeb ||
+        !automixEnabled.value ||
+        AudioEffectsService.bitPerfectMode.value) {
+      return;
+    }
     _sweepTimer?.cancel();
     _sweepTimer = Timer(delay, () {
       _sweepTimer = null;
@@ -2230,7 +2268,11 @@ class AutomixService {
   /// running player leaves behind.
   static Future<void> _runLibrarySweepPass() async {
     _sweepTimer = null;
-    if (kIsWeb || !automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
+    if (kIsWeb ||
+        !automixEnabled.value ||
+        AudioEffectsService.bitPerfectMode.value) {
+      return;
+    }
     // The transition pipeline owns the decoder whenever it is working.
     if (_sweepRunning ||
         _autoAnalyzeRunning ||
@@ -2271,11 +2313,15 @@ class AutomixService {
     try {
       final batch = pending.take(_sweepBatchLimit).toList(growable: false);
       for (final song in batch) {
-        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
+        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) {
+          return;
+        }
         // Re-check between decodes: a phone that starts discharging, or heats
         // up, must stop the sweep immediately — not at the end of the batch.
         final now = await DeviceStateService.powerState();
-        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) return;
+        if (!automixEnabled.value || AudioEffectsService.bitPerfectMode.value) {
+          return;
+        }
         if (!now.allowsBackgroundAnalysis(
           minLevelPercent: _sweepMinBatteryPercent,
         )) {
@@ -2296,7 +2342,10 @@ class AutomixService {
         try {
           features = await analyzeOne(song);
         } on _AutomixAnalysisBusy {
-          LogService.verbose('Automix', 'library sweep yielded to a busy analysis queue');
+          LogService.verbose(
+            'Automix',
+            'library sweep yielded to a busy analysis queue',
+          );
           await Future<void>.delayed(_sweepPause);
           continue;
         }
@@ -2331,7 +2380,9 @@ class AutomixService {
   static void resetInMemoryState() {
     if (_autoQueueListenerInstalled) {
       AudioService.playbackState.removeListener(_onPlaybackStateForAutoMix);
-      AudioEffectsService.bitPerfectMode.removeListener(_onBitPerfectModeChanged);
+      AudioEffectsService.bitPerfectMode.removeListener(
+        _onBitPerfectModeChanged,
+      );
       _autoQueueListenerInstalled = false;
     }
     _featuresCache.clear();

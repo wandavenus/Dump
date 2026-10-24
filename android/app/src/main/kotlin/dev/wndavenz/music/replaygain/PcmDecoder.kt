@@ -32,6 +32,32 @@ internal fun pcmFramesToTrim(
     return frames.toInt().coerceAtLeast(0)
 }
 
+/**
+ * Tracks decoder input/output EOS independently. Queueing an EOS input buffer
+ * only tells MediaCodec that no more compressed input is coming; delayed PCM
+ * output may still need to be drained before the decode is complete.
+ */
+internal class PcmDecodeEosState {
+    var inputEosQueued: Boolean = false
+        private set
+
+    var outputEosSeen: Boolean = false
+        private set
+
+    val isComplete: Boolean
+        get() = outputEosSeen
+
+    fun markInputEosQueued() {
+        inputEosQueued = true
+    }
+
+    fun observeOutputFlags(flags: Int) {
+        if ((flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+            outputEosSeen = true
+        }
+    }
+}
+
 object PcmDecoder {
 
     /** Format info needed to size an [EburTrackSession] before decoding starts. */
@@ -150,8 +176,7 @@ object PcmDecoder {
         }
 
         val info = MediaCodec.BufferInfo()
-        var eos = false
-        var reachedEnd = false
+        val eosState = PcmDecodeEosState()
         var aborted = false
         var pendingTrimBeforeUs = trimBeforeUs
         // N-3: reuse one grow-only ShortArray for all output buffers instead
@@ -161,22 +186,29 @@ object PcmDecoder {
         var chunk = ShortArray(0)
 
         try {
-            while (!eos && !aborted) {
-                val inIdx = codec.dequeueInputBuffer(8_000L)
-                if (inIdx >= 0) {
-                    val inBuf = codec.getInputBuffer(inIdx)
-                    if (inBuf != null) {
-                        val n = extractor.readSampleData(inBuf, 0)
-                        if (n <= 0) {
-                            codec.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                            eos = true
-                            reachedEnd = true
-                        } else {
-                            val ts = extractor.sampleTime
-                            codec.queueInputBuffer(inIdx, 0, n, ts, 0)
-                            extractor.advance()
-                            if (durationUs > 0L) {
-                                onProgress((ts.toFloat() / durationUs).coerceIn(0f, 0.99f))
+            while (!eosState.isComplete && !aborted) {
+                if (!eosState.inputEosQueued) {
+                    val inIdx = codec.dequeueInputBuffer(8_000L)
+                    if (inIdx >= 0) {
+                        val inBuf = codec.getInputBuffer(inIdx)
+                        if (inBuf != null) {
+                            val n = extractor.readSampleData(inBuf, 0)
+                            if (n <= 0) {
+                                codec.queueInputBuffer(
+                                    inIdx,
+                                    0,
+                                    0,
+                                    0,
+                                    MediaCodec.BUFFER_FLAG_END_OF_STREAM,
+                                )
+                                eosState.markInputEosQueued()
+                            } else {
+                                val ts = extractor.sampleTime
+                                codec.queueInputBuffer(inIdx, 0, n, ts, 0)
+                                extractor.advance()
+                                if (durationUs > 0L) {
+                                    onProgress((ts.toFloat() / durationUs).coerceIn(0f, 0.99f))
+                                }
                             }
                         }
                     }
@@ -238,10 +270,10 @@ object PcmDecoder {
                         }
                     }
                     codec.releaseOutputBuffer(outIdx, false)
-                }
-                if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    reachedEnd = true
-                    break
+                    eosState.observeOutputFlags(info.flags)
+                    if (eosState.outputEosSeen) {
+                        break
+                    }
                 }
             }
         } finally {
@@ -250,7 +282,7 @@ object PcmDecoder {
             runCatching { extractor.release() }
         }
 
-        if (reachedEnd) {
+        if (eosState.outputEosSeen) {
             runCatching { onEos?.invoke() }
         }
         onProgress(1.0f)

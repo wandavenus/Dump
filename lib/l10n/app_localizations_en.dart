@@ -472,6 +472,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutApp => 'About App';
 
   @override
+  String get openSourceLicense => 'Open-source license';
+
+  @override
+  String get openSourceLicenseDescription =>
+      'Licenses and attributions for third-party components used by Noisegraph.';
+
+  @override
+  String get licensePageDescription =>
+      'Noisegraph uses open-source components. Full license texts and source information are listed below.';
+
+  @override
+  String get licenseViewFullText => 'View full license text';
+
+  @override
+  String get licenseNoFullText =>
+      'The full license text is not bundled in this app.';
+
+  @override
+  String get licenseSource => 'Source';
+
+  @override
+  String get licenseVersion => 'Version';
+
+  @override
   String get changelogTitle => 'Changelog';
 
   @override
