@@ -652,6 +652,36 @@ AutomixTrackFeatures automixMergeSegments({
   final outroSlope = tailSegmentAnalyzed
       ? quarterSlope(lastSegment, 2, 3)
       : null;
+  // ── Head beat grid: same octave guard as the tail ────────────────────────
+  // A window's beat phase is measured modulo that window's own beat period.
+  // The merged track BPM can be an octave fold of the head estimate (a sparse
+  // intro detected at half speed, for example), which changes the period while
+  // leaving the old phase looking valid. Reusing it would place every other
+  // beat on an offbeat, so withhold the head grid unless its tempo survives the
+  // octave fold. This is the guard [automixHasConfidentIntroGrid] already
+  // relies on for the local quarter grid.
+  double? headBeatOffsetMs;
+  double? headDownbeatOffsetMs;
+  if (firstSegment != null) {
+    final headPhaseUsable =
+        firstSegment.bpmConfidence >= 0.20 &&
+        edgePhaseSurvivesFold(firstSegment.bpm, bpm);
+    if (headPhaseUsable) {
+      final beatOffset = firstSegment.beatOffsetMs;
+      if (beatOffset != null && beatOffset.isFinite && beatOffset >= 0) {
+        headBeatOffsetMs =
+            firstSegment.startSeconds * 1000.0 + beatOffset;
+      }
+      final downbeatOffset = firstSegment.downbeatOffsetMs;
+      if (downbeatOffset != null &&
+          downbeatOffset.isFinite &&
+          downbeatOffset >= 0) {
+        headDownbeatOffsetMs =
+            firstSegment.startSeconds * 1000.0 + downbeatOffset;
+      }
+    }
+  }
+
   final localDropCue = firstSegment?.dropCueMs;
   final localBreakdownCue = tailSegmentAnalyzed
       ? lastSegment?.breakdownCueMs
@@ -701,12 +731,8 @@ AutomixTrackFeatures automixMergeSegments({
     bpm: bpm,
     bpmConfidence: bpmConfidence,
     alternateBpm: alternateBpm,
-    beatOffsetMs: segments.isEmpty ? null : segments.first.beatOffsetMs,
-    downbeatOffsetMs:
-        segments.isEmpty || segments.first.downbeatOffsetMs == null
-        ? null
-        : segments.first.startSeconds * 1000.0 +
-              segments.first.downbeatOffsetMs!,
+    beatOffsetMs: headBeatOffsetMs,
+    downbeatOffsetMs: headDownbeatOffsetMs,
     tailDownbeatOffsetMs: tailDownbeatOffsetMs,
     dropCueMs: dropCueMs,
     tailBreakdownCueMs: tailBreakdownCueMs,

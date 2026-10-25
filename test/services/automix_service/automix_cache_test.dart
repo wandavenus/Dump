@@ -66,7 +66,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 17,
+            'version': 18,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -185,6 +185,42 @@ void main() {
     );
 
     test(
+      'invalidates version 17 entries after the ODF timestamp bump',
+      () async {
+        final song = LocalSong(
+          id: 46,
+          title: 'Pre-timestamp schema',
+          artist: 'Artist',
+          album: 'Album',
+          albumId: 7,
+          path: file.path,
+          duration: const Duration(minutes: 4),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'automix_46',
+          jsonEncode(<String, dynamic>{
+            'version': 17,
+            'ident': identityOf(file),
+            'data': <String, dynamic>{
+              'id': 46,
+              'bpm': 128.0,
+              'bc': 0.9,
+              'bo': 45.0,
+              'ta': true,
+            },
+          }),
+        );
+
+        final features = await AutomixService.featuresFor(song);
+
+        // v17 beat/phrase phases are 60-90 ms early; they must not be reused.
+        expect(features.bpm, isNull);
+        expect(features.beatOffsetMs, isNull);
+      },
+    );
+
+    test(
       'invalidates in-memory features when the same song file changes',
       () async {
         final song = LocalSong(
@@ -200,7 +236,7 @@ void main() {
         await prefs.setString(
           'automix_45',
           jsonEncode(<String, dynamic>{
-            'version': 17,
+            'version': 18,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 45,

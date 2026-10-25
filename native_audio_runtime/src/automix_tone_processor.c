@@ -172,11 +172,20 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
   const float theta = shape * (NAR_AUTOMIX_TONE_PI * 0.5f);
   const float trim_out = fminf(fmaxf(outgoing_trim, 0.0f), 1.0f);
   const float trim_in = fminf(fmaxf(incoming_trim, 0.0f), 1.0f);
+  // Symmetric level-match ramps. The outgoing trim fades in over the first
+  // quarter so an already-playing deck never steps down at t=0; the incoming
+  // trim is released over the last quarter so the promoted deck ends at its
+  // own level. This must stay identical to AutomixGainEnvelope.kt: the Kotlin
+  // volume-ramp fallback and this per-sample path are two implementations of
+  // one cue, and a missing attack here made them disagree by up to 6 dB on the
+  // outgoing deck.
+  const float attack = t >= 0.25f ? 1.0f : t / 0.25f;
+  const float outgoing_trim_now = 1.0f - (1.0f - trim_out) * attack;
   const float release =
       t <= 0.75f ? 0.0f : (t - 0.75f) / 0.25f;
   const float incoming_trim_now = trim_in + (1.0f - trim_in) * release;
 
-  float outgoing = clamp_gain(trim_out * cosf(theta));
+  float outgoing = clamp_gain(outgoing_trim_now * cosf(theta));
   float incoming = clamp_gain(incoming_trim_now * sinf(theta));
 
   // Headroom policy (L1 gain budget): Equal-power gains sum to ~1.414 at mid-fade (t = 0.5).

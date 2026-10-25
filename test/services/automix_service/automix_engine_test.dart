@@ -1305,6 +1305,49 @@ void main() {
       expect(merged.bpmConfidence, greaterThan(0.3));
     });
 
+    test('keeps the head beat grid when its tempo is a slower octave', () {
+      // A 60 BPM intro estimate is a subset of the 120 BPM track pulse, so its
+      // phase lands on a main beat and remains usable.
+      final merged = automixMergeSegments(
+        songId: 2,
+        segments: [
+          seg(
+            0,
+            bpm: 60,
+            conf: 0.5,
+            beatOffsetMs: 210,
+            downbeatOffsetMs: 830,
+          ),
+          seg(240, bpm: 120, conf: 0.9),
+        ],
+      );
+      expect(merged.bpm, closeTo(120, 1));
+      expect(merged.beatOffsetMs, closeTo(210, 0.5));
+      expect(merged.downbeatOffsetMs, closeTo(830, 0.5));
+    });
+
+    test('drops a head grid measured at a faster octave than the track', () {
+      // 240 BPM is a double-time misread of a 120 BPM track. Its phase is
+      // measured modulo a 250 ms period, so reusing it on the 500 ms grid can
+      // place the reference phase on an offbeat. Withhold it instead.
+      final merged = automixMergeSegments(
+        songId: 3,
+        segments: [
+          seg(
+            0,
+            bpm: 240,
+            conf: 0.5,
+            beatOffsetMs: 210,
+            downbeatOffsetMs: 830,
+          ),
+          seg(240, bpm: 120, conf: 0.9),
+        ],
+      );
+      expect(merged.bpm, closeTo(120, 1));
+      expect(merged.beatOffsetMs, isNull);
+      expect(merged.downbeatOffsetMs, isNull);
+    });
+
     test('derives head/tail structure from seam-local energy quarters', () {
       final merged = automixMergeSegments(
         songId: 19,
