@@ -111,54 +111,39 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           ),
         ),
         const SettingsDivider(),
-        ValueListenableBuilder<bool>(
-          valueListenable: ThemeController.glassTheme,
-          builder: (context, isGlass, _) => Column(
-            children: [
+        Column(
+          children: [
               Material(
                 color: Colors.transparent,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => setState(() {
-                            _isLiquidGlassExpanded = !_isLiquidGlassExpanded;
-                          }),
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l.liquidGlass,
-                                  style: const TextStyle(fontSize: 16),
+                child: InkWell(
+                  onTap: () => setState(() {
+                    _isLiquidGlassExpanded = !_isLiquidGlassExpanded;
+                  }),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.liquidGlass,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l.liquidGlassSubtitle,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.of(context).secondaryLabel,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  l.liquidGlassSubtitle,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.of(context).secondaryLabel,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      Switch.adaptive(
-                        value: isGlass,
-                        onChanged: (enabled) {
-                          unawaited(ThemeController.setGlassTheme(enabled));
-                          if (enabled && !_isLiquidGlassExpanded) {
-                            setState(() => _isLiquidGlassExpanded = true);
-                          }
-                        },
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -217,8 +202,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                     : const SizedBox(width: double.infinity, height: 0),
               ),
               const SettingsDivider(),
-            ],
-          ),
+          ],
         ),
       ],
     );
