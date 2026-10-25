@@ -46,7 +46,19 @@ class LyricsDragHandle {
   /// True while a drag is forwarded from the controls/relay area inside
   /// PlayerContent. Those updates use jumpTo and therefore do not carry
   /// ScrollUpdateNotification.dragDetails.
-  bool isExternalDragActive = false;
+  bool _isExternalDragActive = false;
+
+  bool get isExternalDragActive => _isExternalDragActive;
+
+  set isExternalDragActive(bool active) {
+    if (_isExternalDragActive == active) return;
+    _isExternalDragActive = active;
+    if (active) {
+      _state?._beginManualLyricsScroll();
+    } else {
+      _state?._scheduleAutomaticLyricsReturn();
+    }
+  }
 
   void _attach(_SyncedLyricsViewState state) => _state = state;
 

@@ -7,18 +7,16 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         liveScrollContext = n.context ?? liveScrollContext;
-        if (n is UserScrollNotification) {
-          if (n.direction != ScrollDirection.idle) {
-            _userIsManualScrolling = true;
-            _scrollResumeTimer?.cancel();
-          }
+        final externalDrag = widget.dragHandle?.isExternalDragActive == true;
+        final dragUpdate = n is ScrollUpdateNotification &&
+            (n.dragDetails != null || externalDrag);
+        final activeUserScroll =
+            n is UserScrollNotification && n.direction != ScrollDirection.idle;
+
+        if (activeUserScroll || dragUpdate) {
+          _beginManualLyricsScroll();
         } else if (n is ScrollEndNotification && _userIsManualScrolling) {
-          _scrollResumeTimer?.cancel();
-          _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
-            if (!mounted) return;
-            _userIsManualScrolling = false;
-            _scrollToCenter(_currentIndex, animate: true);
-          });
+          _scheduleAutomaticLyricsReturn();
         }
         return false;
       },
@@ -91,6 +89,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                       child: _AnimatedLyricBlur(
                         sigma: targetBlur,
                         duration: motionDuration,
+                        visibility: _blurVisibility,
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: lineSpacing),
                           child: AnimatedDefaultTextStyle(
@@ -143,11 +142,13 @@ class _AnimatedLyricBlur extends StatefulWidget {
   const _AnimatedLyricBlur({
     required this.sigma,
     required this.duration,
+    required this.visibility,
     required this.child,
   });
 
   final double sigma;
   final Duration duration;
+  final Animation<double> visibility;
   final Widget child;
 
   @override
@@ -200,14 +201,18 @@ class _AnimatedLyricBlurState extends State<_AnimatedLyricBlur>
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _controller,
     child: widget.child,
-    builder: (context, child) {
-      final sigma = _animation.value;
-      if (sigma <= 0.01) return child!;
-      return ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-        child: child,
-      );
-    },
+    builder: (context, child) => AnimatedBuilder(
+      animation: widget.visibility,
+      child: child,
+      builder: (context, child) {
+        final sigma = _animation.value * widget.visibility.value;
+        if (sigma <= 0.01) return child!;
+        return ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+          child: child,
+        );
+      },
+    ),
   );
 
   @override
