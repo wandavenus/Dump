@@ -189,10 +189,11 @@ class FloatingPillNavBar extends StatelessWidget {
             ),
             ColoredBox(color: c.glassFillTint),
             IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
-                  border: Border.all(color: c.glassBorderTint, width: 1),
+              child: CustomPaint(
+                painter: _PillGlassRimPainter(
+                  radius: radius,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
+                  borderTint: c.glassBorderTint,
                 ),
               ),
             ),
@@ -455,10 +456,13 @@ class _TrailingButton extends StatelessWidget {
                   ),
                 ),
                 ColoredBox(color: c.glassFillTint),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.glassBorderTint, width: 1),
+                IgnorePointer(
+                  child: CustomPaint(
+                    painter: _PillGlassRimPainter(
+                      radius: FloatingPillNavBar.trailingSize / 2,
+                      isDark: Theme.of(context).brightness == Brightness.dark,
+                      borderTint: c.glassBorderTint,
+                    ),
                   ),
                 ),
                 Center(
@@ -476,3 +480,83 @@ class _TrailingButton extends StatelessWidget {
     );
   }
 }
+
+/// Draws a directional glass rim without adding another blur or shadow layer.
+/// Kept local to the pill navbar so other glass surfaces retain their styling.
+class _PillGlassRimPainter extends CustomPainter {
+  const _PillGlassRimPainter({
+    required this.radius,
+    required this.isDark,
+    required this.borderTint,
+  });
+
+  final double radius;
+  final bool isDark;
+  final Color borderTint;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+
+    final bounds = Offset.zero & size;
+    final outerBounds = bounds.deflate(0.25);
+    final outerRadius = (radius - 0.25).clamp(0.0, double.infinity);
+    final outerRRect = RRect.fromRectAndRadius(
+      outerBounds,
+      Radius.circular(outerRadius),
+    );
+
+    // Quiet contact edge keeps the capsule separated from busy artwork.
+    canvas.drawRRect(
+      outerRRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.45
+        ..color = borderTint,
+    );
+
+    // A fine specular rim: brighter toward the top, softer along the sides
+    // and bottom. This is paint-only; it does not sample or blur the backdrop.
+    final innerBounds = bounds.deflate(0.75);
+    final innerRadius = (radius - 0.75).clamp(0.0, double.infinity);
+    final innerRRect = RRect.fromRectAndRadius(
+      innerBounds,
+      Radius.circular(innerRadius),
+    );
+    final colors = isDark
+        ? const [
+            Color(0x7AFFFFFF),
+            Color(0x38FFFFFF),
+            Color(0x0AFFFFFF),
+            Color(0x12FFFFFF),
+            Color(0x3DFFFFFF),
+          ]
+        : const [
+            Color(0xBFFFFFFF),
+            Color(0x40FFFFFF),
+            Color(0x107C7C83),
+            Color(0x267C7C83),
+            Color(0x80FFFFFF),
+          ];
+
+    canvas.drawRRect(
+      innerRRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.65
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0, 0.15, 0.48, 0.82, 1],
+          colors: colors,
+        ).createShader(bounds),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PillGlassRimPainter oldDelegate) =>
+      radius != oldDelegate.radius ||
+      isDark != oldDelegate.isDark ||
+      borderTint != oldDelegate.borderTint;
+}
+
