@@ -41,7 +41,7 @@ extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
   void _scrollToCenter(int index, {bool animate = true}) {
     if (_userIsManualScrolling && animate) return;
     if (_pendingViewportRestorePixels != null && animate) return;
-    if (animate) {
+    if (animate && !MediaQuery.disableAnimationsOf(context)) {
       unawaited(
         _itemScrollController.scrollTo(
           index: index,

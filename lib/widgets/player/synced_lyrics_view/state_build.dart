@@ -34,7 +34,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
           final TextAlign align = LyricsSettings.resolvedTextAlign;
           final bool karaokeOn = LyricsSettings.karaokeMode.value;
           final Color dim = Colors.white.withValues(alpha: 0.48);
-          final motionDuration = MediaQuery.disableAnimationsOf(context)
+          final motionDisabled = MediaQuery.disableAnimationsOf(context);
+          final motionDuration = motionDisabled
               ? Duration.zero
               : lyricFocusAnimationDuration;
 
@@ -58,11 +59,13 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   ((_currentIndex - _previousIndex) * 16.0)
                       .clamp(-96.0, 96.0)
                       .toDouble();
-              final lineOffset = lyricStaggeredRowOffset(
-                animationProgress: _lineTransitionController.value,
-                distance: scrollDistance,
-                rowsAfterFocus: index - _currentIndex,
-              );
+              final lineOffset = motionDisabled
+                  ? 0.0
+                  : lyricStaggeredRowOffset(
+                      animationProgress: _lineTransitionController.value,
+                      distance: scrollDistance,
+                      rowsAfterFocus: index - _currentIndex,
+                    );
 
               return Transform.translate(
                 offset: Offset(0, lineOffset),
