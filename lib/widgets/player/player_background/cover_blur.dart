@@ -14,7 +14,7 @@ class ArtworkBlurPlayerBackground extends StatefulWidget {
   });
 
   static const int _targetSizePx = 64;
-  static const double _blurSigma = 28;
+  static const double _blurSigma = 48;
 
   final int songId;
 
