@@ -500,7 +500,7 @@ class _PillGlassRimPainter extends CustomPainter {
 
     final bounds = Offset.zero & size;
     final outerBounds = bounds.deflate(0.25);
-    final outerRadius = (radius - 0.25).clamp(0.0, double.infinity);
+    final outerRadius = (radius - 0.25).clamp(0.0, double.infinity).toDouble();
     final outerRRect = RRect.fromRectAndRadius(
       outerBounds,
       Radius.circular(outerRadius),
@@ -518,7 +518,7 @@ class _PillGlassRimPainter extends CustomPainter {
     // A fine specular rim: brighter toward the top, softer along the sides
     // and bottom. This is paint-only; it does not sample or blur the backdrop.
     final innerBounds = bounds.deflate(0.75);
-    final innerRadius = (radius - 0.75).clamp(0.0, double.infinity);
+    final innerRadius = (radius - 0.75).clamp(0.0, double.infinity).toDouble();
     final innerRRect = RRect.fromRectAndRadius(
       innerBounds,
       Radius.circular(innerRadius),
