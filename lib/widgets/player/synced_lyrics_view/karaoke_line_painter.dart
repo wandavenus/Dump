@@ -26,6 +26,10 @@ class _KaraokeLinePainter extends CustomPainter {
   // ── Path di-reuse setiap frame, bukan dibuat baru ────────────────────────
   final Path _clipPath = Path();
   final Path _currentPath = Path();
+  final Path _glowPath = Path();
+  final Paint _glowLayerPaint = Paint();
+  ui.ImageFilter? _wordGlowFilter;
+  double _wordGlowSigma = -1;
 
   // ── Opsi B: Flag untuk skip _cacheWordPixels saat hanya warna berubah ───
   bool _wordRectsPrecomputed = false;
@@ -64,7 +68,7 @@ class _KaraokeLinePainter extends CustomPainter {
     final word = timeline[cursor];
     final startMs = word.start.inMilliseconds.toDouble();
     final endMs = word.end.inMilliseconds.toDouble();
-    final durationMs = (endMs - startMs).clamp(1.0, 30000.0);
+    final durationMs = (endMs - startMs).clamp(1.0, 30000.0).toDouble();
     final progress =
         ((controller.position.inMilliseconds - startMs) / durationMs).clamp(
           0.0,
@@ -135,12 +139,24 @@ class _KaraokeLinePainter extends CustomPainter {
       canvas.restore();
     }
 
+    final positionMs = controller.position.inMilliseconds.toDouble();
+    // A long-held word keeps a soft halo for a short tail after its timestamp
+    // ends; short syllables never pay the blur-layer cost.
+    if (cursor > 0) {
+      _drawLongWordGlow(canvas, cursor - 1, positionMs, highlight);
+    }
+    _drawLongWordGlow(canvas, cursor, positionMs, highlight);
+
+    final lift = _wordLift(positionMs, startMs, durationMs);
+
     // ── Soft fade at the leading edge of the current word ────────────────────
-    // Render the current fill in its own layer so the mask can affect only
-    // this word, without changing already-filled words.
+    // Render the current fill in its own layer so the mask affects only this
+    // word, without changing words that have already completed.
     if (!_currentPath.getBounds().isEmpty && currentFillBounds != null) {
       final currentBounds = currentFillBounds;
-      canvas.saveLayer(currentBounds, Paint());
+      canvas.save();
+      if (lift > 0) canvas.translate(0, -lift);
+      canvas.saveLayer(currentBounds.inflate(lift), Paint());
       canvas.clipPath(_currentPath);
       highlight.paint(canvas, Offset.zero);
 
@@ -187,7 +203,85 @@ class _KaraokeLinePainter extends CustomPainter {
         canvas.drawRect(strip, maskPaint);
       }
       canvas.restore();
+      canvas.restore();
     }
+  }
+
+  double _wordLift(double positionMs, double startMs, double durationMs) {
+    final maxLift = (fontSize * 0.05).clamp(0.0, 2.0).toDouble();
+    final elapsedMs = positionMs - startMs;
+    final normalLift = maxLift * 0.6 * _smooth((elapsedMs + 180) / 720);
+    final heldStrength = ((durationMs - 1000) / 1500)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    if (heldStrength <= 0 || durationMs <= 400) return normalLift;
+
+    final riseWindow = math.min(1200.0, (durationMs - 400) * 0.6);
+    final rise = _smooth((elapsedMs - 400) / riseWindow);
+    final settle = _smooth((durationMs - elapsedMs) / 600);
+    return (normalLift + maxLift * 0.4 * heldStrength * rise * settle)
+        .clamp(0.0, 2.0)
+        .toDouble();
+  }
+
+  double _smooth(double value) {
+    final t = value.clamp(0.0, 1.0).toDouble();
+    return t * t * (3 - 2 * t);
+  }
+
+  void _drawLongWordGlow(
+    Canvas canvas,
+    int wordIndex,
+    double positionMs,
+    TextPainter highlight,
+  ) {
+    if (wordIndex < 0 ||
+        wordIndex >= timeline.length ||
+        wordIndex >= _wordRects.length) {
+      return;
+    }
+    final word = timeline[wordIndex];
+    final startMs = word.start.inMilliseconds.toDouble();
+    final endMs = word.end.inMilliseconds.toDouble();
+    final durationMs = (endMs - startMs).clamp(1.0, 30000.0).toDouble();
+    final elapsedMs = positionMs - startMs;
+    if (elapsedMs < 0 || elapsedMs > durationMs + 500) return;
+
+    final heldStrength = ((durationMs - 900) / 1100)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    if (heldStrength <= 0) return;
+
+    final riseWindow = math.min(900.0, durationMs * 0.5);
+    final rise = _smooth((elapsedMs - 250) / riseWindow);
+    final fade = _smooth((durationMs + 500 - elapsedMs) / 500);
+    final strength = heldStrength * rise * fade;
+    if (strength <= 0.005) return;
+
+    _glowPath.reset();
+    Rect? bounds;
+    for (final box in _wordRects[wordIndex]) {
+      _glowPath.addRect(box.rect);
+      bounds = bounds == null ? box.rect : bounds.expandToInclude(box.rect);
+    }
+    if (bounds == null || bounds.isEmpty) return;
+
+    final sigma = (fontSize * 0.2).clamp(0.0, 8.0).toDouble();
+    if (_wordGlowFilter == null || _wordGlowSigma != sigma) {
+      _wordGlowSigma = sigma;
+      _wordGlowFilter = ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma);
+    }
+
+    _glowLayerPaint
+      ..imageFilter = _wordGlowFilter
+      ..colorFilter = ui.ColorFilter.mode(
+        activeColor.withValues(alpha: strength * 0.32),
+        BlendMode.srcIn,
+      );
+    canvas.saveLayer(bounds.inflate(sigma * 3), _glowLayerPaint);
+    canvas.clipPath(_glowPath);
+    highlight.paint(canvas, Offset.zero);
+    canvas.restore();
   }
 
   void _ensureLayout(double width) {
