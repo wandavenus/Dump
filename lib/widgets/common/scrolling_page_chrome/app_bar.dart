@@ -31,60 +31,26 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: ThemeController.glassTheme,
-      builder: (context, masterGlass, _) {
-        return ValueListenableBuilder<bool>(
-          valueListenable: ThemeController.glassAppBar,
-          builder: (context, appBarGlass, _) {
-            final isGlass = masterGlass && appBarGlass;
-            final notifier = scrollOffsetListenable;
-            if (notifier != null) {
-              return ValueListenableBuilder<double>(
-                valueListenable: notifier,
-                builder: (context, offset, _) =>
-                    _buildBar(context, isGlass, offset),
-              );
-            }
-            return _buildBar(context, isGlass, scrollOffset);
-          },
-        );
-      },
-    );
+    final notifier = scrollOffsetListenable;
+    if (notifier != null) {
+      return ValueListenableBuilder<double>(
+        valueListenable: notifier,
+        builder: (context, offset, _) =>
+            _buildBar(context, offset),
+      );
+    }
+    return _buildBar(context, scrollOffset);
   }
 
-  Widget _buildBar(BuildContext context, bool isGlass, double offset) {
+  Widget _buildBar(BuildContext context, double offset) {
     final c = AppColors.of(context);
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return AppBar(
       automaticallyImplyLeading: automaticallyImplyLeading,
       leading: leading,
-      backgroundColor: isGlass ? Colors.transparent : scaffoldBg,
+      backgroundColor: scaffoldBg,
       surfaceTintColor: Colors.transparent,
-      flexibleSpace: isGlass
-          ? RepaintBoundary(
-              child: BackdropGroup(
-                child: ClipRect(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      BackdropFilter.grouped(
-                        filterConfig: const ImageFilterConfig.blur(
-                          sigmaX: 6,
-                          sigmaY: 6,
-                          bounded: true,
-                        ),
-                        blendMode: BlendMode.srcOver,
-                        child: const ColoredBox(color: Colors.transparent),
-                      ),
-                      // Tint netral penstabil — sama dengan navbar & mini player.
-                      ColoredBox(color: c.glassFillTint),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          : null,
+      flexibleSpace: null,
       title: title != null
           ? Transform.translate(
               offset: Offset(
@@ -104,12 +70,10 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: actions,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
-        child: isGlass
-            ? Container(height: 0.5, color: c.glassBorderTint)
-            : Opacity(
-                opacity: (offset / 140).clamp(0.0, 1.0).toDouble(),
-                child: Container(height: 0.9, color: c.separator),
-              ),
+        child: Opacity(
+          opacity: (offset / 140).clamp(0.0, 1.0).toDouble(),
+          child: Container(height: 0.9, color: c.separator),
+        ),
       ),
     );
   }
