@@ -113,7 +113,7 @@ class _AppearanceSection extends StatelessWidget {
                 child: InkWell(
                   onTap: () => unawaited(() async {
                     if (!isGlass) {
-                      await ThemeController.setNavBarStyle(NavBarStyle.pill);
+                      await ThemeController.setNavBarStyle(NavBarStyle.solid);
                     }
                     await ThemeController.setGlassTheme(!isGlass);
                   }()),
@@ -173,6 +173,13 @@ class _AppearanceSection extends StatelessWidget {
                                       }
                                     },
                                     children: {
+                                      NavBarStyle.solid: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          'Bawaan',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
                                       NavBarStyle.glass: Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 10),
                                         child: Text(
