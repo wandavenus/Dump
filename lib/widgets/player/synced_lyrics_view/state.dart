@@ -13,6 +13,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   late final Ticker _frameTicker;
   late final AnimationController _lineTransitionController;
+  late final AnimationController _blurVisibilityController;
+  late final Animation<double> _blurVisibility;
   StreamSubscription<Duration>? _posSub;
 
   // ── Format-agnostic karaoke renderer state ───────────────────────────────
@@ -35,6 +37,33 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   // keep the currently visible content anchored to the same pixel offset.
   double? _pendingViewportRestorePixels;
   bool _viewportRestoreScheduled = false;
+
+  void _beginManualLyricsScroll() {
+    _scrollResumeTimer?.cancel();
+    if (_userIsManualScrolling) return;
+
+    _userIsManualScrolling = true;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _blurVisibilityController.value = 0;
+    } else {
+      unawaited(_blurVisibilityController.reverse());
+    }
+  }
+
+  void _scheduleAutomaticLyricsReturn() {
+    if (!_userIsManualScrolling) return;
+    _scrollResumeTimer?.cancel();
+    _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      _userIsManualScrolling = false;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _blurVisibilityController.value = 1;
+      } else {
+        unawaited(_blurVisibilityController.forward());
+      }
+      _scrollToCenter(_currentIndex, animate: true);
+    });
+  }
 
   void _prepareForViewportResize() {
     final ctx = liveScrollContext;
@@ -78,6 +107,16 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       vsync: this,
       // One shared clock drives the staggered spring offset of lyric rows.
       duration: lyricRowMotionDuration,
+    );
+    _blurVisibilityController = AnimationController(
+      vsync: this,
+      duration: lyricFocusAnimationDuration,
+      reverseDuration: const Duration(milliseconds: 280),
+      value: 1,
+    );
+    _blurVisibility = CurvedAnimation(
+      parent: _blurVisibilityController,
+      curve: Curves.easeInOutCubic,
     );
 
     _settingsListenable = Listenable.merge([
@@ -171,6 +210,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
     _lineTransitionController.dispose();
+    _blurVisibility.dispose();
+    _blurVisibilityController.dispose();
     _karaokeController.dispose();
     _scrollResumeTimer?.cancel();
     super.dispose();
