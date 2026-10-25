@@ -1121,7 +1121,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get glassToggleNavBar => 'NavBar';
 
   @override
-  String get navBarStyleSolid => 'Solid';
+  String get navBarStyleSolid => 'Bawaan';
 
   @override
   String get navBarStyleGlass => 'Kaca';
