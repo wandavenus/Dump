@@ -50,6 +50,10 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
 
               final distance = (index - _currentIndex).abs();
               final targetBlur = lyricFocusBlurSigma(distance);
+              final scrollDistance =
+                  ((_currentIndex - _previousIndex) * 16.0)
+                      .clamp(-96.0, 96.0)
+                      .toDouble();
 
               // Keep the staggered motion local to each visible row. Listening
               // above caused the entire ScrollablePositionedList subtree to
@@ -117,10 +121,6 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   ),
                 ),
                 builder: (context, child) {
-                  final scrollDistance =
-                      ((_currentIndex - _previousIndex) * 16.0)
-                          .clamp(-96.0, 96.0)
-                          .toDouble();
                   final lineOffset = motionDisabled
                       ? 0.0
                       : lyricStaggeredRowOffset(
