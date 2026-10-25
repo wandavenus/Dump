@@ -31,8 +31,10 @@ class ThemeController {
 
   static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
   static final ValueNotifier<NavBarStyle> navBarStyle = ValueNotifier(
-    NavBarStyle.glass,
+    NavBarStyle.solid,
   );
+  static final ValueNotifier<bool> liquidGlassSectionExpanded =
+      ValueNotifier(false);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<PlayerBackgroundStyle> playerBackgroundStyle =
       ValueNotifier(PlayerBackgroundStyle.fluid);
@@ -54,12 +56,17 @@ class ThemeController {
       glassTheme.value =
           savedGlassTheme || navBarStyle.value != NavBarStyle.solid;
     } else {
-      // Migrate older preferences while preserving the legacy master setting.
-      navBarStyle.value = (prefs.getBool('glass_navbar') ?? true)
+      // Keep legacy installations compatible; fresh installs use the default
+      // navbar style instead of silently enabling Glass.
+      navBarStyle.value = (prefs.getBool('glass_navbar') ?? false)
           ? NavBarStyle.glass
           : NavBarStyle.solid;
       glassTheme.value = savedGlassTheme;
     }
+
+    liquidGlassSectionExpanded.value =
+        prefs.getBool('liquid_glass_section_expanded') ?? false;
+
     glassMiniPlayer.value = true;
     final savedPlayerBackground = prefs.getInt('player_background_style');
     if (savedPlayerBackground != null &&
@@ -87,6 +94,11 @@ class ThemeController {
     glassTheme.value = value != NavBarStyle.solid;
     await _save('navbar_style', value.index);
     await _save('glass_theme', glassTheme.value);
+  }
+
+  static Future<void> setLiquidGlassSectionExpanded(bool expanded) async {
+    liquidGlassSectionExpanded.value = expanded;
+    await _save('liquid_glass_section_expanded', expanded);
   }
 
   static Future<void> setPlayerBackgroundStyle(
