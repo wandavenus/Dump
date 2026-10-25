@@ -89,6 +89,43 @@ double lyricStaggeredRowOffset({
   return boundedDistance * (scrollProgress - followingProgress);
 }
 
+
+/// Matches Mornye's word-lift envelope. The full text segment uses the same
+/// offset before and after the karaoke color sweep, preventing a stationary
+/// dim glyph from showing through a raised highlighted glyph.
+double lyricWordLift({
+  required Duration position,
+  required Duration start,
+  required Duration end,
+  required double fontSize,
+}) {
+  if (end <= start) return 0;
+
+  final maxLift = (fontSize * 0.05).clamp(0.0, 2.0).toDouble();
+  final elapsedMs = (position - start).inMicroseconds / 1000.0;
+  final durationMs = (end - start).inMicroseconds / 1000.0;
+
+  double ease(double value) {
+    final t = value.clamp(0.0, 1.0).toDouble();
+    return t * t * (3.0 - 2.0 * t);
+  }
+
+  // Begin moving slightly ahead of the color sweep, but use a broad envelope
+  // so a 16 ms frame never produces a perceptible jump.
+  final normalLift = ease((elapsedMs + 180.0) / 720.0);
+  final heldStrength = ((durationMs - 1000.0) / 1500.0)
+      .clamp(0.0, 1.0)
+      .toDouble();
+  if (heldStrength == 0 || durationMs <= 400) {
+    return maxLift * normalLift;
+  }
+
+  final riseWindow = math.min(1200.0, (durationMs - 400.0) * 0.6);
+  final rise = ease((elapsedMs - 400.0) / riseWindow);
+  final settle = ease((durationMs - elapsedMs) / 600.0);
+  return maxLift * (normalLift + 1.3 * heldStrength * rise * settle);
+}
+
 /// Blur used to push lines away from the active vocal focus.
 double lyricFocusBlurSigma(int lineDistance) {
   if (lineDistance <= 0) return 0;
