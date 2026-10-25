@@ -33,7 +33,6 @@ class ThemeController {
   static final ValueNotifier<NavBarStyle> navBarStyle = ValueNotifier(
     NavBarStyle.glass,
   );
-  static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<PlayerBackgroundStyle> playerBackgroundStyle =
       ValueNotifier(PlayerBackgroundStyle.fluid);
@@ -57,8 +56,7 @@ class ThemeController {
           ? NavBarStyle.glass
           : NavBarStyle.solid;
     }
-    glassAppBar.value = prefs.getBool('glass_appbar') ?? true;
-    glassMiniPlayer.value = prefs.getBool('glass_mini_player') ?? true;
+    glassMiniPlayer.value = true;
     final savedPlayerBackground = prefs.getInt('player_background_style');
     if (savedPlayerBackground != null &&
         savedPlayerBackground >= 0 &&
@@ -83,16 +81,6 @@ class ThemeController {
   static Future<void> setNavBarStyle(NavBarStyle value) async {
     navBarStyle.value = value;
     await _save('navbar_style', value.index);
-  }
-
-  static Future<void> setGlassAppBar(bool enabled) async {
-    glassAppBar.value = enabled;
-    await _save('glass_appbar', enabled);
-  }
-
-  static Future<void> setGlassMiniPlayer(bool enabled) async {
-    glassMiniPlayer.value = enabled;
-    await _save('glass_mini_player', enabled);
   }
 
   static Future<void> setPlayerBackgroundStyle(
