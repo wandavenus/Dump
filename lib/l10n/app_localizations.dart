@@ -2070,7 +2070,7 @@ abstract class AppLocalizations {
   /// No description provided for @navBarStyleSolid.
   ///
   /// In en, this message translates to:
-  /// **'Solid'**
+  /// **'Default'**
   String get navBarStyleSolid;
 
   /// No description provided for @navBarStyleGlass.

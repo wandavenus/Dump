@@ -501,7 +501,7 @@
   "channel71Surround": "7.1 Surround",
   "bitrateUnknownLossless": "Lossless",
   "glassToggleNavBar": "NavBar",
-  "navBarStyleSolid": "Solid",
+  "navBarStyleSolid": "Default",
   "navBarStyleGlass": "Glass",
   "navBarStylePill": "Floating Pill",
   "glassToggleAppBar": "AppBar",
