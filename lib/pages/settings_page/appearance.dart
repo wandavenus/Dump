@@ -1,7 +1,14 @@
 part of '../settings_page.dart';
 
-class _AppearanceSection extends StatelessWidget {
+class _AppearanceSection extends StatefulWidget {
   const _AppearanceSection();
+
+  @override
+  State<_AppearanceSection> createState() => _AppearanceSectionState();
+}
+
+class _AppearanceSectionState extends State<_AppearanceSection> {
+  bool _isLiquidGlassExpanded = ThemeController.glassTheme.value;
 
   @override
   Widget build(BuildContext context) {
@@ -110,36 +117,48 @@ class _AppearanceSection extends StatelessWidget {
             children: [
               Material(
                 color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => unawaited(
-                    ThemeController.setGlassTheme(!isGlass),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l.liquidGlass,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                l.liquidGlassSubtitle,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.of(context).secondaryLabel,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => setState(
+                            () => _isLiquidGlassExpanded = !_isLiquidGlassExpanded,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.liquidGlass,
+                                  style: const TextStyle(fontSize: 16),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  l.liquidGlassSubtitle,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.of(context).secondaryLabel,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-
-                      ],
-                    ),
+                      ),
+                      Switch.adaptive(
+                        value: isGlass,
+                        onChanged: (enabled) {
+                          unawaited(ThemeController.setGlassTheme(enabled));
+                          if (enabled && !_isLiquidGlassExpanded) {
+                            setState(() => _isLiquidGlassExpanded = true);
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -147,7 +166,7 @@ class _AppearanceSection extends StatelessWidget {
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOutCubic,
                 alignment: Alignment.topCenter,
-                child: isGlass
+                child: _isLiquidGlassExpanded
                     ? Column(
                         children: [
                           Padding(
