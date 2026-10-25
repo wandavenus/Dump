@@ -21,10 +21,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
         return false;
       },
       child: ListenableBuilder(
-        listenable: Listenable.merge([
-          _settingsListenable,
-          _lineTransitionController,
-        ]),
+        listenable: _settingsListenable,
         builder: (context, _) {
           final double fs = LyricsSettings.fontSize.value;
           final double lineSpacing = LyricsSettings.lineSpacing.value;
@@ -53,20 +50,12 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
 
               final distance = (index - _currentIndex).abs();
               final targetBlur = lyricFocusBlurSigma(distance);
-              final scrollDistance =
-                  ((_currentIndex - _previousIndex) * 16.0)
-                      .clamp(-96.0, 96.0)
-                      .toDouble();
-              final lineOffset = motionDisabled
-                  ? 0.0
-                  : lyricStaggeredRowOffset(
-                      animationProgress: _lineTransitionController.value,
-                      distance: scrollDistance,
-                      rowsAfterFocus: index - _currentIndex,
-                    );
 
-              return Transform.translate(
-                offset: Offset(0, lineOffset),
+              // Keep the staggered motion local to each visible row. Listening
+              // above caused the entire ScrollablePositionedList subtree to
+              // rebuild on every animation tick.
+              return AnimatedBuilder(
+                animation: _lineTransitionController,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
@@ -127,6 +116,23 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                     ),
                   ),
                 ),
+                builder: (context, child) {
+                  final scrollDistance =
+                      ((_currentIndex - _previousIndex) * 16.0)
+                          .clamp(-96.0, 96.0)
+                          .toDouble();
+                  final lineOffset = motionDisabled
+                      ? 0.0
+                      : lyricStaggeredRowOffset(
+                          animationProgress: _lineTransitionController.value,
+                          distance: scrollDistance,
+                          rowsAfterFocus: index - _currentIndex,
+                        );
+                  return Transform.translate(
+                    offset: Offset(0, lineOffset),
+                    child: child,
+                  );
+                },
               );
             },
           );
