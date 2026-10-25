@@ -70,7 +70,7 @@ void main() {
           end: end,
           fontSize: 34,
         );
-        expect(current, isNonNegative);
+        expect(current, greaterThanOrEqualTo(0));
         expect((current - previous).abs(), lessThan(0.15));
         previous = current;
       }
