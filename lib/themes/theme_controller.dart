@@ -51,7 +51,8 @@ class ThemeController {
         savedStyle < NavBarStyle.values.length) {
       navBarStyle.value = NavBarStyle.values[savedStyle];
       // The saved NavBar choice remains authoritative across section collapse.
-      glassTheme.value = navBarStyle.value != NavBarStyle.solid;
+      glassTheme.value =
+          savedGlassTheme || navBarStyle.value != NavBarStyle.solid;
     } else {
       // Migrate older preferences while preserving the legacy master setting.
       navBarStyle.value = (prefs.getBool('glass_navbar') ?? true)
