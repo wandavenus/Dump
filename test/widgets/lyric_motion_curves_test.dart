@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/widgets/player/lyric_motion_curves.dart';
+import 'package:musicplayer/widgets/player/lyric_motion_curves.dart';
 
 void main() {
   group('lyric motion curves', () {

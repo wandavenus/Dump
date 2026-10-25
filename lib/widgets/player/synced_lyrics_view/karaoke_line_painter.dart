@@ -68,7 +68,7 @@ class _KaraokeLinePainter extends CustomPainter {
     final word = timeline[cursor];
     final startMs = word.start.inMilliseconds.toDouble();
     final endMs = word.end.inMilliseconds.toDouble();
-    final durationMs = (endMs - startMs).clamp(1.0, 30000.0);
+    final durationMs = (endMs - startMs).clamp(1.0, 30000.0).toDouble();
     final progress =
         ((controller.position.inMilliseconds - startMs) / durationMs).clamp(
           0.0,
@@ -147,7 +147,7 @@ class _KaraokeLinePainter extends CustomPainter {
     }
     _drawLongWordGlow(canvas, cursor, positionMs, highlight);
 
-    final lift = _wordLift(positionMs, startMs);
+    final lift = _wordLift(positionMs, startMs, durationMs);
 
     // ── Soft fade at the leading edge of the current word ────────────────────
     // Render the current fill in its own layer so the mask affects only this
@@ -207,11 +207,21 @@ class _KaraokeLinePainter extends CustomPainter {
     }
   }
 
-  double _wordLift(double positionMs, double startMs) {
+  double _wordLift(double positionMs, double startMs, double durationMs) {
     final maxLift = (fontSize * 0.05).clamp(0.0, 2.0).toDouble();
-    final progress = ((positionMs - startMs + 180) / 720).clamp(0.0, 1.0);
-    final eased = progress * progress * (3 - 2 * progress);
-    return maxLift * eased;
+    final elapsedMs = positionMs - startMs;
+    final normalLift = maxLift * 0.6 * _smooth((elapsedMs + 180) / 720);
+    final heldStrength = ((durationMs - 1000) / 1500)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    if (heldStrength <= 0 || durationMs <= 400) return normalLift;
+
+    final riseWindow = math.min(1200.0, (durationMs - 400) * 0.6);
+    final rise = _smooth((elapsedMs - 400) / riseWindow);
+    final settle = _smooth((durationMs - elapsedMs) / 600);
+    return (normalLift + maxLift * 0.4 * heldStrength * rise * settle)
+        .clamp(0.0, 2.0)
+        .toDouble();
   }
 
   double _smooth(double value) {
