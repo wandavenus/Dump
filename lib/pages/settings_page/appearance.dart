@@ -8,7 +8,8 @@ class _AppearanceSection extends StatefulWidget {
 }
 
 class _AppearanceSectionState extends State<_AppearanceSection> {
-  bool _isLiquidGlassExpanded = ThemeController.glassTheme.value;
+  bool _isLiquidGlassExpanded =
+      ThemeController.liquidGlassSectionExpanded.value;
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +117,15 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
             Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => setState(() {
-                  _isLiquidGlassExpanded = !_isLiquidGlassExpanded;
-                }),
+                onTap: () {
+                  final expanded = !_isLiquidGlassExpanded;
+                  setState(() {
+                    _isLiquidGlassExpanded = expanded;
+                  });
+                  unawaited(
+                    ThemeController.setLiquidGlassSectionExpanded(expanded),
+                  );
+                },
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                   child: Row(
@@ -196,13 +203,11 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                             },
                           ),
                         ),
-
                       ],
                     )
                   : const SizedBox(width: double.infinity, height: 0),
             ),
             const SettingsDivider(),
-
           ],
         ),
       ],
