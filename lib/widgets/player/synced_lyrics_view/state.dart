@@ -14,7 +14,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   late final Ticker _frameTicker;
   late final AnimationController _lineTransitionController;
   late final AnimationController _blurVisibilityController;
-  late final Animation<double> _blurVisibility;
+  late final CurvedAnimation _blurVisibility;
   StreamSubscription<Duration>? _posSub;
 
   // ── Format-agnostic karaoke renderer state ───────────────────────────────
