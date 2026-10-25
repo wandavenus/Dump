@@ -52,5 +52,56 @@ void main() {
       expect(lyricFocusBlurSigma(3), 4.8);
       expect(lyricFocusBlurSigma(8), 4.8);
     });
+
+    test('word lift is continuous at frame-sized intervals', () {
+      final start = Duration(seconds: 12);
+      final end = start + const Duration(milliseconds: 2600);
+      var previous = lyricWordLift(
+        position: start,
+        start: start,
+        end: end,
+        fontSize: 34,
+      );
+
+      for (var ms = 16; ms <= 2600; ms += 16) {
+        final current = lyricWordLift(
+          position: start + Duration(milliseconds: ms),
+          start: start,
+          end: end,
+          fontSize: 34,
+        );
+        expect(current, greaterThanOrEqualTo(0));
+        expect((current - previous).abs(), lessThan(0.15));
+        previous = current;
+      }
+    });
+
+    test('word lift scales with font size and stays zero for invalid spans', () {
+      final start = Duration(seconds: 3);
+      final end = start + const Duration(milliseconds: 1800);
+      final position = start + const Duration(milliseconds: 500);
+      final small = lyricWordLift(
+        position: position,
+        start: start,
+        end: end,
+        fontSize: 12,
+      );
+      final large = lyricWordLift(
+        position: position,
+        start: start,
+        end: end,
+        fontSize: 34,
+      );
+      expect(large, greaterThan(small));
+      expect(
+        lyricWordLift(
+          position: start,
+          start: start,
+          end: start,
+          fontSize: 34,
+        ),
+        0,
+      );
+    });
   });
 }
