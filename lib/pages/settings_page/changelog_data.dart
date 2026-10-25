@@ -20,6 +20,17 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.48',
+    date: '25 Oktober 2026',
+    changes: [
+      'Deteksi fase beat dan frasa AutoMix kini memakai timestamp frame spectral-flux yang benar (titik tengah jendela + setengah hop), sehingga grid beat tidak lagi lebih awal 60-90 ms di semua sample rate.',
+      'Deteksi awal frasa (4 bar) kini dinilai dari rata-rata energi per interval beat pada grid fraksional: aksen frasa yang nyata terdeteksi di 90-140 BPM, dan bar yang identik tidak lagi menghasilkan fase frasa palsu.',
+      'Grid beat kepala lagu tidak lagi dipakai bila tempo ukirannya adalah oktaf lebih cepat dari tempo lagu, agar referensi fase tidak jatuh di offbeat.',
+      'Envelope native fade kini menerapkan outgoing trim secara simetris, identik dengan fallback Kotlin AutomixGainEnvelope.',
+      'Cache analisis naik ke skema v18; lagu yang pernah dianalisis akan dianalisis ulang dengan timestamp cue yang diperbaiki.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.44',
     date: '24 Oktober 2026',
     changes: [

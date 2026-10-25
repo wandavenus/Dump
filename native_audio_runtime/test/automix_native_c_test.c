@@ -926,6 +926,116 @@ static void render_click_train(float* pcm, int32_t count, int32_t sample_rate,
   }
 }
 
+// Accented click train used by the phrase-phase regression. Every
+// `accent_every_beats` beat is loud; the interleaved beat is weak. A kick-like
+// sine body plus a short broadband click gives the ODF a clear transient at
+// each beat without requiring a real recording.
+static void render_accented_click_train(
+    float* pcm, int32_t count, int32_t sample_rate, double bpm,
+    double offset_ms, int32_t accent_every_beats) {
+  const double pi = 3.14159265358979323846;
+  const double period_samples = sample_rate * 60.0 / bpm;
+  const double offset_samples = offset_ms * sample_rate / 1000.0;
+  for (int32_t i = 0; i < count; ++i) {
+    pcm[i] = 0.0f;
+    const double since = fmod((double)i - offset_samples, period_samples);
+    const double distance = since < 0.0 ? since + period_samples : since;
+    const double beat_index =
+        floor(((double)i - offset_samples - distance) / period_samples + 0.5);
+    const int32_t beat = (int32_t)llround(beat_index);
+    const int64_t normalized_beat =
+        ((int64_t)beat % (int64_t)accent_every_beats + accent_every_beats) %
+        accent_every_beats;
+    const double amplitude = normalized_beat == 0 ? 0.85 : 0.32;
+    const double t = (double)i / sample_rate;
+    const double len = sample_rate * 0.08;
+    if (distance < len) {
+      pcm[i] = (float)(amplitude *
+          exp(-distance / (sample_rate * 0.02)) *
+          sin(2.0 * pi * 62.0 * t));
+    }
+    if (distance < 24.0) {
+      pcm[i] += (float)(0.5 * amplitude * (1.0 - distance / 24.0));
+    }
+  }
+}
+
+static double circular_phase_error_ms(double measured, double expected,
+                                      double period) {
+  if (!isfinite(measured) || !isfinite(period) || period <= 0.0) return INFINITY;
+  double delta = fmod(fabs(measured - expected), period);
+  if (delta > period * 0.5) delta = period - delta;
+  return delta;
+}
+
+// Regression: the spectral-flux frame timestamp is the frame centre plus half
+// a hop, not the frame start. Before the fix every published beat phase was
+// 60-90 ms early (2.5+ hops) and the error grew at lower sample rates.
+static void test_analyzer_beat_phase_timestamp(void) {
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const int32_t rates[] = {16000, 22050, 24000, 44100, 48000};
+  const double bpms[] = {120.0, 128.0};
+  for (size_t r = 0; r < sizeof(rates) / sizeof(rates[0]); ++r) {
+    const int32_t sample_rate = rates[r];
+    const int32_t count = sample_rate * 32;
+    float* pcm = (float*)malloc((size_t)count * sizeof(float));
+    assert(pcm != NULL);
+    for (size_t b = 0; b < sizeof(bpms) / sizeof(bpms[0]); ++b) {
+      const double bpm = bpms[b];
+      const double expected_ms = 137.0;
+      render_click_train(pcm, count, sample_rate, bpm, expected_ms);
+      assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                                 NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+      assert(fabs(output[0] - bpm) < 0.5);
+      assert(isfinite(output[3]));
+      const double period_ms = 60000.0 / output[0];
+      const double error =
+          circular_phase_error_ms(output[3], expected_ms, period_ms);
+      // 12 ms is half an FFT hop at 22.05 kHz. The old frame-start timestamp
+      // was off by 60-90 ms.
+      assert(error < 12.0);
+    }
+    free(pcm);
+  }
+}
+
+// Regression: the 16-beat phrase grid is evaluated on the fractional beat
+// period. Rounding the period to whole FFT hops stretched a 120 BPM four-bar
+// loop from 8.00 s to 8.17 s, which either hid a real phrase accent or
+// invented a phase from window-edge truncation.
+static void test_analyzer_phrase_phase_fractional_grid(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 48;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double bpms[] = {90.0, 120.0, 127.3, 128.0, 140.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    const double bpm = bpms[i];
+    const double expected_ms = 137.0;
+    render_accented_click_train(pcm, count, sample_rate, bpm, expected_ms, 16);
+    assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                               NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+    assert(isfinite(output[0]));
+    assert(isfinite(output[11]));
+    const double phrase_ms = 60000.0 / output[0] * 16.0;
+    const double error =
+        circular_phase_error_ms(output[11], expected_ms, phrase_ms);
+    assert(error < 25.0);
+  }
+
+  // Every bar identical: all four bar positions carry the same accent, so the
+  // phrase start is genuinely ambiguous and must stay unknown. The old grid
+  // published a spurious phase for 140 BPM (1764.7 ms) purely from drift.
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    render_accented_click_train(pcm, count, sample_rate, bpms[i], 137.0, 4);
+    assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                               NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+    assert(isnan(output[11]));
+  }
+  free(pcm);
+}
+
 static void test_analyzer_tempo_subframe(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 32;
@@ -1027,6 +1137,29 @@ static void test_native_crossfade_curve(void) {
              1.0f, 1.0f, 0.8f, 0.5f, &outgoing, &incoming) == 1);
   assert(fabsf(outgoing) < 1e-6f);
   assert(fabsf(incoming - 1.0f) < 1e-6f);
+
+  // Outgoing trim is ramped in over the first quarter of the fade instead of
+  // stepping down at t=0. This mirrors AutomixGainEnvelope.kt; before the
+  // fix the native path applied the full trim immediately, so enabling the
+  // native fade would have produced an audible step the Kotlin path did not.
+  assert(nar_automix_tone_compute_fade_gains(
+             0.0f, 1.0f, 0.4f, 0.4f, &outgoing, &incoming) == 1);
+  assert(fabsf(outgoing - 1.0f) < 1e-6f);
+  assert(fabsf(incoming) < 1e-6f);
+  assert(nar_automix_tone_compute_fade_gains(
+             0.1f, 1.0f, 0.4f, 0.4f, &outgoing, &incoming) == 1);
+  {
+    // attack = 0.1 / 0.25 = 0.4 → trim_now = 1 - 0.6*0.4 = 0.76.
+    const float theta = 0.1f * (3.14159265358979323846f * 0.5f);
+    assert(fabsf(outgoing - 0.76f * cosf(theta)) < 1e-5f);
+    assert(fabsf(incoming - 0.4f * sinf(theta)) < 1e-5f);
+  }
+  // By the end of the attack window the trim is fully applied and the pair
+  // obeys the shared L1 headroom budget.
+  assert(nar_automix_tone_compute_fade_gains(
+             0.25f, 1.0f, 0.4f, 0.4f, &outgoing, &incoming) == 1);
+  assert(outgoing + incoming <= 1.0f + 1e-6f);
+  assert(outgoing > 0.0f && incoming > 0.0f);
 
   assert(nar_automix_tone_compute_fade_gains(
              NAN, 1.0f, 1.0f, 1.0f, &outgoing, &incoming) == 0);
@@ -2440,6 +2573,8 @@ int main(void) {
   test_analyzer_hpcp_key_detection();
   test_analyzer_tempo_curve();
   test_analyzer_tempo_subframe();
+  test_analyzer_beat_phase_timestamp();
+  test_analyzer_phrase_phase_fractional_grid();
   test_analyzer_energy_quarters();
   test_chord_vocabulary_expansion();
   test_phase_lock_factor();

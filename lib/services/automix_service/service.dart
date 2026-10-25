@@ -1095,7 +1095,12 @@ class AutomixService {
   // v15: use cepstral periodicity and stereo center-channel evidence in the
   //     native vocal proxy.
   // v17: drop edge phases measured on a faster quarter tempo before folding.
-  static const int _analysisSchemaVersion = 17;
+  // v18: timestamp flux frames at the centre plus half a hop and score phrase
+  //     accents by beat-interval power on a fractional grid; pre-v18 beat and
+  //     phrase phases are 60-90 ms early and can carry a phrase phase from
+  //     frame-alignment noise. Structural drop/breakdown cues keep their old
+  //     stamp (they are RMS-derived), so only beat/phrase grids change.
+  static const int _analysisSchemaVersion = 18;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};

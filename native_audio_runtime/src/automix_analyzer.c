@@ -22,6 +22,17 @@
 #define HPCP_HARMONICS 4
 #define HPCP_TOLERANCE_SEMITONES 0.5
 #define HPCP_PEAK_FLOOR 0.05
+// Timestamp assigned to one spectral-flux frame. The STFT frame is windowed at
+// [frame * HOP_SIZE, frame * HOP_SIZE + FFT_SIZE), but positive log-spectral
+// difference reports energy that is *entering* the window: a transient raises
+// the flux while it travels from the window end toward its centre, and the
+// backward difference spans one hop. Timestamping the frame at its centre plus
+// half a hop (1280 samples, ~58 ms at 22.05 kHz) removes the ~2.5-hop lead the
+// raw frame start gave every beat phase and phrase phase.
+// Synthetic impulse regressions at 16/22.05/24/44.1/48 kHz confirm the residual
+// stays inside one hop. RMS-derived structural cues keep the frame-start
+// timestamp: their "after" window begins there, so no flux lead applies.
+#define ODF_TIMESTAMP_OFFSET_SAMPLES ((FFT_SIZE + HOP_SIZE) / 2)
 #define LN10 2.30258509299404568402
 #define PI 3.14159265358979323846
 
@@ -529,6 +540,8 @@ static TempoEstimate estimate_tempo(const float* odf, int32_t count,
   return result;
 }
 
+static double beat_period_ms(double bpm) { return 60000.0 / bpm; }
+
 static double estimate_beat_phase_ms(const float* odf, int32_t count,
                                      int32_t working_rate, double bpm) {
   if (!isfinite(bpm) || bpm < BPM_MIN || bpm > BPM_MAX || working_rate <= 0) {
@@ -620,7 +633,12 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
     double phase_frames = refined_bin * beat_frames / (double)bins;
     phase_frames = fmod(phase_frames, beat_frames);
     if (phase_frames < 0.0) phase_frames += beat_frames;
-    phase = phase_frames * (double)HOP_SIZE * 1000.0 / working_rate;
+    const double period_ms = beat_period_ms(bpm);
+    phase = fmod(phase_frames * (double)HOP_SIZE * 1000.0 / working_rate +
+                     (double)ODF_TIMESTAMP_OFFSET_SAMPLES * 1000.0 /
+                         working_rate,
+                 period_ms);
+    if (phase < 0.0) phase += period_ms;
   }
   free(scores);
   free(smoothed);
@@ -926,34 +944,53 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // beat positions as possible phrase starts and publish a phase only when
   // one position has a clear repeated onset accent; otherwise leave it unknown
   // so playback falls back to beat-level locking.
+  //
+  // The grid is evaluated in fractional milliseconds, never on a rounded
+  // integer frame period: at 120 BPM a 22-frame rounding stretches the 16-beat
+  // phrase from 8.00 s to 8.17 s, which drifts more than an eighth note across
+  // a four-bar loop and either hides a real accent or invents a phase from
+  // window-edge truncation (regression: 120 BPM four-bar loop published a
+  // spurious 6.2 s phase).
   output[11] = NAN;
   if (tempo.valid && tempo.confidence >= 0.45 && isfinite(output[3])) {
-    const int32_t beat_period_frames =
-        (int32_t)round(fps * 60.0 / tempo.bpm);
-    const int32_t phrase_period_frames = beat_period_frames * 16;
-    const int32_t beat_phase_frame =
-        (int32_t)round(output[3] * fps / 1000.0);
-    if (beat_period_frames >= 2 && phrase_period_frames > 0 &&
-        frame_count >= phrase_period_frames * 2) {
+    const double beat_ms = beat_period_ms(tempo.bpm);
+    const double phrase_ms = beat_ms * 16.0;
+    const double window_ms = (double)frame_count * HOP_SIZE * 1000.0 /
+        working_rate;
+    const double phase_ms = output[3];
+    // Three full phrases are the minimum that can distinguish a repeated
+    // accent from a single window-edge coincidence.
+    if (beat_ms >= 30.0 && isfinite(phrase_ms) && phrase_ms > 0.0 &&
+        window_ms >= phrase_ms * 3.0) {
       double phase_scores[16] = {0.0};
       int32_t phase_counts[16] = {0};
-      const int32_t base_phase =
-          ((beat_phase_frame % beat_period_frames) + beat_period_frames) %
-          beat_period_frames;
-
+      const double offset_ms =
+          (double)ODF_TIMESTAMP_OFFSET_SAMPLES * 1000.0 / working_rate;
       for (int32_t beat = 0; beat < 16; ++beat) {
-        const int32_t phase =
-            (base_phase + beat * beat_period_frames) % phrase_period_frames;
-        for (int32_t frame = phase; frame < frame_count;
-             frame += phrase_period_frames) {
-          // A small timing tolerance absorbs STFT hop quantization without
-          // allowing a single neighboring transient to dominate the score.
-          float pulse = odf[frame];
-          if (frame > 0 && odf[frame - 1] > pulse) pulse = odf[frame - 1];
-          if (frame + 1 < frame_count && odf[frame + 1] > pulse) {
-            pulse = odf[frame + 1];
+        double phase = fmod(phase_ms + (double)beat * beat_ms, phrase_ms);
+        if (phase < 0.0) phase += phrase_ms;
+        for (double time_ms = phase; time_ms < window_ms; time_ms += phrase_ms) {
+          // Score the whole beat interval by its mean frame power, not by one
+          // spectral-flux frame. A transient's flux is spread across about
+          // four frames and its single-frame height depends on where the onset
+          // falls inside the Hann window; integrating flux still let identical
+          // bars differ by >80 % from frame alignment alone (measured at
+          // 128 BPM). Mean power in [t - beat/2, t + beat/2] is the energy the
+          // listener actually hears on that beat and is alignment-insensitive;
+          // adjacent intervals stay disjoint.
+          const double half_beat_ms = beat_ms * 0.5;
+          int32_t lo = (int32_t)llround(
+              (time_ms - half_beat_ms - offset_ms) * fps / 1000.0);
+          int32_t hi = (int32_t)llround(
+              (time_ms + half_beat_ms - offset_ms) * fps / 1000.0);
+          if (lo < 0) lo = 0;
+          if (hi >= frame_count) hi = frame_count - 1;
+          if (lo > hi) break;
+          double power = 0.0;
+          for (int32_t index = lo; index <= hi; ++index) {
+            power += pow(10.0, rms_frame_values[index] / 10.0);
           }
-          phase_scores[beat] += pulse;
+          phase_scores[beat] += power / (double)(hi - lo + 1);
           phase_counts[beat]++;
         }
       }
@@ -962,7 +999,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       double best_score = -1.0;
       double second_score = -1.0;
       for (int32_t beat = 0; beat < 16; ++beat) {
-        if (phase_counts[beat] <= 0) continue;
+        if (phase_counts[beat] < 3) continue;
         const double score = phase_scores[beat] / phase_counts[beat];
         if (score > best_score) {
           second_score = best_score;
@@ -974,14 +1011,31 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       }
 
       // If repeated bars have no distinct phrase accent, phrase phase is
-      // genuinely ambiguous. Do not manufacture phrase alignment from BPM.
-      if (best_phase_beat >= 0 && best_score > 1e-8 &&
-          (second_score <= 1e-8 || best_score >= second_score * 1.12)) {
-        const int32_t phase_frame =
-            (base_phase + best_phase_beat * beat_period_frames) %
-            phrase_period_frames;
-        output[11] =
-            phase_frame * (double)HOP_SIZE * 1000.0 / working_rate;
+      // genuinely ambiguous. A win over the runner-up is not enough on its
+      // own: when every bar carries the same accent, the four bar positions
+      // are musically equivalent and frame-alignment noise alone can make one
+      // of them look >10 % stronger (regression: a four-bar loop published a
+      // spurious 5.8 s phase). A phrase start is only credible when it also
+      // beats the *other three bar positions* by a clear margin, i.e. when the
+      // accent itself has 16-beat, not 4-beat, periodicity.
+      int32_t bar_conflict = 0;
+      if (best_phase_beat >= 0) {
+        for (int32_t delta = 4; delta < 16; delta += 4) {
+          const int32_t other = (best_phase_beat + delta) % 16;
+          if (phase_counts[other] < 3) continue;
+          const double other_score =
+              phase_scores[other] / (double)phase_counts[other];
+          if (other_score >= best_score * 0.90) bar_conflict = 1;
+        }
+      }
+      const int32_t significant =
+          best_phase_beat >= 0 && best_score > 1e-8 && !bar_conflict &&
+          (second_score <= 1e-8 || best_score >= second_score * 1.12);
+      if (significant) {
+        double phase = fmod(phase_ms + (double)best_phase_beat * beat_ms,
+                            phrase_ms);
+        if (phase < 0.0) phase += phrase_ms;
+        output[11] = phase;
       }
     }
   }
