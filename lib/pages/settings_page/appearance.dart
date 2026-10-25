@@ -172,18 +172,6 @@ class _AppearanceSection extends StatelessWidget {
                   ),
                 ),
                 const SettingsDivider(indent: 52),
-                _GlassSubToggle(
-                  label: l.glassToggleAppBar,
-                  notifier: ThemeController.glassAppBar,
-                  onChanged: ThemeController.setGlassAppBar,
-                ),
-                const SettingsDivider(indent: 52),
-                _GlassSubToggle(
-                  label: l.glassToggleMiniPlayer,
-                  notifier: ThemeController.glassMiniPlayer,
-                  onChanged: ThemeController.setGlassMiniPlayer,
-                ),
-                const SettingsDivider(indent: 52),
               ],
             ],
           ),
