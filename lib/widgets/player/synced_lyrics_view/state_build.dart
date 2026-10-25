@@ -85,20 +85,9 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                       scale: isActive ? 1.0 : 0.96,
                       duration: motionDuration,
                       curve: Curves.easeInOutCubic,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0, end: targetBlur),
+                      child: _AnimatedLyricBlur(
+                        sigma: targetBlur,
                         duration: motionDuration,
-                        curve: Curves.easeInOutCubic,
-                        builder: (context, blur, child) {
-                          if (blur <= 0.01) return child!;
-                          return ImageFiltered(
-                            imageFilter: ui.ImageFilter.blur(
-                              sigmaX: blur,
-                              sigmaY: blur,
-                            ),
-                            child: child,
-                          );
-                        },
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: lineSpacing),
                           child: AnimatedDefaultTextStyle(
@@ -142,5 +131,85 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
         },
       ),
     );
+  }
+}
+
+/// Keeps the animated blur's controller alive while the parent list repaints
+/// for lyric-clock updates. Repeated parent builds must not restart the tween.
+class _AnimatedLyricBlur extends StatefulWidget {
+  const _AnimatedLyricBlur({
+    required this.sigma,
+    required this.duration,
+    required this.child,
+  });
+
+  final double sigma;
+  final Duration duration;
+  final Widget child;
+
+  @override
+  State<_AnimatedLyricBlur> createState() => _AnimatedLyricBlurState();
+}
+
+class _AnimatedLyricBlurState extends State<_AnimatedLyricBlur>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..value = 1;
+    _animation = AlwaysStoppedAnimation<double>(widget.sigma);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedLyricBlur oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sigma == widget.sigma &&
+        oldWidget.duration == widget.duration) {
+      return;
+    }
+
+    final currentSigma = _animation.value;
+    _controller.stop();
+    _controller.duration = widget.duration;
+    if (widget.duration == Duration.zero) {
+      _controller.value = 1;
+      _animation = AlwaysStoppedAnimation<double>(widget.sigma);
+      return;
+    }
+
+    _animation = Tween<double>(
+      begin: currentSigma,
+      end: widget.sigma,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
+    _controller.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    child: widget.child,
+    builder: (context, child) {
+      final sigma = _animation.value;
+      if (sigma <= 0.01) return child!;
+      return ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        child: child,
+      );
+    },
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

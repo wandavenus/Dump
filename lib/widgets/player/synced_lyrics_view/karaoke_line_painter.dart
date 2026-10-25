@@ -147,7 +147,7 @@ class _KaraokeLinePainter extends CustomPainter {
     }
     _drawLongWordGlow(canvas, cursor, positionMs, highlight);
 
-    final lift = _wordLift(positionMs, startMs, durationMs);
+    final lift = _wordLift(positionMs, startMs);
 
     // ── Soft fade at the leading edge of the current word ────────────────────
     // Render the current fill in its own layer so the mask affects only this
@@ -207,7 +207,7 @@ class _KaraokeLinePainter extends CustomPainter {
     }
   }
 
-  double _wordLift(double positionMs, double startMs, double durationMs) {
+  double _wordLift(double positionMs, double startMs) {
     final maxLift = (fontSize * 0.05).clamp(0.0, 2.0).toDouble();
     final progress = ((positionMs - startMs + 180) / 720).clamp(0.0, 1.0);
     final eased = progress * progress * (3 - 2 * progress);

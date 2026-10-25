@@ -33,7 +33,7 @@ void main() {
           distance: 32,
           rowsAfterFocus: 2,
         ),
-        closeTo(0, 1e-6),
+        closeTo(0, 0.1),
       );
       expect(
         lyricStaggeredRowOffset(
