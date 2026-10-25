@@ -494,9 +494,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // ── Artwork morph positions ──────────────────────────────────────────────
     const miniArtSize = 46.3;
-    // Mode pill: artwork digeser 10px ke kanan (12 → 22) agar sejajar dengan
-    // judul yang ikut bergeser di _buildMiniOverlay. Mode lain tetap 12.
-    final miniArtLeft = isPill ? 22.0 : 12.0;
+    // Fluid mode: shift the collapsed artwork 2px right. Other background
+    // modes retain their original horizontal position.
+    final isFluidStyle = backgroundStyle == PlayerBackgroundStyle.fluid;
+    final miniArtLeft = isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0);
     const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
 
     // ── Full-player artwork target ───────────────────────────────────────────
@@ -1051,9 +1052,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              // Spacer untuk morphing artwork (46 px lebar + 10 px gap).
-              // Mode pill: +10px agar judul mengikuti artwork yang digeser.
-              SizedBox(width: isPill ? 66 : 56),
+              // Reserve space for the morphing artwork (46px + 10px gap).
+              // Fluid mode shifts both artwork and title 2px right.
+              SizedBox(width: isPill ? 66 : (isFluidStyle ? 58 : 56)),
 
               // Judul lagu dengan Hero tag
               Expanded(
