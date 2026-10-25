@@ -44,17 +44,20 @@ class ThemeController {
     mode.value =
         ThemeMode.values[prefs.getInt('theme_mode') ?? ThemeMode.system.index];
 
-    glassTheme.value = prefs.getBool('glass_theme') ?? false;
+    final savedGlassTheme = prefs.getBool('glass_theme') ?? false;
     final savedStyle = prefs.getInt('navbar_style');
     if (savedStyle != null &&
         savedStyle >= 0 &&
         savedStyle < NavBarStyle.values.length) {
       navBarStyle.value = NavBarStyle.values[savedStyle];
+      // The saved NavBar choice remains authoritative across section collapse.
+      glassTheme.value = navBarStyle.value != NavBarStyle.solid;
     } else {
-      // Migrasi dari toggle lama (glass_navbar).
+      // Migrate older preferences while preserving the legacy master setting.
       navBarStyle.value = (prefs.getBool('glass_navbar') ?? true)
           ? NavBarStyle.glass
           : NavBarStyle.solid;
+      glassTheme.value = savedGlassTheme;
     }
     glassMiniPlayer.value = true;
     final savedPlayerBackground = prefs.getInt('player_background_style');
@@ -80,7 +83,9 @@ class ThemeController {
 
   static Future<void> setNavBarStyle(NavBarStyle value) async {
     navBarStyle.value = value;
+    glassTheme.value = value != NavBarStyle.solid;
     await _save('navbar_style', value.index);
+    await _save('glass_theme', glassTheme.value);
   }
 
   static Future<void> setPlayerBackgroundStyle(
