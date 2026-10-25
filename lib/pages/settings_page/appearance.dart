@@ -176,7 +176,7 @@ class _AppearanceSection extends StatelessWidget {
                                       NavBarStyle.solid: Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 10),
                                         child: Text(
-                                          'Bawaan',
+                                          l.navBarStyleSolid,
                                           style: const TextStyle(fontSize: 13),
                                         ),
                                       ),
