@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart' as physics;
 
 /// Shared timings for the lyric focus and scroll motion.
-const lyricFocusAnimationDuration = Duration(milliseconds: 420);
+const lyricFocusAnimationDuration = Duration(milliseconds: 550);
 const lyricScrollAnimationDuration = Duration(milliseconds: 550);
 const lyricRowMotionDuration = Duration(milliseconds: 800);
 
