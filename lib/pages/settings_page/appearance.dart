@@ -111,12 +111,9 @@ class _AppearanceSection extends StatelessWidget {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => unawaited(() async {
-                    if (!isGlass) {
-                      await ThemeController.setNavBarStyle(NavBarStyle.solid);
-                    }
-                    await ThemeController.setGlassTheme(!isGlass);
-                  }()),
+                  onTap: () => unawaited(
+                    ThemeController.setGlassTheme(!isGlass),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                     child: Row(
