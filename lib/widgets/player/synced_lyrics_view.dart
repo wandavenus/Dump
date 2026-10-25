@@ -13,6 +13,7 @@ import '../../models/lyrics_settings.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 import '../../utils/lyrics_text_direction.dart';
+import 'lyric_motion_curves.dart';
 
 part 'synced_lyrics_view/elrc_word.dart';
 part 'synced_lyrics_view/view.dart';
