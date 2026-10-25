@@ -108,71 +108,101 @@ class _AppearanceSection extends StatelessWidget {
           valueListenable: ThemeController.glassTheme,
           builder: (context, isGlass, _) => Column(
             children: [
-              SettingsToggleRow(
-                title: l.liquidGlass,
-                subtitle: l.liquidGlassSubtitle,
-                value: isGlass,
-                onChanged: ThemeController.setGlassTheme,
-              ),
-              const SettingsDivider(),
-              if (isGlass) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.glassToggleNavBar,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 10),
-                      ValueListenableBuilder<NavBarStyle>(
-                        valueListenable: ThemeController.navBarStyle,
-                        builder: (context, current, _) {
-                          return CupertinoSlidingSegmentedControl<NavBarStyle>(
-                            groupValue: current,
-                            onValueChanged: (v) {
-                              if (v != null) {
-                                unawaited(ThemeController.setNavBarStyle(v));
-                              }
-                            },
-                            children: {
-                              NavBarStyle.solid: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Text(
-                                  l.navBarStyleSolid,
-                                  style: const TextStyle(fontSize: 13),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => unawaited(
+                    ThemeController.setGlassTheme(!isGlass),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.liquidGlass,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l.liquidGlassSubtitle,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.of(context).secondaryLabel,
                                 ),
                               ),
-                              NavBarStyle.glass: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Text(
-                                  l.navBarStyleGlass,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              NavBarStyle.pill: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Text(
-                                  l.navBarStylePill,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            },
-                          );
-                        },
-                      ),
-                    ],
+                            ],
+                          ),
+                        ),
+                        AnimatedRotation(
+                          turns: isGlass ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut,
+                          child: const Icon(Icons.keyboard_arrow_down),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SettingsDivider(indent: 52),
-              ],
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
+                alignment: Alignment.topCenter,
+                child: isGlass
+                    ? Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                            child: ValueListenableBuilder<NavBarStyle>(
+                              valueListenable: ThemeController.navBarStyle,
+                              builder: (context, current, _) {
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: CupertinoSlidingSegmentedControl<NavBarStyle>(
+                                    groupValue: current,
+                                    onValueChanged: (v) {
+                                      if (v != null) {
+                                        unawaited(ThemeController.setNavBarStyle(v));
+                                      }
+                                    },
+                                    children: {
+                                      NavBarStyle.solid: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          l.navBarStyleSolid,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      NavBarStyle.glass: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          l.navBarStyleGlass,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      NavBarStyle.pill: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          l.navBarStylePill,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SettingsDivider(indent: 52),
+                        ],
+                      )
+                    : const SizedBox(width: double.infinity, height: 0),
+              ),
+              const SettingsDivider(),
             ],
           ),
         ),
