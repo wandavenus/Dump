@@ -1027,6 +1027,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     double progress,
     bool isPill,
   ) {
+    final isFluidStyle =
+        ThemeController.playerBackgroundStyle.value == PlayerBackgroundStyle.fluid;
     final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
 
     final miniContentOffset = -5.0 * (1.0 - miniContentAlpha);
