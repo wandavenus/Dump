@@ -76,9 +76,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _frameTicker = createTicker(_onFrameTick);
     _lineTransitionController = AnimationController(
       vsync: this,
-      // Slow only the per-line elastic motion so it settles more gently.
-      // The list movement remains independently controlled at 160 ms.
-      duration: const Duration(milliseconds: 520),
+      // One shared clock drives the staggered spring offset of lyric rows.
+      duration: lyricRowMotionDuration,
     );
 
     _settingsListenable = Listenable.merge([

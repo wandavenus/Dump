@@ -45,9 +45,9 @@ extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
       unawaited(
         _itemScrollController.scrollTo(
           index: index,
-          // Slow the line's travel into the highlight for a softer transition.
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeOutCubic,
+          // The selected line settles into focus with the shared spring.
+          duration: lyricScrollAnimationDuration,
+          curve: lyricScrollSpringCurve,
           alignment: 0.2,
         ),
       );
