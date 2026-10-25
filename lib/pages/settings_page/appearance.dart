@@ -124,9 +124,9 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                       Expanded(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(8),
-                          onTap: () => setState(
-                            () => _isLiquidGlassExpanded = !_isLiquidGlassExpanded,
-                          ),
+                          onTap: () => setState(() {
+                            _isLiquidGlassExpanded = !_isLiquidGlassExpanded;
+                          }),
                           child: Padding(
                             padding: const EdgeInsets.only(right: 12),
                             child: Column(
