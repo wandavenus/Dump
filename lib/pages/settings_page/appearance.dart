@@ -140,12 +140,7 @@ class _AppearanceSection extends StatelessWidget {
                             ],
                           ),
                         ),
-                        AnimatedRotation(
-                          turns: isGlass ? 0.5 : 0,
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeInOut,
-                          child: const Icon(Icons.keyboard_arrow_down),
-                        ),
+
                       ],
                     ),
                   ),
@@ -200,7 +195,7 @@ class _AppearanceSection extends StatelessWidget {
                               },
                             ),
                           ),
-                          const SettingsDivider(indent: 52),
+
                         ],
                       )
                     : const SizedBox(width: double.infinity, height: 0),
