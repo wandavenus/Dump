@@ -203,6 +203,7 @@ class FloatingPillNavBar extends StatelessWidget {
               child: CustomPaint(
                 painter: PillGlassRimPainter(
                   radius: radius,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
                 ),
               ),
             ),
@@ -468,6 +469,7 @@ class _TrailingButton extends StatelessWidget {
                   child: CustomPaint(
                     painter: PillGlassRimPainter(
                       radius: FloatingPillNavBar.trailingSize / 2,
+                      isDark: Theme.of(context).brightness == Brightness.dark,
                     ),
                   ),
                 ),
@@ -491,9 +493,11 @@ class _TrailingButton extends StatelessWidget {
 class PillGlassRimPainter extends CustomPainter {
   const PillGlassRimPainter({
     required this.radius,
+    required this.isDark,
   });
 
   final double radius;
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -508,23 +512,34 @@ class PillGlassRimPainter extends CustomPainter {
       innerBounds,
       Radius.circular(innerRadius),
     );
-    const colors = [
-      Color(0x40FFFFFF),
-      Color(0x0DFFFFFF),
-      Color(0x0A000000),
-      Color(0x0DFFFFFF),
-      Color(0x26FFFFFF),
-    ];
+
+    // Preserve the existing dark-mode reflection exactly. Light mode uses a
+    // neutral gray rim so the edge remains visible without looking white.
+    final colors = isDark
+        ? const [
+            Color(0x40FFFFFF),
+            Color(0x0DFFFFFF),
+            Color(0x0A000000),
+            Color(0x0DFFFFFF),
+            Color(0x26FFFFFF),
+          ]
+        : const [
+            Color(0x263C3C43),
+            Color(0x143C3C43),
+            Color(0x0A3C3C43),
+            Color(0x143C3C43),
+            Color(0x263C3C43),
+          ];
 
     canvas.drawRRect(
       innerRRect,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          stops: [0, 0.14, 0.5, 0.86, 1],
+          stops: const [0, 0.14, 0.5, 0.86, 1],
           colors: colors,
         ).createShader(bounds),
     );
@@ -532,5 +547,5 @@ class PillGlassRimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PillGlassRimPainter oldDelegate) =>
-      radius != oldDelegate.radius;
+      radius != oldDelegate.radius || isDark != oldDelegate.isDark;
 }
