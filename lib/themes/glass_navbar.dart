@@ -501,7 +501,7 @@ class PillGlassRimPainter extends CustomPainter {
 
     final bounds = Offset.zero & size;
 
-    // Keep the specular reflection, without a hairline contact outline. (not emphasized) specular rim.
+    // Keep the specular reflection without the hairline contact outline.
     final innerBounds = bounds.deflate(0.8);
     final innerRadius = (radius - 0.8).clamp(0.0, double.infinity).toDouble();
     final innerRRect = RRect.fromRectAndRadius(
@@ -532,5 +532,5 @@ class PillGlassRimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PillGlassRimPainter oldDelegate) =>
-      radius != oldDelegate.radius || isDark != oldDelegate.isDark;
+      radius != oldDelegate.radius;
 }
