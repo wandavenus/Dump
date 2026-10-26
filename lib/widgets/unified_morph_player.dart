@@ -997,6 +997,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               child: CustomPaint(
                                 painter: PillGlassRimPainter(
                                   radius: radius,
+                                  isDark: Theme.of(context).brightness == Brightness.dark,
                                 ),
                               ),
                             ),
