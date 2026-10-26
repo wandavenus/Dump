@@ -5,6 +5,23 @@ import 'package:musicplayer/themes/theme_controller.dart';
 
 const double kMiniPlayerHeight = 62.0;
 
+/// Soft neutral-gray tint inspired by Mornye's glass surfaces.
+/// Keep navbar glass more transparent than the mini player, without changing
+/// the other Liquid Glass components.
+Color pillGlassSurfaceTint(
+  BuildContext context, {
+  bool miniPlayer = false,
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final color = isDark
+      ? const Color(0xFF2C2C2E)
+      : const Color(0xFFF2F2F7);
+  final opacity = isDark
+      ? (miniPlayer ? 0.32 : 0.22)
+      : (miniPlayer ? 0.38 : 0.28);
+  return color.withValues(alpha: opacity);
+}
+
 double navBottomClearance(BuildContext context) {
   final safeBottom = MediaQuery.paddingOf(context).bottom;
   final isGlass = ThemeController.glassTheme.value;
@@ -187,7 +204,7 @@ class FloatingPillNavBar extends StatelessWidget {
                 child: const ColoredBox(color: Colors.transparent),
               ),
             ),
-            ColoredBox(color: c.glassFillTint),
+            ColoredBox(color: pillGlassSurfaceTint(context)),
             IgnorePointer(
               child: CustomPaint(
                 painter: PillGlassRimPainter(
@@ -455,7 +472,7 @@ class _TrailingButton extends StatelessWidget {
                     child: const ColoredBox(color: Colors.transparent),
                   ),
                 ),
-                ColoredBox(color: c.glassFillTint),
+                ColoredBox(color: pillGlassSurfaceTint(context)),
                 IgnorePointer(
                   child: CustomPaint(
                     painter: PillGlassRimPainter(
