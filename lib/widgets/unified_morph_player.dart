@@ -1000,8 +1000,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   isDark:
                                       Theme.of(context).brightness ==
                                       Brightness.dark,
-                                  borderTint:
-                                      AppColors.of(context).glassBorderTint,
                                 ),
                               ),
                             ),
