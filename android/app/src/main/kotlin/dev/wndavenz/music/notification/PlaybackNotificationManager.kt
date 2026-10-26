@@ -97,7 +97,6 @@ class PlaybackNotificationManager(
     }
 
     fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         if (notificationManager.getNotificationChannel(CHANNEL_ID) != null) return
         notificationManager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Music Playback", NotificationManager.IMPORTANCE_LOW).apply {
@@ -110,25 +109,15 @@ class PlaybackNotificationManager(
 
     fun buildTransportPendingIntent(action: String, requestCode: Int): PendingIntent {
         val intent = Intent(service, serviceClass).setAction(action)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PendingIntent.getForegroundService(
-                service,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
-        } else {
-            PendingIntent.getService(
-                service,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
-        }
+        return PendingIntent.getForegroundService(
+            service,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
     }
 
     fun ensureMediaForeground() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         // K3 fix: never start a foreground notification while suppressed.
         if (suppressed) return
         if (isForeground) return
@@ -151,7 +140,6 @@ class PlaybackNotificationManager(
     }
 
     fun refresh() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         // K3 fix: never start a foreground notification while suppressed; an
         // already-showing notification keeps updating.
         if (suppressed && !isForeground) return
