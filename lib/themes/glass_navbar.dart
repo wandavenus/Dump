@@ -190,7 +190,7 @@ class FloatingPillNavBar extends StatelessWidget {
             ColoredBox(color: c.glassFillTint),
             IgnorePointer(
               child: CustomPaint(
-                painter: _PillGlassRimPainter(
+                painter: PillGlassRimPainter(
                   radius: radius,
                   isDark: Theme.of(context).brightness == Brightness.dark,
                   borderTint: c.glassBorderTint,
@@ -458,7 +458,7 @@ class _TrailingButton extends StatelessWidget {
                 ColoredBox(color: c.glassFillTint),
                 IgnorePointer(
                   child: CustomPaint(
-                    painter: _PillGlassRimPainter(
+                    painter: PillGlassRimPainter(
                       radius: FloatingPillNavBar.trailingSize / 2,
                       isDark: Theme.of(context).brightness == Brightness.dark,
                       borderTint: c.glassBorderTint,
@@ -483,8 +483,8 @@ class _TrailingButton extends StatelessWidget {
 
 /// Draws a directional glass rim without adding another blur or shadow layer.
 /// Kept local to the pill navbar so other glass surfaces retain their styling.
-class _PillGlassRimPainter extends CustomPainter {
-  const _PillGlassRimPainter({
+class PillGlassRimPainter extends CustomPainter {
+  const PillGlassRimPainter({
     required this.radius,
     required this.isDark,
     required this.borderTint,
@@ -554,7 +554,7 @@ class _PillGlassRimPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PillGlassRimPainter oldDelegate) =>
+  bool shouldRepaint(covariant PillGlassRimPainter oldDelegate) =>
       radius != oldDelegate.radius ||
       isDark != oldDelegate.isDark ||
       borderTint != oldDelegate.borderTint;
