@@ -621,7 +621,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                           color: Colors.transparent,
                                         ),
                                       ),
-                                      ColoredBox(color: c.glassFillTint),
+                                      ColoredBox(
+                                        color: isPill
+                                            ? pillGlassSurfaceTint(
+                                                context,
+                                                miniPlayer: true,
+                                              )
+                                            : c.glassFillTint,
+                                      ),
                                     ],
                                   ),
                                 ),
