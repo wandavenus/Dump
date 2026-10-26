@@ -468,7 +468,7 @@ class _TrailingButton extends StatelessWidget {
                   child: CustomPaint(
                     painter: PillGlassRimPainter(
                       radius: FloatingPillNavBar.trailingSize / 2,
-                        ),
+                    ),
                   ),
                 ),
                 Center(
