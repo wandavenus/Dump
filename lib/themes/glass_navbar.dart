@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/theme/app_colors.dart';
-import 'package:musicplayer/themes/app_theme_extension.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
 const double kMiniPlayerHeight = 62.0;
@@ -116,7 +115,6 @@ class FloatingPillNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final radius = bodyHeight / 2;
     final shadowColor = Theme.of(context).brightness == Brightness.dark
@@ -162,7 +160,7 @@ class FloatingPillNavBar extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: _buildCapsule(context, c, radius)),
+                Expanded(child: _buildCapsule(context, radius)),
                 if (trailingIcon != null) ...[
                   const SizedBox(width: trailingGap),
                   _TrailingButton(
@@ -180,11 +178,7 @@ class FloatingPillNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildCapsule(
-    BuildContext context,
-    AppThemeExtension c,
-    double radius,
-  ) {
+  Widget _buildCapsule(BuildContext context, double radius) {
     return SizedBox(
       width: double.infinity,
       height: bodyHeight,
@@ -210,7 +204,6 @@ class FloatingPillNavBar extends StatelessWidget {
                 painter: PillGlassRimPainter(
                   radius: radius,
                   isDark: Theme.of(context).brightness == Brightness.dark,
-                  borderTint: c.glassBorderTint,
                 ),
               ),
             ),
@@ -447,7 +440,6 @@ class _TrailingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final inactiveColor = isLight ? Colors.black : Colors.white;
@@ -478,8 +470,7 @@ class _TrailingButton extends StatelessWidget {
                     painter: PillGlassRimPainter(
                       radius: FloatingPillNavBar.trailingSize / 2,
                       isDark: Theme.of(context).brightness == Brightness.dark,
-                      borderTint: c.glassBorderTint,
-                    ),
+                        ),
                   ),
                 ),
                 Center(
@@ -498,74 +489,62 @@ class _TrailingButton extends StatelessWidget {
   }
 }
 
-/// Draws a directional glass rim without adding another blur or shadow layer.
-/// Shared by the floating pill navbar and pill mini player; other glass surfaces
-/// retain their existing styling.
+/// Matches Mornye's subtle glass rim geometry and neutral edge colors.
+/// Draws in paint only; no additional blur or shadow layer is added.
 class PillGlassRimPainter extends CustomPainter {
   const PillGlassRimPainter({
     required this.radius,
     required this.isDark,
-    required this.borderTint,
   });
 
   final double radius;
   final bool isDark;
-  final Color borderTint;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
 
     final bounds = Offset.zero & size;
+
+    // Mornye contact edge: 0.25 px inset, 0.5 px black stroke.
     final outerBounds = bounds.deflate(0.25);
     final outerRadius = (radius - 0.25).clamp(0.0, double.infinity).toDouble();
     final outerRRect = RRect.fromRectAndRadius(
       outerBounds,
       Radius.circular(outerRadius),
     );
-
-    // Quiet contact edge keeps the capsule separated from busy artwork.
     canvas.drawRRect(
       outerRRect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.45
-        ..color = borderTint,
+        ..strokeWidth = 0.5
+        ..color = Colors.black.withValues(alpha: isDark ? 0.5 : 0.16),
     );
 
-    // A fine specular rim: brighter toward the top, softer along the sides
-    // and bottom. This is paint-only; it does not sample or blur the backdrop.
-    final innerBounds = bounds.deflate(0.75);
-    final innerRadius = (radius - 0.75).clamp(0.0, double.infinity).toDouble();
+    // Mornye's standard (not emphasized) specular rim.
+    final innerBounds = bounds.deflate(0.8);
+    final innerRadius = (radius - 0.8).clamp(0.0, double.infinity).toDouble();
     final innerRRect = RRect.fromRectAndRadius(
       innerBounds,
       Radius.circular(innerRadius),
     );
-    final colors = isDark
-        ? const [
-            Color(0x7AFFFFFF),
-            Color(0x38FFFFFF),
-            Color(0x0AFFFFFF),
-            Color(0x12FFFFFF),
-            Color(0x3DFFFFFF),
-          ]
-        : const [
-            Color(0xBFFFFFFF),
-            Color(0x40FFFFFF),
-            Color(0x107C7C83),
-            Color(0x267C7C83),
-            Color(0x80FFFFFF),
-          ];
+    const colors = [
+      Color(0x40FFFFFF),
+      Color(0x0DFFFFFF),
+      Color(0x0A000000),
+      Color(0x0DFFFFFF),
+      Color(0x26FFFFFF),
+    ];
 
     canvas.drawRRect(
       innerRRect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.65
-        ..shader = LinearGradient(
+        ..strokeWidth = 0.6
+        ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          stops: const [0, 0.15, 0.48, 0.82, 1],
+          stops: [0, 0.14, 0.5, 0.86, 1],
           colors: colors,
         ).createShader(bounds),
     );
@@ -573,8 +552,5 @@ class PillGlassRimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PillGlassRimPainter oldDelegate) =>
-      radius != oldDelegate.radius ||
-      isDark != oldDelegate.isDark ||
-      borderTint != oldDelegate.borderTint;
+      radius != oldDelegate.radius || isDark != oldDelegate.isDark;
 }
-
