@@ -991,30 +991,155 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version'**
   String get licenseVersion;
+
+  /// No description provided for @licenseSummaryFlutter.
+  ///
+  /// In en, this message translates to:
+  /// **'UI framework and application runtime.'**
   String get licenseSummaryFlutter;
+
+  /// No description provided for @licenseSummaryDart.
+  ///
+  /// In en, this message translates to:
+  /// **'Programming language and runtime for application code.'**
   String get licenseSummaryDart;
+
+  /// No description provided for @licenseSummaryMedia3.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio playback, media extraction, and Android media sessions.'**
   String get licenseSummaryMedia3;
+
+  /// No description provided for @licenseSummaryMedia3Ffmpeg.
+  ///
+  /// In en, this message translates to:
+  /// **'JNI wrapper connecting Media3 to the FFmpeg decoder.'**
   String get licenseSummaryMedia3Ffmpeg;
+
+  /// No description provided for @licenseSummaryFfmpeg.
+  ///
+  /// In en, this message translates to:
+  /// **'Native library for decoding additional audio formats. The app build disables GPL and nonfree components.'**
   String get licenseSummaryFfmpeg;
+
+  /// No description provided for @licenseSummaryEbur128.
+  ///
+  /// In en, this message translates to:
+  /// **'Loudness analysis compliant with EBU R128 / ITU-R BS.1770.'**
   String get licenseSummaryEbur128;
+
+  /// No description provided for @licenseSummaryTaglib.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads and writes audio metadata tags. Available under LGPL 2.1 or MPL 1.1.'**
   String get licenseSummaryTaglib;
+
+  /// No description provided for @licenseSummarySignalsmithStretch.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio time-stretching and pitch-shifting.'**
   String get licenseSummarySignalsmithStretch;
+
+  /// No description provided for @licenseSummarySignalsmithLinear.
+  ///
+  /// In en, this message translates to:
+  /// **'DSP and FFT utilities used by Signalsmith Stretch.'**
   String get licenseSummarySignalsmithLinear;
+
+  /// No description provided for @licenseSummaryPalette.
+  ///
+  /// In en, this message translates to:
+  /// **'Extracts color palettes from artwork.'**
   String get licenseSummaryPalette;
+
+  /// No description provided for @licenseSummaryAudioSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Cross-platform audio session configuration.'**
   String get licenseSummaryAudioSession;
+
+  /// No description provided for @licenseSummaryPermissionHandler.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests and checks system permissions.'**
   String get licenseSummaryPermissionHandler;
+
+  /// No description provided for @licenseSummarySharedPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Local preference storage.'**
   String get licenseSummarySharedPreferences;
+
+  /// No description provided for @licenseSummaryPathProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Access to standard platform storage locations.'**
   String get licenseSummaryPathProvider;
+
+  /// No description provided for @licenseSummaryUrlLauncher.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens links using platform applications.'**
   String get licenseSummaryUrlLauncher;
+
+  /// No description provided for @licenseSummaryIntl.
+  ///
+  /// In en, this message translates to:
+  /// **'Date and number formatting, plus localization support.'**
   String get licenseSummaryIntl;
+
+  /// No description provided for @licenseSummaryFontAwesomeFlutter.
+  ///
+  /// In en, this message translates to:
+  /// **'Package code is licensed under MIT; Font Awesome icons use CC BY 4.0 and its fonts use SIL OFL 1.1.'**
   String get licenseSummaryFontAwesomeFlutter;
+
+  /// No description provided for @licenseDocBsd3.
+  ///
+  /// In en, this message translates to:
+  /// **'BSD 3-Clause License'**
   String get licenseDocBsd3;
+
+  /// No description provided for @licenseDocApache20.
+  ///
+  /// In en, this message translates to:
+  /// **'Apache License 2.0'**
   String get licenseDocApache20;
+
+  /// No description provided for @licenseDocLgpl21.
+  ///
+  /// In en, this message translates to:
+  /// **'GNU Lesser General Public License 2.1'**
   String get licenseDocLgpl21;
+
+  /// No description provided for @licenseDocMit.
+  ///
+  /// In en, this message translates to:
+  /// **'MIT License'**
   String get licenseDocMit;
+
+  /// No description provided for @licenseDocMpl11.
+  ///
+  /// In en, this message translates to:
+  /// **'Mozilla Public License 1.1'**
   String get licenseDocMpl11;
+
+  /// No description provided for @licenseDocMitPackageCode.
+  ///
+  /// In en, this message translates to:
+  /// **'MIT License (package code)'**
   String get licenseDocMitPackageCode;
+
+  /// No description provided for @licenseDocCcByIcons.
+  ///
+  /// In en, this message translates to:
+  /// **'Creative Commons Attribution 4.0 International (icons)'**
   String get licenseDocCcByIcons;
+
+  /// No description provided for @licenseDocOflFonts.
+  ///
+  /// In en, this message translates to:
+  /// **'SIL Open Font License 1.1 (fonts)'**
   String get licenseDocOflFonts;
 
   /// No description provided for @changelogTitle.

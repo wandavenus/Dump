@@ -497,80 +497,93 @@ class AppLocalizationsId extends AppLocalizations {
   String get licenseVersion => 'Versi';
 
   @override
-  String get licenseSummaryFlutter => "Framework UI dan runtime aplikasi.";
+  String get licenseSummaryFlutter => 'Framework UI dan runtime aplikasi.';
 
   @override
-  String get licenseSummaryDart => "Bahasa dan runtime untuk kode aplikasi.";
+  String get licenseSummaryDart => 'Bahasa dan runtime untuk kode aplikasi.';
 
   @override
-  String get licenseSummaryMedia3 => "Playback audio, ekstraksi media, dan sesi media Android.";
+  String get licenseSummaryMedia3 =>
+      'Playback audio, ekstraksi media, dan sesi media Android.';
 
   @override
-  String get licenseSummaryMedia3Ffmpeg => "Wrapper JNI yang menghubungkan Media3 dengan decoder FFmpeg.";
+  String get licenseSummaryMedia3Ffmpeg =>
+      'Wrapper JNI yang menghubungkan Media3 dengan decoder FFmpeg.';
 
   @override
-  String get licenseSummaryFfmpeg => "Library native untuk mendekode format audio tambahan. Build aplikasi mematikan komponen GPL dan nonfree.";
+  String get licenseSummaryFfmpeg =>
+      'Library native untuk mendekode format audio tambahan. Build aplikasi mematikan komponen GPL dan nonfree.';
 
   @override
-  String get licenseSummaryEbur128 => "Analisis loudness sesuai EBU R128 / ITU-R BS.1770.";
+  String get licenseSummaryEbur128 =>
+      'Analisis loudness sesuai EBU R128 / ITU-R BS.1770.';
 
   @override
-  String get licenseSummaryTaglib => "Membaca dan menulis metadata tag audio. Tersedia di bawah LGPL 2.1 atau MPL 1.1.";
+  String get licenseSummaryTaglib =>
+      'Membaca dan menulis metadata tag audio. Tersedia di bawah LGPL 2.1 atau MPL 1.1.';
 
   @override
-  String get licenseSummarySignalsmithStretch => "Pemrosesan time-stretch dan pitch-shift audio.";
+  String get licenseSummarySignalsmithStretch =>
+      'Pemrosesan time-stretch dan pitch-shift audio.';
 
   @override
-  String get licenseSummarySignalsmithLinear => "Utilitas DSP dan FFT yang digunakan Signalsmith Stretch.";
+  String get licenseSummarySignalsmithLinear =>
+      'Utilitas DSP dan FFT yang digunakan Signalsmith Stretch.';
 
   @override
-  String get licenseSummaryPalette => "Ekstraksi palet warna dari artwork.";
+  String get licenseSummaryPalette => 'Ekstraksi palet warna dari artwork.';
 
   @override
-  String get licenseSummaryAudioSession => "Konfigurasi sesi audio lintas platform.";
+  String get licenseSummaryAudioSession =>
+      'Konfigurasi sesi audio lintas platform.';
 
   @override
-  String get licenseSummaryPermissionHandler => "Meminta dan memeriksa izin sistem.";
+  String get licenseSummaryPermissionHandler =>
+      'Meminta dan memeriksa izin sistem.';
 
   @override
-  String get licenseSummarySharedPreferences => "Penyimpanan preferensi lokal.";
+  String get licenseSummarySharedPreferences => 'Penyimpanan preferensi lokal.';
 
   @override
-  String get licenseSummaryPathProvider => "Akses lokasi penyimpanan standar platform.";
+  String get licenseSummaryPathProvider =>
+      'Akses lokasi penyimpanan standar platform.';
 
   @override
-  String get licenseSummaryUrlLauncher => "Membuka tautan menggunakan aplikasi platform.";
+  String get licenseSummaryUrlLauncher =>
+      'Membuka tautan menggunakan aplikasi platform.';
 
   @override
-  String get licenseSummaryIntl => "Format tanggal, angka, dan dukungan lokalisasi.";
+  String get licenseSummaryIntl =>
+      'Format tanggal, angka, dan dukungan lokalisasi.';
 
   @override
-  String get licenseSummaryFontAwesomeFlutter => "Kode paket berlisensi MIT; ikon Font Awesome berlisensi CC BY 4.0 dan font-nya SIL OFL 1.1.";
+  String get licenseSummaryFontAwesomeFlutter =>
+      'Kode paket berlisensi MIT; ikon Font Awesome berlisensi CC BY 4.0 dan font-nya SIL OFL 1.1.';
 
   @override
-  String get licenseDocBsd3 => "Lisensi BSD 3-Klausul";
+  String get licenseDocBsd3 => 'Lisensi BSD 3-Klausul';
 
   @override
-  String get licenseDocApache20 => "Lisensi Apache 2.0";
+  String get licenseDocApache20 => 'Lisensi Apache 2.0';
 
   @override
-  String get licenseDocLgpl21 => "GNU Lesser General Public License 2.1";
+  String get licenseDocLgpl21 => 'GNU Lesser General Public License 2.1';
 
   @override
-  String get licenseDocMit => "Lisensi MIT";
+  String get licenseDocMit => 'Lisensi MIT';
 
   @override
-  String get licenseDocMpl11 => "Mozilla Public License 1.1";
+  String get licenseDocMpl11 => 'Mozilla Public License 1.1';
 
   @override
-  String get licenseDocMitPackageCode => "Lisensi MIT (kode paket)";
+  String get licenseDocMitPackageCode => 'Lisensi MIT (kode paket)';
 
   @override
-  String get licenseDocCcByIcons => "Creative Commons Attribution 4.0 International (ikon)";
+  String get licenseDocCcByIcons =>
+      'Creative Commons Attribution 4.0 International (ikon)';
 
   @override
-  String get licenseDocOflFonts => "SIL Open Font License 1.1 (font)";
-
+  String get licenseDocOflFonts => 'SIL Open Font License 1.1 (font)';
 
   @override
   String get changelogTitle => 'Changelog';
