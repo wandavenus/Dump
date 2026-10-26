@@ -421,7 +421,6 @@ class MainActivity : FlutterActivity() {
 
     // ── Media3 playback channels ───────────────────────────────────────────────
 
-    @OptIn(UnstableApi::class)
     private fun setupMedia3PlaybackChannels(flutterEngine: FlutterEngine) {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 

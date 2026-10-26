@@ -199,6 +199,7 @@ class NativeDspAudioProcessor(
     // ── BaseAudioProcessor overrides ─────────────────────────────────────────
 
     /** A flush usually marks a seek or a new source; do not carry beat history across it. */
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
     override fun onFlush() {
         super.onFlush()
         resetLiveBeatTracker(streamSlot)

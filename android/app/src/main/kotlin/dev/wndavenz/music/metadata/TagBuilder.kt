@@ -18,7 +18,6 @@ import androidx.media3.extractor.metadata.vorbis.VorbisComment
  * Extracted as `internal` so it can be tested in JVM unit tests without an Android device.
  * All fields are nullable: null means the tag was not found in the file.
  */
-@OptIn(UnstableApi::class)
 internal class TagBuilder {
 
     var rgTrackGain : String? = null

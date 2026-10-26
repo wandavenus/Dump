@@ -43,7 +43,6 @@ import java.util.concurrent.TimeoutException
  * Must be called from a background thread — [read] blocks for up to
  * [TIMEOUT_SEC]. Never throws; returns empty [AudioTags] on any error.
  */
-@OptIn(UnstableApi::class)
 object ExoMetadataReader {
 
     private const val TAG         = "ExoMetadataReader"

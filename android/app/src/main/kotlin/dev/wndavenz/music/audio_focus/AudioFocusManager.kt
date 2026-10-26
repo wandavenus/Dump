@@ -133,21 +133,39 @@ class AudioFocusManager(
     fun request(): Boolean {
         if (_hasAudioFocus) return true
 
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(attrs)
-            .setOnAudioFocusChangeListener(focusListener)
-            .setWillPauseWhenDucked(false)
-            .setAcceptsDelayedFocusGain(true)   // MIUI 12: async grant
-            .build()
-        focusRequest = req
-        val result = audioManager.requestAudioFocus(req)
-        // AUDIOFOCUS_REQUEST_DELAYED counts as "will get focus" — proceed
-        val granted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED ||
-                result == AudioManager.AUDIOFOCUS_REQUEST_DELAYED
+        val granted: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+                val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .setOnAudioFocusChangeListener(focusListener)
+                    .setWillPauseWhenDucked(false)
+                    .setAcceptsDelayedFocusGain(true)   // MIUI 12: async grant
+                    .build()
+                focusRequest = req
+                val result = audioManager.requestAudioFocus(req)
+                result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED ||
+                        result == AudioManager.AUDIOFOCUS_REQUEST_DELAYED
+            } catch (_: Exception) {
+                // Fallback for JVM unit test stubs (testOptions.returnDefaultValues=true)
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    focusListener,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                focusListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
         _hasAudioFocus = granted
         log("requestAudioFocus → granted=$granted")
         return granted
@@ -161,7 +179,17 @@ class AudioFocusManager(
         // abandonAudioFocusRequest — harmless on API O+ (focusRequest is already
         // null so the let-block is a no-op), but produces a misleading log entry.
         if (!_hasAudioFocus) return
-        focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
+            try {
+                audioManager.abandonAudioFocusRequest(focusRequest!!)
+            } catch (_: Exception) {
+                @Suppress("DEPRECATION")
+                audioManager.abandonAudioFocus(focusListener)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(focusListener)
+        }
         focusRequest       = null
         _hasAudioFocus     = false
         resumeAfterFocusGain = false
