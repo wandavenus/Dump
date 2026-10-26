@@ -203,7 +203,6 @@ class FloatingPillNavBar extends StatelessWidget {
               child: CustomPaint(
                 painter: PillGlassRimPainter(
                   radius: radius,
-                  isDark: Theme.of(context).brightness == Brightness.dark,
                 ),
               ),
             ),
@@ -469,8 +468,7 @@ class _TrailingButton extends StatelessWidget {
                   child: CustomPaint(
                     painter: PillGlassRimPainter(
                       radius: FloatingPillNavBar.trailingSize / 2,
-                      isDark: Theme.of(context).brightness == Brightness.dark,
-                        ),
+                    ),
                   ),
                 ),
                 Center(
@@ -489,16 +487,13 @@ class _TrailingButton extends StatelessWidget {
   }
 }
 
-/// Matches Mornye's subtle glass rim geometry and neutral edge colors.
-/// Draws in paint only; no additional blur or shadow layer is added.
+/// Draws a subtle specular glass reflection without a hairline contact outline.
 class PillGlassRimPainter extends CustomPainter {
   const PillGlassRimPainter({
     required this.radius,
-    required this.isDark,
   });
 
   final double radius;
-  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -506,22 +501,7 @@ class PillGlassRimPainter extends CustomPainter {
 
     final bounds = Offset.zero & size;
 
-    // Mornye contact edge: 0.25 px inset, 0.5 px black stroke.
-    final outerBounds = bounds.deflate(0.25);
-    final outerRadius = (radius - 0.25).clamp(0.0, double.infinity).toDouble();
-    final outerRRect = RRect.fromRectAndRadius(
-      outerBounds,
-      Radius.circular(outerRadius),
-    );
-    canvas.drawRRect(
-      outerRRect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.5
-        ..color = Colors.black.withValues(alpha: isDark ? 0.5 : 0.16),
-    );
-
-    // Mornye's standard (not emphasized) specular rim.
+    // Keep the specular reflection without the hairline contact outline.
     final innerBounds = bounds.deflate(0.8);
     final innerRadius = (radius - 0.8).clamp(0.0, double.infinity).toDouble();
     final innerRRect = RRect.fromRectAndRadius(
@@ -552,5 +532,5 @@ class PillGlassRimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant PillGlassRimPainter oldDelegate) =>
-      radius != oldDelegate.radius || isDark != oldDelegate.isDark;
+      radius != oldDelegate.radius;
 }
