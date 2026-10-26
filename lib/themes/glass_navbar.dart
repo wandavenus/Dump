@@ -303,7 +303,7 @@ class _PillItemsState extends State<_PillItems> {
                     left: left,
                     top: 4,
                     width: lensWidth,
-                    height: FloatingPillNavBar.bodyHeight - 8,
+                    height: 53,
                     child: IgnorePointer(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -318,7 +318,7 @@ class _PillItemsState extends State<_PillItems> {
                     left: left,
                     top: 4,
                     width: lensWidth,
-                    height: FloatingPillNavBar.bodyHeight - 8,
+                    height: 53,
                     child: IgnorePointer(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
