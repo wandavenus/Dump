@@ -482,7 +482,8 @@ class _TrailingButton extends StatelessWidget {
 }
 
 /// Draws a directional glass rim without adding another blur or shadow layer.
-/// Kept local to the pill navbar so other glass surfaces retain their styling.
+/// Shared by the floating pill navbar and pill mini player; other glass surfaces
+/// retain their existing styling.
 class PillGlassRimPainter extends CustomPainter {
   const PillGlassRimPainter({
     required this.radius,
