@@ -979,29 +979,22 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
 
-                      // ── Border kaca (mode pill) — menyatu dengan navbar ────────────
-                      // Hanya saat mini state; memudar saat sheet membuka sehingga
-                      // full player tetap tanpa border.
+                      // ── Directional glass rim for the collapsed pill mini player.
+                      // Reuses the navbar's specular painter so both capsules share
+                      // the same edge treatment in dark and light themes.
                       if (isPill && miniAlpha > 0)
                         Positioned.fill(
                           child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(radius),
-                                border: Border.all(
-                                  // Kalikan alpha token, bukan replace: dulu
-                                  // withValues(alpha: miniAlpha) menimpa alpha
-                                  // ke 1.0 → outline mini player SOLID dan
-                                  // tidak konsisten dengan navbar pill.
-                                  color: AppColors.of(context).glassBorderTint
-                                      .withValues(
-                                        alpha:
-                                            AppColors.of(
-                                              context,
-                                            ).glassBorderTint.a *
-                                            miniAlpha,
-                                      ),
-                                  width: 1,
+                            child: Opacity(
+                              opacity: miniAlpha,
+                              child: CustomPaint(
+                                painter: PillGlassRimPainter(
+                                  radius: radius,
+                                  isDark:
+                                      Theme.of(context).brightness ==
+                                      Brightness.dark,
+                                  borderTint:
+                                      AppColors.of(context).glassBorderTint,
                                 ),
                               ),
                             ),
