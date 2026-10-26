@@ -106,6 +106,7 @@ class FloatingPillNavBar extends StatelessWidget {
   static const double trailingGap = 10.0;
   static const double trailingSize = bodyHeight;
   static const double _iconSize = 24.0;
+  static const double _searchIconSize = 34.0;
 
   static const ImageFilterConfig _pillBlurConfig = ImageFilterConfig.blur(
     sigmaX: 6,
@@ -339,6 +340,8 @@ class _PillItemsState extends State<_PillItems> {
                               ? widget.semanticsLabels![i]
                               : widget.labels[i],
                           active: i == widget.selectedIndex,
+                          // Shift only the contents in the floating pill navbar.
+                          contentOffsetX: i < 2 ? 10.0 : i == 3 ? -10.0 : 0.0,
                           onTap: () => widget.onTap(i),
                         ),
                       ),
@@ -358,6 +361,7 @@ class _PillItem extends StatelessWidget {
   final String? label;
   final String? semanticsLabel;
   final bool active;
+  final double contentOffsetX;
   final VoidCallback onTap;
 
   const _PillItem({
@@ -365,6 +369,7 @@ class _PillItem extends StatelessWidget {
     required this.label,
     required this.semanticsLabel,
     required this.active,
+    required this.contentOffsetX,
     required this.onTap,
   });
 
@@ -389,33 +394,36 @@ class _PillItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    FloatingPillNavBar._iconSize == 24 ? icon : icon,
-                    size: FloatingPillNavBar._iconSize,
-                    color: color,
-                  ),
-                  if (label != null) ...[
-                    const SizedBox(height: 3),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label!,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: color,
-                          fontWeight: active
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+              child: Transform.translate(
+                offset: Offset(contentOffsetX, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: FloatingPillNavBar._iconSize,
+                      color: color,
+                    ),
+                    if (label != null) ...[
+                      const SizedBox(height: 3),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label!,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: color,
+                            fontWeight: active
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -476,7 +484,7 @@ class _TrailingButton extends StatelessWidget {
                 Center(
                   child: Icon(
                     icon,
-                    size: FloatingPillNavBar._iconSize,
+                    size: FloatingPillNavBar._searchIconSize,
                     color: active ? primary : inactiveColor,
                   ),
                 ),
