@@ -1,5 +1,23 @@
 # Perf scope 1.5.20 — library payload, isolate parse, PCM reuse, soft-clip tanh
 
+## Native NEON audit 2026-10-26
+
+- Full report: `native_neon_audit.md` (app 1.5.48, commit `c03aec9`).
+- Live DSP already uses NEON at the intended call sites; do not convert
+  gain, ReplayGain, crossfeed, loudness, AutoMix tone, or window/RMS.
+- Only plausible NEON program is offline AutoMix analysis: shared 2048-point
+  FFT (~31.9k/300 s including chord pass), main magnitude/log loop
+  (~13.2M bins), and chord magnitude/`hypot` pass (~12.6k FFTs + 12.9M
+  double `hypot`s). Measurement is mandatory because the analyzer is offline
+  and Clang may already auto-vectorize parts.
+- Realtime `automix_live_tracker`, compressor, limiter, soft clipper,
+  planner, and pipeline are documented do-not-convert candidates.
+- Prerequisite: stage benchmark, generated-assembly inspection, actual
+  compile flags, and scalar-vs-NEON parity. Host native tests currently fail
+  to load in this Termux environment on `__android_log_print`; no runtime
+  benchmark was obtained.
+- No production code changed by the audit.
+
 ## B — getSongs payload compact (JSON string)
 
 - **Kotlin** (`MainActivity.kt`): `getSongs()` now returns `String` (JSON) instead
