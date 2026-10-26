@@ -301,7 +301,7 @@ class _PillItemsState extends State<_PillItems> {
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
                     left: left,
-                    top: 4,
+                    top: 4.5,
                     width: lensWidth,
                     height: 53,
                     child: IgnorePointer(
@@ -316,7 +316,7 @@ class _PillItemsState extends State<_PillItems> {
                 else
                   Positioned(
                     left: left,
-                    top: 4,
+                    top: 4.5,
                     width: lensWidth,
                     height: 53,
                     child: IgnorePointer(
