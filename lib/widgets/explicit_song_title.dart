@@ -13,13 +13,28 @@ class ExplicitSongTitle extends StatefulWidget {
     this.maxLines,
     required this.overflow,
     this.textAlign,
+    this.badgeReferenceFontSize,
   });
+
+  /// Song-list variant with a normalized badge size, independent of title style.
+  /// The title itself keeps its normal inherited or explicitly supplied style.
+  const ExplicitSongTitle.list({
+    super.key,
+    required this.song,
+    this.style,
+    this.maxLines,
+    required this.overflow,
+    this.textAlign,
+  }) : badgeReferenceFontSize = 15;
 
   final LocalSong song;
   final TextStyle? style;
   final int? maxLines;
   final TextOverflow overflow;
   final TextAlign? textAlign;
+
+  /// Optional font-size reference used only for badge sizing, not title styling.
+  final double? badgeReferenceFontSize;
 
   @override
   State<ExplicitSongTitle> createState() => _ExplicitSongTitleState();
@@ -70,7 +85,10 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
           children: [
             Flexible(child: title),
             const SizedBox(width: 5),
-            ExplicitAdvisoryBadge(titleStyle: titleStyle ?? inheritedStyle),
+            ExplicitAdvisoryBadge(
+              titleStyle: titleStyle ?? inheritedStyle,
+              referenceFontSize: widget.badgeReferenceFontSize,
+            ),
           ],
         );
       },
@@ -81,10 +99,17 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
 /// Shared explicit-content marker used by song titles and player overlays.
 /// The E is a real transparent cutout, not transparent text over a solid tile.
 class ExplicitAdvisoryBadge extends StatefulWidget {
-  const ExplicitAdvisoryBadge({super.key, required this.titleStyle});
+  const ExplicitAdvisoryBadge({
+    super.key,
+    required this.titleStyle,
+    this.referenceFontSize,
+  });
 
-  /// The title's style; badge sizing is derived from its font size.
+  /// The title's style; retained for the badge glyph typography.
   final TextStyle titleStyle;
+
+  /// Optional font-size reference for the badge, independent of title size.
+  final double? referenceFontSize;
 
   @override
   State<ExplicitAdvisoryBadge> createState() => _ExplicitAdvisoryBadgeState();
@@ -92,6 +117,7 @@ class ExplicitAdvisoryBadge extends StatefulWidget {
 
 class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
   TextStyle? _sourceStyle;
+  double? _sourceReferenceFontSize;
   TextDirection? _textDirection;
   TextPainter? _textPainter;
   Size _badgeSize = Size.zero;
@@ -99,15 +125,19 @@ class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
   void _configurePainterIfNeeded(TextDirection textDirection) {
     if (_textPainter != null &&
         _sourceStyle == widget.titleStyle &&
+        _sourceReferenceFontSize == widget.referenceFontSize &&
         _textDirection == textDirection) {
       return;
     }
 
     _sourceStyle = widget.titleStyle;
+    _sourceReferenceFontSize = widget.referenceFontSize;
     _textDirection = textDirection;
 
     final badgeStyle = widget.titleStyle.copyWith(
-      fontSize: (widget.titleStyle.fontSize ?? 14) * 0.78,
+      fontSize:
+          (widget.referenceFontSize ?? widget.titleStyle.fontSize ?? 14) *
+          0.78,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.1,
     );
