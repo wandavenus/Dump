@@ -3,7 +3,7 @@
 ## Behavior
 - Reads the `ITUNESADVISORY` tag from Media3 `VorbisComment` entries (Opus/Ogg/FLAC) and ID3 `TXXX` custom text frames; the parser also checks a matching mdta key.
 - Values `1`, `explicit`, `true`, and `yes` mean explicit. Values `0`, `2`, `clean`, `false`, `no`, `none`, and `not explicit` mean not explicit.
-- Unknown advisory values remain unknown. A successful metadata parse with no advisory is treated as non-explicit; a failed metadata read returns null and does not persist a result.
+- Only recognized explicit values activate the badge. Other advisory values and successful parses without an advisory are not marked explicit; a failed metadata read returns null and is retried.
 - `ExplicitSongTitle` renders `[E]` after the title only for explicit tracks. It is reused for lists, search, playlists, browse cards, queue, mini player, and full player.
 
 ## Data flow
