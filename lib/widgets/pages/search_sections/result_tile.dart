@@ -32,8 +32,8 @@ class _SearchResultTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    song.title,
+                  ExplicitSongTitle(
+                    song: song,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

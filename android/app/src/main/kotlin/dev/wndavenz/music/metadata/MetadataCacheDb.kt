@@ -28,7 +28,7 @@ class MetadataCacheDb private constructor(context: Context)
     companion object {
         private const val TAG        = "MetadataCacheDb"
         private const val DB_NAME    = "metadata_cache.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
 
         private const val TABLE      = "song_metadata_cache"
         private const val COL_ID     = "song_id"
@@ -44,6 +44,7 @@ class MetadataCacheDb private constructor(context: Context)
         private const val COL_ITUN_NORM      = "itun_norm"
         // Embedded lyrics (null = no lyrics / not yet read)
         private const val COL_LYRICS         = "lyrics"
+        private const val COL_IS_EXPLICIT   = "is_explicit"
         // Sentinel: LYRICS_NONE means we already checked and found nothing
         const val LYRICS_NONE                = "\u0000NONE\u0000"
         private const val COL_CACHED_AT      = "cached_at"
@@ -95,6 +96,7 @@ class MetadataCacheDb private constructor(context: Context)
                 $COL_R128_ALBUM  TEXT,
                 $COL_ITUN_NORM   TEXT,
                 $COL_LYRICS      TEXT,
+                $COL_IS_EXPLICIT INTEGER,
                 $COL_CACHED_AT   INTEGER NOT NULL
             )
         """.trimIndent())
@@ -102,8 +104,9 @@ class MetadataCacheDb private constructor(context: Context)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE")
-        onCreate(db)
+        if (old < 2) {
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_IS_EXPLICIT INTEGER")
+        }
     }
 
     override fun onOpen(db: SQLiteDatabase) {
@@ -135,6 +138,7 @@ class MetadataCacheDb private constructor(context: Context)
         val r128Album   : String?,
         val iTunNorm    : String?,
         val lyrics      : String?,   // null = not cached yet; LYRICS_NONE = confirmed absent
+        val isExplicit   : Boolean? = null, // null = not scanned or read failed
     ) {
         /**
          * Returns the actual lyrics text, or null if not cached or confirmed absent.
@@ -159,7 +163,7 @@ class MetadataCacheDb private constructor(context: Context)
                     COL_RG_TRACK_GAIN, COL_RG_TRACK_PEAK,
                     COL_RG_ALBUM_GAIN, COL_RG_ALBUM_PEAK,
                     COL_R128_TRACK, COL_R128_ALBUM,
-                    COL_ITUN_NORM, COL_LYRICS, COL_MTIME
+                    COL_ITUN_NORM, COL_LYRICS, COL_IS_EXPLICIT, COL_MTIME
                 ),
                 "$COL_ID = ?",
                 arrayOf(songId.toString()),
@@ -178,6 +182,9 @@ class MetadataCacheDb private constructor(context: Context)
                     r128Album   = cursor.getString(cursor.getColumnIndexOrThrow(COL_R128_ALBUM)),
                     iTunNorm    = cursor.getString(cursor.getColumnIndexOrThrow(COL_ITUN_NORM)),
                     lyrics      = cursor.getString(cursor.getColumnIndexOrThrow(COL_LYRICS)),
+                    isExplicit   = cursor.getColumnIndex(COL_IS_EXPLICIT).let { index ->
+                        if (index < 0 || cursor.isNull(index)) null else cursor.getInt(index) != 0
+                    },
                 )
             }
         } catch (e: Exception) {
@@ -198,7 +205,7 @@ class MetadataCacheDb private constructor(context: Context)
                     COL_RG_TRACK_GAIN, COL_RG_TRACK_PEAK,
                     COL_RG_ALBUM_GAIN, COL_RG_ALBUM_PEAK,
                     COL_R128_TRACK, COL_R128_ALBUM,
-                    COL_ITUN_NORM, COL_LYRICS, COL_MTIME
+                    COL_ITUN_NORM, COL_LYRICS, COL_IS_EXPLICIT, COL_MTIME
                 ),
                 "$COL_PATH = ?",
                 arrayOf(path),
@@ -217,6 +224,9 @@ class MetadataCacheDb private constructor(context: Context)
                     r128Album   = cursor.getString(cursor.getColumnIndexOrThrow(COL_R128_ALBUM)),
                     iTunNorm    = cursor.getString(cursor.getColumnIndexOrThrow(COL_ITUN_NORM)),
                     lyrics      = cursor.getString(cursor.getColumnIndexOrThrow(COL_LYRICS)),
+                    isExplicit   = cursor.getColumnIndex(COL_IS_EXPLICIT).let { index ->
+                        if (index < 0 || cursor.isNull(index)) null else cursor.getInt(index) != 0
+                    },
                 )
             }
         } catch (e: Exception) {
@@ -253,6 +263,7 @@ class MetadataCacheDb private constructor(context: Context)
                 put(COL_R128_ALBUM,   entry.r128Album)
                 put(COL_ITUN_NORM,    entry.iTunNorm)
                 put(COL_LYRICS,       entry.lyrics)
+                put(COL_IS_EXPLICIT,  entry.isExplicit?.let { if (it) 1 else 0 })
                 put(COL_CACHED_AT,    System.currentTimeMillis())
             }
             writableDatabase.insertWithOnConflict(TABLE, null, values,
@@ -288,6 +299,7 @@ class MetadataCacheDb private constructor(context: Context)
                 put(COL_R128_ALBUM,   entry.r128Album)
                 put(COL_ITUN_NORM,    entry.iTunNorm)
                 put(COL_LYRICS,       entry.lyrics)
+                put(COL_IS_EXPLICIT,  entry.isExplicit?.let { if (it) 1 else 0 })
                 put(COL_CACHED_AT,    System.currentTimeMillis())
             }
             writableDatabase.insertWithOnConflict(TABLE, null, values,

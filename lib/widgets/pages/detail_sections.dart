@@ -6,6 +6,7 @@ import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import '../../theme/app_colors.dart';
 import '../song_artwork.dart';
+import '../explicit_song_title.dart';
 import '../song_context_menu.dart';
 
 export '../play_shuffle_buttons.dart' show PlayShuffleButtons;

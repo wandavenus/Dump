@@ -99,7 +99,7 @@ object MetadataPrescanner {
 
                     // Cache hit: already fresh, skip expensive ExoPlayer parse
                     val cached = cache.get(song.id, mtime)
-                    if (cached != null) {
+                    if (cached?.isExplicit != null) {
                         skipped++
                         continue
                     }
@@ -119,6 +119,7 @@ object MetadataPrescanner {
                             r128Album   = tags.r128Album,
                             iTunNorm    = tags.iTunNorm,
                             lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+                            isExplicit   = tags.isExplicit,
                         )
                     )
                     scanned++

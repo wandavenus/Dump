@@ -16,6 +16,7 @@ import '../themes/theme_controller.dart';
 import 'player/now_playing_layout.dart';
 import 'player/player_background.dart';
 import 'player/player_content.dart';
+import 'explicit_song_title.dart';
 import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
@@ -1097,8 +1098,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                         tag: PlayerHeroTags.title(song),
                         child: Material(
                           type: MaterialType.transparency,
-                          child: Text(
-                            song.title,
+                          child: ExplicitSongTitle(
+                            song: song,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

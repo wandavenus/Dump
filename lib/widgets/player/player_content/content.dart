@@ -37,6 +37,7 @@ class _PlayerContentState extends State<PlayerContent> {
   double _lyricsExpand = 0.0;
 
   Future<LyricsResult>? _lyricsFuture;
+  Future<bool?>? _explicitStatusFuture;
   int? _lastFetchedSongId;
 
   final _lyricsScrollController = ScrollController();
@@ -93,6 +94,7 @@ class _PlayerContentState extends State<PlayerContent> {
     super.initState();
     _fetchLyricsIfNeeded();
     _restartMarquee();
+    _explicitStatusFuture = MediaStoreService.getExplicitStatus(widget.song);
   }
 
   @override
@@ -106,9 +108,11 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   void didUpdateWidget(PlayerContent old) {
     super.didUpdateWidget(old);
-    if (old.song.id != widget.song.id) {
+    if (old.song.id != widget.song.id ||
+        old.song.path != widget.song.path) {
       _fetchLyricsIfNeeded();
       _restartMarquee();
+      _explicitStatusFuture = MediaStoreService.getExplicitStatus(widget.song);
     }
     // Reset lyricsExpand when lyrics mode is turned off so bottom controls
     // are not left hidden when switching to queue or normal mode.
@@ -561,48 +565,71 @@ class _PlayerContentState extends State<PlayerContent> {
           children: [
             SizedBox(
               width: 200,
-              child: ShaderMask(
-                shaderCallback: (rect) {
-                  return const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Colors.white,
-                      Colors.white,
-                      Colors.white,
-                      Colors.transparent,
+              child: FutureBuilder<bool?>(
+                future: _explicitStatusFuture,
+                builder: (context, snapshot) => Row(
+                  children: [
+                    Expanded(
+                      child: ShaderMask(
+                        shaderCallback: (rect) {
+                          return const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.white,
+                              Colors.white,
+                              Colors.white,
+                              Colors.transparent,
+                            ],
+                            stops: [0.0, 0.30, 0.88, 1.0],
+                          ).createShader(rect);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 250),
+                          crossFadeState: _showMarquee
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                          firstChild: Text(
+                            widget.song.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          secondChild: TextScroll(
+                            widget.song.title,
+                            mode: TextScrollMode.endless,
+                            velocity: const Velocity(
+                              pixelsPerSecond: Offset(25, 0),
+                            ),
+                            delayBefore: Duration.zero,
+                            pauseBetween: const Duration(seconds: 2),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (snapshot.data == true) ...[
+                      const SizedBox(width: 5),
+                      const Text(
+                        '[E]',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
                     ],
-                    stops: [0.0, 0.30, 0.88, 1.0],
-                  ).createShader(rect);
-                },
-                blendMode: BlendMode.dstIn,
-                child: AnimatedCrossFade(
-                  duration: const Duration(milliseconds: 250),
-                  crossFadeState: _showMarquee
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  firstChild: Text(
-                    widget.song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  secondChild: TextScroll(
-                    widget.song.title,
-                    mode: TextScrollMode.endless,
-                    velocity: const Velocity(pixelsPerSecond: Offset(25, 0)),
-                    delayBefore: Duration.zero,
-                    pauseBetween: const Duration(seconds: 2),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ),

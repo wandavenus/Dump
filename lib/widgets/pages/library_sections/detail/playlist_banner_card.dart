@@ -38,8 +38,8 @@ class _PlaylistBannerCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 7),
-            Text(
-              song.title,
+            ExplicitSongTitle(
+              song: song,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

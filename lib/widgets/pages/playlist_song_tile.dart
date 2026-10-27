@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/widgets/song_artwork.dart';
+import 'package:musicplayer/widgets/explicit_song_title.dart';
 
 class PlaylistSongTile extends StatelessWidget {
   final LocalSong song;
@@ -29,8 +30,8 @@ class PlaylistSongTile extends StatelessWidget {
         size: 48,
         borderRadius: BorderRadius.circular(6),
       ),
-      title: Text(
-        song.title,
+      title: ExplicitSongTitle(
+        song: song,
         style: TextStyle(color: colors.onSurface, fontSize: 15),
         overflow: TextOverflow.ellipsis,
       ),

@@ -20,6 +20,7 @@ import '../themes/app_theme_extension.dart';
 import '../utils/zoom_fade_route.dart';
 import 'common/swipe_to_dismiss_sheet.dart';
 import 'song_artwork.dart';
+import 'explicit_song_title.dart';
 
 part 'song_context_menu/menu_item.dart';
 part 'song_context_menu/info_row.dart';
@@ -128,8 +129,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            widget.song.title,
+                          ExplicitSongTitle(
+                            song: widget.song,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

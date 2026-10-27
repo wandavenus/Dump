@@ -48,8 +48,8 @@ class BrowseBannerCarousel extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    song.title,
+                  ExplicitSongTitle(
+                    song: song,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.normal,

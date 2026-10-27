@@ -14,6 +14,7 @@ import 'package:musicplayer/widgets/common/responsive_page_body.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:musicplayer/widgets/song_artwork.dart';
+import 'package:musicplayer/widgets/explicit_song_title.dart';
 
 class PlaylistPage extends StatefulWidget {
   final String name;
@@ -329,8 +330,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
                       size: 55,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    title: Text(
-                      song.title,
+                    title: ExplicitSongTitle(
+                      song: song,
                       style: TextStyle(color: c.primaryLabel, fontSize: 15),
                       overflow: TextOverflow.ellipsis,
                     ),

@@ -56,8 +56,8 @@ class SongListRow extends StatelessWidget {
                   child: Row(
                     children: [
                       Flexible(
-                        child: Text(
-                          song.title,
+                        child: ExplicitSongTitle(
+                          song: song,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 15,

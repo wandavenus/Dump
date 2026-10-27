@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
+import '../explicit_song_title.dart';
 import 'player_hero_tags.dart';
 import 'player_favorite_button.dart';
 import 'player_more_menu.dart';
@@ -24,8 +25,8 @@ class PlayerSongHeader extends StatelessWidget {
                 flightShuttleBuilder: _titleFlightShuttleBuilder,
                 child: Material(
                   type: MaterialType.transparency,
-                  child: Text(
-                    song.title,
+                  child: ExplicitSongTitle(
+                    song: song,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
