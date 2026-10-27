@@ -10,14 +10,14 @@ class ExplicitSongTitle extends StatefulWidget {
     super.key,
     required this.song,
     this.style,
-    this.maxLines = 1,
-    this.overflow = TextOverflow.ellipsis,
+    this.maxLines,
+    required this.overflow,
     this.textAlign,
   });
 
   final LocalSong song;
   final TextStyle? style;
-  final int maxLines;
+  final int? maxLines;
   final TextOverflow overflow;
   final TextAlign? textAlign;
 
@@ -60,23 +60,22 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
     return FutureBuilder<bool?>(
       future: _explicitFuture,
       builder: (context, snapshot) {
+        final title = Text(
+          widget.song.title,
+          maxLines: widget.maxLines,
+          overflow: widget.overflow,
+          textAlign: widget.textAlign,
+          style: titleStyle,
+        );
+        if (snapshot.data != true) return title;
+
         return Row(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Flexible(
-              child: Text(
-                widget.song.title,
-                maxLines: widget.maxLines,
-                overflow: widget.overflow,
-                textAlign: widget.textAlign,
-                style: titleStyle,
-              ),
-            ),
-            if (snapshot.data == true) ...[
-              const SizedBox(width: 5),
-              Text('[E]', style: badgeStyle),
-            ],
+            Flexible(child: title),
+            const SizedBox(width: 5),
+            Text('[E]', style: badgeStyle),
           ],
         );
       },
