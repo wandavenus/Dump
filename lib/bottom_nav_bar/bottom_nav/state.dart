@@ -44,6 +44,24 @@ class _FirstPageState extends State<FirstPage> {
       5,
       (_) => _TabNavObserver(onChanged: _scheduleNavStateRebuild),
     );
+    ThemeController.glassTheme.addListener(_syncFloatingPillDockEnabled);
+    ThemeController.navBarStyle.addListener(_syncFloatingPillDockEnabled);
+    _syncFloatingPillDockEnabled();
+  }
+
+  void _syncFloatingPillDockEnabled() {
+    FloatingPillTransitionController.setDockEnabled(
+      ThemeController.glassTheme.value &&
+          ThemeController.navBarStyle.value == NavBarStyle.pill,
+    );
+  }
+
+  @override
+  void dispose() {
+    ThemeController.glassTheme.removeListener(_syncFloatingPillDockEnabled);
+    ThemeController.navBarStyle.removeListener(_syncFloatingPillDockEnabled);
+    FloatingPillTransitionController.setDockEnabled(false);
+    super.dispose();
   }
 
   void _scheduleNavStateRebuild() {
@@ -173,10 +191,8 @@ class _FirstPageState extends State<FirstPage> {
                     }
                   },
                   child: NotificationListener<ScrollNotification>(
-                    onNotification: (notification) => isPill
-                        ? FloatingPillTransitionController
-                            .handleScrollNotification(notification)
-                        : false,
+                    onNotification: FloatingPillTransitionController
+                        .handleScrollNotification,
                     child: Stack(
                       children: [
                         Scaffold(
