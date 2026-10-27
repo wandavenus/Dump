@@ -75,23 +75,89 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
           children: [
             Flexible(child: title),
             const SizedBox(width: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 3,
-                vertical: 2,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                'E',
-                style: badgeStyle.copyWith(color: Colors.white),
-              ),
-            ),
+            _KnockoutExplicitBadge(style: badgeStyle),
           ],
         );
       },
     );
+  }
+}
+
+/// Draws the E as a real transparent cutout, rather than transparent text
+/// painted over an intact background.
+class _KnockoutExplicitBadge extends StatelessWidget {
+  const _KnockoutExplicitBadge({required this.style});
+
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final textDirection = Directionality.of(context);
+    final knockoutStyle = TextStyle(
+      inherit: false,
+      fontFamily: style.fontFamily,
+      fontFamilyFallback: style.fontFamilyFallback,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+      letterSpacing: style.letterSpacing,
+      wordSpacing: style.wordSpacing,
+      height: style.height,
+      textBaseline: style.textBaseline,
+      locale: style.locale,
+      foreground: Paint()..blendMode = BlendMode.dstOut,
+    );
+    final textPainter = TextPainter(
+      text: TextSpan(text: 'E', style: knockoutStyle),
+      textDirection: textDirection,
+    )..layout();
+
+    // Preserve the former 3 px horizontal and 2 px vertical padding.
+    final badgeSize = Size(textPainter.width + 6, textPainter.height + 4);
+
+    return Semantics(
+      label: 'Explicit content advisory',
+      child: CustomPaint(
+        size: badgeSize,
+        painter: _KnockoutBadgePainter(textPainter: textPainter),
+        child: SizedBox(
+          width: badgeSize.width,
+          height: badgeSize.height,
+        ),
+      ),
+    );
+  }
+}
+
+class _KnockoutBadgePainter extends CustomPainter {
+  const _KnockoutBadgePainter({required this.textPainter});
+
+  final TextPainter textPainter;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+
+    // The badge and glyph are composited in an isolated layer. dstOut removes
+    // the glyph pixels from the translucent background, exposing what is
+    // actually behind the badge.
+    canvas.saveLayer(bounds, Paint());
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bounds, const Radius.circular(3)),
+      Paint()..color = Colors.white.withValues(alpha: 0.18),
+    );
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size.width - textPainter.width) / 2,
+        (size.height - textPainter.height) / 2,
+      ),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _KnockoutBadgePainter oldDelegate) {
+    return oldDelegate.textPainter.text != textPainter.text;
   }
 }
