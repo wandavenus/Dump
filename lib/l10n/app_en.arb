@@ -502,7 +502,6 @@
   "bitrateUnknownLossless": "Lossless",
   "glassToggleNavBar": "NavBar",
   "navBarStyleSolid": "Default",
-  "navBarStyleGlass": "Glass",
   "navBarStylePill": "Floating Pill",
   "glassToggleAppBar": "AppBar",
   "glassToggleMiniPlayer": "Mini Player",
