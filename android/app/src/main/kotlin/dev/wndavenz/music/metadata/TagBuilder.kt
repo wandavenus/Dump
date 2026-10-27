@@ -47,7 +47,7 @@ internal class TagBuilder {
         explicitContent = when (value.trim().lowercase()) {
             "1", "explicit", "true", "yes" -> true
             "0", "2", "clean", "false", "no", "none", "not explicit" -> false
-            else -> null
+            else -> false
         }
     }
 
