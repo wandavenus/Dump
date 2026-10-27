@@ -29,7 +29,13 @@ class FloatingPillTransitionController {
   static void setDockEnabled(bool enabled) {
     if (_dockEnabled == enabled) return;
     _dockEnabled = enabled;
-    if (!enabled) {
+
+    if (enabled) {
+      PlayerSheetController.progress.addListener(_onPlayerSheetProgressChanged);
+    } else {
+      PlayerSheetController.progress.removeListener(
+        _onPlayerSheetProgressChanged,
+      );
       _detachObservedPosition();
       _resetTicker?.dispose();
       _resetTicker = null;
@@ -55,6 +61,12 @@ class FloatingPillTransitionController {
       } else {
         progress.value = 0.0;
       }
+    }
+  }
+
+  static void _onPlayerSheetProgressChanged() {
+    if (PlayerSheetController.progress.value > 0.015) {
+      _detachObservedPosition();
     }
   }
 
