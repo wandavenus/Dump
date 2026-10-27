@@ -183,13 +183,6 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                                         style: const TextStyle(fontSize: 13),
                                       ),
                                     ),
-                                    NavBarStyle.glass: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                                      child: Text(
-                                        l.navBarStyleGlass,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
                                     NavBarStyle.pill: Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 10),
                                       child: Text(
