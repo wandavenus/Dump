@@ -16,6 +16,38 @@ class MediaStoreService {
   );
   static List<LocalSong>? _songsCache;
 
+  static final Map<String, bool> _explicitStatusCache = {};
+  static final Map<String, Future<bool?>> _explicitStatusInFlight = {};
+
+  /// Returns whether a local song has an explicit advisory tag.
+  ///
+  /// The native side reads the tag off the UI thread and persists it in the
+  /// existing metadata cache. Failed reads return null so a later build can
+  /// retry; clean or explicit results are memoized for this process lifetime.
+  static Future<bool?> getExplicitStatus(LocalSong song) {
+    final key = '${song.id}:${song.path}';
+    if (_explicitStatusCache.containsKey(key)) {
+      return Future.value(_explicitStatusCache[key]);
+    }
+
+    return _explicitStatusInFlight.putIfAbsent(key, () async {
+      try {
+        final explicit = await _channel
+            .invokeMethod<bool>('getExplicitStatus', {
+              'songId': song.id,
+              'path': song.path,
+            })
+            .timeout(const Duration(seconds: 12));
+        if (explicit != null) _explicitStatusCache[key] = explicit;
+        return explicit;
+      } on Object {
+        return null;
+      } finally {
+        _explicitStatusInFlight.remove(key);
+      }
+    });
+  }
+
   /// Synchronous read of the warm-up cache. Non-null after [warmUp] completes
   /// (i.e. from the very first [runApp] frame on a cold start). UI widgets can
   /// read this in [State.initState] to render without a loading spinner.
@@ -199,6 +231,8 @@ class MediaStoreService {
           ? const <LocalSong>[]
           : await compute(_parseSongsJson, songsJson);
 
+      // A library refresh may follow file edits or replacements at the same path.
+      _explicitStatusCache.clear();
       _songsCache = parsedSongs;
       _liveRefreshed = true;
       _lastFailedReconcile = null;

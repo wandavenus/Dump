@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.52',
+    date: '27 Oktober 2026',
+    changes: [
+      'Deteksi tag ITUNESADVISORY dari metadata audio dan tampilkan emblem [E] di samping judul lagu eksplisit.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.51',
     date: '27 Oktober 2026',
     changes: [

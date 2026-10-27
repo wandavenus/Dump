@@ -6,6 +6,7 @@ import '../services/log_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/constants.dart';
 import 'song_artwork.dart';
+import 'explicit_song_title.dart';
 import 'song_context_menu.dart';
 
 part 'local_song_card/card.dart';

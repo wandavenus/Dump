@@ -71,6 +71,8 @@ object ExoMetadataReader {
         val isrc        : String? = null,
         val copyright   : String? = null,
         val publisher   : String? = null,
+        // Null means the metadata file could not be read successfully.
+        val isExplicit  : Boolean? = null,
     ) {
         /** True if at least one loudness tag is present. */
         fun hasLoudness(): Boolean =
