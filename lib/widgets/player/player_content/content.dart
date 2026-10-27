@@ -94,7 +94,6 @@ class _PlayerContentState extends State<PlayerContent> {
     super.initState();
     _fetchLyricsIfNeeded();
     _restartMarquee();
-    _explicitStatusFuture = MediaStoreService.getExplicitStatus(widget.song);
   }
 
   @override
@@ -112,7 +111,8 @@ class _PlayerContentState extends State<PlayerContent> {
         old.song.path != widget.song.path) {
       _fetchLyricsIfNeeded();
       _restartMarquee();
-      _explicitStatusFuture = MediaStoreService.getExplicitStatus(widget.song);
+      // Load this metadata only when the mini header is actually shown.
+      _explicitStatusFuture = null;
     }
     // Reset lyricsExpand when lyrics mode is turned off so bottom controls
     // are not left hidden when switching to queue or normal mode.
@@ -553,6 +553,9 @@ class _PlayerContentState extends State<PlayerContent> {
     BuildContext context, {
     required bool showOverlay,
   }) {
+    final explicitStatusFuture = showOverlay
+        ? (_explicitStatusFuture ??= MediaStoreService.getExplicitStatus(widget.song))
+        : null;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: showOverlay ? 1.0 : 0.0),
       duration: const Duration(milliseconds: 400),
@@ -566,7 +569,7 @@ class _PlayerContentState extends State<PlayerContent> {
             SizedBox(
               width: 200,
               child: FutureBuilder<bool?>(
-                future: _explicitStatusFuture,
+                future: explicitStatusFuture,
                 builder: (context, snapshot) => Row(
                   children: [
                     Expanded(
