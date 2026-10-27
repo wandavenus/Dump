@@ -466,6 +466,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Shared scroll progress controls only the collapsed floating-pill dock.
     // The full-player morph remains owned by PlayerSheetController.progress.
     final compactDockProgress = isPill ? dockProgress : 0.0;
+    final miniDockScale = FloatingPillTransitionController.scaleForProgress(
+      compactDockProgress * (1.0 - t),
+    );
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
@@ -519,10 +522,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final miniArtSize = lerpDouble(46.3, 36.0, compactDockProgress)!;
     final isFluidStyle = backgroundStyle == PlayerBackgroundStyle.fluid;
     final miniArtLeft = lerpDouble(
-      isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0),
-      10.0,
-      compactDockProgress,
-    )!;
+          isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0),
+          10.0,
+          compactDockProgress,
+        )! +
+        FloatingPillTransitionController.artworkTitleOffsetForProgress(
+          compactDockProgress,
+        );
     final miniArtTop = (miniH - miniArtSize) / 2;
 
     // ── Full-player artwork target ───────────────────────────────────────────
@@ -610,14 +616,16 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               left: horizMargin,
               right: horizMargin,
               height: height,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanStart: _onPanStart,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
-                  child: Stack(
+              child: Transform.scale(
+                scale: miniDockScale,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: _onPanStart,
+                  onPanUpdate: _onPanUpdate,
+                  onPanEnd: _onPanEnd,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(radius),
+                    child: Stack(
                     fit: StackFit.expand,
                     clipBehavior: Clip.antiAlias,
                     children: [
@@ -1030,6 +1038,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
                     ],
+                    ),
                   ),
                 ),
               ),
@@ -1073,7 +1082,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               SizedBox(
                 width: lerpDouble(
                   isPill ? 66.0 : (isFluidStyle ? 58.0 : 56.0),
-                  44.0,
+                  44.0 +
+                      FloatingPillTransitionController
+                          .artworkTitleOffsetForProgress(1.0),
                   compact,
                 )!,
               ),
