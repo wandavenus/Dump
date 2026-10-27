@@ -554,7 +554,8 @@ class _PlayerContentState extends State<PlayerContent> {
     required bool showOverlay,
   }) {
     final explicitStatusFuture = showOverlay
-        ? (_explicitStatusFuture ??= MediaStoreService.getExplicitStatus(widget.song))
+        ? (_explicitStatusFuture ??=
+              MediaStoreService.getExplicitStatus(widget.song))
         : null;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: showOverlay ? 1.0 : 0.0),
