@@ -6,9 +6,6 @@ enum NavBarStyle {
   /// Navbar solid biasa (tanpa efek glass).
   solid,
 
-  /// Strip glass selebar layar (tampilan lama).
-  glass,
-
   /// Kapsul apung ala iOS 26 (Liquid Glass).
   pill,
 }
@@ -48,21 +45,19 @@ class ThemeController {
 
     final savedGlassTheme = prefs.getBool('glass_theme') ?? false;
     final savedStyle = prefs.getInt('navbar_style');
-    if (savedStyle != null &&
-        savedStyle >= 0 &&
-        savedStyle < NavBarStyle.values.length) {
-      navBarStyle.value = NavBarStyle.values[savedStyle];
-      // The saved NavBar choice remains authoritative across section collapse.
-      glassTheme.value =
-          savedGlassTheme || navBarStyle.value != NavBarStyle.solid;
+
+    // Stored values remain stable across versions: 0 = Default, 1 = the
+    // removed Glass style, 2 = Floating Pill. Removed Glass preferences fall
+    // back to Default; preserving 2 keeps existing Floating Pill selections.
+    if (savedStyle == 2) {
+      navBarStyle.value = NavBarStyle.pill;
+      glassTheme.value = true;
     } else {
-      // Keep legacy installations compatible; fresh installs use the default
-      // navbar style instead of silently enabling Glass.
-      navBarStyle.value = (prefs.getBool('glass_navbar') ?? false)
-          ? NavBarStyle.glass
-          : NavBarStyle.solid;
+      navBarStyle.value = NavBarStyle.solid;
       glassTheme.value = savedGlassTheme;
     }
+    await _save('navbar_style', _storedNavBarStyle(navBarStyle.value));
+    await prefs.remove('glass_navbar');
 
     liquidGlassSectionExpanded.value =
         prefs.getBool('liquid_glass_section_expanded') ?? false;
@@ -92,9 +87,12 @@ class ThemeController {
   static Future<void> setNavBarStyle(NavBarStyle value) async {
     navBarStyle.value = value;
     glassTheme.value = value != NavBarStyle.solid;
-    await _save('navbar_style', value.index);
+    await _save('navbar_style', _storedNavBarStyle(value));
     await _save('glass_theme', glassTheme.value);
   }
+
+  static int _storedNavBarStyle(NavBarStyle value) =>
+      value == NavBarStyle.pill ? 2 : 0;
 
   static Future<void> setLiquidGlassSectionExpanded(bool expanded) async {
     liquidGlassSectionExpanded.value = expanded;
