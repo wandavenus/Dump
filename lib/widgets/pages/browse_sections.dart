@@ -18,6 +18,7 @@ import '../common/responsive_page_body.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
 import '../song_artwork.dart';
+import '../explicit_song_title.dart';
 import '../song_context_menu.dart';
 
 part 'browse_sections/content.dart';
