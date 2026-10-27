@@ -35,7 +35,10 @@ void main() {
     FloatingPillTransitionController.updateFromScrollDelta(72.0);
     FloatingPillTransitionController.updateFromScrollDelta(-36.0);
 
-    expect(FloatingPillTransitionController.progress.value, closeTo(0.5, 1e-9));
+    expect(
+      FloatingPillTransitionController.progress.value,
+      closeTo(0.5, 1e-9),
+    );
   });
 
   test('transition progress is clamped at both bounds', () {
