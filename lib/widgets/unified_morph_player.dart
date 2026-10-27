@@ -1116,12 +1116,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Keep the full 48px touch target while the glyph compresses.
                       IconButton(
-                        padding: EdgeInsets.all(8.0 * (1.0 - compact)),
-                        constraints: BoxConstraints.tightFor(
-                          width: lerpDouble(48.0, 38.0, compact),
-                          height: lerpDouble(48.0, 38.0, compact),
-                        ),
                         onPressed: () => _isPlaying
                             ? AudioService.pause()
                             : AudioService.play(),
