@@ -2198,12 +2198,6 @@ abstract class AppLocalizations {
   /// **'Default'**
   String get navBarStyleSolid;
 
-  /// No description provided for @navBarStyleGlass.
-  ///
-  /// In en, this message translates to:
-  /// **'Glass'**
-  String get navBarStyleGlass;
-
   /// No description provided for @navBarStylePill.
   ///
   /// In en, this message translates to:
