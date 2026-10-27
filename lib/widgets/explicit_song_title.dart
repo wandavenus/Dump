@@ -75,7 +75,22 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
           children: [
             Flexible(child: title),
             const SizedBox(width: 5),
-            Text('[E]', style: badgeStyle),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 3,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                'E',
+                style: badgeStyle.copyWith(
+                  color: Colors.white.withValues(alpha: 0),
+                ),
+              ),
+            ),
           ],
         );
       },
