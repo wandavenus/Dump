@@ -771,7 +771,7 @@ class MainActivity : FlutterActivity() {
                                         r128Album   = tags.r128Album,
                                         iTunNorm    = tags.iTunNorm,
                                         lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
-                            isExplicit = tags.isExplicit,
+                                        isExplicit = tags.isExplicit,
                                     ))
                                 }
                                 // Detect lyrics type on Kotlin side to avoid
@@ -1373,7 +1373,7 @@ class MainActivity : FlutterActivity() {
                 // Also cache lyrics in the same pass — avoids a second ExoPlayer read
                 // when LyricsService later calls getEmbeddedLyrics for the same file.
                 lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
-                            isExplicit = tags.isExplicit,
+                isExplicit = tags.isExplicit,
             )
         )
 
@@ -1446,7 +1446,7 @@ class MainActivity : FlutterActivity() {
                 r128Album   = tags.r128Album,
                 iTunNorm    = tags.iTunNorm,
                 lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
-                            isExplicit = tags.isExplicit,
+                isExplicit = tags.isExplicit,
             )
         )
         return tags.lyrics
@@ -1463,8 +1463,7 @@ class MainActivity : FlutterActivity() {
         val mtime = MetadataCacheDb.mtime(path)
         if (mtime == 0L) return null
 
-        val cached = (if (songId > 0) metadataCacheDb.get(songId, mtime) else null)
-            ?: metadataCacheDb.getByPath(path, mtime)
+        val cached = metadataCacheDb.getByPath(path, mtime)
         cached?.isExplicit?.let { return it }
 
         val tags = ExoMetadataReader.read(this, path)
