@@ -1131,9 +1131,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get bitrateUnknownLossless => 'Lossless';
 
   @override
-  String get glassToggleNavBar => 'NavBar';
-
-  @override
   String get navBarStyleSolid => 'Bawaan';
 
   @override
