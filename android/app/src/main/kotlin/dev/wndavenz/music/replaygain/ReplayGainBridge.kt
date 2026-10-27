@@ -69,6 +69,7 @@ class ReplayGainBridge(
                     r128Album = existing?.r128Album,
                     iTunNorm = existing?.iTunNorm,
                     lyrics = existing?.lyrics,
+                    isExplicit = existing?.isExplicit,
                 ),
             )
         } else {
@@ -118,6 +119,7 @@ class ReplayGainBridge(
                     r128Album = existing?.r128Album,
                     iTunNorm = existing?.iTunNorm,
                     lyrics = existing?.lyrics,
+                    isExplicit = existing?.isExplicit,
                 ),
             )
         }
