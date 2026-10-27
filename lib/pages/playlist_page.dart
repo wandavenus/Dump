@@ -330,7 +330,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                       size: 55,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    title: ExplicitSongTitle(
+                    title: ExplicitSongTitle.list(
                       song: song,
                       style: TextStyle(color: c.primaryLabel, fontSize: 15),
                       overflow: TextOverflow.ellipsis,
