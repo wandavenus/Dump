@@ -4,7 +4,7 @@
 - Reads the `ITUNESADVISORY` tag from Media3 `VorbisComment` entries (Opus/Ogg/FLAC) and ID3 `TXXX` custom text frames; the parser also checks a matching mdta key.
 - Values `1`, `explicit`, `true`, and `yes` mean explicit. Values `0`, `2`, `clean`, `false`, `no`, `none`, and `not explicit` mean not explicit.
 - Only recognized explicit values activate the badge. Other advisory values and successful parses without an advisory are not marked explicit; a failed metadata read returns null and is retried.
-- `ExplicitSongTitle` renders the shared `ExplicitAdvisoryBadge` after a title only for explicit tracks. The badge is a square borderless white surface at 18% opacity; the E is cut out with `BlendMode.dstOut`, with a 2.43 px corner radius and 81% scale relative to its original size.
+- `ExplicitSongTitle` renders the shared `ExplicitAdvisoryBadge` after a title only for explicit tracks. The badge is a square borderless white surface at 18% opacity; the E is cut out with `BlendMode.dstOut`. The complete badge is now 5% smaller than its previous size (76.95% of the original derived dimensions), with a 2.31 px corner radius.
 - The shared `ExplicitAdvisoryBadge` is also used by the mini header inside `PlayerContent` when the lyrics/queue overlay is visible. Do not add a separate text-only `[E]` marker there.
 - The shared badge is used in lists, search, playlists, browse cards, queue, mini player, full player, and song context menu.
 
