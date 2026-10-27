@@ -225,13 +225,12 @@ Struktur khas plugin FFI: `src/` (C), `lib/` (Dart), `hook/build.dart` (build ho
 - **Tap tab yang sama** → `ScrollToTopService.trigger(index)` (scroll ke atas).
 - **Route generator bersama** (`_tabRoute`) untuk detail: `/album`, `/artist`, `/artistlist`, `/musiclist`.
 
-### 6.2 Navbar (3 gaya)
+### 6.2 Navbar (2 gaya)
 Dikontrol `ThemeController`:
-- **Solid** — `BottomNavigationBar` biasa.
-- **Glass** — `GlassNavBar` (blur).
-- **Pill** — `FloatingPillNavBar` (kapsul 4 tab berlabel + tombol search bundar terpisah di kanan).
+- **Default** — `BottomNavigationBar` biasa.
+- **Floating Pill** — `FloatingPillNavBar` (kapsul 4 tab berlabel + tombol search bundar terpisah di kanan).
 
-Navbar **mengikuti jari player**: saat player sheet digeser, navbar ikut translate (kurva deselerasi dua-segmen) lalu tersembunyi. Glass + pill = navbar ikut bergeser melebihi tinggi layar agar benar-benar hilang.
+Navbar **mengikuti jari player**: saat player sheet digeser, navbar ikut translate (kurva deselerasi dua-segmen) lalu tersembunyi. Floating Pill ikut bergeser melebihi tinggi layar agar benar-benar hilang.
 
 ### 6.3 `AppRouter` (`domain/app_router.dart`)
 Helper navigasi terpusat — **menghindari** `Navigator.pushNamed` di root `MaterialApp` karena di web menghasilkan selector CSS invalid (`#/routename`). Semua push ke detail/settings lewat `AppRouter.pushAlbum/pushArtist/pushArtistList/pushMusicList/pushSettings`, memakai `ZoomFadeRoute`.
@@ -661,8 +660,8 @@ Semua di `lib/services/`. 22 service utama:
 | `themes/app_theme_extension.dart` | `ThemeExtension` untuk token kustom. |
 | `themes/app_themes.dart` | `AppThemes.light` & `AppThemes.dark`. |
 | `themes/theme_builder.dart` | Builder theme. |
-| `themes/theme_controller.dart` | Controller: `mode` (system/light/dark), `glassTheme`, `navBarStyle` (solid/glass/pill), `glassAppBar`, `glassMiniPlayer`. |
-| `themes/glass_navbar.dart` | `GlassNavBar` & `FloatingPillNavBar` (bodyHeight, bottomGap). |
+| `themes/theme_controller.dart` | Controller: `mode` (system/light/dark), `glassTheme`, `navBarStyle` (solid/pill), `glassMiniPlayer`. |
+| `themes/glass_navbar.dart` | `FloatingPillNavBar` (bodyHeight, bottomGap). |
 
 Font: **SF Pro Text** (regular/bold dari `assets/fonts/`). Shader: `assets/shaders/fluid.frag` untuk efek fluid pada player background.
 
