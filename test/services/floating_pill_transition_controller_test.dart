@@ -5,6 +5,7 @@ import 'package:musicplayer/services/player_sheet_controller.dart';
 void main() {
   setUp(() {
     PlayerSheetController.setProgress(0.0);
+    FloatingPillTransitionController.setDockEnabled(true);
     FloatingPillTransitionController.setMiniPlayerVisible(true);
     FloatingPillTransitionController.reset();
   });
@@ -12,6 +13,7 @@ void main() {
   tearDown(() {
     PlayerSheetController.setProgress(0.0);
     FloatingPillTransitionController.setMiniPlayerVisible(false);
+    FloatingPillTransitionController.setDockEnabled(false);
     FloatingPillTransitionController.reset();
   });
 
