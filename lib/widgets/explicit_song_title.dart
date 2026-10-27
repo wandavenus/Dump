@@ -112,13 +112,16 @@ class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
       letterSpacing: 0.1,
     );
 
-    // Keep the square badge at its established 81% scale and preserve the
-    // knockout glyph's typography, padding, background, and corner radius.
+    // Keep the established proportions while reducing the entire badge by
+    // another 5% (81% × 95% = 76.95% of the original derived dimensions).
+    const previousBadgeScale = 0.81;
+    const additionalBadgeScale = 0.95;
+    final knockoutScale = previousBadgeScale * additionalBadgeScale;
     final knockoutStyle = TextStyle(
       inherit: false,
       fontFamily: badgeStyle.fontFamily,
       fontFamilyFallback: badgeStyle.fontFamilyFallback,
-      fontSize: (badgeStyle.fontSize ?? 14) * 0.81,
+      fontSize: (badgeStyle.fontSize ?? 14) * knockoutScale,
       fontWeight: badgeStyle.fontWeight,
       fontStyle: badgeStyle.fontStyle,
       letterSpacing: badgeStyle.letterSpacing,
@@ -135,8 +138,8 @@ class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
     )..layout();
 
     _textPainter = textPainter;
-    final paddedWidth = textPainter.width + 4.86;
-    final paddedHeight = textPainter.height + 3.24;
+    final paddedWidth = textPainter.width + 6 * knockoutScale;
+    final paddedHeight = textPainter.height + 4 * knockoutScale;
     _badgeSize = Size.square(
       paddedWidth > paddedHeight ? paddedWidth : paddedHeight,
     );
@@ -190,7 +193,7 @@ class _KnockoutBadgePainter extends CustomPainter {
     // translucent background without erasing the surrounding UI.
     canvas.saveLayer(bounds, Paint());
     canvas.drawRRect(
-      RRect.fromRectAndRadius(bounds, const Radius.circular(2.43)),
+      RRect.fromRectAndRadius(bounds, const Radius.circular(2.43 * 0.95)),
       Paint()..color = Colors.white.withValues(alpha: 0.18),
     );
     textPainter.paint(
