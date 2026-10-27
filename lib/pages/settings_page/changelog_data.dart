@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.54',
+    date: '28 Oktober 2026',
+    changes: [
+      'Samakan ukuran emblem explicit di baris Music List, Library, Playlist, dan Search tanpa mengubah ukuran judul lagu.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.53',
     date: '27 Oktober 2026',
     changes: [

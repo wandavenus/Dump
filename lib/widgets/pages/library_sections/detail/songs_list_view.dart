@@ -65,7 +65,7 @@ class _SongsListView extends StatelessWidget {
                   vertical: 2,
                 ),
                 leading: SongArtwork(songId: song.id, size: 55),
-                title: ExplicitSongTitle(
+                title: ExplicitSongTitle.list(
                   song: song,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

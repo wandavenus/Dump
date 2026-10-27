@@ -30,7 +30,7 @@ class PlaylistSongTile extends StatelessWidget {
         size: 48,
         borderRadius: BorderRadius.circular(6),
       ),
-      title: ExplicitSongTitle(
+      title: ExplicitSongTitle.list(
         song: song,
         style: TextStyle(color: colors.onSurface, fontSize: 15),
         overflow: TextOverflow.ellipsis,

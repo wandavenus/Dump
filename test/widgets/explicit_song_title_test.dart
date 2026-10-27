@@ -94,18 +94,84 @@ void main() {
       locale: originalBadgeStyle.locale,
       foreground: Paint()..blendMode = BlendMode.dstOut,
     );
-    final originalGlyph = TextPainter(
-      text: TextSpan(text: 'E', style: originalGlyphStyle),
+    const badgeScale = 0.81 * 0.95;
+    final expectedGlyphStyle = originalGlyphStyle.copyWith(
+      fontSize: (originalBadgeStyle.fontSize ?? 14) * badgeScale,
+    );
+    final expectedGlyph = TextPainter(
+      text: TextSpan(text: 'E', style: expectedGlyphStyle),
       textDirection: Directionality.of(titleContext),
     )..layout();
-    final originalWidth = originalGlyph.width + 6;
-    final originalHeight = originalGlyph.height + 4;
-    final originalSide = originalWidth > originalHeight
-        ? originalWidth
-        : originalHeight;
+    final expectedWidth = expectedGlyph.width + 6 * badgeScale;
+    final expectedHeight = expectedGlyph.height + 4 * badgeScale;
+    final expectedSide = expectedWidth > expectedHeight
+        ? expectedWidth
+        : expectedHeight;
 
-    expect(badgeSize.width, closeTo(originalSide * 0.81 * 0.95, 0.1));
+    expect(badgeSize.width, closeTo(expectedSide, 0.1));
   });
+
+  testWidgets(
+    'list badges stay the same size across different title styles',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                ExplicitSongTitle.list(
+                  key: const ValueKey('small-list-title'),
+                  song: _song(
+                    id: 903,
+                    title: 'Small title',
+                    path: '/music/explicit.mp3',
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                ExplicitSongTitle.list(
+                  key: const ValueKey('large-list-title'),
+                  song: _song(
+                    id: 904,
+                    title: 'Large title',
+                    path: '/music/explicit.mp3',
+                  ),
+                  style: const TextStyle(fontSize: 22),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final smallBadge = find.descendant(
+        of: find.byKey(const ValueKey('small-list-title')),
+        matching: find.byType(CustomPaint),
+      );
+      final largeBadge = find.descendant(
+        of: find.byKey(const ValueKey('large-list-title')),
+        matching: find.byType(CustomPaint),
+      );
+      expect(smallBadge, findsOneWidget);
+      expect(largeBadge, findsOneWidget);
+      expect(
+        tester.getSize(smallBadge).width,
+        closeTo(tester.getSize(largeBadge).width, 0.01),
+      );
+      expect(
+        tester.widget<Text>(find.text('Small title')).style?.fontSize,
+        13,
+      );
+      expect(
+        tester.widget<Text>(find.text('Large title')).style?.fontSize,
+        22,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('does not render a badge for a non-explicit track', (
     tester,
