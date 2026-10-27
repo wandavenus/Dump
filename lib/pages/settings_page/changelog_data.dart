@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.49',
+    date: '27 Oktober 2026',
+    changes: [
+      'Navbar pill dan mini player kini bergerak sebagai satu dock mengikuti scroll di seluruh halaman; item navbar menyusut menjadi ikon aktif sementara mini player menyatu di tengah, dengan gerakan dua arah yang mengikuti scroll.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.48',
     date: '25 Oktober 2026',
     changes: [
