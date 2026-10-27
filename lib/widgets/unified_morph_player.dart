@@ -479,6 +479,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
+    final miniDockScale = FloatingPillTransitionController.scaleForProgress(
+      compactDockProgress * (1.0 - t),
+    );
 
     // ── Entry slide-up animation ─────────────────────────────────────────────
     // Mini player starts fully hidden below the screen's bottom edge (i.e.
@@ -519,10 +522,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final miniArtSize = lerpDouble(46.3, 36.0, compactDockProgress)!;
     final isFluidStyle = backgroundStyle == PlayerBackgroundStyle.fluid;
     final miniArtLeft = lerpDouble(
-      isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0),
-      10.0,
-      compactDockProgress,
-    )!;
+          isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0),
+          10.0,
+          compactDockProgress,
+        )! +
+        FloatingPillTransitionController.artworkTitleOffsetForProgress(
+          compactDockProgress,
+        );
     final miniArtTop = (miniH - miniArtSize) / 2;
 
     // ── Full-player artwork target ───────────────────────────────────────────
@@ -610,426 +616,429 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               left: horizMargin,
               right: horizMargin,
               height: height,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanStart: _onPanStart,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    clipBehavior: Clip.antiAlias,
-                    children: [
-                      // Mini-player glass remains enabled whenever Liquid Glass
-                      // is enabled; its per-component toggle has been removed.
-                      ValueListenableBuilder<bool>(
-                        valueListenable: ThemeController.glassTheme,
-                        builder: (_, masterGlass, _) {
-                          final useGlass = masterGlass && progress < 0.02;
-                          if (useGlass) {
-                            final c = AppColors.of(context);
-                            return RepaintBoundary(
-                              child: BackdropGroup(
-                                child: ClipRect(
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      BackdropFilter.grouped(
-                                        filterConfig: const ImageFilterConfig.blur(
-                                          sigmaX: 6,
-                                          sigmaY: 6,
-                                          bounded: true,
+              child: Transform.scale(
+                scale: miniDockScale,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: _onPanStart,
+                  onPanUpdate: _onPanUpdate,
+                  onPanEnd: _onPanEnd,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(radius),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.antiAlias,
+                      children: [
+                        // Mini-player glass remains enabled whenever Liquid Glass
+                        // is enabled; its per-component toggle has been removed.
+                        ValueListenableBuilder<bool>(
+                          valueListenable: ThemeController.glassTheme,
+                          builder: (_, masterGlass, _) {
+                            final useGlass = masterGlass && progress < 0.02;
+                            if (useGlass) {
+                              final c = AppColors.of(context);
+                              return RepaintBoundary(
+                                child: BackdropGroup(
+                                  child: ClipRect(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        BackdropFilter.grouped(
+                                          filterConfig: const ImageFilterConfig.blur(
+                                            sigmaX: 6,
+                                            sigmaY: 6,
+                                            bounded: true,
+                                          ),
+                                          blendMode: BlendMode.srcOver,
+                                          child: const ColoredBox(
+                                            color: Colors.transparent,
+                                          ),
                                         ),
-                                        blendMode: BlendMode.srcOver,
-                                        child: const ColoredBox(
-                                          color: Colors.transparent,
+                                        ColoredBox(
+                                          color: isPill
+                                              ? pillGlassSurfaceTint(
+                                                  context,
+                                                  miniPlayer: true,
+                                                )
+                                              : c.glassFillTint,
                                         ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            return ColoredBox(
+                              color: AppColors.of(context).surface,
+                            );
+                          },
+                        ),
+  
+                        // ── Pre-blurred artwork background (fades in with progress) ────
+                        // AnimatedBlurredPlayerBackground now serves a cached ui.Image
+                        // blit — no runtime ImageFilter cost per frame.
+                        // The outer ImageFiltered(blurSigma) that previously changed
+                        // every drag frame is removed; the inner artwork is already at
+                        // sigma 28 which is visually equivalent.
+                        if (bgAlpha > 0)
+                          Opacity(
+                            opacity: bgAlpha,
+                            child: RepaintBoundary(
+                              child:
+                                  backgroundStyle ==
+                                      PlayerBackgroundStyle.artworkBlur
+                                  ? ArtworkBlurPlayerBackground(
+                                      songId: song.id,
+                                      topOffset: bottom + height - screenH,
+                                    )
+                                  : AnimatedBlurredPlayerBackground(
+                                      songId: song.id,
+                                    ),
+                            ),
+                          ),
+  
+                        // ── Gradient overlay ───────────────────────────────────────────
+                        if (bgAlpha > 0)
+                          Opacity(
+                            opacity: bgAlpha,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient:
+                                    backgroundStyle ==
+                                        PlayerBackgroundStyle.artworkBlur
+                                    ? const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        stops: [0, 0.4, 0.7, 1],
+                                        colors: [
+                                          Color.fromARGB(34, 0, 0, 0),
+                                          Color.fromARGB(18, 0, 0, 0),
+                                          Color.fromARGB(46, 0, 0, 0),
+                                          Color.fromARGB(142, 0, 0, 0),
+                                        ],
+                                      )
+                                    : const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Color.fromARGB(40, 0, 0, 0),
+                                          Color.fromARGB(40, 0, 0, 0),
+                                        ],
                                       ),
-                                      ColoredBox(
-                                        color: isPill
-                                            ? pillGlassSurfaceTint(
-                                                context,
-                                                miniPlayer: true,
-                                              )
-                                            : c.glassFillTint,
-                                      ),
-                                    ],
+                              ),
+                            ),
+                          ),
+  
+                        // ── Full player content (slides up from bottom + fades in) ──────
+                        // All UI elements (except the morphing artwork above) enter as a
+                        // single unit: they slide up from the bottom of the screen to their
+                        // final positions as the sheet expands. The translation is driven by
+                        // the same eased `t` used for the rest of the morph so the motion
+                        // stays perfectly in sync with the gesture.
+                        if (fullAlpha > 0)
+                          Transform.translate(
+                            offset: Offset(0, screenH * (1.0 - t)),
+                            child: Opacity(
+                              opacity: fullAlpha,
+                              child: IgnorePointer(
+                                ignoring: progress < 0.45,
+                                child: SafeArea(
+                                  bottom: false,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: _PlaybackContent(
+                                      song: song,
+                                      formatTime: _formatTime,
+                                      showLyrics: _showLyrics,
+                                      onLyricsToggle: _toggleLyrics,
+                                      showQueue: _showQueue,
+                                      onQueueToggle: _toggleQueue,
+                                      // Unified player owns the artwork for all states;
+                                      // PlayerContent always hides its own artwork widget.
+                                      hideArtwork: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+  
+                        // ── Morphing artwork (mini → full → overlay thumbnail) ─────────
+                        // Single artwork widget handles all three states via _overlayAnim,
+                        // so there is no crossfade between two separate artwork widgets.
+                        AnimatedBuilder(
+                          animation: _overlayAnim,
+                          builder: (context, _) {
+                            final overlayT = Curves.easeInOutCubic.transform(
+                              _overlayAnim.value,
+                            );
+  
+                            // Absolute position of the small thumbnail when overlay is active.
+                            // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
+                            // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
+                            const smallLeft = 32.0;
+                            const smallSize = 55.0;
+                            const smallRadius = 3.0;
+                            final smallTop = safeTop + 36.5;
+  
+                            // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
+                            // scale down the thumbnail's influence proportionally with t so the artwork
+                            // smoothly flies from the small-thumbnail position to the mini-player
+                            // position instead of staying frozen at the top-left corner while the sheet
+                            // slides away.
+                            final effectiveOverlayT = (overlayT * t).clamp(
+                              0.0,
+                              1.0,
+                            );
+  
+                            final finalLeft = lerpDouble(
+                              artLeft,
+                              smallLeft,
+                              effectiveOverlayT,
+                            )!;
+                            final finalTop = lerpDouble(
+                              artTop,
+                              smallTop,
+                              effectiveOverlayT,
+                            )!;
+                            final finalSize = lerpDouble(
+                              artSize,
+                              smallSize,
+                              effectiveOverlayT,
+                            )!;
+                            final finalRadius = lerpDouble(
+                              artRadius,
+                              smallRadius,
+                              effectiveOverlayT,
+                            )!;
+                            // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
+                            // Artwork Blur mode uses only the status-bar shadow;
+                            // keep the artwork itself shadow-free in that mode.
+                            final shadowBase = isArtworkBlurStyle
+                                ? 0.0
+                                : t * (1.0 - effectiveOverlayT);
+                            final shadowAlpha = 0.20 * shadowBase;
+                            final shadowBlur = 20.0 * shadowBase;
+                            final shadowOff = 10.0 * shadowBase;
+  
+                            // In Fluid mode, the full-player artwork rests at 97% while paused
+                            // (or before playback starts) and returns to its natural size on play.
+                            // Scale only the expanded artwork; keep the mini-player and overlay
+                            // thumbnail unchanged. Artwork Blur mode is intentionally unaffected.
+                            final targetScale = isArtworkBlurStyle
+                                ? 1.0
+                                : lerpDouble(
+                                    1.0,
+                                    _isPlaying ? 1.0 : 0.97,
+                                    t * (1.0 - effectiveOverlayT),
+                                  )!;
+                            final artworkFadeStrength = isArtworkBlurStyle
+                                ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
+                                          (1.0 - effectiveOverlayT))
+                                      .clamp(0.0, 1.0)
+                                      .toDouble()
+                                : 0.0;
+  
+                            // Keep the hairline on the collapsed artwork in both
+                            // background modes. Fluid keeps it on expanded artwork
+                            // and the lyrics/queue thumbnail. Artwork Blur hides it
+                            // on the expanded artwork, but restores it as the artwork
+                            // transitions into the small overlay thumbnail.
+                            final hairlineOpacity =
+                                (isArtworkBlurStyle
+                                        ? (1.0 - t) * (1.0 - effectiveOverlayT) +
+                                              effectiveOverlayT
+                                        : 1.0)
+                                    .clamp(0.0, 1.0)
+                                    .toDouble();
+                            final hairlineColor =
+                                Theme.of(context).brightness == Brightness.dark
+                                ? kArtworkHairlineDarkColor
+                                : kArtworkHairlineLightColor;
+  
+                            final artworkWithFade = SongArtwork(
+                              songId: song.id,
+                              size: artSize,
+                              borderRadius: BorderRadius.zero,
+                              // The artwork itself fades into the blurred background.
+                              showBorder: false,
+                              bottomFadeStrength: isArtworkBlurStyle
+                                  ? artworkFadeStrength
+                                  : 0.0,
+                            );
+  
+                            return Positioned(
+                              left: finalLeft,
+                              top: finalTop,
+                              width: finalSize,
+                              height: finalSize,
+                              child: AnimatedScale(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                                scale: targetScale,
+                                child: Container(
+                                  // Shadow in background so it renders behind the artwork.
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    // Artwork Blur mode has no artwork shadow at all.
+                                    boxShadow: isArtworkBlurStyle
+                                        ? const []
+                                        : [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: shadowAlpha,
+                                              ),
+                                              blurRadius: shadowBlur,
+                                              offset: Offset(0, shadowOff),
+                                            ),
+                                          ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(
+                                      finalRadius,
+                                    ),
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        artworkWithFade,
+                                        // Keep the status-bar shadow attached to the
+                                        // artwork itself, not the blurred background.
+                                        if (isArtworkBlurStyle)
+                                          Positioned(
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: safeTop.clamp(24.0, 64.0),
+                                            child: IgnorePointer(
+                                              child: Opacity(
+                                                opacity: bgAlpha,
+                                                child: const DecoratedBox(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topCenter,
+                                                      end: Alignment.bottomCenter,
+                                                      colors: [
+                                                        Color.fromARGB(
+                                                          75,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                        ),
+                                                        Color.fromARGB(
+                                                          60,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                        ),
+                                                        Color.fromARGB(
+                                                          39,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                        ),
+                                                        Color.fromARGB(
+                                                          24,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                        ),
+                                                        Color.fromARGB(
+                                                          10,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                        ),
+                                                        Color.fromARGB(
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                        ),
+                                                      ],
+                                                      stops: [
+                                                        0.0,
+                                                        0.18,
+                                                        0.36,
+                                                        0.56,
+                                                        0.78,
+                                                        1.0,
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        // Draw the shared hairline above the artwork
+                                        // and its status-bar gradient so the edge stays
+                                        // crisp throughout the morph animation.
+                                        if (hairlineOpacity > 0.0)
+                                          Positioned.fill(
+                                            child: IgnorePointer(
+                                              child: Opacity(
+                                                opacity: hairlineOpacity,
+                                                child: DecoratedBox(
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          finalRadius,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: hairlineColor,
+                                                      width:
+                                                          kArtworkHairlineWidth,
+                                                      strokeAlign: BorderSide
+                                                          .strokeAlignInside,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             );
-                          }
-                          return ColoredBox(
-                            color: AppColors.of(context).surface,
-                          );
-                        },
-                      ),
-
-                      // ── Pre-blurred artwork background (fades in with progress) ────
-                      // AnimatedBlurredPlayerBackground now serves a cached ui.Image
-                      // blit — no runtime ImageFilter cost per frame.
-                      // The outer ImageFiltered(blurSigma) that previously changed
-                      // every drag frame is removed; the inner artwork is already at
-                      // sigma 28 which is visually equivalent.
-                      if (bgAlpha > 0)
-                        Opacity(
-                          opacity: bgAlpha,
-                          child: RepaintBoundary(
-                            child:
-                                backgroundStyle ==
-                                    PlayerBackgroundStyle.artworkBlur
-                                ? ArtworkBlurPlayerBackground(
-                                    songId: song.id,
-                                    topOffset: bottom + height - screenH,
-                                  )
-                                : AnimatedBlurredPlayerBackground(
-                                    songId: song.id,
-                                  ),
-                          ),
+                          },
                         ),
-
-                      // ── Gradient overlay ───────────────────────────────────────────
-                      if (bgAlpha > 0)
-                        Opacity(
-                          opacity: bgAlpha,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient:
-                                  backgroundStyle ==
-                                      PlayerBackgroundStyle.artworkBlur
-                                  ? const LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      stops: [0, 0.4, 0.7, 1],
-                                      colors: [
-                                        Color.fromARGB(34, 0, 0, 0),
-                                        Color.fromARGB(18, 0, 0, 0),
-                                        Color.fromARGB(46, 0, 0, 0),
-                                        Color.fromARGB(142, 0, 0, 0),
-                                      ],
-                                    )
-                                  : const LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Color.fromARGB(40, 0, 0, 0),
-                                        Color.fromARGB(40, 0, 0, 0),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                        ),
-
-                      // ── Full player content (slides up from bottom + fades in) ──────
-                      // All UI elements (except the morphing artwork above) enter as a
-                      // single unit: they slide up from the bottom of the screen to their
-                      // final positions as the sheet expands. The translation is driven by
-                      // the same eased `t` used for the rest of the morph so the motion
-                      // stays perfectly in sync with the gesture.
-                      if (fullAlpha > 0)
-                        Transform.translate(
-                          offset: Offset(0, screenH * (1.0 - t)),
-                          child: Opacity(
-                            opacity: fullAlpha,
+  
+                        // ── Mini player overlay (fades out in first 28% of progress) ───
+                        if (miniAlpha > 0)
+                          Opacity(
+                            opacity: miniAlpha,
                             child: IgnorePointer(
-                              ignoring: progress < 0.45,
-                              child: SafeArea(
-                                bottom: false,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: _PlaybackContent(
-                                    song: song,
-                                    formatTime: _formatTime,
-                                    showLyrics: _showLyrics,
-                                    onLyricsToggle: _toggleLyrics,
-                                    showQueue: _showQueue,
-                                    onQueueToggle: _toggleQueue,
-                                    // Unified player owns the artwork for all states;
-                                    // PlayerContent always hides its own artwork widget.
-                                    hideArtwork: true,
+                              ignoring: progress > 0.08,
+                              child: _buildMiniOverlay(
+                                context,
+                                song,
+                                progress,
+                                isPill,
+                                compactDockProgress,
+                              ),
+                            ),
+                          ),
+  
+                        // ── Directional glass rim for the collapsed pill mini player.
+                        // Reuses the navbar's specular painter so both capsules share
+                        // the same edge treatment in dark and light themes.
+                        if (isPill && miniAlpha > 0)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: Opacity(
+                                opacity: miniAlpha,
+                                child: CustomPaint(
+                                  painter: PillGlassRimPainter(
+                                    radius: radius,
+                                    isDark: Theme.of(context).brightness == Brightness.dark,
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-
-                      // ── Morphing artwork (mini → full → overlay thumbnail) ─────────
-                      // Single artwork widget handles all three states via _overlayAnim,
-                      // so there is no crossfade between two separate artwork widgets.
-                      AnimatedBuilder(
-                        animation: _overlayAnim,
-                        builder: (context, _) {
-                          final overlayT = Curves.easeInOutCubic.transform(
-                            _overlayAnim.value,
-                          );
-
-                          // Absolute position of the small thumbnail when overlay is active.
-                          // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
-                          // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
-                          const smallLeft = 32.0;
-                          const smallSize = 55.0;
-                          const smallRadius = 3.0;
-                          final smallTop = safeTop + 36.5;
-
-                          // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
-                          // scale down the thumbnail's influence proportionally with t so the artwork
-                          // smoothly flies from the small-thumbnail position to the mini-player
-                          // position instead of staying frozen at the top-left corner while the sheet
-                          // slides away.
-                          final effectiveOverlayT = (overlayT * t).clamp(
-                            0.0,
-                            1.0,
-                          );
-
-                          final finalLeft = lerpDouble(
-                            artLeft,
-                            smallLeft,
-                            effectiveOverlayT,
-                          )!;
-                          final finalTop = lerpDouble(
-                            artTop,
-                            smallTop,
-                            effectiveOverlayT,
-                          )!;
-                          final finalSize = lerpDouble(
-                            artSize,
-                            smallSize,
-                            effectiveOverlayT,
-                          )!;
-                          final finalRadius = lerpDouble(
-                            artRadius,
-                            smallRadius,
-                            effectiveOverlayT,
-                          )!;
-                          // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
-                          // Artwork Blur mode uses only the status-bar shadow;
-                          // keep the artwork itself shadow-free in that mode.
-                          final shadowBase = isArtworkBlurStyle
-                              ? 0.0
-                              : t * (1.0 - effectiveOverlayT);
-                          final shadowAlpha = 0.20 * shadowBase;
-                          final shadowBlur = 20.0 * shadowBase;
-                          final shadowOff = 10.0 * shadowBase;
-
-                          // In Fluid mode, the full-player artwork rests at 97% while paused
-                          // (or before playback starts) and returns to its natural size on play.
-                          // Scale only the expanded artwork; keep the mini-player and overlay
-                          // thumbnail unchanged. Artwork Blur mode is intentionally unaffected.
-                          final targetScale = isArtworkBlurStyle
-                              ? 1.0
-                              : lerpDouble(
-                                  1.0,
-                                  _isPlaying ? 1.0 : 0.97,
-                                  t * (1.0 - effectiveOverlayT),
-                                )!;
-                          final artworkFadeStrength = isArtworkBlurStyle
-                              ? (((t - 0.65) / 0.35).clamp(0.0, 1.0) *
-                                        (1.0 - effectiveOverlayT))
-                                    .clamp(0.0, 1.0)
-                                    .toDouble()
-                              : 0.0;
-
-                          // Keep the hairline on the collapsed artwork in both
-                          // background modes. Fluid keeps it on expanded artwork
-                          // and the lyrics/queue thumbnail. Artwork Blur hides it
-                          // on the expanded artwork, but restores it as the artwork
-                          // transitions into the small overlay thumbnail.
-                          final hairlineOpacity =
-                              (isArtworkBlurStyle
-                                      ? (1.0 - t) * (1.0 - effectiveOverlayT) +
-                                            effectiveOverlayT
-                                      : 1.0)
-                                  .clamp(0.0, 1.0)
-                                  .toDouble();
-                          final hairlineColor =
-                              Theme.of(context).brightness == Brightness.dark
-                              ? kArtworkHairlineDarkColor
-                              : kArtworkHairlineLightColor;
-
-                          final artworkWithFade = SongArtwork(
-                            songId: song.id,
-                            size: artSize,
-                            borderRadius: BorderRadius.zero,
-                            // The artwork itself fades into the blurred background.
-                            showBorder: false,
-                            bottomFadeStrength: isArtworkBlurStyle
-                                ? artworkFadeStrength
-                                : 0.0,
-                          );
-
-                          return Positioned(
-                            left: finalLeft,
-                            top: finalTop,
-                            width: finalSize,
-                            height: finalSize,
-                            child: AnimatedScale(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOutCubic,
-                              scale: targetScale,
-                              child: Container(
-                                // Shadow in background so it renders behind the artwork.
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(4),
-                                  // Artwork Blur mode has no artwork shadow at all.
-                                  boxShadow: isArtworkBlurStyle
-                                      ? const []
-                                      : [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: shadowAlpha,
-                                            ),
-                                            blurRadius: shadowBlur,
-                                            offset: Offset(0, shadowOff),
-                                          ),
-                                        ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(
-                                    finalRadius,
-                                  ),
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      artworkWithFade,
-                                      // Keep the status-bar shadow attached to the
-                                      // artwork itself, not the blurred background.
-                                      if (isArtworkBlurStyle)
-                                        Positioned(
-                                          top: 0,
-                                          left: 0,
-                                          right: 0,
-                                          height: safeTop.clamp(24.0, 64.0),
-                                          child: IgnorePointer(
-                                            child: Opacity(
-                                              opacity: bgAlpha,
-                                              child: const DecoratedBox(
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.topCenter,
-                                                    end: Alignment.bottomCenter,
-                                                    colors: [
-                                                      Color.fromARGB(
-                                                        75,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                      ),
-                                                      Color.fromARGB(
-                                                        60,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                      ),
-                                                      Color.fromARGB(
-                                                        39,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                      ),
-                                                      Color.fromARGB(
-                                                        24,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                      ),
-                                                      Color.fromARGB(
-                                                        10,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                      ),
-                                                      Color.fromARGB(
-                                                        0,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                      ),
-                                                    ],
-                                                    stops: [
-                                                      0.0,
-                                                      0.18,
-                                                      0.36,
-                                                      0.56,
-                                                      0.78,
-                                                      1.0,
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      // Draw the shared hairline above the artwork
-                                      // and its status-bar gradient so the edge stays
-                                      // crisp throughout the morph animation.
-                                      if (hairlineOpacity > 0.0)
-                                        Positioned.fill(
-                                          child: IgnorePointer(
-                                            child: Opacity(
-                                              opacity: hairlineOpacity,
-                                              child: DecoratedBox(
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        finalRadius,
-                                                      ),
-                                                  border: Border.all(
-                                                    color: hairlineColor,
-                                                    width:
-                                                        kArtworkHairlineWidth,
-                                                    strokeAlign: BorderSide
-                                                        .strokeAlignInside,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                      ],
                       ),
-
-                      // ── Mini player overlay (fades out in first 28% of progress) ───
-                      if (miniAlpha > 0)
-                        Opacity(
-                          opacity: miniAlpha,
-                          child: IgnorePointer(
-                            ignoring: progress > 0.08,
-                            child: _buildMiniOverlay(
-                              context,
-                              song,
-                              progress,
-                              isPill,
-                              compactDockProgress,
-                            ),
-                          ),
-                        ),
-
-                      // ── Directional glass rim for the collapsed pill mini player.
-                      // Reuses the navbar's specular painter so both capsules share
-                      // the same edge treatment in dark and light themes.
-                      if (isPill && miniAlpha > 0)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: miniAlpha,
-                              child: CustomPaint(
-                                painter: PillGlassRimPainter(
-                                  radius: radius,
-                                  isDark: Theme.of(context).brightness == Brightness.dark,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
                   ),
                 ),
               ),
@@ -1073,7 +1082,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               SizedBox(
                 width: lerpDouble(
                   isPill ? 66.0 : (isFluidStyle ? 58.0 : 56.0),
-                  44.0,
+                  44.0 +
+                      FloatingPillTransitionController
+                          .artworkTitleOffsetForProgress(1.0),
                   compact,
                 )!,
               ),

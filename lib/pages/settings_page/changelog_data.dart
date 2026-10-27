@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.50',
+    date: '27 Oktober 2026',
+    changes: [
+      'Transisi collapse Floating Pill dipoles: circle kiri, pill mini player, dan circle Search mengecil hingga 95%; artwork dan judul bergeser 8 px ke kanan saat dock compact.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.49',
     date: '27 Oktober 2026',
     changes: [

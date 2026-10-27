@@ -187,24 +187,35 @@ class FloatingPillNavBar extends StatelessWidget {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: capsuleWidth,
-                      height: bodyHeight,
-                      child: _buildCapsule(
-                        context,
-                        radius,
+                    Transform.scale(
+                      scale: FloatingPillTransitionController.scaleForProgress(
                         compactProgress,
+                      ),
+                      child: SizedBox(
+                        width: capsuleWidth,
+                        height: bodyHeight,
+                        child: _buildCapsule(
+                          context,
+                          radius,
+                          compactProgress,
+                        ),
                       ),
                     ),
                     SizedBox(width: trailingGap * compactProgress),
                     SizedBox(width: dockWidth),
                     if (hasTrailing) ...[
                       SizedBox(width: trailingGap),
-                      _TrailingButton(
-                        icon: trailingIcon!,
-                        label: trailingLabel,
-                        active: selectedIndex == icons.length,
-                        onTap: () => onTap(icons.length),
+                      Transform.scale(
+                        scale:
+                            FloatingPillTransitionController.scaleForProgress(
+                              compactProgress,
+                            ),
+                        child: _TrailingButton(
+                          icon: trailingIcon!,
+                          label: trailingLabel,
+                          active: selectedIndex == icons.length,
+                          onTap: () => onTap(icons.length),
+                        ),
                       ),
                     ],
                   ],
