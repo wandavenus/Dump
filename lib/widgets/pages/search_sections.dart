@@ -12,6 +12,7 @@ import '../../utils/responsive.dart';
 import '../../utils/sample_music_data.dart';
 import '../common/responsive_page_body.dart';
 import '../song_artwork.dart';
+import '../explicit_song_title.dart';
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
