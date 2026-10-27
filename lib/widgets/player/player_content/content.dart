@@ -623,13 +623,11 @@ class _PlayerContentState extends State<PlayerContent> {
                     ),
                     if (snapshot.data == true) ...[
                       const SizedBox(width: 5),
-                      const Text(
-                        '[E]',
-                        style: TextStyle(
+                      const ExplicitAdvisoryBadge(
+                        titleStyle: TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.1,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

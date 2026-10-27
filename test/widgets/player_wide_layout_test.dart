@@ -43,7 +43,12 @@ const _state = AudioPlaybackState(
   processingState: ProcessingState.ready,
 );
 
-Future<void> _pumpPlayer(WidgetTester tester, Size size) async {
+Future<void> _pumpPlayer(
+  WidgetTester tester,
+  Size size, {
+  bool showLyrics = false,
+  LocalSong? song,
+}) async {
   tester.view.devicePixelRatio = 1.0;
   tester.view.physicalSize = size;
   addTearDown(tester.view.reset);
@@ -59,10 +64,10 @@ Future<void> _pumpPlayer(WidgetTester tester, Size size) async {
       home: Scaffold(
         body: SizedBox.expand(
           child: PlayerContent(
-            song: _song,
+            song: song ?? _song,
             playbackState: _state,
             formatTime: (d) => '${d.inSeconds}s',
-            showLyrics: false,
+            showLyrics: showLyrics,
             onLyricsToggle: () {},
             showQueue: false,
             onQueueToggle: () {},
@@ -110,6 +115,50 @@ void main() {
     expect(find.byKey(const ValueKey('wideAlbumCover')), findsNothing);
     expect(find.byKey(const ValueKey('songInfo')), findsOneWidget);
     expect(find.byKey(const ValueKey('albumCover')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mini player uses the shared knockout explicit badge', (
+    tester,
+  ) async {
+    const channel = MethodChannel('musicplayer/media_store');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'getExplicitStatus') return true;
+      return null;
+    });
+
+    final explicitSong = LocalSong(
+      id: 811,
+      title: 'Explicit Test Song',
+      artist: 'Test Artist',
+      album: 'Test Album',
+      albumId: 10,
+      path: '/music/explicit-mini-header.mp3',
+      duration: const Duration(minutes: 3),
+    );
+
+    await _pumpPlayer(
+      tester,
+      _landscape,
+      showLyrics: true,
+      song: explicitSong,
+    );
+
+    expect(find.text('[E]'), findsNothing);
+    final miniHeader = find.byKey(const ValueKey('wideMiniSongHeader'));
+    expect(
+      find.descendant(
+        of: miniHeader,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label == 'Explicit content advisory',
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
