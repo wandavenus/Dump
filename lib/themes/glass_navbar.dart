@@ -347,11 +347,13 @@ class _PillItemsState extends State<_PillItems> {
           height: FloatingPillNavBar.bodyHeight,
           child: Stack(
             children: [
-              IgnorePointer(
-                ignoring: compactProgress >= 0.5,
-                child: Opacity(
-                  opacity: 1.0 - compactProgress,
-                  child: GestureDetector(
+              ExcludeSemantics(
+                excluding: compactProgress >= 0.5,
+                child: IgnorePointer(
+                  ignoring: compactProgress >= 0.5,
+                  child: Opacity(
+                    opacity: 1.0 - compactProgress,
+                    child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
                     onHorizontalDragUpdate: (details) =>
                         _updateDrag(details, constraints.maxWidth),
@@ -414,6 +416,7 @@ class _PillItemsState extends State<_PillItems> {
                     ),
                   ),
                 ),
+              ),
               ),
               if (compactProgress > 0.0)
                 Positioned.fill(
