@@ -151,8 +151,8 @@ class _MusicListState extends State<MusicList> {
                     tag: PlayerHeroTags.title(song),
                     child: Material(
                       type: MaterialType.transparency,
-                      child: Text(
-                        song.title,
+                      child: ExplicitSongTitle(
+                        song: song,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
