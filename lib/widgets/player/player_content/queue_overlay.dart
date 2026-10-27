@@ -219,8 +219,8 @@ class _QueueRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      song.title,
+                    ExplicitSongTitle(
+                      song: song,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
