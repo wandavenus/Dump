@@ -1,0 +1,44 @@
+name: NEON differential (AArch64)
+
+# Verifies the hand-written ARM64 NEON kernels in native_audio_runtime/src/*.S
+# against references that mirror their exact instruction shape.
+#
+# This is the only job that executes the .S files at all: they are guarded by
+# #ifdef __aarch64__, so on the x86_64 runners used by the other workflows they
+# compile to empty translation units and `dart test` / `flutter test` never run a
+# single NEON instruction.
+#
+# Manual-only, like every other workflow in this repository.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-diff-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  neon-diff:
+    name: NEON kernels vs references
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Clang cross-compiles to aarch64-linux-gnu, lld links the freestanding
+      # binary, and qemu-user executes it. On an arm64 runner none of these are
+      # needed -- `tools/neon_diff_regression.sh` detects the host and builds
+      # natively, so switching this job to `runs-on: ubuntu-24.04-arm` and
+      # dropping this step gives a native run instead of an emulated one.
+      - name: Install AArch64 toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang lld qemu-user-static
+
+      - name: Run NEON differential test
+        run: bash tools/neon_diff_regression.sh
