@@ -18,8 +18,6 @@ class FloatingPillTransitionController {
   static const Duration _resetDuration = Duration(milliseconds: 220);
 
   static final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
-  static final Expando<double> _lastKnownPixels =
-      Expando<double>('floatingPillLastKnownPixels');
 
   static bool _dockEnabled = false;
   static bool _miniPlayerVisible = false;
@@ -161,18 +159,11 @@ class FloatingPillTransitionController {
     _detachObservedPosition();
 
     final currentPixels = position.pixels;
-    final previousPixels = _lastKnownPixels[position];
     _observedPosition = position;
     _observedPixels = currentPixels;
-    _lastKnownPixels[position] = currentPixels;
     position.addListener(_onObservedPositionChanged);
 
-    if (previousPixels != null) {
-      _applyAxisDelta(
-        currentPixels - previousPixels,
-        position.axisDirection,
-      );
-    } else if (fallbackDelta != null) {
+    if (fallbackDelta != null) {
       _applyAxisDelta(fallbackDelta, position.axisDirection);
     }
   }
@@ -184,7 +175,6 @@ class FloatingPillTransitionController {
     final previousPixels = _observedPixels;
     final currentPixels = position.pixels;
     _observedPixels = currentPixels;
-    _lastKnownPixels[position] = currentPixels;
 
     if (previousPixels != null) {
       _applyAxisDelta(
@@ -201,7 +191,6 @@ class FloatingPillTransitionController {
       return;
     }
 
-    _lastKnownPixels[position] = position.pixels;
     position.removeListener(_onObservedPositionChanged);
     _observedPosition = null;
     _observedPixels = null;
