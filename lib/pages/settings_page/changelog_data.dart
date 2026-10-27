@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.53',
+    date: '27 Oktober 2026',
+    changes: [
+      'Perbaiki layout judul lagu agar emblem [E] tidak mengubah tampilan lagu non-explicit; metadata di header mini player kini dimuat saat benar-benar ditampilkan.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.52',
     date: '27 Oktober 2026',
     changes: [

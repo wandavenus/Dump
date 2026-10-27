@@ -25,6 +25,9 @@ class MediaStoreService {
   /// existing metadata cache. Failed reads return null so a later build can
   /// retry; clean or explicit results are memoized for this process lifetime.
   static Future<bool?> getExplicitStatus(LocalSong song) {
+    // The web preview has no Android MediaStore/metadata channel.
+    if (kIsWeb) return Future.value(false);
+
     final key = '${song.id}:${song.path}';
     if (_explicitStatusCache.containsKey(key)) {
       return Future.value(_explicitStatusCache[key]);
