@@ -22,6 +22,7 @@
 - [App Init & Navigation](app-init-navigation.md) — full main.dart init sequence (10 steps); app_state.dart lifecycle; routing (onGenerateRoute, ZoomFadeRoute, bottom nav).
 - [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, SyncedLyricsView, progress, transport, fog shader, home sections.
 - [Theme, Assets & UI](theme-assets-ui.md) — ThemeController 10 toggles; fluid.frag shader; assets tree (SF Pro Text fonts, webp images); PaletteExtractor; lib/utils/.
+- [Scroll-driven Floating Pill Transition](floating-pill-scroll-transition.md) — satu progress notifier mengoordinasikan morf navbar dan mini player mengikuti signed vertical scroll delta; hanya mengubah geometri saat navbar pill aktif.
 - [DSP Processor Params](dsp-processor-params.md) — full param ranges for all 7 processors: comp, limiter, loudness, crossfeed, replaygain, biquad, soft clipper.
 - [Android Build Config](android-build-config.md) — Manifest permissions/services; build.gradle SDK/NDK/CMake; CMakeLists targets; ProGuard keeps.
 - [Pages Browse Search Detail](pages-browse-search-detail.md) — BrowsePage, RadioPage, PlaylistPage, SearchPage, AlbumPage, ArtistPage, all detail section widgets.

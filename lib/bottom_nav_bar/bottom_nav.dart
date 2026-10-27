@@ -4,6 +4,7 @@ import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/widgets/unified_morph_player.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';
+import 'package:musicplayer/services/floating_pill_transition_controller.dart';
 import 'package:musicplayer/pages/browse_page.dart';
 import 'package:musicplayer/pages/home_page.dart';
 import 'package:musicplayer/pages/library_page.dart';
