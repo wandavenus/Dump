@@ -33,8 +33,7 @@ double navBottomClearance(BuildContext context) {
         safeBottom +
         0.0;
   }
-  final navBarH = isGlass && navStyle != NavBarStyle.solid ? 53.8 : 55.1;
-  return navBarH + kMiniPlayerHeight + safeBottom + 10.7;
+  return 55.1 + kMiniPlayerHeight + safeBottom + 10.7;
 }
 
 /// Navbar kapsul apung gaya iOS 26 (Liquid Glass).
