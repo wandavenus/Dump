@@ -119,6 +119,7 @@ object MetadataPrescanner {
                             r128Album   = tags.r128Album,
                             iTunNorm    = tags.iTunNorm,
                             lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+                            isExplicit   = tags.isExplicit,
                         )
                     )
                     scanned++
