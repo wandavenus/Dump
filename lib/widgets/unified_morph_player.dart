@@ -91,6 +91,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // e.g. Activity recreation while Media3 is still playing).
     _currentSong = AudioService.playbackState.value.currentSong;
     _isPlaying = AudioService.playbackState.value.isPlaying;
+    FloatingPillTransitionController.setMiniPlayerVisible(_currentSong != null);
     // If a song is already active on mount (restored session / Activity recreation),
     // play the same slide-up entry animation as when a song first appears during
     // a fresh session. Without this, _entryAnim stays at 0.0 → entrySlide ≈ 120 px
@@ -202,6 +203,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       }
     }
 
+    // Keep the navbar compact only while the mini-player is actually rendered.
+    // A session STOP retains the old song during its exit slide, so this remains
+    // true until _onEntryStatusChanged unmounts that last frame.
+    FloatingPillTransitionController.setMiniPlayerVisible(_currentSong != null);
+
     // Play / Pause state changed.
     if (_isPlaying != isPlaying) {
       _isPlaying = isPlaying;
@@ -250,6 +256,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       _exiting = false;
       if (mounted) {
         setState(() => _currentSong = null);
+        FloatingPillTransitionController.setMiniPlayerVisible(false);
       }
     }
   }
