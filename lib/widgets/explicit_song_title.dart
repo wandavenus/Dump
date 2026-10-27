@@ -51,11 +51,6 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
   Widget build(BuildContext context) {
     final inheritedStyle = DefaultTextStyle.of(context).style;
     final titleStyle = widget.style;
-    final badgeStyle = (titleStyle ?? inheritedStyle).copyWith(
-      fontSize: ((titleStyle ?? inheritedStyle).fontSize ?? 14) * 0.78,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.1,
-    );
 
     return FutureBuilder<bool?>(
       future: _explicitFuture,
@@ -75,7 +70,7 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
           children: [
             Flexible(child: title),
             const SizedBox(width: 5),
-            _KnockoutExplicitBadge(style: badgeStyle),
+            ExplicitAdvisoryBadge(titleStyle: titleStyle ?? inheritedStyle),
           ],
         );
       },
@@ -83,19 +78,19 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
   }
 }
 
-/// Draws the E as a real transparent cutout, rather than transparent text
-/// painted over an intact background.
-class _KnockoutExplicitBadge extends StatefulWidget {
-  const _KnockoutExplicitBadge({required this.style});
+/// Shared explicit-content marker used by song titles and player overlays.
+/// The E is a real transparent cutout, not transparent text over a solid tile.
+class ExplicitAdvisoryBadge extends StatefulWidget {
+  const ExplicitAdvisoryBadge({super.key, required this.titleStyle});
 
-  final TextStyle style;
+  /// The title's style; badge sizing is derived from its font size.
+  final TextStyle titleStyle;
 
   @override
-  State<_KnockoutExplicitBadge> createState() =>
-      _KnockoutExplicitBadgeState();
+  State<ExplicitAdvisoryBadge> createState() => _ExplicitAdvisoryBadgeState();
 }
 
-class _KnockoutExplicitBadgeState extends State<_KnockoutExplicitBadge> {
+class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
   TextStyle? _sourceStyle;
   TextDirection? _textDirection;
   TextPainter? _textPainter;
@@ -103,28 +98,34 @@ class _KnockoutExplicitBadgeState extends State<_KnockoutExplicitBadge> {
 
   void _configurePainterIfNeeded(TextDirection textDirection) {
     if (_textPainter != null &&
-        _sourceStyle == widget.style &&
+        _sourceStyle == widget.titleStyle &&
         _textDirection == textDirection) {
       return;
     }
 
-    _sourceStyle = widget.style;
+    _sourceStyle = widget.titleStyle;
     _textDirection = textDirection;
 
-    // The badge has been reduced to 81% of its original size after two
-    // successive 10% reductions. Keep the knockout glyph and padding in scale.
+    final badgeStyle = widget.titleStyle.copyWith(
+      fontSize: (widget.titleStyle.fontSize ?? 14) * 0.78,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.1,
+    );
+
+    // Keep the square badge at its established 81% scale and preserve the
+    // knockout glyph's typography, padding, background, and corner radius.
     final knockoutStyle = TextStyle(
       inherit: false,
-      fontFamily: widget.style.fontFamily,
-      fontFamilyFallback: widget.style.fontFamilyFallback,
-      fontSize: (widget.style.fontSize ?? 14) * 0.81,
-      fontWeight: widget.style.fontWeight,
-      fontStyle: widget.style.fontStyle,
-      letterSpacing: widget.style.letterSpacing,
-      wordSpacing: widget.style.wordSpacing,
-      height: widget.style.height,
-      textBaseline: widget.style.textBaseline,
-      locale: widget.style.locale,
+      fontFamily: badgeStyle.fontFamily,
+      fontFamilyFallback: badgeStyle.fontFamilyFallback,
+      fontSize: (badgeStyle.fontSize ?? 14) * 0.81,
+      fontWeight: badgeStyle.fontWeight,
+      fontStyle: badgeStyle.fontStyle,
+      letterSpacing: badgeStyle.letterSpacing,
+      wordSpacing: badgeStyle.wordSpacing,
+      height: badgeStyle.height,
+      textBaseline: badgeStyle.textBaseline,
+      locale: badgeStyle.locale,
       foreground: Paint()..blendMode = BlendMode.dstOut,
     );
 
