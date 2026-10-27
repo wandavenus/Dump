@@ -14,7 +14,6 @@ All-static singleton (private constructor), persists via `SharedPreferences`.
 | Field | Scope |
 |-------|-------|
 | `glassTheme` | Master switch |
-| `glassNavBar` | Bottom navigation bar |
 | `glassAppBar` | App bar |
 | `glassMiniPlayer` | Mini player strip |
 | `glassAlbumCard` | Album cards |
@@ -29,7 +28,7 @@ Components subscribe via `ValueListenableBuilder`. Helper: `isGlass(notifier)` c
 
 | File | Role |
 |------|------|
-| `lib/themes/glass_navbar.dart` | Implements `BackdropFilter` for glass nav bar |
+| `lib/themes/glass_navbar.dart` | Floating Pill navbar with Liquid Glass surfaces |
 | `lib/pages/settings_page/glass_toggle.dart` | Per-component toggle UI in settings |
 | `lib/widgets/unified_morph_player.dart` | Glass morphing logic using ThemeController |
 
@@ -37,7 +36,7 @@ Components subscribe via `ValueListenableBuilder`. Helper: `isGlass(notifier)` c
 
 - `FloatingPillTransitionController.progress` is the shared frame-synchronous 0–1 progress source for the floating navbar and collapsed mini-player.
 - `lib/bottom_nav_bar/bottom_nav/state.dart` observes root vertical scroll notifications and leaves them available to page-level app-bar animations.
-- `lib/themes/glass_navbar.dart` morphs the four-tab capsule into the active destination icon. Search remains a separate circular action; the center slot is reserved for the mini-player.
+- `lib/themes/glass_navbar.dart` implements the Floating Pill: its four-tab capsule morphs into the active destination icon; Search stays separate and the center slot is reserved for the mini-player.
 - `lib/widgets/unified_morph_player.dart` uses the same progress to dock and compress the mini-player. Full-player expansion remains controlled by `PlayerSheetController.progress`.
 - Only the floating pill navbar style changes dock geometry. Regression coverage is in `test/services/floating_pill_transition_controller_test.dart`.
 
@@ -104,4 +103,4 @@ No `lib/helpers/`, `lib/extensions/`, `lib/constants/`, `lib/config/`, `lib/cont
 | File | Role |
 |------|------|
 | `theme_controller.dart` | `ThemeController` — all-static glass toggle manager |
-| `glass_navbar.dart` | Glass nav bar `BackdropFilter` implementation |
+| `glass_navbar.dart` | Floating Pill navbar and glass surfaces |

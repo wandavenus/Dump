@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.51',
+    date: '27 Oktober 2026',
+    changes: [
+      'Gaya navbar Glass selebar layar dihapus; gaya Default dan Floating Pill tetap tersedia.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.50',
     date: '27 Oktober 2026',
     changes: [

@@ -7,8 +7,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('ThemeController Liquid Glass settings', () {
-    test('fresh install defaults to Bawaan and a collapsed section', () async {
+  group('ThemeController navbar styles', () {
+    test('fresh install defaults to Default and a collapsed section', () async {
       await ThemeController.init();
 
       expect(ThemeController.navBarStyle.value, NavBarStyle.solid);
@@ -16,35 +16,74 @@ void main() {
       expect(ThemeController.liquidGlassSectionExpanded.value, isFalse);
     });
 
-    test('Glass and Floating Pill do not change the section expansion state',
+    test('persists Default and Floating Pill without shifting stored values',
         () async {
       await ThemeController.init();
-
-      await ThemeController.setNavBarStyle(NavBarStyle.glass);
-      expect(ThemeController.liquidGlassSectionExpanded.value, isFalse);
-
       await ThemeController.setNavBarStyle(NavBarStyle.pill);
       expect(ThemeController.liquidGlassSectionExpanded.value, isFalse);
 
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('navbar_style'), 2);
+
       await ThemeController.init();
       expect(ThemeController.navBarStyle.value, NavBarStyle.pill);
-      expect(ThemeController.liquidGlassSectionExpanded.value, isFalse);
+
+      await ThemeController.setNavBarStyle(NavBarStyle.solid);
+      expect(prefs.getInt('navbar_style'), 0);
+      await ThemeController.init();
+      expect(ThemeController.navBarStyle.value, NavBarStyle.solid);
     });
 
-    test('persists section expanded and collapsed state independently',
+    test('migrates a saved legacy Glass selection to Default', () async {
+      SharedPreferences.setMockInitialValues({
+        'navbar_style': 1,
+        'glass_theme': false,
+      });
+      await ThemeController.init();
+
+      expect(ThemeController.navBarStyle.value, NavBarStyle.solid);
+      expect(ThemeController.glassTheme.value, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('navbar_style'), 0);
+    });
+
+    test('preserves a previously saved Floating Pill selection', () async {
+      SharedPreferences.setMockInitialValues({
+        'navbar_style': 2,
+        'glass_theme': false,
+      });
+      await ThemeController.init();
+
+      expect(ThemeController.navBarStyle.value, NavBarStyle.pill);
+      expect(ThemeController.glassTheme.value, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('navbar_style'), 2);
+    });
+
+    test('legacy glass_navbar flag falls back to Default', () async {
+      SharedPreferences.setMockInitialValues({'glass_navbar': true});
+      await ThemeController.init();
+
+      expect(ThemeController.navBarStyle.value, NavBarStyle.solid);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('navbar_style'), 0);
+      expect(prefs.getBool('glass_navbar'), isNull);
+    });
+
+    test('section expanded state is independent of navbar selection',
         () async {
       await ThemeController.init();
-      await ThemeController.setNavBarStyle(NavBarStyle.glass);
+      await ThemeController.setNavBarStyle(NavBarStyle.pill);
+      await ThemeController.setLiquidGlassSectionExpanded(true);
+      await ThemeController.init();
+
+      expect(ThemeController.navBarStyle.value, NavBarStyle.pill);
+      expect(ThemeController.liquidGlassSectionExpanded.value, isTrue);
 
       await ThemeController.setLiquidGlassSectionExpanded(false);
       await ThemeController.init();
-      expect(ThemeController.navBarStyle.value, NavBarStyle.glass);
+      expect(ThemeController.navBarStyle.value, NavBarStyle.pill);
       expect(ThemeController.liquidGlassSectionExpanded.value, isFalse);
-
-      await ThemeController.setLiquidGlassSectionExpanded(true);
-      await ThemeController.init();
-      expect(ThemeController.navBarStyle.value, NavBarStyle.glass);
-      expect(ThemeController.liquidGlassSectionExpanded.value, isTrue);
     });
   });
 
