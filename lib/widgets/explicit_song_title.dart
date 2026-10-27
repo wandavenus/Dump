@@ -111,13 +111,13 @@ class _KnockoutExplicitBadgeState extends State<_KnockoutExplicitBadge> {
     _sourceStyle = widget.style;
     _textDirection = textDirection;
 
-    // Scale the glyph and its padding together so the square remains
-    // proportional and the overall badge is 10% smaller than before.
+    // The badge has been reduced to 81% of its original size after two
+    // successive 10% reductions. Keep the knockout glyph and padding in scale.
     final knockoutStyle = TextStyle(
       inherit: false,
       fontFamily: widget.style.fontFamily,
       fontFamilyFallback: widget.style.fontFamilyFallback,
-      fontSize: (widget.style.fontSize ?? 14) * 0.9,
+      fontSize: (widget.style.fontSize ?? 14) * 0.81,
       fontWeight: widget.style.fontWeight,
       fontStyle: widget.style.fontStyle,
       letterSpacing: widget.style.letterSpacing,
@@ -134,8 +134,8 @@ class _KnockoutExplicitBadgeState extends State<_KnockoutExplicitBadge> {
     )..layout();
 
     _textPainter = textPainter;
-    final paddedWidth = textPainter.width + 5.4;
-    final paddedHeight = textPainter.height + 3.6;
+    final paddedWidth = textPainter.width + 4.86;
+    final paddedHeight = textPainter.height + 3.24;
     _badgeSize = Size.square(
       paddedWidth > paddedHeight ? paddedWidth : paddedHeight,
     );
@@ -189,7 +189,7 @@ class _KnockoutBadgePainter extends CustomPainter {
     // translucent background without erasing the surrounding UI.
     canvas.saveLayer(bounds, Paint());
     canvas.drawRRect(
-      RRect.fromRectAndRadius(bounds, const Radius.circular(2.7)),
+      RRect.fromRectAndRadius(bounds, const Radius.circular(2.43)),
       Paint()..color = Colors.white.withValues(alpha: 0.18),
     );
     textPainter.paint(
