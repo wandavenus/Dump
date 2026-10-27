@@ -32,7 +32,7 @@ double navBottomClearance(BuildContext context) {
         FloatingPillNavBar.miniPlayerGap +
         kMiniPlayerHeight +
         safeBottom +
-        10.7;
+        0.0;
   }
   final navBarH = isGlass && navStyle != NavBarStyle.solid ? 53.8 : 55.1;
   return navBarH + kMiniPlayerHeight + safeBottom + 10.7;
