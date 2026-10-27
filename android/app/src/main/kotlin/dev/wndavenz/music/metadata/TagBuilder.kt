@@ -38,6 +38,19 @@ internal class TagBuilder {
     var copyright   : String? = null
     var publisher   : String? = null
 
+    private var advisorySeen = false
+    private var explicitContent: Boolean? = null
+
+    private fun acceptAdvisory(value: String) {
+        if (advisorySeen) return
+        advisorySeen = true
+        explicitContent = when (value.trim().lowercase()) {
+            "1", "explicit", "true", "yes" -> true
+            "0", "2", "clean", "false", "no", "none", "not explicit" -> false
+            else -> null
+        }
+    }
+
     /**
      * Processes a single [androidx.media3.common.Metadata.Entry].
      * Unknown entry types are silently ignored.
@@ -88,6 +101,7 @@ internal class TagBuilder {
                             "R128ALBUMGAIN"         -> if (r128Album   == null) r128Album   = value
                             "ITUNNORM",
                             "ITUN NORM"             -> if (iTunNorm    == null) iTunNorm    = value
+                            "ITUNESADVISORY"        -> acceptAdvisory(value)
                         }
                     }
                 }
@@ -126,16 +140,19 @@ internal class TagBuilder {
                     "COPYRIGHT"              -> if (copyright   == null) copyright   = value
                     "ORGANIZATION",
                     "PUBLISHER"              -> if (publisher   == null) publisher   = value
+                    "ITUNESADVISORY"         -> acceptAdvisory(value)
                 }
             }
 
             // ── MdtaMetadataEntry — M4A ©lyr ─────────────────────────────────
             is MdtaMetadataEntry -> {
-                if (entry.key == "\u00a9lyr" && lyrics == null) {
-                    lyrics = runCatching {
-                        entry.value.toString(Charsets.UTF_8)
-                            .trim().takeIf { it.isNotBlank() }
-                    }.getOrNull()
+                val value = runCatching {
+                    entry.value.toString(Charsets.UTF_8).trim().takeIf { it.isNotBlank() }
+                }.getOrNull()
+                when {
+                    entry.key.equals("ITUNESADVISORY", ignoreCase = true) ->
+                        value?.let(::acceptAdvisory)
+                    entry.key == "\u00a9lyr" && lyrics == null -> lyrics = value
                 }
             }
 
@@ -159,5 +176,6 @@ internal class TagBuilder {
         isrc        = isrc,
         copyright   = copyright,
         publisher   = publisher,
+        isExplicit   = if (advisorySeen) explicitContent else false,
     )
 }
