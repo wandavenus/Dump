@@ -11,4 +11,5 @@ description: Shared scroll progress and geometry for the compact floating navbar
 - `lib/widgets/unified_morph_player.dart` uses the same progress to dock the mini-player into that slot and compress artwork/title/play controls. The existing player-sheet morph remains driven by `PlayerSheetController.progress`.
 - Only the floating pill navbar style activates dock geometry; other navbar styles retain their existing layout.
 - Regression tests: `test/services/floating_pill_transition_controller_test.dart`.
+- Polish: docked left capsule, mini-player shell, and Search circle scale smoothly to 95%; artwork/title move right by up to 8 logical pixels via tested controller helpers.
 - Device verification is still needed for gesture feel and glass `BackdropFilter` performance on the target Mi 9T.
