@@ -1,4 +1,7 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'player_sheet_controller.dart';
@@ -16,12 +19,46 @@ class FloatingPillTransitionController {
   static final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
 
   static bool _miniPlayerVisible = false;
+  static Ticker? _resetTicker;
+  static const Duration _resetDuration = Duration(milliseconds: 220);
 
   /// Keeps an empty dock from appearing when there is no mini-player to dock.
+  ///
+  /// When playback ends, let the navbar restore its full capsule with a short
+  /// vsync-driven settle rather than snapping its geometry to the start.
   static void setMiniPlayerVisible(bool visible) {
     if (_miniPlayerVisible == visible) return;
     _miniPlayerVisible = visible;
-    if (!visible) progress.value = 0.0;
+
+    _resetTicker?.dispose();
+    _resetTicker = null;
+
+    if (!visible) {
+      _animateProgressToZero();
+    }
+  }
+
+  static void _animateProgressToZero() {
+    final start = progress.value;
+    if (start <= 0.001) {
+      progress.value = 0.0;
+      return;
+    }
+
+    _resetTicker = Ticker((elapsed) {
+      final rawT = (elapsed.inMilliseconds / _resetDuration.inMilliseconds)
+          .clamp(0.0, 1.0)
+          .toDouble();
+      final easedT = Curves.easeOutCubic.transform(rawT);
+      progress.value = start * (1.0 - easedT);
+
+      if (rawT >= 1.0) {
+        progress.value = 0.0;
+        _resetTicker?.dispose();
+        _resetTicker = null;
+      }
+    });
+    unawaited(_resetTicker!.start());
   }
 
   /// Receives notifications from the tab navigator tree.
@@ -77,6 +114,8 @@ class FloatingPillTransitionController {
 
   @visibleForTesting
   static void reset() {
+    _resetTicker?.dispose();
+    _resetTicker = null;
     progress.value = 0.0;
   }
 }
