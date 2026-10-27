@@ -3,6 +3,8 @@ import 'package:musicplayer/services/floating_pill_transition_controller.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() {
     PlayerSheetController.setProgress(0.0);
     FloatingPillTransitionController.setDockEnabled(true);
