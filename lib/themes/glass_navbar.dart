@@ -354,69 +354,73 @@ class _PillItemsState extends State<_PillItems> {
                   child: Opacity(
                     opacity: 1.0 - compactProgress,
                     child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragUpdate: (details) =>
-                        _updateDrag(details, constraints.maxWidth),
-                    onHorizontalDragEnd: (_) => _finishDrag(),
-                    child: SizedBox(
-                      height: FloatingPillNavBar.bodyHeight,
-                      child: Stack(
-                        children: [
-                          if (_dragIndex == null && compactProgress == 0.0)
-                            AnimatedPositioned(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              left: left,
-                              top: 4.5,
-                              width: lensWidth,
-                              height: 53,
-                              child: IgnorePointer(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.of(context).glassActiveLens,
-                                    borderRadius: BorderRadius.circular(999),
+                      behavior: HitTestBehavior.translucent,
+                      onHorizontalDragUpdate: (details) =>
+                          _updateDrag(details, constraints.maxWidth),
+                      onHorizontalDragEnd: (_) => _finishDrag(),
+                      child: SizedBox(
+                        height: FloatingPillNavBar.bodyHeight,
+                        child: Stack(
+                          children: [
+                            if (_dragIndex == null && compactProgress == 0.0)
+                              AnimatedPositioned(
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                                left: left,
+                                top: 4.5,
+                                width: lensWidth,
+                                height: 53,
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.of(
+                                        context,
+                                      ).glassActiveLens,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              Positioned(
+                                left: left,
+                                top: 4.5,
+                                width: lensWidth,
+                                height: 53,
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.of(
+                                        context,
+                                      ).glassActiveLens,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
                                   ),
                                 ),
                               ),
-                            )
-                          else
-                            Positioned(
-                              left: left,
-                              top: 4.5,
-                              width: lensWidth,
-                              height: 53,
-                              child: IgnorePointer(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.of(context).glassActiveLens,
-                                    borderRadius: BorderRadius.circular(999),
+                            Row(
+                              children: [
+                                for (var i = 0; i < count; i++)
+                                  Expanded(
+                                    child: _PillItem(
+                                      icon: widget.icons[i],
+                                      label: widget.labels[i],
+                                      semanticsLabel:
+                                          widget.semanticsLabels != null
+                                          ? widget.semanticsLabels![i]
+                                          : widget.labels[i],
+                                      active: i == widget.selectedIndex,
+                                      onTap: () => widget.onTap(i),
+                                    ),
                                   ),
-                                ),
-                              ),
+                              ],
                             ),
-                          Row(
-                            children: [
-                              for (var i = 0; i < count; i++)
-                                Expanded(
-                                  child: _PillItem(
-                                    icon: widget.icons[i],
-                                    label: widget.labels[i],
-                                    semanticsLabel:
-                                        widget.semanticsLabels != null
-                                        ? widget.semanticsLabels![i]
-                                        : widget.labels[i],
-                                    active: i == widget.selectedIndex,
-                                    onTap: () => widget.onTap(i),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
               ),
               if (compactProgress > 0.0)
                 Positioned.fill(
