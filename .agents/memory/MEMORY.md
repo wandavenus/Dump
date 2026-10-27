@@ -1,4 +1,4 @@
-- [Explicit advisory badge](explicit-advisory-badge.md) — `ITUNESADVISORY` parsing/cache; `[E]` title widget, CI golden-layout preservation, lazy mini-player metadata lookup, and regression tests.
+- [Explicit advisory badge](explicit-advisory-badge.md) — `ITUNESADVISORY` parsing/cache, shared knockout badge, list-row size normalization, CI/golden-layout preservation, and regression tests.
 - [OpenCode background compaction](opencode-background-compaction.md) — `opencode.json` sets `experimental.background_compaction: true`; summary is written ahead of the threshold so long agent sessions do not pause.
 - [Log audit 2026-10-23](log-service-persistent.md) — audit seluruh call site log Dart/Kotlin/C; lihat `log_audit.md` di root untuk temuan P0/P1/P2 dan status perbaikannya.
  - [Notification artwork audit lessons](notification-artwork-audit-lessons.md) — async completion must validate current track identity; shared main/worker caches need synchronization and in-flight deduplication.
