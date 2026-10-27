@@ -130,8 +130,7 @@ class _FirstPageState extends State<FirstPage> {
         return ValueListenableBuilder<NavBarStyle>(
           valueListenable: ThemeController.navBarStyle,
           builder: (context, navStyle, _) {
-            final useGlassNavBar = isGlass && navStyle != NavBarStyle.solid;
-            final isPill = useGlassNavBar && navStyle == NavBarStyle.pill;
+            final isPill = isGlass && navStyle == NavBarStyle.pill;
             final navBar = Theme(
               data: Theme.of(context).copyWith(
                 splashColor: Colors.transparent,
@@ -213,7 +212,7 @@ class _FirstPageState extends State<FirstPage> {
                               final column = Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (!useGlassNavBar)
+                                  if (!isPill)
                                     Container(
                                       height: 1.5,
                                       color: c.subtleSeparator,
@@ -246,9 +245,7 @@ class _FirstPageState extends State<FirstPage> {
                                   trailingLabel: context.l10n.navSearch,
                                 );
                               } else {
-                                bottomChild = useGlassNavBar
-                                    ? GlassNavBar(child: column)
-                                    : column;
+                                bottomChild = column;
                               }
 
                               return ValueListenableBuilder<double>(
@@ -263,7 +260,7 @@ class _FirstPageState extends State<FirstPage> {
                                       ? FloatingPillNavBar.bodyHeight +
                                             FloatingPillNavBar.bottomGap +
                                             safeBottom
-                                      : (useGlassNavBar ? 70.0 : 71.5);
+                                      : 71.5;
                                   // Direct-manipulation path: keep the navbar
                                   // spatially linear with sheet progress. A curved
                                   // mapping changes velocity while the finger moves,
