@@ -15,11 +15,23 @@ class FloatingPillTransitionController {
 
   static final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
 
+  static bool _miniPlayerVisible = false;
+
+  /// Keeps an empty dock from appearing when there is no mini-player to dock.
+  static void setMiniPlayerVisible(bool visible) {
+    if (_miniPlayerVisible == visible) return;
+    _miniPlayerVisible = visible;
+    if (!visible) progress.value = 0.0;
+  }
+
   /// Receives notifications from the tab navigator tree.
   ///
   /// Returning false keeps notifications available to page-level app-bar
   /// animations and other scroll observers.
   static bool handleScrollNotification(ScrollNotification notification) {
+    // Root viewport only: nested vertical lists may bubble through this listener
+    // too, but must not double-count the same gesture as the parent scrolls.
+    if (notification.depth != 0 || !_miniPlayerVisible) return false;
     if (PlayerSheetController.progress.value > 0.015) return false;
 
     double? delta;
@@ -49,6 +61,7 @@ class FloatingPillTransitionController {
   static void updateFromScrollDelta(double delta) {
     if (!delta.isFinite ||
         delta == 0 ||
+        !_miniPlayerVisible ||
         PlayerSheetController.progress.value > 0.015) {
       return;
     }
