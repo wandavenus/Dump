@@ -19,14 +19,12 @@ class FloatingPillTransitionController {
   static const Duration _resetDuration = Duration(milliseconds: 220);
 
   /// Scales dock elements smoothly from their normal size to 95%.
-  @visibleForTesting
   static double scaleForProgress(double value) {
     final progress = value.clamp(0.0, 1.0).toDouble();
     return 1.0 - ((1.0 - compactElementScale) * progress);
   }
 
   /// Horizontal artwork/title offset, in logical pixels.
-  @visibleForTesting
   static double artworkTitleOffsetForProgress(double value) {
     return compactArtworkTitleOffset *
         value.clamp(0.0, 1.0).toDouble();
