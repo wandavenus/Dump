@@ -824,9 +824,9 @@ class TagBuilderTest {
         assertEquals(false, builder.build().isExplicit)
     }
 
-    @Test fun `I05 unknown advisory value remains unknown`() {
+    @Test fun `I05 unknown advisory value is not marked explicit`() {
         builder.consume(vorbis("ITUNESADVISORY", "unknown"))
-        assertNull(builder.build().isExplicit)
+        assertEquals(false, builder.build().isExplicit)
     }
 
 }
