@@ -86,9 +86,7 @@ class _ExplicitSongTitleState extends State<ExplicitSongTitle> {
               ),
               child: Text(
                 'E',
-                style: badgeStyle.copyWith(
-                  color: Colors.white.withValues(alpha: 0),
-                ),
+                style: badgeStyle.copyWith(color: Colors.white),
               ),
             ),
           ],
