@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
+import 'package:musicplayer/services/floating_pill_transition_controller.dart';
 
 const double kMiniPlayerHeight = 62.0;
 
@@ -115,6 +116,14 @@ class FloatingPillNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: FloatingPillTransitionController.progress,
+      builder: (context, compactProgress, _) =>
+          _buildTransition(context, compactProgress),
+    );
+  }
+
+  Widget _buildTransition(BuildContext context, double compactProgress) {
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final radius = bodyHeight / 2;
     final shadowColor = Theme.of(context).brightness == Brightness.dark
@@ -157,20 +166,50 @@ class FloatingPillNavBar extends StatelessWidget {
               horizMargin,
               bottomGap + safeBottom,
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: _buildCapsule(context, radius)),
-                if (trailingIcon != null) ...[
-                  const SizedBox(width: trailingGap),
-                  _TrailingButton(
-                    icon: trailingIcon!,
-                    label: trailingLabel,
-                    active: selectedIndex == icons.length,
-                    onTap: () => onTap(icons.length),
-                  ),
-                ],
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth;
+                final hasTrailing = trailingIcon != null;
+                final normalCapsuleWidth = hasTrailing
+                    ? availableWidth - trailingGap - trailingSize
+                    : availableWidth;
+                final capsuleWidth = normalCapsuleWidth +
+                    (bodyHeight - normalCapsuleWidth) * compactProgress;
+                final dockWidth = hasTrailing
+                    ? (availableWidth -
+                              bodyHeight -
+                              trailingSize -
+                              trailingGap * 2)
+                          .clamp(0.0, availableWidth) *
+                        compactProgress
+                    : 0.0;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: capsuleWidth,
+                      height: bodyHeight,
+                      child: _buildCapsule(
+                        context,
+                        radius,
+                        compactProgress,
+                      ),
+                    ),
+                    SizedBox(width: trailingGap * compactProgress),
+                    SizedBox(width: dockWidth),
+                    if (hasTrailing) ...[
+                      SizedBox(width: trailingGap * (1.0 - compactProgress)),
+                      _TrailingButton(
+                        icon: trailingIcon!,
+                        label: trailingLabel,
+                        active: selectedIndex == icons.length,
+                        onTap: () => onTap(icons.length),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -178,7 +217,11 @@ class FloatingPillNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildCapsule(BuildContext context, double radius) {
+  Widget _buildCapsule(
+    BuildContext context,
+    double radius,
+    double compactProgress,
+  ) {
     return SizedBox(
       width: double.infinity,
       height: bodyHeight,
@@ -213,6 +256,7 @@ class FloatingPillNavBar extends StatelessWidget {
               icons: icons,
               labels: labels,
               semanticsLabels: semanticsLabels,
+              compactProgress: compactProgress,
             ),
           ],
         ),
@@ -227,6 +271,7 @@ class _PillItems extends StatefulWidget {
   final List<IconData> icons;
   final List<String?> labels;
   final List<String>? semanticsLabels;
+  final double compactProgress;
 
   const _PillItems({
     required this.selectedIndex,
@@ -234,6 +279,7 @@ class _PillItems extends StatefulWidget {
     required this.icons,
     required this.labels,
     this.semanticsLabels,
+    required this.compactProgress,
   });
 
   @override
@@ -279,73 +325,125 @@ class _PillItemsState extends State<_PillItems> {
     final count = widget.icons.length;
     if (count == 0) return const SizedBox.shrink();
 
+    // Search lives in the persistent trailing circle. When Search is active,
+    // keep Home as the compact left-side shortcut instead of duplicating Search.
+    final compactIndex =
+        widget.selectedIndex < count ? widget.selectedIndex : 0;
     final activeIndex = _dragIndex ?? widget.selectedIndex.toDouble();
+    final compactProgress = widget.compactProgress;
+    final primary = Theme.of(context).colorScheme.primary;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final compactColor = widget.selectedIndex == compactIndex
+        ? primary
+        : (isLight ? Colors.black : Colors.white);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final segment = constraints.maxWidth / count;
-        final lensWidth = segment - 10;
+        final lensWidth = (segment - 10).clamp(0.0, segment).toDouble();
         final left = segment * activeIndex + 5;
 
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragUpdate: (details) =>
-              _updateDrag(details, constraints.maxWidth),
-          onHorizontalDragEnd: (_) => _finishDrag(),
-          child: SizedBox(
-            height: FloatingPillNavBar.bodyHeight,
-            child: Stack(
-              children: [
-                if (_dragIndex == null)
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    left: left,
-                    top: 4.5,
-                    width: lensWidth,
-                    height: 53,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.of(context).glassActiveLens,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
+        return SizedBox(
+          height: FloatingPillNavBar.bodyHeight,
+          child: Stack(
+            children: [
+              IgnorePointer(
+                ignoring: compactProgress >= 0.5,
+                child: Opacity(
+                  opacity: 1.0 - compactProgress,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragUpdate: (details) =>
+                        _updateDrag(details, constraints.maxWidth),
+                    onHorizontalDragEnd: (_) => _finishDrag(),
+                    child: SizedBox(
+                      height: FloatingPillNavBar.bodyHeight,
+                      child: Stack(
+                        children: [
+                          if (_dragIndex == null && compactProgress == 0.0)
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              left: left,
+                              top: 4.5,
+                              width: lensWidth,
+                              height: 53,
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.of(context).glassActiveLens,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Positioned(
+                              left: left,
+                              top: 4.5,
+                              width: lensWidth,
+                              height: 53,
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.of(context).glassActiveLens,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              for (var i = 0; i < count; i++)
+                                Expanded(
+                                  child: _PillItem(
+                                    icon: widget.icons[i],
+                                    label: widget.labels[i],
+                                    semanticsLabel:
+                                        widget.semanticsLabels != null
+                                        ? widget.semanticsLabels![i]
+                                        : widget.labels[i],
+                                    active: i == widget.selectedIndex,
+                                    onTap: () => widget.onTap(i),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                else
-                  Positioned(
-                    left: left,
-                    top: 4.5,
-                    width: lensWidth,
-                    height: 53,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.of(context).glassActiveLens,
-                          borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              if (compactProgress > 0.0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: compactProgress < 0.5,
+                    child: Opacity(
+                      opacity: compactProgress,
+                      child: Semantics(
+                        button: true,
+                        selected: widget.selectedIndex == compactIndex,
+                        label: widget.labels[compactIndex],
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => widget.onTap(compactIndex),
+                          child: Center(
+                            child: Transform.scale(
+                              scale: 0.84 + 0.16 * compactProgress,
+                              child: Icon(
+                                widget.icons[compactIndex],
+                                size: FloatingPillNavBar._iconSize,
+                                color: compactColor,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                Row(
-                  children: [
-                    for (var i = 0; i < count; i++)
-                      Expanded(
-                        child: _PillItem(
-                          icon: widget.icons[i],
-                          label: widget.labels[i],
-                          semanticsLabel: widget.semanticsLabels != null
-                              ? widget.semanticsLabels![i]
-                              : widget.labels[i],
-                          active: i == widget.selectedIndex,
-                          onTap: () => widget.onTap(i),
-                        ),
-                      ),
-                  ],
                 ),
-              ],
-            ),
+            ],
           ),
         );
       },
