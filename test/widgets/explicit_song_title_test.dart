@@ -31,7 +31,7 @@ void main() {
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
   });
 
-  testWidgets('renders a square knockout glass badge for an explicit track', (
+  testWidgets('renders a square knockout glass badge scaled down by 10%', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -72,6 +72,39 @@ void main() {
 
     final badgeSize = tester.getSize(badgeFinder);
     expect(badgeSize.width, badgeSize.height);
+
+    final titleContext = tester.element(find.text('Explicit Track'));
+    final inheritedStyle = DefaultTextStyle.of(titleContext).style;
+    final originalBadgeStyle = inheritedStyle.copyWith(
+      fontSize: ((inheritedStyle.fontSize ?? 14) * 0.78),
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.1,
+    );
+    final originalGlyphStyle = TextStyle(
+      inherit: false,
+      fontFamily: originalBadgeStyle.fontFamily,
+      fontFamilyFallback: originalBadgeStyle.fontFamilyFallback,
+      fontSize: originalBadgeStyle.fontSize,
+      fontWeight: originalBadgeStyle.fontWeight,
+      fontStyle: originalBadgeStyle.fontStyle,
+      letterSpacing: originalBadgeStyle.letterSpacing,
+      wordSpacing: originalBadgeStyle.wordSpacing,
+      height: originalBadgeStyle.height,
+      textBaseline: originalBadgeStyle.textBaseline,
+      locale: originalBadgeStyle.locale,
+      foreground: Paint()..blendMode = BlendMode.dstOut,
+    );
+    final originalGlyph = TextPainter(
+      text: TextSpan(text: 'E', style: originalGlyphStyle),
+      textDirection: Directionality.of(titleContext),
+    )..layout();
+    final originalWidth = originalGlyph.width + 6;
+    final originalHeight = originalGlyph.height + 4;
+    final originalSide = originalWidth > originalHeight
+        ? originalWidth
+        : originalHeight;
+
+    expect(badgeSize.width, closeTo(originalSide * 0.9, 0.05));
   });
 
   testWidgets('does not render a badge for a non-explicit track', (
