@@ -112,8 +112,11 @@ class _KnockoutExplicitBadge extends StatelessWidget {
       textDirection: textDirection,
     )..layout();
 
-    // Preserve the former 3 px horizontal and 2 px vertical padding.
-    final badgeSize = Size(textPainter.width + 6, textPainter.height + 4);
+    // Keep the original inset while making the badge a true square.
+    final side = (textPainter.width + 6)
+        .clamp(textPainter.height + 4, double.infinity)
+        .toDouble();
+    final badgeSize = Size.square(side);
 
     return Semantics(
       label: 'Explicit content advisory',
