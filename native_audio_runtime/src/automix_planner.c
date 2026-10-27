@@ -42,11 +42,11 @@ static const double kProfileWeights[3][4] = {
 };
 
 static double feature(const double* rows, int32_t index, int32_t field) {
-  return rows[(size_t)index * NAR_AUTOMIX_FEATURE_COUNT + field];
+  return rows[(size_t)index * NAR_AUTOMIX_FEATURE_COUNT + (size_t)field];
 }
 
 static int32_t key_field(const int32_t* keys, int32_t index, int32_t field) {
-  return keys[(size_t)index * NAR_AUTOMIX_KEY_FIELD_COUNT + field];
+  return keys[(size_t)index * NAR_AUTOMIX_KEY_FIELD_COUNT + (size_t)field];
 }
 
 static double clamp01(double value) {

@@ -12,10 +12,13 @@ allprojects {
     }
 }
 
-rootProject.buildDir = '../build'
+// Project.buildDir is deprecated in Gradle 8.2+ and scheduled for removal;
+// the layout API is the supported replacement and resolves identically
+// (relative to each project's directory).
+rootProject.layout.buildDirectory.set(file('../build'))
 
 subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(name))
 }
 
 subprojects {
@@ -24,5 +27,5 @@ subprojects {
 
 
 tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory.get().asFile
 }
