@@ -63,7 +63,7 @@ void main() {
     expect(decoration.border, isNull);
 
     final glyph = tester.widget<Text>(find.text('E'));
-    expect(glyph.style!.color, Colors.white.withValues(alpha: 0));
+    expect(glyph.style!.color, Colors.white);
   });
 
   testWidgets('keeps the original title-only Text when not explicit', (
