@@ -31,7 +31,7 @@ void main() {
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
   });
 
-  testWidgets('shows [E] for an explicit track', (tester) async {
+  testWidgets('shows the explicit glass badge for an explicit track', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -50,7 +50,20 @@ void main() {
     await tester.pump();
 
     expect(find.text('Explicit Track'), findsOneWidget);
-    expect(find.text('[E]'), findsOneWidget);
+    expect(find.text('E'), findsOneWidget);
+    final badge = tester.widget<Container>(
+      find.ancestor(
+        of: find.text('E'),
+        matching: find.byType(Container),
+      ).first,
+    );
+    final decoration = badge.decoration! as BoxDecoration;
+    expect(decoration.color, Colors.white.withValues(alpha: 0.18));
+    expect(decoration.borderRadius, BorderRadius.circular(3));
+    expect(decoration.border, isNull);
+
+    final glyph = tester.widget<Text>(find.text('E'));
+    expect(glyph.style!.color, Colors.white.withValues(alpha: 0));
   });
 
   testWidgets('keeps the original title-only Text when not explicit', (
@@ -74,7 +87,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Clean Track'), findsOneWidget);
-    expect(find.text('[E]'), findsNothing);
+    expect(find.text('E'), findsNothing);
     expect(
       find.descendant(
         of: find.byType(ExplicitSongTitle),
