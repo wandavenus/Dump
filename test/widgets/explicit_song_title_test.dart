@@ -94,10 +94,6 @@ void main() {
       locale: originalBadgeStyle.locale,
       foreground: Paint()..blendMode = BlendMode.dstOut,
     );
-    final originalGlyph = TextPainter(
-      text: TextSpan(text: 'E', style: originalGlyphStyle),
-      textDirection: Directionality.of(titleContext),
-    )..layout();
     const badgeScale = 0.81 * 0.95;
     final expectedGlyphStyle = originalGlyphStyle.copyWith(
       fontSize: (originalBadgeStyle.fontSize ?? 14) * badgeScale,
