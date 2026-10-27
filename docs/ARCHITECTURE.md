@@ -660,7 +660,7 @@ Semua di `lib/services/`. 22 service utama:
 | `themes/app_theme_extension.dart` | `ThemeExtension` untuk token kustom. |
 | `themes/app_themes.dart` | `AppThemes.light` & `AppThemes.dark`. |
 | `themes/theme_builder.dart` | Builder theme. |
-| `themes/theme_controller.dart` | Controller: `mode` (system/light/dark), `glassTheme`, `navBarStyle` (solid/pill), `glassMiniPlayer`. |
+| `themes/theme_controller.dart` | Controller: `mode` (system/light/dark), `glassTheme`, `navBarStyle` (solid/pill), `glassAppBar`, `glassMiniPlayer`. |
 | `themes/glass_navbar.dart` | `FloatingPillNavBar` (bodyHeight, bottomGap). |
 
 Font: **SF Pro Text** (regular/bold dari `assets/fonts/`). Shader: `assets/shaders/fluid.frag` untuk efek fluid pada player background.
