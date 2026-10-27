@@ -172,9 +172,12 @@ class _FirstPageState extends State<FirstPage> {
                           .ignore();
                     }
                   },
-                  child: Stack(
-                    children: [
-                      Scaffold(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification:
+                        FloatingPillTransitionController.handleScrollNotification,
+                    child: Stack(
+                      children: [
+                        Scaffold(
                         extendBody: useGlassNavBar,
                         body: IndexedStack(
                           index: _selectedIndex,
@@ -261,8 +264,9 @@ class _FirstPageState extends State<FirstPage> {
                         ),
                       ),
                       // Unified morph player: handles both mini and full-player.
-                      const UnifiedMorphPlayer(),
-                    ],
+                        const UnifiedMorphPlayer(),
+                      ],
+                    ),
                   ),
                 );
               },
