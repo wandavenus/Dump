@@ -466,9 +466,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Shared scroll progress controls only the collapsed floating-pill dock.
     // The full-player morph remains owned by PlayerSheetController.progress.
     final compactDockProgress = isPill ? dockProgress : 0.0;
-    final miniDockScale = FloatingPillTransitionController.scaleForProgress(
-      compactDockProgress * (1.0 - t),
-    );
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
@@ -482,6 +479,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
+    final miniDockScale = FloatingPillTransitionController.scaleForProgress(
+      compactDockProgress * (1.0 - t),
+    );
 
     // ── Entry slide-up animation ─────────────────────────────────────────────
     // Mini player starts fully hidden below the screen's bottom edge (i.e.
