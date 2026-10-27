@@ -37,6 +37,7 @@ class _PlayerContentState extends State<PlayerContent> {
   double _lyricsExpand = 0.0;
 
   Future<LyricsResult>? _lyricsFuture;
+  Future<bool?>? _explicitStatusFuture;
   int? _lastFetchedSongId;
 
   final _lyricsScrollController = ScrollController();
@@ -93,6 +94,7 @@ class _PlayerContentState extends State<PlayerContent> {
     super.initState();
     _fetchLyricsIfNeeded();
     _restartMarquee();
+    _explicitStatusFuture = MediaStoreService.getExplicitStatus(widget.song);
   }
 
   @override
@@ -106,9 +108,11 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   void didUpdateWidget(PlayerContent old) {
     super.didUpdateWidget(old);
-    if (old.song.id != widget.song.id) {
+    if (old.song.id != widget.song.id ||
+        old.song.path != widget.song.path) {
       _fetchLyricsIfNeeded();
       _restartMarquee();
+      _explicitStatusFuture = MediaStoreService.getExplicitStatus(widget.song);
     }
     // Reset lyricsExpand when lyrics mode is turned off so bottom controls
     // are not left hidden when switching to queue or normal mode.
