@@ -31,7 +31,9 @@ void main() {
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
   });
 
-  testWidgets('shows the explicit glass badge for an explicit track', (tester) async {
+  testWidgets('renders a knockout glass badge for an explicit track', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -50,23 +52,26 @@ void main() {
     await tester.pump();
 
     expect(find.text('Explicit Track'), findsOneWidget);
-    expect(find.text('E'), findsOneWidget);
-    final badge = tester.widget<Container>(
-      find.ancestor(
-        of: find.text('E'),
-        matching: find.byType(Container),
-      ).first,
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Explicit content advisory',
+      ),
+      findsOneWidget,
     );
-    final decoration = badge.decoration! as BoxDecoration;
-    expect(decoration.color, Colors.white.withValues(alpha: 0.18));
-    expect(decoration.borderRadius, BorderRadius.circular(3));
-    expect(decoration.border, isNull);
 
-    final glyph = tester.widget<Text>(find.text('E'));
-    expect(glyph.style!.color, Colors.white);
+    final badgeFinder = find.descendant(
+      of: find.byType(ExplicitSongTitle),
+      matching: find.byType(CustomPaint),
+    );
+    expect(badgeFinder, findsOneWidget);
+    final badge = tester.widget<CustomPaint>(badgeFinder);
+    expect(badge.painter, isA<CustomPainter>());
+    expect(badge.child, isA<SizedBox>());
   });
 
-  testWidgets('keeps the original title-only Text when not explicit', (
+  testWidgets('does not render a badge for a non-explicit track', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -87,7 +92,21 @@ void main() {
     await tester.pump();
 
     expect(find.text('Clean Track'), findsOneWidget);
-    expect(find.text('E'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Explicit content advisory',
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(ExplicitSongTitle),
+        matching: find.byType(CustomPaint),
+      ),
+      findsNothing,
+    );
     expect(
       find.descendant(
         of: find.byType(ExplicitSongTitle),
