@@ -91,3 +91,8 @@ Static field: `_appTheme` (immutable `ThemeData`).
 **Bottom nav:** `lib/bottom_nav_bar/bottom_nav.dart` → `FirstPage` with inner Navigators per tab (Home, Browse, Library, Search, Radio).
 
 **LyricsPage:** Full-screen route (not modal); opened via `Navigator.push` with `SlideTransition` from bottom; has lyrics appearance button (`_LyricsAppearanceSheet`).
+
+
+## Scroll-driven Floating Pill Dock
+
+The root `NotificationListener<ScrollNotification>` in `lib/bottom_nav_bar/bottom_nav/state.dart` forwards vertical root-viewport deltas to `FloatingPillTransitionController`. The shared progress drives both `FloatingPillNavBar` geometry and the collapsed `UnifiedMorphPlayer`; it is disabled while full-player progress is active and reset when the mini-player exits.
