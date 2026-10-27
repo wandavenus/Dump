@@ -46,7 +46,7 @@ class MediaStoreService {
       } on Object {
         return null;
       } finally {
-        _explicitStatusInFlight.remove(key);
+        _explicitStatusInFlight.removeWhere((entryKey, _) => entryKey == key);
       }
     });
   }
