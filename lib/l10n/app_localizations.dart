@@ -2186,12 +2186,6 @@ abstract class AppLocalizations {
   /// **'Lossless'**
   String get bitrateUnknownLossless;
 
-  /// No description provided for @glassToggleNavBar.
-  ///
-  /// In en, this message translates to:
-  /// **'NavBar'**
-  String get glassToggleNavBar;
-
   /// No description provided for @navBarStyleSolid.
   ///
   /// In en, this message translates to:
