@@ -652,6 +652,29 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    // ── Explicit-content advisory ────────────────────────────
+                    // The first lookup parses the embedded tag on a bounded
+                    // background executor; subsequent lookups use the mtime cache.
+                    "getExplicitStatus" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        val songId = call.argument<Int>("songId") ?: 0
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val explicit = resolveExplicitStatus(path, songId)
+                                postToFlutter { result.success(explicit) }
+                            } catch (e: Exception) {
+                                postToFlutter { result.error("explicit_tag_error", e.message, null) }
+                            }
+                        }
+                    }
+
                     // ── ReplayGain tag read ─────────────────────────────────
                     // Reads via ExoPlayer MetadataRetriever + SQLite cache.
                     // Runs on bounded background IO; result returned on UI thread.
@@ -748,6 +771,7 @@ class MainActivity : FlutterActivity() {
                                         r128Album   = tags.r128Album,
                                         iTunNorm    = tags.iTunNorm,
                                         lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+                            isExplicit = tags.isExplicit,
                                     ))
                                 }
                                 // Detect lyrics type on Kotlin side to avoid
@@ -1349,6 +1373,7 @@ class MainActivity : FlutterActivity() {
                 // Also cache lyrics in the same pass — avoids a second ExoPlayer read
                 // when LyricsService later calls getEmbeddedLyrics for the same file.
                 lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+                            isExplicit = tags.isExplicit,
             )
         )
 
@@ -1421,9 +1446,47 @@ class MainActivity : FlutterActivity() {
                 r128Album   = tags.r128Album,
                 iTunNorm    = tags.iTunNorm,
                 lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+                            isExplicit = tags.isExplicit,
             )
         )
         return tags.lyrics
+    }
+
+    // ── Explicit-content advisory reader ───────────────────────────────────────
+    //
+    // A null result means the file could not be read; false means it was read
+    // successfully and no supported explicit advisory was present.
+    private fun resolveExplicitStatus(path: String, songId: Int): Boolean? {
+        if (path.isBlank()) return null
+        if (!File(path).isFile) return null
+
+        val mtime = MetadataCacheDb.mtime(path)
+        if (mtime == 0L) return null
+
+        val cached = (if (songId > 0) metadataCacheDb.get(songId, mtime) else null)
+            ?: metadataCacheDb.getByPath(path, mtime)
+        cached?.isExplicit?.let { return it }
+
+        val tags = ExoMetadataReader.read(this, path)
+        val explicit = tags.isExplicit ?: return null
+        val entry = cached?.copy(isExplicit = explicit) ?: MetadataCacheDb.CachedEntry(
+            rgTrackGain = tags.rgTrackGain,
+            rgTrackPeak = tags.rgTrackPeak,
+            rgAlbumGain = tags.rgAlbumGain,
+            rgAlbumPeak = tags.rgAlbumPeak,
+            r128Track = tags.r128Track,
+            r128Album = tags.r128Album,
+            iTunNorm = tags.iTunNorm,
+            lyrics = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+            isExplicit = explicit,
+        )
+
+        if (songId > 0) {
+            metadataCacheDb.put(songId, path, mtime, entry)
+        } else {
+            metadataCacheDb.putByPath(path, mtime, entry)
+        }
+        return explicit
     }
 
     // ── MediaStore helpers ─────────────────────────────────────────────────────
