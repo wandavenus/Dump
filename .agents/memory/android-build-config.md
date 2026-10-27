@@ -84,3 +84,15 @@ Key keeps:
 - All JNI-called Java/Kotlin classes (tagged with `-keep`)
 - `Media3PlaybackService`, `MainActivity`
 - Native method signatures: `dev.wndavenz.music.replaygain.ReplayGainNative`
+
+## Gradle build directory (2026-10-27)
+`android/build.gradle` now uses the layout API instead of the deprecated
+`Project.buildDir` (deprecated in Gradle 8.2+, scheduled for removal):
+
+- root: `rootProject.layout.buildDirectory.set(file('../build'))`
+- subprojects: `layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(name))`
+- `clean`: `delete rootProject.layout.buildDirectory.get().asFile`
+
+Resolution is unchanged — every project still writes to `android/../build/<project>`,
+which is the tree the Flutter tool reads. Do not reintroduce `buildDir`; if a
+Gradle task needs the path, read `layout.buildDirectory`, not `project.buildDir`.

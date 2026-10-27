@@ -55,3 +55,11 @@ description: Every .c/.h file in native_audio_runtime/src/ with functions and ro
 
 ## Fail-open rule
 Every native DSP call in PlaybackManager must fail-open — missing symbol or init failure must not crash; DSP simply bypasses.
+
+## Strict warning baseline (2026-10-27)
+All `src/*.c` compile with **zero** warnings under
+`clang -std=c17 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-unused-parameter -fsyntax-only`.
+Index math casts signed→unsigned explicitly (`(size_t)quarter`, `(size_t)field`,
+`(size_t)channel_count`) and sample-rate divides use `(float)sample_rate`.
+Keep new code at that baseline — the implicit conversions were intentional, so
+the fix is an explicit cast, never a change of expression type.

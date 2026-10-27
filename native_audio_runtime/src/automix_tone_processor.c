@@ -84,9 +84,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_configure(
   NarAutomixToneState* state = &g_states[stream_slot];
   memset(state, 0, sizeof(*state));
   state->low_pass_alpha =
-      1.0f - expf(-2.0f * NAR_AUTOMIX_TONE_PI * 150.0f / sample_rate);
+      1.0f - expf(-2.0f * NAR_AUTOMIX_TONE_PI * 150.0f / (float)sample_rate);
   state->high_cut_alpha =
-      1.0f - expf(-2.0f * NAR_AUTOMIX_TONE_PI * 1200.0f / sample_rate);
+      1.0f - expf(-2.0f * NAR_AUTOMIX_TONE_PI * 1200.0f / (float)sample_rate);
   state->gain_smoothing_alpha =
       1.0f - expf(-1.0f / ((float)sample_rate * 0.020f));
   state->current_bass_gain =
@@ -402,7 +402,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
       current_high += (target_high - current_high) * gain_alpha;
       current_fade += fade_step;
       for (int32_t channel = 0; channel < channel_count; ++channel) {
-        const size_t index = (size_t)frame * channel_count + channel;
+        const size_t index =
+            (size_t)frame * (size_t)channel_count + (size_t)channel;
         float sample = interleaved[index];
         if (!isfinite(sample)) sample = 0.0f;
         const float low = state->low_pass_state[channel] +

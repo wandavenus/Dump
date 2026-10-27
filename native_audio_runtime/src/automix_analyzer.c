@@ -871,7 +871,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     double error_sum = 0.0;
     int32_t error_count = 0;
     for (int32_t index = 0; index < 4; ++index) {
-      const float* quarter_odf = odf + (size_t)index * quarter;
+      const float* quarter_odf = odf + (size_t)index * (size_t)quarter;
       const TempoEstimate local = estimate_tempo(
           quarter_odf, quarter, sample_rate, fps);
       if (!local.valid || local.confidence < 0.35) continue;
