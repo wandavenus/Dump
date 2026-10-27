@@ -1137,9 +1137,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get navBarStyleSolid => 'Bawaan';
 
   @override
-  String get navBarStyleGlass => 'Kaca';
-
-  @override
   String get navBarStylePill => 'Pill Melayang';
 
   @override
