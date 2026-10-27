@@ -199,7 +199,7 @@ class FloatingPillNavBar extends StatelessWidget {
                     SizedBox(width: trailingGap * compactProgress),
                     SizedBox(width: dockWidth),
                     if (hasTrailing) ...[
-                      SizedBox(width: trailingGap * (1.0 - compactProgress)),
+                      SizedBox(width: trailingGap),
                       _TrailingButton(
                         icon: trailingIcon!,
                         label: trailingLabel,
