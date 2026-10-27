@@ -151,12 +151,12 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 | Direktori | Isi |
 |---|---|
 | `main/` | Entry point, `MaterialApp`, lifecycle observer, `part`-files. |
-| `bottom_nav_bar/` | Shell 5-tab + glass/pill navbar + morph player. |
+| `bottom_nav_bar/` | Shell 5-tab + Default/Floating Pill navbar + morph player. |
 | `domain/` | `app_router.dart` — helper navigasi terpusat. |
 | `models/` | 7 model data (immutable). |
 | `pages/` | Semua halaman: home, browse, radio, library, search, detail, settings, log, equalizer, sleep timer. |
 | `services/` | 22 service + subfolder (audio, native, lyrics, replaygain, log). |
-| `theme/` + `themes/` | Token warna, `ThemeExtension`, builder, controller, glass navbar. |
+| `theme/` + `themes/` | Token warna, `ThemeExtension`, builder, controller, Floating Pill navbar. |
 | `widgets/` | Komponen reusable: player, sections per halaman, common chrome, context menu. |
 | `l10n/` | Generated `AppLocalizations` (EN + ID) + `.arb` sumber. |
 | `utils/` | Konstanta, duration format, data statis, safe-num, text direction LTR/RTL. |
