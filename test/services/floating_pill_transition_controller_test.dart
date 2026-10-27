@@ -19,10 +19,16 @@ void main() {
 
   test('scroll deltas continuously collapse the dock', () {
     FloatingPillTransitionController.updateFromScrollDelta(18.0);
-    expect(FloatingPillTransitionController.progress.value, closeTo(0.25, 1e-9));
+    expect(
+      FloatingPillTransitionController.progress.value,
+      closeTo(0.25, 1e-9),
+    );
 
     FloatingPillTransitionController.updateFromScrollDelta(18.0);
-    expect(FloatingPillTransitionController.progress.value, closeTo(0.5, 1e-9));
+    expect(
+      FloatingPillTransitionController.progress.value,
+      closeTo(0.5, 1e-9),
+    );
   });
 
   test('scrolling back toward the page start reverses the transition', () {
@@ -57,6 +63,13 @@ void main() {
 
   test('no mini player means there is no empty compact dock', () {
     FloatingPillTransitionController.setMiniPlayerVisible(false);
+    FloatingPillTransitionController.updateFromScrollDelta(72.0);
+
+    expect(FloatingPillTransitionController.progress.value, 0.0);
+  });
+
+  test('disabled pill style ignores scroll deltas', () {
+    FloatingPillTransitionController.setDockEnabled(false);
     FloatingPillTransitionController.updateFromScrollDelta(72.0);
 
     expect(FloatingPillTransitionController.progress.value, 0.0);
