@@ -44,8 +44,8 @@ class LocalSongCard extends StatelessWidget {
             const SizedBox(height: 5),
             SizedBox(
               width: 165,
-              child: Text(
-                song.title,
+              child: ExplicitSongTitle(
+                song: song,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
