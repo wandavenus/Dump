@@ -75,6 +75,12 @@ void main() {
 
     expect(find.text('Clean Track'), findsOneWidget);
     expect(find.text('[E]'), findsNothing);
-    expect(find.descendant(of: find.byType(ExplicitSongTitle), matching: find.byType(Text)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ExplicitSongTitle),
+        matching: find.byType(Text),
+      ),
+      findsOneWidget,
+    );
   });
 }
