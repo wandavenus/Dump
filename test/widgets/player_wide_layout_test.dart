@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:musicplayer/l10n/app_localizations.dart';
@@ -76,6 +77,17 @@ Future<void> _pumpPlayer(WidgetTester tester, Size size) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    const channel = MethodChannel('musicplayer/media_store');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'getExplicitStatus') return false;
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  });
 
   testWidgets('landscape builds the two-column layout without overflow', (
     tester,
