@@ -130,8 +130,7 @@ class _FirstPageState extends State<FirstPage> {
         return ValueListenableBuilder<NavBarStyle>(
           valueListenable: ThemeController.navBarStyle,
           builder: (context, navStyle, _) {
-            final useGlassNavBar = isGlass && navStyle != NavBarStyle.solid;
-            final isPill = useGlassNavBar && navStyle == NavBarStyle.pill;
+            final isPill = isGlass && navStyle == NavBarStyle.pill;
             final navBar = Theme(
               data: Theme.of(context).copyWith(
                 splashColor: Colors.transparent,
@@ -167,9 +166,7 @@ class _FirstPageState extends State<FirstPage> {
                 selectedItemColor: Theme.of(context).colorScheme.primary,
                 unselectedItemColor: c.secondaryLabel,
                 showUnselectedLabels: true,
-                backgroundColor: useGlassNavBar
-                    ? Colors.transparent
-                    : c.surface,
+                backgroundColor: isPill ? Colors.transparent : c.surface,
                 unselectedFontSize: 11.0,
                 selectedFontSize: 11.0,
               ),
@@ -196,7 +193,7 @@ class _FirstPageState extends State<FirstPage> {
                     child: Stack(
                       children: [
                         Scaffold(
-                          extendBody: useGlassNavBar,
+                          extendBody: isPill,
                           body: IndexedStack(
                             index: _selectedIndex,
                             children: List.generate(
@@ -213,7 +210,7 @@ class _FirstPageState extends State<FirstPage> {
                               final column = Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (!useGlassNavBar)
+                                  if (!isPill)
                                     Container(
                                       height: 1.5,
                                       color: c.subtleSeparator,
@@ -222,7 +219,7 @@ class _FirstPageState extends State<FirstPage> {
                                 ],
                               );
 
-                              // Keep the expensive glass widget tree stable while
+                              // Keep the selected navbar subtree stable while
                               // the sheet is dragged. Only its transform should
                               // update per frame.
                               final Widget bottomChild;
@@ -246,9 +243,7 @@ class _FirstPageState extends State<FirstPage> {
                                   trailingLabel: context.l10n.navSearch,
                                 );
                               } else {
-                                bottomChild = useGlassNavBar
-                                    ? GlassNavBar(child: column)
-                                    : column;
+                                bottomChild = column;
                               }
 
                               return ValueListenableBuilder<double>(
@@ -263,7 +258,7 @@ class _FirstPageState extends State<FirstPage> {
                                       ? FloatingPillNavBar.bodyHeight +
                                             FloatingPillNavBar.bottomGap +
                                             safeBottom
-                                      : (useGlassNavBar ? 70.0 : 71.5);
+                                      : 71.5;
                                   // Direct-manipulation path: keep the navbar
                                   // spatially linear with sheet progress. A curved
                                   // mapping changes velocity while the finger moves,

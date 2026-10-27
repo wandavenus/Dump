@@ -34,49 +34,7 @@ double navBottomClearance(BuildContext context) {
         safeBottom +
         0.0;
   }
-  final navBarH = isGlass && navStyle != NavBarStyle.solid ? 53.8 : 55.1;
-  return navBarH + kMiniPlayerHeight + safeBottom + 10.7;
-}
-
-class GlassNavBar extends StatelessWidget {
-  final Widget child;
-
-  const GlassNavBar({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors.of(context);
-    return BackdropGroup(
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: ClipRect(
-                child: BackdropFilter.grouped(
-                  filterConfig: const ImageFilterConfig.blur(
-                    sigmaX: 6,
-                    sigmaY: 6,
-                    bounded: true,
-                  ),
-                  blendMode: BlendMode.srcOver,
-                  child: const ColoredBox(color: Colors.transparent),
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 0.5,
-            child: ColoredBox(color: c.glassBorderTint),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
+  return 55.1 + kMiniPlayerHeight + safeBottom + 10.7;
 }
 
 /// Navbar kapsul apung gaya iOS 26 (Liquid Glass).

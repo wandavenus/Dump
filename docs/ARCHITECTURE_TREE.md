@@ -14,7 +14,7 @@
 │                                                                                   │
 │  bottom_nav_bar/  ─┬─  FirstPage (5-tab shell)                                    │
 │                    ├─  _TabNavObserver ×5   (rebuild PopScope.canPop)            │
-│                    └─  GlassNavBar / FloatingPillNavBar / UnifiedMorphPlayer     │
+│                    └─  BottomNavigationBar / FloatingPillNavBar / UnifiedMorphPlayer     │
 │                                                                                   │
 │  pages/  home · browse · radio · library · search · album · artist · artist_list │
 │          music_list · settings_page (11 part-files) · log_page · equalizer_page  │
