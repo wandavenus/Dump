@@ -43,6 +43,42 @@ void main() {
     );
   });
 
+  test('dock polish scales elements to 95% and shifts artwork/title by 8px', () {
+    expect(
+      FloatingPillTransitionController.scaleForProgress(0.0),
+      1.0,
+    );
+    expect(
+      FloatingPillTransitionController.scaleForProgress(0.5),
+      closeTo(0.975, 1e-9),
+    );
+    expect(
+      FloatingPillTransitionController.scaleForProgress(1.0),
+      closeTo(0.95, 1e-9),
+    );
+    expect(
+      FloatingPillTransitionController.scaleForProgress(2.0),
+      closeTo(0.95, 1e-9),
+    );
+
+    expect(
+      FloatingPillTransitionController.artworkTitleOffsetForProgress(0.0),
+      0.0,
+    );
+    expect(
+      FloatingPillTransitionController.artworkTitleOffsetForProgress(0.5),
+      4.0,
+    );
+    expect(
+      FloatingPillTransitionController.artworkTitleOffsetForProgress(1.0),
+      8.0,
+    );
+    expect(
+      FloatingPillTransitionController.artworkTitleOffsetForProgress(-1.0),
+      0.0,
+    );
+  });
+
   test('transition progress is clamped at both bounds', () {
     FloatingPillTransitionController.updateFromScrollDelta(1000.0);
     expect(FloatingPillTransitionController.progress.value, 1.0);
