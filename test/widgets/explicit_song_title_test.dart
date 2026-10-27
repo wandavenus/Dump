@@ -31,7 +31,7 @@ void main() {
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
   });
 
-  testWidgets('renders a knockout glass badge for an explicit track', (
+  testWidgets('renders a square knockout glass badge for an explicit track', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -69,6 +69,9 @@ void main() {
     final badge = tester.widget<CustomPaint>(badgeFinder);
     expect(badge.painter, isA<CustomPainter>());
     expect(badge.child, isA<SizedBox>());
+
+    final badgeSize = tester.getSize(badgeFinder);
+    expect(badgeSize.width, badgeSize.height);
   });
 
   testWidgets('does not render a badge for a non-explicit track', (
