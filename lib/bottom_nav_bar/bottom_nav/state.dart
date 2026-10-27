@@ -173,97 +173,100 @@ class _FirstPageState extends State<FirstPage> {
                     }
                   },
                   child: NotificationListener<ScrollNotification>(
-                    onNotification:
-                        FloatingPillTransitionController.handleScrollNotification,
+                    onNotification: (notification) => isPill
+                        ? FloatingPillTransitionController
+                            .handleScrollNotification(notification)
+                        : false,
                     child: Stack(
                       children: [
                         Scaffold(
-                        extendBody: useGlassNavBar,
-                        body: IndexedStack(
-                          index: _selectedIndex,
-                          children: List.generate(
-                            5,
-                            (i) => Navigator(
-                              key: _tabNavKeys[i],
-                              observers: [_tabObservers[i]],
-                              onGenerateRoute: (s) => _tabRoute(i, s),
+                          extendBody: useGlassNavBar,
+                          body: IndexedStack(
+                            index: _selectedIndex,
+                            children: List.generate(
+                              5,
+                              (i) => Navigator(
+                                key: _tabNavKeys[i],
+                                observers: [_tabObservers[i]],
+                                onGenerateRoute: (s) => _tabRoute(i, s),
+                              ),
                             ),
                           ),
-                        ),
-                        bottomNavigationBar: Builder(
-                          builder: (context) {
-                            final column = Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (!useGlassNavBar)
-                                  Container(
-                                    height: 1.5,
-                                    color: c.subtleSeparator,
-                                  ),
-                                SizedBox(height: 70, child: navBar),
-                              ],
-                            );
-
-                            // Keep the expensive glass widget tree stable while
-                            // the sheet is dragged. Only its transform should
-                            // update per frame.
-                            final Widget bottomChild;
-                            if (isPill) {
-                              bottomChild = FloatingPillNavBar(
-                                selectedIndex: _selectedIndex,
-                                onTap: _navgateBottomBar,
-                                icons: const [
-                                  Icons.home_filled,
-                                  Icons.grid_view_rounded,
-                                  Icons.sensors,
-                                  Icons.subscriptions_rounded,
+                          bottomNavigationBar: Builder(
+                            builder: (context) {
+                              final column = Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (!useGlassNavBar)
+                                    Container(
+                                      height: 1.5,
+                                      color: c.subtleSeparator,
+                                    ),
+                                  SizedBox(height: 70, child: navBar),
                                 ],
-                                labels: [
-                                  context.l10n.navHome,
-                                  context.l10n.navBrowse,
-                                  context.l10n.navRadio,
-                                  context.l10n.navLibrary,
-                                ],
-                                trailingIcon: Icons.search,
-                                trailingLabel: context.l10n.navSearch,
                               );
-                            } else {
-                              bottomChild = useGlassNavBar
-                                  ? GlassNavBar(child: column)
-                                  : column;
-                            }
 
-                            return ValueListenableBuilder<double>(
-                              valueListenable: PlayerSheetController.progress,
-                              child: bottomChild,
-                              builder: (context, progress, child) {
-                                final safeBottom = MediaQuery.paddingOf(
-                                  context,
-                                ).bottom;
-                                final navH = isPill
-                                    ? FloatingPillNavBar.bodyHeight +
-                                          FloatingPillNavBar.bottomGap +
-                                          safeBottom
-                                    : (useGlassNavBar ? 70.0 : 71.5);
-                                // Direct-manipulation path: keep the navbar
-                                // spatially linear with sheet progress. A curved
-                                // mapping changes velocity while the finger moves,
-                                // which is perceived as jitter/stutter.
-                                final slide = (progress * navH).clamp(
-                                  0.0,
-                                  navH,
+                              // Keep the expensive glass widget tree stable while
+                              // the sheet is dragged. Only its transform should
+                              // update per frame.
+                              final Widget bottomChild;
+                              if (isPill) {
+                                bottomChild = FloatingPillNavBar(
+                                  selectedIndex: _selectedIndex,
+                                  onTap: _navgateBottomBar,
+                                  icons: const [
+                                    Icons.home_filled,
+                                    Icons.grid_view_rounded,
+                                    Icons.sensors,
+                                    Icons.subscriptions_rounded,
+                                  ],
+                                  labels: [
+                                    context.l10n.navHome,
+                                    context.l10n.navBrowse,
+                                    context.l10n.navRadio,
+                                    context.l10n.navLibrary,
+                                  ],
+                                  trailingIcon: Icons.search,
+                                  trailingLabel: context.l10n.navSearch,
                                 );
+                              } else {
+                                bottomChild = useGlassNavBar
+                                    ? GlassNavBar(child: column)
+                                    : column;
+                              }
 
-                                return Transform.translate(
-                                  offset: Offset(0, slide),
-                                  child: child,
-                                );
-                              },
-                            );
-                          },
+                              return ValueListenableBuilder<double>(
+                                valueListenable:
+                                    PlayerSheetController.progress,
+                                child: bottomChild,
+                                builder: (context, progress, child) {
+                                  final safeBottom = MediaQuery.paddingOf(
+                                    context,
+                                  ).bottom;
+                                  final navH = isPill
+                                      ? FloatingPillNavBar.bodyHeight +
+                                            FloatingPillNavBar.bottomGap +
+                                            safeBottom
+                                      : (useGlassNavBar ? 70.0 : 71.5);
+                                  // Direct-manipulation path: keep the navbar
+                                  // spatially linear with sheet progress. A curved
+                                  // mapping changes velocity while the finger moves,
+                                  // which is perceived as jitter/stutter.
+                                  final slide = (progress * navH).clamp(
+                                    0.0,
+                                    navH,
+                                  );
+
+                                  return Transform.translate(
+                                    offset: Offset(0, slide),
+                                    child: child,
+                                  );
+                                },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      // Unified morph player: handles both mini and full-player.
+                        // Unified morph player: handles both mini and full-player.
                         const UnifiedMorphPlayer(),
                       ],
                     ),
