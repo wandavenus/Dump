@@ -797,4 +797,36 @@ class TagBuilderTest {
         val second = builder.build()
         assertEquals(first.rgTrackGain, second.rgTrackGain)
     }
+    // ═════════════════════════════════════════════════════════════════════════
+    // I. iTunes explicit-content advisory
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @Test fun `I01 Vorbis ITUNESADVISORY 1 marks content explicit`() {
+        builder.consume(vorbis("ITUNESADVISORY", "1"))
+        assertEquals(true, builder.build().isExplicit)
+    }
+
+    @Test fun `I02 TXXX ITUNESADVISORY is case-insensitive`() {
+        builder.consume(txxx("itunesadvisory", "1"))
+        assertEquals(true, builder.build().isExplicit)
+    }
+
+    @Test fun `I03 advisory values 0 and 2 are not explicit`() {
+        builder.consume(vorbis("ITUNESADVISORY", "2"))
+        assertEquals(false, builder.build().isExplicit)
+
+        val cleanBuilder = TagBuilder()
+        cleanBuilder.consume(vorbis("ITUNESADVISORY", "0"))
+        assertEquals(false, cleanBuilder.build().isExplicit)
+    }
+
+    @Test fun `I04 absent advisory defaults to non-explicit after a successful parse`() {
+        assertEquals(false, builder.build().isExplicit)
+    }
+
+    @Test fun `I05 unknown advisory value remains unknown`() {
+        builder.consume(vorbis("ITUNESADVISORY", "unknown"))
+        assertNull(builder.build().isExplicit)
+    }
+
 }
