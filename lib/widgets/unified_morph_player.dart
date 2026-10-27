@@ -10,6 +10,7 @@ import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
 import '../services/artwork_repository.dart';
 import '../services/player_sheet_controller.dart';
+import '../services/floating_pill_transition_controller.dart';
 import '../themes/glass_navbar.dart';
 import '../themes/theme_controller.dart';
 import 'player/now_playing_layout.dart';
@@ -90,6 +91,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // e.g. Activity recreation while Media3 is still playing).
     _currentSong = AudioService.playbackState.value.currentSong;
     _isPlaying = AudioService.playbackState.value.isPlaying;
+    FloatingPillTransitionController.setMiniPlayerVisible(_currentSong != null);
     // If a song is already active on mount (restored session / Activity recreation),
     // play the same slide-up entry animation as when a song first appears during
     // a fresh session. Without this, _entryAnim stays at 0.0 → entrySlide ≈ 120 px
@@ -201,6 +203,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       }
     }
 
+    // Keep the navbar compact only while the mini-player is actually rendered.
+    // A session STOP retains the old song during its exit slide, so this remains
+    // true until _onEntryStatusChanged unmounts that last frame.
+    FloatingPillTransitionController.setMiniPlayerVisible(_currentSong != null);
+
     // Play / Pause state changed.
     if (_isPlaying != isPlaying) {
       _isPlaying = isPlaying;
@@ -249,6 +256,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       _exiting = false;
       if (mounted) {
         setState(() => _currentSong = null);
+        FloatingPillTransitionController.setMiniPlayerVisible(false);
       }
     }
   }
@@ -404,13 +412,20 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                     return ValueListenableBuilder<double>(
                       valueListenable: PlayerSheetController.progress,
                       builder: (context, progress, _) {
-                        return _buildMorph(
-                          context,
-                          song,
-                          progress,
-                          isGlass,
-                          navStyle,
-                          backgroundStyle,
+                        return ValueListenableBuilder<double>(
+                          valueListenable:
+                              FloatingPillTransitionController.progress,
+                          builder: (context, dockProgress, _) {
+                            return _buildMorph(
+                              context,
+                              song,
+                              progress,
+                              dockProgress,
+                              isGlass,
+                              navStyle,
+                              backgroundStyle,
+                            );
+                          },
                         );
                       },
                     );
@@ -428,6 +443,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     BuildContext context,
     LocalSong song,
     double progress,
+    double dockProgress,
     bool isGlass,
     NavBarStyle navStyle,
     PlayerBackgroundStyle backgroundStyle,
@@ -447,6 +463,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final miniBottomGap = isPill ? FloatingPillNavBar.miniPlayerGap : 0.0;
     // Kapsul penuh saat mini (mode pill); 0 = persegi (mode lain / full player).
     final miniRadius = isPill ? miniH / 2 : 0.0;
+    // Shared scroll progress controls only the collapsed floating-pill dock.
+    // The full-player morph remains owned by PlayerSheetController.progress.
+    final compactDockProgress = isPill ? dockProgress : 0.0;
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
@@ -468,20 +487,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // to its resting spot above the nav bar — no fade, pure slide.
     final easedEntry = Curves.easeOutCubic.transform(_entryAnim.value);
     final baseBottom = navBarH + safeBottom + miniBottomGap;
+    final dockBottom = safeBottom + FloatingPillNavBar.bottomGap;
+    final collapsedBottom = lerpDouble(
+      baseBottom,
+      dockBottom,
+      compactDockProgress,
+    )!;
     final entrySlide = (baseBottom + miniH) * (1.0 - easedEntry);
 
-    final bottom =
-        lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)! - entrySlide;
+    final bottom = lerpDouble(collapsedBottom, 0.0, t)! - entrySlide;
 
-    // Reveal boundary: while collapsed (t == 0, i.e. not expanding into the
-    // full player), clip away anything at/below the nav bar's top edge so the
-    // mini player can only ever be visible above that line — this is what
-    // makes it look like it emerges from behind/inside the bar as it slides
-    // up, instead of momentarily poking out below the bar's top edge. Fully
-    // relaxes to full-screen the moment the user starts expanding the sheet,
-    // so it never interferes with the full-player view.
-    final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
-    final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
+    // Keep the docked player visible inside the navbar's original clipping
+    // region while preserving the existing mini-to-full-player geometry.
+    final clipVisibleHeight =
+        t > 0.0 ? screenH : (screenH - collapsedBottom);
+    final dockHorizMargin = miniHorizMargin +
+        (FloatingPillNavBar.trailingSize + FloatingPillNavBar.trailingGap) *
+            compactDockProgress;
+    final horizMargin = lerpDouble(dockHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
     // Border radius: kapsul penuh saat mini (mode pill), menyusut ke 0
     // mengikuti ekspansi sheet (full player = layar penuh persegi).
@@ -493,12 +516,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final bgAlpha = (progress / 0.35).clamp(0.0, 1.0);
 
     // ── Artwork morph positions ──────────────────────────────────────────────
-    const miniArtSize = 46.3;
-    // Fluid mode: shift the collapsed artwork 2px right. Other background
-    // modes retain their original horizontal position.
+    final miniArtSize = lerpDouble(46.3, 36.0, compactDockProgress)!;
     final isFluidStyle = backgroundStyle == PlayerBackgroundStyle.fluid;
-    final miniArtLeft = isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0);
-    const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
+    final miniArtLeft = lerpDouble(
+      isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0),
+      10.0,
+      compactDockProgress,
+    )!;
+    final miniArtTop = (miniH - miniArtSize) / 2;
 
     // ── Full-player artwork target ───────────────────────────────────────────
     // On a wide window the full player switches to its two-column layout
@@ -982,6 +1007,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               song,
                               progress,
                               isPill,
+                              compactDockProgress,
                             ),
                           ),
                         ),
@@ -1022,10 +1048,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     LocalSong song,
     double progress,
     bool isPill,
+    double compactProgress,
   ) {
     final isFluidStyle =
         ThemeController.playerBackgroundStyle.value == PlayerBackgroundStyle.fluid;
     final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
+    final compact = compactProgress.clamp(0.0, 1.0).toDouble();
 
     final miniContentOffset = -5.0 * (1.0 - miniContentAlpha);
     return Stack(
@@ -1035,12 +1063,20 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
         // Row utama: [artwork spacer] [title] [controls]
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: lerpDouble(12.0, 8.0, compact)!,
+          ),
           child: Row(
             children: [
-              // Reserve space for the morphing artwork (46px + 10px gap).
-              // Fluid mode shifts both artwork and title 2px right.
-              SizedBox(width: isPill ? 66 : (isFluidStyle ? 58 : 56)),
+              // Reserve the exact slot of the separately positioned artwork.
+              // The compact dock progressively releases horizontal space.
+              SizedBox(
+                width: lerpDouble(
+                  isPill ? 66.0 : (isFluidStyle ? 58.0 : 56.0),
+                  44.0,
+                  compact,
+                )!,
+              ),
 
               // Judul lagu dengan Hero tag
               Expanded(
@@ -1061,7 +1097,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: AppColors.of(context).primaryLabel,
-                              fontSize: 15,
+                              fontSize: lerpDouble(15.0, 12.5, compact),
                             ),
                           ),
                         ),
@@ -1071,13 +1107,16 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                 ),
               ),
 
-              // Play / Pause — uses _isPlaying field
+              // Controls compress with the dock; skip-next leaves the slot
+              // continuously instead of snapping away at the end of the scroll.
               Transform.translate(
                 offset: Offset(0, miniContentOffset),
                 child: Opacity(
                   opacity: miniContentAlpha,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Keep the full 48px touch target while the glyph compresses.
                       IconButton(
                         onPressed: () => _isPlaying
                             ? AudioService.pause()
@@ -1086,16 +1125,26 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           _isPlaying
                               ? CupertinoIcons.pause_fill
                               : CupertinoIcons.play_fill,
-                          size: 31,
+                          size: lerpDouble(31.0, 22.0, compact),
                           color: AppColors.of(context).primaryLabel,
                         ),
                       ),
-                      IconButton(
-                        onPressed: AudioService.skipNext,
-                        icon: Icon(
-                          CupertinoIcons.forward_fill,
-                          size: 30,
-                          color: AppColors.of(context).primaryLabel,
+                      Align(
+                        alignment: Alignment.centerRight,
+                        widthFactor: 1.0 - compact,
+                        child: Opacity(
+                          opacity: 1.0 - compact,
+                          child: IgnorePointer(
+                            ignoring: compact >= 0.5,
+                            child: IconButton(
+                              onPressed: AudioService.skipNext,
+                              icon: Icon(
+                                CupertinoIcons.forward_fill,
+                                size: 30,
+                                color: AppColors.of(context).primaryLabel,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],

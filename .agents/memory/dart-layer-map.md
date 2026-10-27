@@ -38,6 +38,7 @@ description: Every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ 
 | `playlist_service.dart` | `PlaylistService` | Playlist CRUD + favorites |
 | `replay_gain_service.dart` | — | ReplayGain processing entry point |
 | `scroll_to_top_service.dart` | `ScrollToTopService` | Cross-tab scroll-to-top event coordination |
+| `floating_pill_transition_controller.dart` | `FloatingPillTransitionController` | Shared scroll-driven progress for compact floating navbar + mini-player docking |
 | `sleep_timer_service.dart` | `SleepTimerMode` (enum), `SleepTimerService` | Delegates to native Handler; subscribes sleepTimerStream for UI ValueNotifiers |
 | `song_metadata_service.dart` | — | Read/write file tags entry point |
 

@@ -33,6 +33,14 @@ Components subscribe via `ValueListenableBuilder`. Helper: `isGlass(notifier)` c
 | `lib/pages/settings_page/glass_toggle.dart` | Per-component toggle UI in settings |
 | `lib/widgets/unified_morph_player.dart` | Glass morphing logic using ThemeController |
 
+## Scroll-driven floating pill dock
+
+- `FloatingPillTransitionController.progress` is the shared frame-synchronous 0–1 progress source for the floating navbar and collapsed mini-player.
+- `lib/bottom_nav_bar/bottom_nav/state.dart` observes root vertical scroll notifications and leaves them available to page-level app-bar animations.
+- `lib/themes/glass_navbar.dart` morphs the four-tab capsule into the active destination icon. Search remains a separate circular action; the center slot is reserved for the mini-player.
+- `lib/widgets/unified_morph_player.dart` uses the same progress to dock and compress the mini-player. Full-player expansion remains controlled by `PlayerSheetController.progress`.
+- Only the floating pill navbar style changes dock geometry. Regression coverage is in `test/services/floating_pill_transition_controller_test.dart`.
+
 ## Shader: fluid.frag
 
 - Path: `assets/shaders/fluid.frag`
