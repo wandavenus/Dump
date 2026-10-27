@@ -4,7 +4,9 @@
 - Reads the `ITUNESADVISORY` tag from Media3 `VorbisComment` entries (Opus/Ogg/FLAC) and ID3 `TXXX` custom text frames; the parser also checks a matching mdta key.
 - Values `1`, `explicit`, `true`, and `yes` mean explicit. Values `0`, `2`, `clean`, `false`, `no`, `none`, and `not explicit` mean not explicit.
 - Only recognized explicit values activate the badge. Other advisory values and successful parses without an advisory are not marked explicit; a failed metadata read returns null and is retried.
-- `ExplicitSongTitle` renders a compact explicit marker after the title only for explicit tracks. The marker is a borderless white surface at 18% opacity with a 3 px radius; its `E` glyph is fully transparent (0% opacity). It is reused for lists, search, playlists, browse cards, queue, mini player, and full player.
+- `ExplicitSongTitle` renders the shared `ExplicitAdvisoryBadge` after a title only for explicit tracks. The badge is a square borderless white surface at 18% opacity; the E is cut out with `BlendMode.dstOut`, with a 2.43 px corner radius and 81% scale relative to its original size.
+- The shared `ExplicitAdvisoryBadge` is also used by the mini header inside `PlayerContent` when the lyrics/queue overlay is visible. Do not add a separate text-only `[E]` marker there.
+- The shared badge is used in lists, search, playlists, browse cards, queue, mini player, full player, and song context menu.
 
 ## Data flow
 1. `TagBuilder` normalizes the advisory tag into nullable `AudioTags.isExplicit`.
@@ -14,9 +16,9 @@
 
 ## CI regression fix (2026-10-27)
 - Noisegraph test-suite run #191 tested Dump commit `6eb8141942a07a21ff390a6f1ca2a883006ab7dd`; `flutter analyze` passed, but the browse-banner golden changed and the wide-player widget test left the 12-second MethodChannel timeout pending.
-- `ExplicitSongTitle` now returns a plain `Text` widget when status is not explicit, preserving the original layout and golden pixels; it adds a `Row` only when an `[E]` badge is needed.
-- `PlayerContent` defers explicit-status lookup until its mini header is visible, avoiding needless channel work during normal player layout.
-- `player_wide_layout_test.dart` mocks `getExplicitStatus`; dedicated widget tests cover both explicit and clean tracks.
+- `ExplicitSongTitle` returns a plain `Text` widget when status is not explicit, preserving the original layout and golden pixels; it adds a `Row` only when an `[E]` badge is needed.
+- `PlayerContent` defers explicit-status lookup until its mini header is actually visible, avoiding needless channel work during normal player layout.
+- `player_wide_layout_test.dart` mocks `getExplicitStatus`; widget tests cover explicit and clean tracks. The mini-header regression test requires the shared knockout badge and rejects the legacy text-only `[E]`.
 
 ## Regression tests
 - `TagBuilderTest` covers Vorbis advisory `1`, case-insensitive ID3 TXXX key, non-explicit values `0` and `2`, absent tags, and invalid values.
