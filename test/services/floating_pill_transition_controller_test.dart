@@ -5,11 +5,13 @@ import 'package:musicplayer/services/player_sheet_controller.dart';
 void main() {
   setUp(() {
     PlayerSheetController.setProgress(0.0);
+    FloatingPillTransitionController.setMiniPlayerVisible(true);
     FloatingPillTransitionController.reset();
   });
 
   tearDown(() {
     PlayerSheetController.setProgress(0.0);
+    FloatingPillTransitionController.setMiniPlayerVisible(false);
     FloatingPillTransitionController.reset();
   });
 
@@ -46,6 +48,13 @@ void main() {
 
   test('scrolling behind an expanded player does not move the dock', () {
     PlayerSheetController.setProgress(1.0);
+    FloatingPillTransitionController.updateFromScrollDelta(72.0);
+
+    expect(FloatingPillTransitionController.progress.value, 0.0);
+  });
+
+  test('no mini player means there is no empty compact dock', () {
+    FloatingPillTransitionController.setMiniPlayerVisible(false);
     FloatingPillTransitionController.updateFromScrollDelta(72.0);
 
     expect(FloatingPillTransitionController.progress.value, 0.0);
