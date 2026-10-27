@@ -19,6 +19,11 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
   static const double _unfavoriteIconSize = 19;
   static const double _favoriteIconSize = 19;
 
+  // Lazy initialization avoids constructing the cutout painter until the
+  // favorited appearance is first shown, then reuses it across button rebuilds.
+  late final _FavoriteCutoutPainter _favoritePainter =
+      _FavoriteCutoutPainter(iconSize: _favoriteIconSize);
+
   bool _isFavorite = false;
   int _loadGeneration = 0;
 
@@ -70,7 +75,7 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
           child: _isFavorite
               ? CustomPaint(
                   size: const Size.square(27),
-                  painter: _FavoriteCutoutPainter(iconSize: _favoriteIconSize),
+                  painter: _favoritePainter,
                 )
               : const Icon(
                   CupertinoIcons.star,
@@ -84,20 +89,13 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
 }
 
 class _FavoriteCutoutPainter extends CustomPainter {
-  const _FavoriteCutoutPainter({required this.iconSize});
+  _FavoriteCutoutPainter({required this.iconSize})
+    : _textPainter = _createTextPainter(iconSize);
 
   final double iconSize;
+  final TextPainter _textPainter;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    canvas.saveLayer(bounds, Paint());
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height / 2),
-      size.shortestSide / 2,
-      Paint()..color = Colors.white,
-    );
-
+  static TextPainter _createTextPainter(double iconSize) {
     final textPainter = TextPainter(
       text: TextSpan(
         text: String.fromCharCode(CupertinoIcons.star_fill.codePoint),
@@ -110,12 +108,26 @@ class _FavoriteCutoutPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
+    return textPainter;
+  }
 
-    textPainter.paint(
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.saveLayer(bounds, Paint());
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height / 2),
+      size.shortestSide / 2,
+      Paint()..color = Colors.white,
+    );
+
+    // Reuse the pre-laid-out glyph; paint() performs no TextPainter allocation
+    // or text layout, preserving the original star cutout geometry.
+    _textPainter.paint(
       canvas,
       Offset(
-        (size.width - textPainter.width) / 2,
-        (size.height - textPainter.height) / 2,
+        (size.width - _textPainter.width) / 2,
+        (size.height - _textPainter.height) / 2,
       ),
     );
     canvas.restore();
