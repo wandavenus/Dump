@@ -740,6 +740,7 @@ harmonic change; `dart analyze` clean on the changed Dart files. Post-fix synthe
 27 tempi × 4 styles): four-on-floor **27/27 correct and usable** (was 15/27); backbeat-only 4/27 correct
 (half/double ambiguity remains, but `alternateBpm` carries the other level); syncopated 14/27 correct with
 only 12/27 at confidence ≥0.20 (ambiguous levels are withheld rather than confidently wrong); pad-only is not
-a rhythmic signal and is not claimed. These are synthetic signals, not a perceptual result. `flutter test` could not run in this
-workspace (filesystem 99%, test compiler `ENOSPC` after freeing 55 MB of generated caches), and Kotlin/Gradle
-was not run. Those suites must be executed in CI before treating the fixes as regression-proven.
+a rhythmic signal and is not claimed. These are synthetic signals, not a perceptual result.
+After cleaning sandbox caches, `flutter test --no-pub test/services/automix_service/` ran **131 tests, all
+passed** (the earlier `ENOSPC` was disk exhaustion, not a test failure). Kotlin/Gradle was still not run
+(no usable Gradle distribution), and `ffmpeg` is unavailable, so the Kotlin and real-audio suites remain for CI.

@@ -89,5 +89,6 @@ beat phase dengan off-beat hat, key noise/detune, dan phrase phase dari perubaha
 `engine.dart`, `service.dart`, dan test AutoMix: bersih. Sweep syntetik pasca-fix: four-on-floor **27/27 benar**
 (sebelumnya 15/27); backbeat-only 4/27 (ambiguitas half/double tetap, `alternateBpm` membawa level lain);
 syncopated 14/27 benar, hanya 12/27 dengan conf ≥0.20 (level ambigu ditahan, bukan ditebak); pad-only bukan
-sinyal ritmis. `flutter test` **tidak dapat dijalankan** di workspace ini (disk 100%, test compiler `ENOSPC`);
-Kotlin/Gradle juga tidak tersedia. Jangan mengklaim lulus sebelum dijalankan di CI/devcontainer.
+sinyal ritmis. Setelah cache sandbox dibersihkan, `flutter test --no-pub test/services/automix_service/`
+menjalankan **131 test, semuanya lulus** (`ENOSPC` sebelumnya murni disk penuh, bukan kegagalan test).
+Kotlin/Gradle tetap tidak tersedia dan `ffmpeg` tidak ada, jadi suite Kotlin dan audio nyata tetap untuk CI.
