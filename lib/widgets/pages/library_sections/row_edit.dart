@@ -5,13 +5,11 @@ class _LibraryRow extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    this.routeName,
     this.destination,
   });
 
   final IconData icon;
   final String title;
-  final String? routeName;
   final _LibraryDestination? destination;
 
   @override
@@ -38,20 +36,16 @@ class _LibraryRow extends StatelessWidget {
       ],
     );
 
-    if (routeName == null && destination == null) return row;
+    if (destination == null) return row;
     return GestureDetector(
       onTap: () {
-        if (destination != null) {
-          unawaited(
-            Navigator.of(context).push(
-              ZoomFadeRoute<void>(
-                page: _LibraryDetailPage(destination: destination!),
-              ),
+        unawaited(
+          Navigator.of(context).push(
+            ZoomFadeRoute<void>(
+              page: _LibraryDetailPage(destination: destination!),
             ),
-          );
-          return;
-        }
-        unawaited(Navigator.pushNamed(context, routeName!));
+          ),
+        );
       },
       child: row,
     );

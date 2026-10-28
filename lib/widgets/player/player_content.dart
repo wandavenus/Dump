@@ -32,6 +32,7 @@ import 'player_transport_controls.dart';
 import 'synced_lyrics_view.dart';
 
 part 'player_content/content.dart';
+part 'player_content/sheet_progress.dart';
 part 'player_content/queue_overlay.dart';
 part 'player_content/lyrics_overlay.dart';
 part 'player_content/lyrics_appearance.dart';
