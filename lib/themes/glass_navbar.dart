@@ -320,11 +320,6 @@ class _PillItemsState extends State<_PillItems> {
         widget.selectedIndex < count ? widget.selectedIndex : 0;
     final activeIndex = _dragIndex ?? widget.selectedIndex.toDouble();
     final compactProgress = widget.compactProgress;
-    final primary = Theme.of(context).colorScheme.primary;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final compactColor = widget.selectedIndex == compactIndex
-        ? primary
-        : (isLight ? Colors.black : Colors.white);
 
     return LayoutBuilder(
       builder: (context, constraints) {
