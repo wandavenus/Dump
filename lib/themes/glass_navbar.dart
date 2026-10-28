@@ -8,7 +8,7 @@ const double kMiniPlayerHeight = 62.0;
 // Final horizontal offsets for the four Floating Pill navigation icons.
 // Browse and Radio are each moved 1 px inward from the previous positions.
 const List<double> _pillIconHorizontalOffsets = <double>[8, 4, -4, -8];
-const double _pillHighlightExpansion = 18.0;
+const double _pillHighlightExpansion = 28.0;
 
 /// Soft neutral-gray tint inspired by Mornye's glass surfaces.
 /// Keep navbar glass more transparent than the mini player, without changing
