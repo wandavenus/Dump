@@ -151,18 +151,14 @@ class FloatingPillNavBar extends StatelessWidget {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Transform.scale(
-                      scale: FloatingPillTransitionController.scaleForProgress(
+                    SizedBox(
+                      width: capsuleWidth,
+                      height: bodyHeight,
+                      child: _buildCapsule(
+                        context,
+                        radius,
                         compactProgress,
-                      ),
-                      child: SizedBox(
-                        width: capsuleWidth,
-                        height: bodyHeight,
-                        child: _buildCapsule(
-                          context,
-                          radius,
-                          compactProgress,
-                        ),
+                        contentWidth: normalCapsuleWidth,
                       ),
                     ),
                     SizedBox(width: trailingGap * compactProgress),
@@ -195,8 +191,9 @@ class FloatingPillNavBar extends StatelessWidget {
   Widget _buildCapsule(
     BuildContext context,
     double radius,
-    double compactProgress,
-  ) {
+    double compactProgress, {
+    required double contentWidth,
+  }) {
     return SizedBox(
       width: double.infinity,
       height: bodyHeight,
@@ -225,13 +222,22 @@ class FloatingPillNavBar extends StatelessWidget {
                 ),
               ),
             ),
-            _PillItems(
-              selectedIndex: selectedIndex,
-              onTap: onTap,
-              icons: icons,
-              labels: labels,
-              semanticsLabels: semanticsLabels,
-              compactProgress: compactProgress,
+            OverflowBox(
+              alignment: Alignment.centerLeft,
+              minWidth: contentWidth,
+              maxWidth: contentWidth,
+              child: SizedBox(
+                width: contentWidth,
+                height: bodyHeight,
+                child: _PillItems(
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                  icons: icons,
+                  labels: labels,
+                  semanticsLabels: semanticsLabels,
+                  compactProgress: compactProgress,
+                ),
+              ),
             ),
           ],
         ),
@@ -308,8 +314,8 @@ class _PillItemsState extends State<_PillItems> {
     final count = widget.icons.length;
     if (count == 0) return const SizedBox.shrink();
 
-    // Search stays in its independent trailing circle. If Search is selected,
-    // Home is used as the compact left-side shortcut.
+    // Search keeps its independent right-side circle. Home is the fallback
+    // compact icon when Search is the selected destination.
     final compactIndex =
         widget.selectedIndex < count ? widget.selectedIndex : 0;
     final activeIndex = _dragIndex ?? widget.selectedIndex.toDouble();
@@ -323,21 +329,30 @@ class _PillItemsState extends State<_PillItems> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final segment = constraints.maxWidth / count;
-        final lensWidth = (segment + _pillHighlightExpansion)
+        final baseLensWidth = (segment + _pillHighlightExpansion)
             .clamp(0.0, constraints.maxWidth)
             .toDouble();
-        final lensLeft = segment * activeIndex +
-            (segment - lensWidth) / 2 +
+        final lensWidth = baseLensWidth +
+            (FloatingPillNavBar.bodyHeight - baseLensWidth) * compactProgress;
+        final baseLensLeft = segment * activeIndex +
+            (segment - baseLensWidth) / 2 +
             _offsetFor(activeIndex, count);
+        final lensLeft = baseLensLeft * (1.0 - compactProgress);
 
-        // Only the selected icon travels into the left circle. All other icons
-        // retain their original coordinates and fade sequentially right-to-left.
+        // Fade all non-selected icons one-by-one, starting at the right.
+        // The selected icon is the original widget and is the only one moved.
         double iconOpacity(int index) {
           if (compactProgress <= 0.0 || index == compactIndex) return 1.0;
-          final stepsFromRight = count - 1 - index;
-          final fadeStart = stepsFromRight / count;
-          final fadeEnd = (stepsFromRight + 1) / count;
-          final fade = ((compactProgress - fadeStart) / (fadeEnd - fadeStart))
+
+          var fadeRank = 0;
+          for (var candidate = count - 1; candidate > index; candidate--) {
+            if (candidate != compactIndex) fadeRank++;
+          }
+          final fadeCount = count > 1 ? count - 1 : 1;
+          final fadeStart = fadeRank / fadeCount;
+          final fadeEnd = (fadeRank + 1) / fadeCount;
+          final fade = ((compactProgress - fadeStart) /
+                  (fadeEnd - fadeStart))
               .clamp(0.0, 1.0)
               .toDouble();
           return 1.0 - fade;
@@ -346,10 +361,8 @@ class _PillItemsState extends State<_PillItems> {
         final selectedCenter = segment * (compactIndex + 0.5) +
             _offsetFor(compactIndex.toDouble(), count);
         final targetCenter = FloatingPillNavBar.bodyHeight / 2;
-        final movingCenter = selectedCenter +
-            (targetCenter - selectedCenter) * compactProgress;
-        final selectedIconOpacity =
-            (compactProgress / 0.18).clamp(0.0, 1.0).toDouble();
+        final selectedTravel = (targetCenter - selectedCenter) * compactProgress;
+        final labelOpacity = (1.0 - compactProgress).clamp(0.0, 1.0).toDouble();
 
         return SizedBox(
           height: FloatingPillNavBar.bodyHeight,
@@ -360,121 +373,85 @@ class _PillItemsState extends State<_PillItems> {
                 excluding: compactProgress >= 0.5,
                 child: IgnorePointer(
                   ignoring: compactProgress >= 0.5,
-                  child: Opacity(
-                    opacity: 1.0 - compactProgress,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onHorizontalDragUpdate: (details) =>
-                          _updateDrag(details, constraints.maxWidth),
-                      onHorizontalDragEnd: (_) => _finishDrag(),
-                      child: SizedBox(
-                        height: FloatingPillNavBar.bodyHeight,
-                        child: Stack(
-                          clipBehavior: Clip.hardEdge,
-                          children: [
-                            if (widget.selectedIndex < count)
-                              if (_dragIndex == null && compactProgress == 0.0)
-                                AnimatedPositioned(
-                                  duration: const Duration(milliseconds: 220),
-                                  curve: Curves.easeOutCubic,
-                                  left: lensLeft,
-                                  top: 4.5,
-                                  width: lensWidth,
-                                  height: 53,
-                                  child: IgnorePointer(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.of(context)
-                                            .glassActiveLens,
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                Positioned(
-                                  left: lensLeft,
-                                  top: 4.5,
-                                  width: lensWidth,
-                                  height: 53,
-                                  child: IgnorePointer(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.of(context)
-                                            .glassActiveLens,
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                      ),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragUpdate: (details) =>
+                        _updateDrag(details, constraints.maxWidth),
+                    onHorizontalDragEnd: (_) => _finishDrag(),
+                    child: SizedBox(
+                      height: FloatingPillNavBar.bodyHeight,
+                      child: Stack(
+                        clipBehavior: Clip.hardEdge,
+                        children: [
+                          if (widget.selectedIndex < count)
+                            if (_dragIndex == null && compactProgress == 0.0)
+                              AnimatedPositioned(
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                                left: lensLeft,
+                                top: 4.5,
+                                width: lensWidth,
+                                height: 53,
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.of(context)
+                                          .glassActiveLens,
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                   ),
                                 ),
-                            Row(
-                              children: [
-                                for (var i = 0; i < count; i++)
-                                  Expanded(
-                                    child: _PillItem(
-                                      icon: widget.icons[i],
-                                      label: widget.labels[i],
-                                      semanticsLabel:
-                                          widget.semanticsLabels != null
-                                              ? widget.semanticsLabels![i]
-                                              : widget.labels[i],
-                                      active: i == widget.selectedIndex,
-                                      horizontalOffset:
-                                          i < _pillIconHorizontalOffsets.length
-                                              ? _pillIconHorizontalOffsets[i]
-                                              : 0.0,
-                                      iconSize: i == 0
-                                          ? FloatingPillNavBar._iconSize + 2.0
-                                          : FloatingPillNavBar._iconSize,
-                                      opacity: iconOpacity(i),
-                                      onTap: () => widget.onTap(i),
+                              )
+                            else
+                              Positioned(
+                                left: lensLeft,
+                                top: 4.5,
+                                width: lensWidth,
+                                height: 53,
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.of(context)
+                                          .glassActiveLens,
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                   ),
-                              ],
-                            ),
-                          ],
-                        ),
+                                ),
+                              ),
+                          Row(
+                            children: [
+                              for (var i = 0; i < count; i++)
+                                Expanded(
+                                  child: _PillItem(
+                                    icon: widget.icons[i],
+                                    label: widget.labels[i],
+                                    semanticsLabel:
+                                        widget.semanticsLabels != null
+                                            ? widget.semanticsLabels![i]
+                                            : widget.labels[i],
+                                    active: i == widget.selectedIndex,
+                                    horizontalOffset:
+                                        i < _pillIconHorizontalOffsets.length
+                                            ? _pillIconHorizontalOffsets[i]
+                                            : 0.0,
+                                    horizontalTravel:
+                                        i == compactIndex ? selectedTravel : 0.0,
+                                    iconSize: i == 0
+                                        ? FloatingPillNavBar._iconSize + 2.0
+                                        : FloatingPillNavBar._iconSize,
+                                    opacity: iconOpacity(i),
+                                    labelOpacity: labelOpacity,
+                                    onTap: () => widget.onTap(i),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-              if (compactProgress > 0.0)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: compactProgress < 0.5,
-                    child: Opacity(
-                      opacity: compactProgress,
-                      child: Semantics(
-                        button: true,
-                        selected: widget.selectedIndex == compactIndex,
-                        label: widget.labels[compactIndex],
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => widget.onTap(compactIndex),
-                          child: Center(
-                            child: Transform.translate(
-                              offset: Offset(movingCenter - targetCenter, 0),
-                              child: Transform.scale(
-                                scale: 0.84 + 0.16 * compactProgress,
-                                child: Opacity(
-                                  opacity: selectedIconOpacity,
-                                  child: Icon(
-                                    widget.icons[compactIndex],
-                                    size: FloatingPillNavBar._iconSize,
-                                    color: compactColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         );
@@ -489,8 +466,10 @@ class _PillItem extends StatelessWidget {
   final String? semanticsLabel;
   final bool active;
   final double horizontalOffset;
+  final double horizontalTravel;
   final double iconSize;
   final double opacity;
+  final double labelOpacity;
   final VoidCallback onTap;
 
   const _PillItem({
@@ -499,8 +478,10 @@ class _PillItem extends StatelessWidget {
     required this.semanticsLabel,
     required this.active,
     required this.horizontalOffset,
+    required this.horizontalTravel,
     required this.iconSize,
     required this.opacity,
+    required this.labelOpacity,
     required this.onTap,
   });
 
@@ -532,7 +513,7 @@ class _PillItem extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Transform.translate(
-                    offset: Offset(horizontalOffset, 0),
+                    offset: Offset(horizontalOffset + horizontalTravel, 0),
                     child: Icon(
                       icon,
                       size: iconSize,
@@ -543,9 +524,11 @@ class _PillItem extends StatelessWidget {
                     const SizedBox(height: 3),
                     Transform.translate(
                       offset: Offset(horizontalOffset, 0),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
+                      child: Opacity(
+                        opacity: labelOpacity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
                           label!,
                           maxLines: 1,
                           style: TextStyle(
@@ -556,6 +539,7 @@ class _PillItem extends StatelessWidget {
                                 : FontWeight.w400,
                           ),
                         ),
+                      ),
                       ),
                     ),
                   ],
