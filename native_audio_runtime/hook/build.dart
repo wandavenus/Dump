@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:code_assets/code_assets.dart';
 import 'package:native_toolchain_c/native_toolchain_c.dart';
 import 'package:logging/logging.dart';
@@ -26,15 +28,24 @@ void main(List<String> args) async {
     // no code-asset config at all, and touching `.code` unconditionally
     // throws a null-check error there. Guard on `buildCodeAssets` first so
     // web builds (which never compile this package's C sources) keep working.
+    final isTermuxHost = (Platform.environment['PREFIX'] ?? '')
+            .contains('com.termux') ||
+        Platform.resolvedExecutable.contains('com.termux');
+    final buildCodeAssets = input.config.buildCodeAssets;
+    final isAndroid =
+        buildCodeAssets && input.config.code.targetOS == OS.android;
+    final isTermux = buildCodeAssets && isTermuxHost;
     final libraries = <String>[
-      if (input.config.buildCodeAssets &&
-          input.config.code.targetOS == OS.android) ...[
-        'log',
-        // aaudio_probe.c calls dlopen()/dlsym()/dlclose() to probe
-        // libaaudio.so's actual granted sharing mode at runtime (see
-        // src/aaudio_probe.h) — those symbols live in libdl on Android.
-        'dl',
-      ],
+      if (isAndroid || isTermux) 'log',
+      // aaudio_probe.c calls dlopen()/dlsym()/dlclose() to probe
+      // libaaudio.so's actual granted sharing mode at runtime (see
+      // src/aaudio_probe.h) — those symbols live in libdl on Android.
+      if (isAndroid) 'dl',
+      // Host builds under Termux use clang targeting Android (so
+      // `__ANDROID__` is defined) but the hook sees targetOS == linux, so
+      // liblog/libm are not linked implicitly; without them the host .so
+      // fails to dlopen with unresolved __android_log_print/powf.
+      if (isTermux) 'm',
     ];
     final cbuilder = CBuilder.library(
       name: packageName,
