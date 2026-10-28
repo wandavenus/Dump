@@ -505,17 +505,20 @@ class _PillItem extends StatelessWidget {
                   ),
                   if (label != null) ...[
                     const SizedBox(height: 3),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label!,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: color,
-                          fontWeight: active
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+                    Transform.translate(
+                      offset: Offset(horizontalOffset, 0),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label!,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: color,
+                            fontWeight: active
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
                         ),
                       ),
                     ),
