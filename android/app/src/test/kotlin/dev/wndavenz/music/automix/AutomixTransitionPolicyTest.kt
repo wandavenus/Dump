@@ -56,6 +56,31 @@ class AutomixTransitionPolicyTest {
     }
 
     @Test
+    fun `bounded fade lead keeps phrase snapping from stretching the fade`() {
+        // 3 s planned fade, start snapped 1.5 s early at 60 BPM (1 s beat):
+        // allow half a beat of tolerance, not the remaining 3.5 s to EOF.
+        assertEquals(
+            3_500L,
+            AutomixTransitionPolicy.boundedFadeLeadMs(
+                fadeStartMs = 116_500L,
+                outgoingDurationMs = 120_000L,
+                plannedFadeMs = 3_000L,
+                beatMs = 1_000.0,
+            ),
+        )
+        // A snap close to EOF can still never extend past the track end.
+        assertEquals(
+            2_000L,
+            AutomixTransitionPolicy.boundedFadeLeadMs(118_000L, 120_000L, 3_000L, 1_000.0),
+        )
+        // Without a trustworthy grid there is no tolerance to add.
+        assertEquals(
+            3_000L,
+            AutomixTransitionPolicy.boundedFadeLeadMs(100_000L, 120_000L, 3_000L, null),
+        )
+    }
+
+    @Test
     fun `beat phase lock requires two planner-approved tempo grids`() {
         assertTrue(AutomixTransitionPolicy.isBeatMatchedPair(120f, 124f))
         assertFalse(AutomixTransitionPolicy.isBeatMatchedPair(null, 124f))

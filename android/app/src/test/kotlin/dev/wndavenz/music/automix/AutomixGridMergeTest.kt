@@ -103,19 +103,21 @@ class AutomixGridMergeTest {
     }
 
     @Test
-    fun `octave-mismatched tempos never blend and move the phase with the winner`() {
+    fun `octave-mismatched tempos never blend and the offline grid wins`() {
         // Live 60 vs analyzer 120: ln ratio 0.69 is way over tolerance, so the
-        // chosen tempo must keep its own phase space.
-        val liveWins = merge(
+        // two estimates cannot be blended. The offline grid has 48 s of
+        // analysis and bar/chord context; the <= 6 s live history loses even at
+        // full confidence.
+        val highConfidenceLive = merge(
             live = live(bpm = 60f, phaseMs = 100.0, confidence = 0.9f),
             offlineBpm = 120f,
             offlinePositionMs = 10_000.0,
             offlineBeatOffsetMs = 0.0,
         )!!
-        assertEquals(60.0, liveWins.bpm, 1e-9)
-        assertEquals(100.0, liveWins.beatPositionMs, 1e-9)
-        assertEquals(0.0, liveWins.beatOffsetMs, 1e-9)
-        assertTrue(liveWins.live)
+        assertEquals(120.0, highConfidenceLive.bpm, 1e-9)
+        assertEquals(10_000.0, highConfidenceLive.beatPositionMs, 1e-9)
+        assertEquals(0.0, highConfidenceLive.beatOffsetMs, 1e-9)
+        assertFalse(highConfidenceLive.live)
 
         val offlineWins = merge(
             live = live(bpm = 60f, phaseMs = 100.0, confidence = 0.4f),
@@ -124,40 +126,35 @@ class AutomixGridMergeTest {
             offlineBeatOffsetMs = 0.0,
         )!!
         assertEquals(120.0, offlineWins.bpm, 1e-9)
-        assertEquals(10_000.0, offlineWins.beatPositionMs, 1e-9)
         assertFalse(offlineWins.live)
     }
 
     @Test
-    fun `disagreeing phases resolve to the heavier source`() {
+    fun `disagreeing phases keep the analysed phase at any live confidence`() {
         // Both agree on tempo (120). Live phase 100/500 = 0.2 vs offline
-        // 400/500 = 0.8: circular distance 0.4 > 0.25, so weights decide.
-        val offlineWins = merge(
-            live = live(phaseMs = 100.0, confidence = 0.5f),
-            offlineBpm = 120f,
-            offlinePositionMs = 10_400.0,
-            offlineBeatOffsetMs = 0.0,
-        )!!
-        assertEquals(10_400.0, offlineWins.beatPositionMs, 1e-9)
-        assertEquals(0.0, offlineWins.beatOffsetMs, 1e-9)
-        assertFalse(offlineWins.live)
-
-        val liveWins = merge(
-            live = live(phaseMs = 100.0, confidence = 0.9f),
-            offlineBpm = 120f,
-            offlinePositionMs = 10_400.0,
-            offlineBeatOffsetMs = 0.0,
-        )!!
-        assertEquals(100.0, liveWins.beatPositionMs, 1e-9)
-        assertTrue(liveWins.live)
+        // 400/500 = 0.8: circular distance 0.4 > 0.25, so the live phase is
+        // unusable and the analysed grid wins even at confidence 0.9.
+        for (liveConfidence in listOf(0.5f, 0.9f)) {
+            val offlineWins = merge(
+                live = live(phaseMs = 100.0, confidence = liveConfidence),
+                offlineBpm = 120f,
+                offlinePositionMs = 10_400.0,
+                offlineBeatOffsetMs = 0.0,
+            )!!
+            assertEquals(10_400.0, offlineWins.beatPositionMs, 1e-9)
+            assertEquals(0.0, offlineWins.beatOffsetMs, 1e-9)
+            assertFalse(offlineWins.live)
+        }
     }
 
     @Test
     fun `live downbeat needs confidence before it drives phrase lock`() {
+        // Live phase 250 agrees with offline fraction 0.5 (10_250 ms), so the
+        // live grid and its confident downbeat are used.
         val fromLive = merge(
-            live = live(downbeatMs = 1800.0, downbeatConfidence = 0.5f),
+            live = live(phaseMs = 250.0, downbeatMs = 1800.0, downbeatConfidence = 0.5f),
             offlineBpm = 120f,
-            offlinePositionMs = 10_000.0,
+            offlinePositionMs = 10_250.0,
             offlineBeatOffsetMs = 0.0,
             offlineDownbeatOffsetMs = 2_000.0,
         )!!

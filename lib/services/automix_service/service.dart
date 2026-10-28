@@ -1100,7 +1100,10 @@ class AutomixService {
   //     phrase phases are 60-90 ms early and can carry a phrase phase from
   //     frame-alignment noise. Structural drop/breakdown cues keep their old
   //     stamp (they are RMS-derived), so only beat/phrase grids change.
-  static const int _analysisSchemaVersion = 18;
+  // v19: band-weighted onset envelope, metrical-level hypothesis test, key
+  //     tuning/tonal gate, and chord 7th evidence. Every cached tempo, grid,
+  //     key and chord can differ from v18, so the whole analysis is re-run.
+  static const int _analysisSchemaVersion = 19;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1936,6 +1939,22 @@ class AutomixService {
             'Automix',
             'tail window did not reach EOF for ${song.id}; keeping it partial',
           );
+        }
+      }
+    }
+
+    // 241-300 s files leave a growing hole between the head and tail windows
+    // (up to 60 s at 300 s). One centred window closes it; a small overlap with
+    // the analysed edges is preferable to missing a breakdown or drop entirely.
+    if (fileSeconds <= _veryLongFileSeconds) {
+      final gap = tailStart - windowSeconds;
+      if (gap > 30.0) {
+        final start = (fileSeconds / 2 - windowSeconds / 2)
+            .clamp(0.0, math.max(0.0, fileSeconds - windowSeconds))
+            .toDouble();
+        if (!segments.any((s) => (s.startSeconds - start).abs() < 1.0)) {
+          final middle = await _analyzeWindow(song.path, start, windowSeconds);
+          if (middle != null) segments.add(middle.$1);
         }
       }
     }

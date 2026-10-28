@@ -1850,7 +1850,20 @@ void main() {
       expect(cue.fadeSeconds, closeTo(9.6, 1e-9));
     });
 
-    test('shortens the fade for confident outgoing-to-incoming chord clashes', () {
+    test('density scaling keeps the fade on a half-beat grid', () {
+      final cue = automixTransitionCue(
+        outgoing: track(1, tailBpm: 120, outro: 0.2),
+        incoming: track(2, tailBpm: 120, intro: 0.2),
+        settings: const AutomixSettings(crossfadeBeats: 4),
+      );
+
+      // 4 beats x 1.25 (sparse outro) x 1.15 (sparse intro) = 5.75 beats. The
+      // old code multiplied seconds, so the fade ended on a quarter beat; it
+      // must quantize the beat count instead and stay at 6 beats (3 s @ 120).
+      expect(cue.fadeSeconds, closeTo(3.0, 1e-9));
+    });
+
+    test('shapes chord compatibility without a cue-level reject', () {
       final cue = automixTransitionCue(
         outgoing: track(
           1,
@@ -1870,8 +1883,10 @@ void main() {
         settings: const AutomixSettings(),
       );
 
-      expect(cue.strategy, AutomixTransitionStrategy.shortHandover);
-      expect(cue.fadeSeconds, lessThanOrEqualTo(4.0));
+      // Harmony no longer selects shortHandover here; the cue only shortens
+      // the overlap by half a beat as a shaping signal.
+      expect(cue.strategy, AutomixTransitionStrategy.crossfade);
+      expect(cue.fadeSeconds, closeTo(7.75, 1e-9));
     });
 
     test('dense outro hands over sooner and the louder deck is trimmed', () {
@@ -2238,7 +2253,7 @@ void main() {
     );
 
     test(
-      'shortens a confident harmonic clash but leaves uncertain keys neutral',
+      'shapes a confident harmonic clash but leaves uncertain keys neutral',
       () {
         final clash = automixTransitionCue(
           outgoing: const AutomixTrackFeatures(
@@ -2260,10 +2275,11 @@ void main() {
           ),
           settings: const AutomixSettings(),
         );
-        // A confident key mismatch selects a short handover, bounded at 4 s.
-        expect(clash.strategy, AutomixTransitionStrategy.shortHandover);
-        expect(clash.fadeSeconds, 4.0);
-        expect(clash.curveGamma, greaterThanOrEqualTo(1.20));
+        // The planner owns the harmonic reject; the cue only shortens the
+        // overlap by half a beat as a shaping signal.
+        expect(clash.strategy, AutomixTransitionStrategy.crossfade);
+        expect(clash.fadeSeconds, closeTo(7.75, 1e-9));
+        expect(clash.curveGamma, 1.0);
         // 8B (C major) -> 1B (B major): the outgoing deck moves down one
         // semitone during the overlap to match the incoming key.
         expect(clash.outgoingPitchSemitones, -1.0);

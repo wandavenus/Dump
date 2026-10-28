@@ -18,10 +18,16 @@ typedef struct {
   int32_t samples_in_frame;
   double full_energy;
   double low_energy;
+  double mid_energy;
+  double high_energy;
   double lowpass;
+  double mid_lowpass;
   double lowpass_alpha;
+  double mid_lowpass_alpha;
   double previous_full_db;
   double previous_low_db;
+  double previous_mid_db;
+  double previous_high_db;
   int has_previous_db;
   int32_t history_write;
   int32_t history_count;
@@ -457,6 +463,26 @@ static void estimate_live_beat(int32_t slot) {
   const double periodicity = clamp01((best_score - 0.10) / 0.45);
   const double uniqueness = clamp01((margin + 0.025) / 0.18);
   tracker->confidence = best_grid > 1e-6 ? periodicity * uniqueness : 0.0;
+  // A pulse train is equally periodic at 2x and 3x its beat, and the original
+  // confidence measured only "is there a pulse", so a 180 BPM train published
+  // 60 BPM at confidence 1.000. If a strong correlation peak exists at one
+  // half or one third of the winning lag, the winning level is not certain:
+  // cap confidence so downstream trust gates cannot accept it blindly.
+  double sub_multiple_penalty = 1.0;
+  for (int32_t divisor = 2; divisor <= 3; ++divisor) {
+    const int32_t sub_lag = (int32_t)llround((double)best_lag / (double)divisor);
+    if (sub_lag >= min_lag && sub_lag <= max_lag && sub_lag < count / 2 &&
+        scores[sub_lag] >= 0.85 * best_score) {
+      // A half/double reading is still usable for a beat-matched fade (every
+      // other beat is a real beat), so cap it high enough to pass the 0.35
+      // trust gate. A third is not usable: 60 for a 180 BPM track puts every
+      // third beat on the grid, so force it below the gate and let the
+      // analyzer's grid win.
+      const double penalty = divisor == 2 ? 0.55 : 0.30;
+      if (sub_multiple_penalty > penalty) sub_multiple_penalty = penalty;
+    }
+  }
+  tracker->confidence *= sub_multiple_penalty;
   if (count < 450) tracker->confidence *= (double)(count - LIVE_MIN_FRAMES) / 150.0;
   tracker->confidence = clamp01(tracker->confidence);
 
@@ -541,6 +567,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     if (tracker->frame_samples < 1) tracker->frame_samples = 1;
     tracker->lowpass_alpha =
         1.0 - exp(-2.0 * 3.14159265358979323846 * 150.0 / sample_rate);
+    tracker->mid_lowpass_alpha =
+        1.0 - exp(-2.0 * 3.14159265358979323846 * 1500.0 / sample_rate);
   }
 
   for (int32_t frame = 0; frame < frame_count; ++frame) {
@@ -564,23 +592,44 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     }
     if (!isfinite(mono)) mono = 0.0;
     tracker->lowpass += tracker->lowpass_alpha * (mono - tracker->lowpass);
+    tracker->mid_lowpass +=
+        tracker->mid_lowpass_alpha * (mono - tracker->mid_lowpass);
+    // Approximate three-band split from two one-pole lowpasses. The bands are
+    // not brick-wall, but they separate kick/bass (low), snare/body (mid) and
+    // hats/cymbals (high) for the onset weighting.
+    const double low_sample = tracker->lowpass;
+    const double mid_sample = tracker->mid_lowpass - tracker->lowpass;
+    const double high_sample = mono - tracker->mid_lowpass;
     tracker->full_energy += mono * mono;
-    tracker->low_energy += tracker->lowpass * tracker->lowpass;
+    tracker->low_energy += low_sample * low_sample;
+    tracker->mid_energy += mid_sample * mid_sample;
+    tracker->high_energy += high_sample * high_sample;
     tracker->samples_in_frame++;
 
     if (tracker->samples_in_frame < tracker->frame_samples) continue;
     const double denominator = tracker->samples_in_frame;
     const double full_rms = sqrt(tracker->full_energy / denominator);
     const double low_rms = sqrt(tracker->low_energy / denominator);
+    const double mid_rms = sqrt(tracker->mid_energy / denominator);
+    const double high_rms = sqrt(tracker->high_energy / denominator);
     const double full_db = 20.0 * log10(full_rms + 1e-7);
     const double low_db = 20.0 * log10(low_rms + 1e-7);
+    const double mid_db = 20.0 * log10(mid_rms + 1e-7);
+    const double high_db = 20.0 * log10(high_rms + 1e-7);
     double flux = 0.0;
     if (tracker->has_previous_db) {
-      flux = fmax(0.0, full_db - tracker->previous_full_db) +
-             0.65 * fmax(0.0, low_db - tracker->previous_low_db);
+      // Match the analyzer's band weighting: kick/bass carries the beat, the
+      // mid band carries the snare and body, the high band mostly carries the
+      // subdivision. A broadband hat no longer competes with a kick for the
+      // beat phase or the confidence estimate.
+      flux = fmax(0.0, low_db - tracker->previous_low_db) +
+             0.55 * fmax(0.0, mid_db - tracker->previous_mid_db) +
+             0.15 * fmax(0.0, high_db - tracker->previous_high_db);
     }
     tracker->previous_full_db = full_db;
     tracker->previous_low_db = low_db;
+    tracker->previous_mid_db = mid_db;
+    tracker->previous_high_db = high_db;
     tracker->has_previous_db = 1;
     const float onset = (float)fmin(24.0, fmax(0.0, flux - 1.5));
     tracker->onset_history[tracker->history_write] = onset;
@@ -590,6 +639,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     tracker->samples_in_frame = 0;
     tracker->full_energy = 0.0;
     tracker->low_energy = 0.0;
+    tracker->mid_energy = 0.0;
+    tracker->high_energy = 0.0;
     tracker->frames_since_estimate++;
     if (tracker->frames_since_estimate >= LIVE_UPDATE_FRAMES) {
       tracker->frames_since_estimate = 0;

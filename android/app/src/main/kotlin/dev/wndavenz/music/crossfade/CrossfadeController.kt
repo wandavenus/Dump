@@ -304,11 +304,21 @@ class CrossfadeController(
         } else {
             snappedStart
         }
-        // For the normal near-end path, let the fade reach the outgoing
-        // boundary; beat alignment may extend it by less than one beat. Early
-        // handovers must keep crossMs as the overlap, not fade for all remaining
-        // media time after the early start.
-        val fadeLeadMs = (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
+        // Early handovers must keep crossMs as the overlap, not fade for all
+        // remaining media time after the early start. On the normal near-end
+        // path a phrase snap may move the start earlier; bound the executed
+        // fade to half a beat beyond the configured duration instead of
+        // stretching it to EOF (a four-beat snap at 60 BPM tripled a 3 s fade).
+        val fadeLeadMs = if (isEarlyTransition) {
+            (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
+        } else {
+            AutomixTransitionPolicy.boundedFadeLeadMs(
+                fadeStartMs = beatAlignedStart,
+                outgoingDurationMs = dur,
+                plannedFadeMs = crossMs,
+                beatMs = beatMs,
+            )
+        }
 
         // ── Phase 1: pre-warm ─────────────────────────────────────────────────
         val prewarmWindowStart = (beatAlignedStart - PREWARM_LEAD_MS).coerceAtLeast(0L)
@@ -364,7 +374,7 @@ class CrossfadeController(
                     val requestedFadeMs = if (isEarlyTransition) {
                         crossMs
                     } else {
-                        (dur - beatAlignedStart).coerceAtLeast(MIN_FADE_MS)
+                        fadeLeadMs
                     }
                     val fade = minOf(requestedFadeMs, nowRemaining).coerceAtLeast(MIN_FADE_MS)
                     beginCrossfade(fade)

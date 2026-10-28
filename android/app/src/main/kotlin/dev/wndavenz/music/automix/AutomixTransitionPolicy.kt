@@ -150,6 +150,29 @@ internal object AutomixTransitionPolicy {
 
     private val PHRASE_BEATS = intArrayOf(64, 32, 16, 4)
 
+    /**
+     * Bound the executed fade when phrase snapping moved the start earlier.
+     * The start is snapped to a musical boundary, but the fade must stay within
+     * half a beat of the configured duration instead of stretching to EOF
+     * (the old code let a four-beat snap turn a 3 s fade into 7 s at 60 BPM).
+     */
+    fun boundedFadeLeadMs(
+        fadeStartMs: Long,
+        outgoingDurationMs: Long,
+        plannedFadeMs: Long,
+        beatMs: Double?,
+    ): Long {
+        if (outgoingDurationMs <= 0L || plannedFadeMs <= 0L) {
+            return plannedFadeMs.coerceAtLeast(MIN_FADE_MS)
+        }
+        val available = (outgoingDurationMs - fadeStartMs).coerceAtLeast(MIN_FADE_MS)
+        val tolerance = beatMs
+            ?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { (it * 0.5).toLong() }
+            ?: 0L
+        return minOf(available, plannedFadeMs + tolerance).coerceAtLeast(MIN_FADE_MS)
+    }
+
     /** Monotonic-clock gate for periodic phase-lock measurements. */
     fun shouldSamplePhaseLock(nowMs: Long, lastSampleMs: Long, intervalMs: Long): Boolean =
         intervalMs > 0L && nowMs >= lastSampleMs && nowMs - lastSampleMs >= intervalMs

@@ -1,7 +1,7 @@
 # AutoMix audit v8 — metrical & perceptual modelling
 
-**Tanggal:** 2026-10-28 · **Sifat:** audit + rekomendasi, **tanpa perubahan kode**.
-**Laporan lengkap:** `automix_implementation_audit_v8.md` (root repo).
+**Tanggal:** 2026-10-28 · **Sifat:** audit + rekomendasi (awalnya tanpa perubahan kode), lalu remediasi v1.5.55.
+**Laporan lengkap:** `automix_implementation_audit_v8.md` (root repo, bagian H berisi status remediasi).
 **Pendahulu:** `automix-audit-v7.md` (timing/phase). v8 mulai dari lapisan *musical intelligence* yang belum
 diperiksa v7: metrical level, bar phase, key, loudness, kalibrasi skor, dan kesepakatan grid live vs offline.
 
@@ -59,3 +59,35 @@ dijalankan** di sesi ini: filesystem 99% (53 MB) → `ENOSPC` dari test compiler
 Metrik target: BPM exact-hit ≥90% (sekarang 56% di sweep), phase error ≤15 ms & ≤1% NaN, downbeat published
 ≥80% four-on-floor, live/offline agreement ≥95%, |executed fade − planned| ≤1 beat, seam dip ≤1.5 dB.
 **Jangan klaim peningkatan persepsi dari sinyal sintetis** — perlu field set 10–20 track berlabel.
+
+## Remediasi (2026-10-28, v1.5.55)
+
+Audit ditindaklanjuti tanpa AI/ML. Ringkasan status per temuan:
+
+| ID | Status | Perubahan |
+|---|---|---|
+| AM8-01 | **Fixed** | `estimate_tempo` mengganti prior-first dengan uji hipotesis metrikal: kandidat `{P/2, P, 2P, ⅔P, 3⁄2P}` + peak comb, diskor dari comb, onset-grid coverage, grid fill, aksen on/off-beat, dan phase coherence; prior 120 BPM hanya tie-break 15%. Runner-up dipublikasikan sebagai `alternateBpm` (AM8-14). |
+| AM8-02 | **Partial** | `AutomixGridMerge` tidak lagi memilih live hanya karena confidence lebih tinggi: saat tempo beda >4% log, grid offline selalu menang; phase live hanya dipakai bila phase-nya setuju (≤0.25 beat). Live confidence diberi cap 0.55 (½) / 0.30 (⅓) saat ada peak sub-multiple kuat, dan flux live kini low/mid/high-weighted. Estimator live masih ACF terpisah (belum dipakai bersama dengan offline) dan rescue masih satu arah. |
+| AM8-03 | **Partial (offline)** | Grid frasa offline menambah bukti chroma novelty per frame; novelty hanya dipakai bila punya periodisitas 16-beat (contrast ≥0.25). Downbeat live tetap berbasis aksen sehingga four-on-floor live masih 0.000; karena merge kini memilih offline, dampaknya berkurang. |
+| AM8-04 | **Fixed** | ODF phase dipisah per band (30–150 Hz bobot 1.0, 150–1500 Hz 0.55, 1500–8000 Hz 0.15); beat phase memakai `phase_odf`, tempo/frase tetap memakai ODF penuh. |
+| AM8-05 | **Fixed** | Key: gate entropi + minimal 3 kelas, pencarian tuning ±50 sen (5 sen step), confidence = bukti absolut × margin × flatness × penalti relatif mayor/minor; gate pitch shift dinaikkan 0.55→0.70; hard reject harmoni di cue dihapus (harmoni hanya di planner). |
+| AM8-06 | **Fixed** | Koefisien energi Dart + C dinormalisasi ke 1.0 (0.22/0.40/0.18/0.10, momentum cap 0.10); clamp tinggal guard. |
+| AM8-07 | **Open** | Belum ada hipotesis meter 3/6; bar live tetap 4 beat, frasa 16 beat. |
+| AM8-08 | **Partial** | Kualitas 7th hanya diterima bila ada energi nyata di partial ke-7; gate keras `keyCost`/`chordCost` di cue dihapus. Gap confidence di titik pergantian chord belum diperbaiki. |
+| AM8-09 | **Fixed** | `AutomixTransitionPolicy.boundedFadeLeadMs` membatasi fade hasil phrase snap ke `plannedFade + ½ beat` dan tidak melewati EOF; dipakai `CrossfadeController` pada jalur non-early. |
+| AM8-10 | **Fixed** | Density scaling mengalikan jumlah beat (bukan detik), lalu kuantisasi ½ beat; fade dihitung ulang setelah cap 1.5–12 s (kecuali structureAligned yang memang terikat boundary). |
+| AM8-11 | **Partial** | Cooldown artis diturunkan menjadi tie-breaker 0.04/0.02; `variety` tetap sebagai mekanisme utama agar parity Dart/native tidak berubah. |
+| AM8-12 | **Partial** | File 241–300 s menambah satu jendela tengah bila gap >30 s. Struktur masih label per-window, belum segmentasi track. |
+| AM8-13 | **Open (sengaja)** | L1 headroom tidak diubah: perlu pengukuran loudness seam pada audio nyata sebelum melepas proteksi clipping. |
+| AM8-14 | **Fixed** | `alternateBpm` = runner-up hipotesis metrikal, bukan tebakan <90/>140. |
+| AM8-15 | **Fixed** | Vocal menjadi sub-cost berbobot 0.10 di dalam denominator yang sama. |
+
+Cache analysis dinaikkan ke **schema v19** karena tempo/grid/key/chord dapat berbeda dari v18.
+
+Verifikasi: native C suite (`automix_native_c_test.c`) **exit 0**, termasuk sweep metrikal 60–200 BPM,
+beat phase dengan off-beat hat, key noise/detune, dan phrase phase dari perubahan harmoni. `dart analyze` pada
+`engine.dart`, `service.dart`, dan test AutoMix: bersih. Sweep syntetik pasca-fix: four-on-floor **27/27 benar**
+(sebelumnya 15/27); backbeat-only 4/27 (ambiguitas half/double tetap, `alternateBpm` membawa level lain);
+syncopated 14/27 benar, hanya 12/27 dengan conf ≥0.20 (level ambigu ditahan, bukan ditebak); pad-only bukan
+sinyal ritmis. `flutter test` **tidak dapat dijalankan** di workspace ini (disk 100%, test compiler `ENOSPC`);
+Kotlin/Gradle juga tidak tersedia. Jangan mengklaim lulus sebelum dijalankan di CI/devcontainer.
