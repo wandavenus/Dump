@@ -267,13 +267,10 @@ class _PillItemsState extends State<_PillItems> {
   void _updateDrag(DragUpdateDetails details, double width) {
     final count = widget.icons.length;
     if (count == 0 || width <= 0) return;
-
     final segment = width / count;
-    final next =
-        ((_dragIndex ?? widget.selectedIndex.toDouble()) +
-                details.delta.dx / segment)
-            .clamp(0.0, count - 1.0);
-
+    final next = ((_dragIndex ?? widget.selectedIndex.toDouble()) +
+            details.delta.dx / segment)
+        .clamp(0.0, count - 1.0);
     setState(() => _dragIndex = next);
   }
 
@@ -282,9 +279,7 @@ class _PillItemsState extends State<_PillItems> {
     if (dragIndex == null) return;
     final index = dragIndex.round().clamp(0, widget.icons.length - 1);
     setState(() => _dragIndex = null);
-    if (index != widget.selectedIndex) {
-      widget.onTap(index);
-    }
+    if (index != widget.selectedIndex) widget.onTap(index);
   }
 
   @override
@@ -295,13 +290,26 @@ class _PillItemsState extends State<_PillItems> {
     }
   }
 
+  double _offsetFor(double index, int count) {
+    final lower = index.floor().clamp(0, count - 1).toInt();
+    final upper = (lower + 1).clamp(0, count - 1).toInt();
+    final fraction = (index - lower).clamp(0.0, 1.0).toDouble();
+    final lowerOffset = lower < _pillIconHorizontalOffsets.length
+        ? _pillIconHorizontalOffsets[lower]
+        : 0.0;
+    final upperOffset = upper < _pillIconHorizontalOffsets.length
+        ? _pillIconHorizontalOffsets[upper]
+        : 0.0;
+    return lowerOffset + (upperOffset - lowerOffset) * fraction;
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = widget.icons.length;
     if (count == 0) return const SizedBox.shrink();
 
-    // Search lives in the persistent trailing circle. When Search is active,
-    // keep Home as the compact left-side shortcut instead of duplicating Search.
+    // Search stays in its independent trailing circle. If Search is selected,
+    // Home is used as the compact left-side shortcut.
     final compactIndex =
         widget.selectedIndex < count ? widget.selectedIndex : 0;
     final activeIndex = _dragIndex ?? widget.selectedIndex.toDouble();
@@ -311,35 +319,43 @@ class _PillItemsState extends State<_PillItems> {
     final compactColor = widget.selectedIndex == compactIndex
         ? primary
         : (isLight ? Colors.black : Colors.white);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final segment = constraints.maxWidth / count;
-
-        // Interpolate icon offsets during a swipe so the highlight stays aligned.
-        double offsetFor(double index) {
-          final lower = index.floor().clamp(0, count - 1).toInt();
-          final upper = (lower + 1).clamp(0, count - 1).toInt();
-          final fraction = (index - lower).clamp(0.0, 1.0).toDouble();
-          final lowerOffset = lower < _pillIconHorizontalOffsets.length
-              ? _pillIconHorizontalOffsets[lower]
-              : 0.0;
-          final upperOffset = upper < _pillIconHorizontalOffsets.length
-              ? _pillIconHorizontalOffsets[upper]
-              : 0.0;
-          return lowerOffset + (upperOffset - lowerOffset) * fraction;
-        }
-
-        final currentOffset = offsetFor(activeIndex);
         final lensWidth = (segment + _pillHighlightExpansion)
             .clamp(0.0, constraints.maxWidth)
             .toDouble();
-        // Center the wider highlight on the shifted icon instead of moving its center.
-        final left =
-            segment * activeIndex + (segment - lensWidth) / 2 + currentOffset;
+        final lensLeft = segment * activeIndex +
+            (segment - lensWidth) / 2 +
+            _offsetFor(activeIndex, count);
+
+        // The old icons never translate. As the right boundary collapses left,
+        // each icon fades in sequence from right to left.
+        double iconOpacity(int index) {
+          if (compactProgress <= 0.0 || index == compactIndex) return 1.0;
+          final stepsFromRight = count - 1 - index;
+          final fadeStart = stepsFromRight / count;
+          final fadeEnd = (stepsFromRight + 1) / count;
+          final fade = ((compactProgress - fadeStart) /
+                  (fadeEnd - fadeStart))
+              .clamp(0.0, 1.0)
+              .toDouble();
+          return 1.0 - fade;
+        }
+
+        final selectedCenter = segment * (compactIndex + 0.5) +
+            _offsetFor(compactIndex.toDouble(), count);
+        final targetCenter = FloatingPillNavBar.bodyHeight / 2;
+        final movingCenter = selectedCenter +
+            (targetCenter - selectedCenter) * compactProgress;
+        final selectedIconOpacity =
+            (compactProgress / 0.18).clamp(0.0, 1.0).toDouble();
 
         return SizedBox(
           height: FloatingPillNavBar.bodyHeight,
           child: Stack(
+            clipBehavior: Clip.hardEdge,
             children: [
               ExcludeSemantics(
                 excluding: compactProgress >= 0.5,
@@ -355,40 +371,41 @@ class _PillItemsState extends State<_PillItems> {
                       child: SizedBox(
                         height: FloatingPillNavBar.bodyHeight,
                         child: Stack(
+                          clipBehavior: Clip.hardEdge,
                           children: [
                             if (widget.selectedIndex < count)
                               if (_dragIndex == null && compactProgress == 0.0)
                                 AnimatedPositioned(
                                   duration: const Duration(milliseconds: 220),
                                   curve: Curves.easeOutCubic,
-                                  left: left,
+                                  left: lensLeft,
                                   top: 4.5,
                                   width: lensWidth,
                                   height: 53,
                                   child: IgnorePointer(
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
-                                        color: AppColors.of(
-                                          context,
-                                        ).glassActiveLens,
-                                        borderRadius: BorderRadius.circular(999),
+                                        color: AppColors.of(context)
+                                            .glassActiveLens,
+                                        borderRadius:
+                                            BorderRadius.circular(999),
                                       ),
                                     ),
                                   ),
                                 )
                               else
                                 Positioned(
-                                  left: left,
+                                  left: lensLeft,
                                   top: 4.5,
                                   width: lensWidth,
                                   height: 53,
                                   child: IgnorePointer(
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
-                                        color: AppColors.of(
-                                          context,
-                                        ).glassActiveLens,
-                                        borderRadius: BorderRadius.circular(999),
+                                        color: AppColors.of(context)
+                                            .glassActiveLens,
+                                        borderRadius:
+                                            BorderRadius.circular(999),
                                       ),
                                     ),
                                   ),
@@ -402,15 +419,17 @@ class _PillItemsState extends State<_PillItems> {
                                       label: widget.labels[i],
                                       semanticsLabel:
                                           widget.semanticsLabels != null
-                                          ? widget.semanticsLabels![i]
-                                          : widget.labels[i],
+                                              ? widget.semanticsLabels![i]
+                                              : widget.labels[i],
                                       active: i == widget.selectedIndex,
-                                      horizontalOffset: i < _pillIconHorizontalOffsets.length
-                                          ? _pillIconHorizontalOffsets[i]
-                                          : 0.0,
+                                      horizontalOffset:
+                                          i < _pillIconHorizontalOffsets.length
+                                              ? _pillIconHorizontalOffsets[i]
+                                              : 0.0,
                                       iconSize: i == 0
                                           ? FloatingPillNavBar._iconSize + 2.0
                                           : FloatingPillNavBar._iconSize,
+                                      opacity: iconOpacity(i),
                                       onTap: () => widget.onTap(i),
                                     ),
                                   ),
@@ -437,12 +456,18 @@ class _PillItemsState extends State<_PillItems> {
                           behavior: HitTestBehavior.opaque,
                           onTap: () => widget.onTap(compactIndex),
                           child: Center(
-                            child: Transform.scale(
-                              scale: 0.84 + 0.16 * compactProgress,
-                              child: Icon(
-                                widget.icons[compactIndex],
-                                size: FloatingPillNavBar._iconSize,
-                                color: compactColor,
+                            child: Transform.translate(
+                              offset: Offset(movingCenter - targetCenter, 0),
+                              child: Transform.scale(
+                                scale: 0.84 + 0.16 * compactProgress,
+                                child: Opacity(
+                                  opacity: selectedIconOpacity,
+                                  child: Icon(
+                                    widget.icons[compactIndex],
+                                    size: FloatingPillNavBar._iconSize,
+                                    color: compactColor,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -466,6 +491,7 @@ class _PillItem extends StatelessWidget {
   final bool active;
   final double horizontalOffset;
   final double iconSize;
+  final double opacity;
   final VoidCallback onTap;
 
   const _PillItem({
@@ -475,6 +501,7 @@ class _PillItem extends StatelessWidget {
     required this.active,
     required this.horizontalOffset,
     required this.iconSize,
+    required this.opacity,
     required this.onTap,
   });
 
@@ -499,7 +526,9 @@ class _PillItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Center(
-              child: Column(
+              child: Opacity(
+                opacity: opacity,
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -532,6 +561,7 @@ class _PillItem extends StatelessWidget {
                     ),
                   ],
                 ],
+                ),
               ),
             ),
           ),
