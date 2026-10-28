@@ -230,7 +230,7 @@ class _FirstPageState extends State<FirstPage> {
                                   icons: const [
                                     Icons.home_filled,
                                     CupertinoIcons.square_grid_2x2_fill,
-                                    Icons.sensors,
+                                    CupertinoIcons.dot_radiowaves_left_right,
                                     Icons.subscriptions_rounded,
                                   ],
                                   labels: [
