@@ -314,8 +314,8 @@ class _PillItemsState extends State<_PillItems> {
         // Interpolate offsets during swipe so the highlight follows the gesture.
         const iconOffsets = <double>[2, 1, -1, -2];
         double offsetFor(double index) {
-          final lower = index.floor().clamp(0, count - 1);
-          final upper = (lower + 1).clamp(0, count - 1);
+          final lower = index.floor().clamp(0, count - 1).toInt();
+          final upper = (lower + 1).clamp(0, count - 1).toInt();
           final fraction = (index - lower).clamp(0.0, 1.0);
           final lowerOffset = lower < iconOffsets.length ? iconOffsets[lower] : 0.0;
           final upperOffset = upper < iconOffsets.length ? iconOffsets[upper] : 0.0;
@@ -425,10 +425,13 @@ class _PillItemsState extends State<_PillItems> {
                           child: Center(
                             child: Transform.scale(
                               scale: 0.84 + 0.16 * compactProgress,
-                              child: Icon(
-                                widget.icons[compactIndex],
-                                size: FloatingPillNavBar._iconSize,
-                                color: compactColor,
+                              child: Transform.translate(
+                                offset: const Offset(2, 0),
+                                child: Icon(
+                                  widget.icons[compactIndex],
+                                  size: FloatingPillNavBar._iconSize,
+                                  color: compactColor,
+                                ),
                               ),
                             ),
                           ),
