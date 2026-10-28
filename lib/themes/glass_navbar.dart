@@ -452,6 +452,26 @@ class _PillItemsState extends State<_PillItems> {
                   ),
                 ),
               ),
+              if (compactProgress > 0.0)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: FloatingPillNavBar.bodyHeight,
+                  height: FloatingPillNavBar.bodyHeight,
+                  child: IgnorePointer(
+                    ignoring: compactProgress < 0.5,
+                    child: Semantics(
+                      button: true,
+                      selected: widget.selectedIndex == compactIndex,
+                      label: widget.labels[compactIndex],
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => widget.onTap(compactIndex),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -509,41 +529,41 @@ class _PillItem extends StatelessWidget {
               child: Opacity(
                 opacity: opacity,
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Transform.translate(
-                    offset: Offset(horizontalOffset + horizontalTravel, 0),
-                    child: Icon(
-                      icon,
-                      size: iconSize,
-                      color: color,
-                    ),
-                  ),
-                  if (label != null) ...[
-                    const SizedBox(height: 3),
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Transform.translate(
-                      offset: Offset(horizontalOffset, 0),
-                      child: Opacity(
-                        opacity: labelOpacity,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                          label!,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: color,
-                            fontWeight: active
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                      offset: Offset(horizontalOffset + horizontalTravel, 0),
+                      child: Icon(
+                        icon,
+                        size: iconSize,
+                        color: color,
+                      ),
+                    ),
+                    if (label != null) ...[
+                      const SizedBox(height: 3),
+                      Transform.translate(
+                        offset: Offset(horizontalOffset, 0),
+                        child: Opacity(
+                          opacity: labelOpacity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              label!,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: color,
+                                fontWeight: active
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
                 ),
               ),
             ),
