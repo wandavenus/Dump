@@ -1066,28 +1066,34 @@ AutomixTransitionCue automixTransitionCue({
   // The fade lives in the outgoing track's tail, so its exit tempo (falling
   // back to the head estimate) sets how many beats the blend spans.
   final tempo = automixExitBpm(outgoing) ?? automixEntryBpm(incoming);
-  var fadeSeconds = tempo == null || tempo <= 0
-      ? fallbackFadeSeconds
-      : settings.crossfadeBeats * 60.0 / tempo;
-
+  // Scale the beat count, not the seconds. Multiplying 4 beats by 1.25 and
+  // 1.15 produced 5.75 beats (and even 1.15 alone broke the grid), so the fade
+  // ended off-beat and the decks were out of phase at the handover tail.
+  double fadeBeats = settings.crossfadeBeats.toDouble();
   var gamma = 1.0;
   final outro = outgoing.outroEnergy;
   if (outro != null) {
     if (outro >= 0.70) {
       // Busy outro: hand over faster so two dense sections overlap less.
-      fadeSeconds *= 0.75;
+      fadeBeats *= 0.75;
       gamma = 1.35;
     } else if (outro <= 0.35) {
       // Sparse/quiet outro: a longer, gentler blend sounds intentional.
-      fadeSeconds *= 1.25;
+      fadeBeats *= 1.25;
       gamma = 0.85;
     }
   }
   final intro = incoming.introEnergy;
   if (intro != null && intro <= 0.35) {
     // A sparse incoming intro can carry a longer overlap without clashing.
-    fadeSeconds *= 1.15;
+    fadeBeats *= 1.15;
   }
+  // Keep half-beat resolution: a musically meaningful result without forcing
+  // every blend to a whole beat.
+  fadeBeats = (fadeBeats * 2).round() / 2;
+  var fadeSeconds = tempo == null || tempo <= 0
+      ? fallbackFadeSeconds
+      : fadeBeats * 60.0 / tempo;
 
   // Structure metadata only controls transition timing when confidence is
   // strong. The cue is file-absolute and valid only if it lies near the tail.
@@ -1124,12 +1130,16 @@ AutomixTransitionCue automixTransitionCue({
     incoming.camelotNumber,
     incoming.camelotMinor,
   );
-  final keyMismatch =
-      outgoing.keyConfidence >= 0.55 &&
-      incoming.keyConfidence >= 0.55 &&
-      keyCost >= 0.60;
+  // Harmonic compatibility is owned by the planner's weighted cost. The old
+  // cue-level hard reject (keyCost >= 0.60 / chordCost >= 0.62) applied two
+  // hand-tuned thresholds to the same feature and could silently downgrade a
+  // transition the planner had ranked as acceptable. Keep a single blended
+  // value for shaping only, never rejection.
   final chordCost = automixChordProgressionCost(outgoing, incoming);
-  final chordMismatch = chordCost != null && chordCost >= 0.62;
+  final harmonicCost = math.max(keyCost, chordCost ?? 0.0);
+  final harmonicConfident =
+      (outgoing.keyConfidence >= 0.55 && incoming.keyConfidence >= 0.55) ||
+      chordCost != null;
   final denseTail =
       (outro != null && outro >= 0.70) ||
       (outgoing.tailStructureRegion == 3 &&
@@ -1195,9 +1205,9 @@ AutomixTransitionCue automixTransitionCue({
     // The early drop path keeps the conventional fade duration while
     // scheduling its own start below.
     strategy = AutomixTransitionStrategy.crossfade;
-  } else if (tempoMismatch || keyMismatch || chordMismatch) {
-    // A real harmonic/tempo clash must not be masked by a nominally aligned
-    // cue: a long overlap would expose the clash for longer.
+  } else if (tempoMismatch) {
+    // A real tempo clash must not be masked by a nominally aligned cue: a long
+    // overlap would expose the clash for longer.
     strategy = AutomixTransitionStrategy.shortHandover;
   } else if (cueLeadSeconds != null) {
     strategy = AutomixTransitionStrategy.structureAligned;
@@ -1231,6 +1241,22 @@ AutomixTransitionCue automixTransitionCue({
       break;
   }
   fadeSeconds = fadeSeconds.clamp(1.5, 12.0).toDouble();
+  // Structure-aligned cues are intentionally anchored to a musical boundary;
+  // every other strategy is re-quantised after its cap so the executed fade is
+  // a whole or half beat for sure.
+  if (strategy != AutomixTransitionStrategy.structureAligned &&
+      tempo != null &&
+      tempo > 0) {
+    final beatSeconds = 60.0 / tempo;
+    final halfBeats = (fadeSeconds / beatSeconds * 2).round().clamp(3, 48);
+    fadeSeconds = (halfBeats * 0.5 * beatSeconds).clamp(1.5, 12.0).toDouble();
+  }
+  // A confident harmonic mismatch is still a shaping signal: shorten the
+  // overlap slightly without letting it override the planner's decision.
+  if (harmonicCost >= 0.60 && harmonicConfident && tempo != null && tempo > 0) {
+    final beatSeconds = 60.0 / tempo;
+    fadeSeconds = math.max(1.5, fadeSeconds - 0.5 * beatSeconds);
+  }
 
   // Schedule the early handover whenever the incoming drop and both beat grids
   // are trustworthy. Near-EOF breakdown cues are handled above only when this
@@ -1416,8 +1442,10 @@ double automixOutgoingPitchSemitones(
       outMinor == null ||
       inMinor == null ||
       outMinor != inMinor ||
-      outgoing.keyConfidence < 0.55 ||
-      incoming.keyConfidence < 0.55) {
+      // A semitone shift on a wrong key estimate is far worse than a
+      // suboptimal Camelot score. Wait for calibrated confidence.
+      outgoing.keyConfidence < 0.70 ||
+      incoming.keyConfidence < 0.70) {
     return 0.0;
   }
   var wheelDistance = (outNumber - inNumber).abs() % 12;
@@ -1757,7 +1785,7 @@ double _transitionCost({
       outroSlopeA > 1.0) {
     final interrupted = outroSlopeA - introSlopeB;
     if (interrupted > 0) {
-      momentum = math.min(0.30, interrupted / 24.0 * 0.30);
+      momentum = math.min(0.10, interrupted / 24.0 * 0.10);
     }
   }
   // Section-shape compatibility across the seam, gated on both windows having
@@ -1773,18 +1801,22 @@ double _transitionCost({
       headRegion <= 5) {
     structure = _structureSeamCost(tailRegion, headRegion);
   }
+  // Coefficients sum to exactly 1.0 including the momentum cap. The old terms
+  // summed to 1.40 (+0.30 momentum) before clamping, so every sufficiently
+  // bad pair scored 1.0 and the optimizer had no gradient exactly where it
+  // needed one. Keep the clamp only as a numerical guard.
   var energy =
-      0.30 * delta.abs() +
-      0.55 * (eB - target).abs() +
-      0.30 * seam +
-      0.25 * structure +
+      0.22 * delta.abs() +
+      0.40 * (eB - target).abs() +
+      0.18 * seam +
+      0.10 * structure +
       momentum;
   if (settings.profile == AutomixProfile.energy) {
     final beforePeak = pos < 0.55;
     if (beforePeak && delta < -0.05) {
-      energy += 0.8 * (-delta);
+      energy += 0.12 * (-delta);
     } else if (!beforePeak && delta > 0.05) {
-      energy += 0.8 * delta;
+      energy += 0.12 * delta;
     }
   }
   energy = energy.clamp(0.0, 1.0);
@@ -1798,7 +1830,7 @@ double _transitionCost({
   final vB = b.vocalLikelihood;
   final cA = a.vocalConfidence;
   final cB = b.vocalConfidence;
-  var vocalPenalty = 0.0;
+  var vocalCost = 0.0;
   if (vA.isFinite &&
       vB.isFinite &&
       cA.isFinite &&
@@ -1809,12 +1841,20 @@ double _transitionCost({
       vB > 0.5) {
     final effectiveA = (vA - 0.5) * cA;
     final effectiveB = (vB - 0.5) * cB;
-    vocalPenalty = effectiveA * effectiveB * 0.4;
+    vocalCost = (effectiveA * effectiveB * 4.0).clamp(0.0, 1.0);
   }
 
   final (wT, wK, wE, wV) = _profileWeights[settings.profile]!;
-  return ((wT * tempo + wK * key + wE * energy + wV * variety + vocalPenalty) /
-          (wT + wK + wE + wV))
+  // The vocal term is a fifth weighted sub-cost, not an unnormalised addend:
+  // every term now shares one denominator, so the result cannot exceed 1.0
+  // before the final clamp.
+  const wVocal = 0.10;
+  return ((wT * tempo +
+              wK * key +
+              wE * energy +
+              wV * variety +
+              wVocal * vocalCost) /
+          (wT + wK + wE + wV + wVocal))
       .clamp(0.0, 1.0);
 }
 
@@ -1853,8 +1893,8 @@ class DartAutomixEngineReference {
   static const int _polishMinTracks = 12;
 
   /// A repeated artist inside this many recent positions is discouraged by
-  /// the greedy pick. The immediately previous slot is already covered by the
-  /// variety term inside [_transitionCost], so the cooldown starts one back.
+  /// the greedy pick. This is a *tie-breaker* only: the main artist penalty is
+  /// the `variety` sub-cost inside [_transitionCost].
   static const int _artistCooldown = 4;
 
   /// Median crossfade bound guard.
@@ -2071,12 +2111,12 @@ class DartAutomixEngineReference {
     return bpms[bpms.length ~/ 2];
   }
 
-  /// Greedy-only bias against artist clustering: penalize a candidate whose
-  /// artist already sits 2..[_artistCooldown] positions back. The immediately
-  /// previous slot is handled by the variety term inside [_transitionCost].
-  /// [planCount] may be `plan.length + 1` for the lookahead scan so the
-  /// candidate's extra slot shifts the window the same way the eventual path
-  /// would. Returns 0 for unlabeled artists.
+  /// Greedy-only tie-breaker against artist clustering at positions 2..4.
+  /// The immediate previous slot is owned by the `variety` sub-cost inside
+  /// [_transitionCost]; this only breaks exact cost ties and keeps a repeat
+  /// from landing two slots back. The base is deliberately small so it cannot
+  /// double-weight the same signal, and [planCount] may be `plan.length + 1`
+  /// for the lookahead scan.
   static double _artistCooldownCost({
     required List<int> plan,
     required int planCount,
@@ -2086,10 +2126,7 @@ class DartAutomixEngineReference {
   }) {
     final artist = candidate.artist.trim().toLowerCase();
     if (artist.isEmpty) return 0.0;
-    // Keep a cooldown repeat cheaper than an immediate same-artist variety
-    // penalty (0.55 * 0.15 = 0.0825), otherwise the optimizer would prefer
-    // two adjacent repeats over one repeat a few slots later.
-    final base = settings.avoidArtistRepeat ? 0.12 : 0.05;
+    final base = settings.avoidArtistRepeat ? 0.04 : 0.02;
     var penalty = 0.0;
     for (var back = 2; back <= _artistCooldown; back++) {
       final index = planCount - back;

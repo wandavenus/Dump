@@ -1,6 +1,9 @@
 #include "automix_native.h"
 
 #include <float.h>
+#ifdef AUTOMIX_DEBUG_METRICAL
+#include <stdio.h>
+#endif
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,17 +13,30 @@
 #define HOP_SIZE 512
 #define BPM_MIN 60.0
 #define BPM_MAX 200.0
-#define BPM_PRIOR_CENTER 115.0
-#define BPM_PRIOR_LOG2_WIDTH 0.55
 #define CHROMA_MIN_FREQ 55.0
 #define CHROMA_MAX_FREQ 5000.0
+// Onset bands for the beat/bar phase grid. A broadband log-flux onset
+// function rates an unaccented off-beat hi-hat as comparable to a kick because
+// the hat's increase is spread over thousands of bins while the kick's is
+// concentrated in a handful. Splitting the flux by band and weighting low and
+// mid far above high keeps the beat where the listener hears it, without a
+// second transform or any extra STFT cost.
+#define ODF_LOW_MIN_FREQ 30.0
+#define ODF_LOW_MAX_FREQ 150.0
+#define ODF_MID_MAX_FREQ 1500.0
+#define ODF_HIGH_MAX_FREQ 8000.0
+#define ODF_PHASE_LOW_WEIGHT 1.0
+#define ODF_PHASE_MID_WEIGHT 0.55
+#define ODF_PHASE_HIGH_WEIGHT 0.15
+#define METRICAL_PRIOR_CENTER 120.0
+#define METRICAL_PRIOR_LOG2_WIDTH 0.90
 // Harmonic pitch class profile tuning: fold each spectral peak's harmonics
 // (weighted 1/h) onto the nearest pitch classes with a raised-cosine window,
 // so detuned material stays on the correct class instead of bleeding across
 // the halfway point between classes. Peaks must reach this fraction of the
 // frame's strongest magnitude to contribute.
-#define HPCP_HARMONICS 4
-#define HPCP_TOLERANCE_SEMITONES 0.5
+#define HPCP_HARMONICS 2
+#define HPCP_TOLERANCE_SEMITONES 0.6
 #define HPCP_PEAK_FLOOR 0.05
 // Timestamp assigned to one spectral-flux frame. The STFT frame is windowed at
 // [frame * HOP_SIZE, frame * HOP_SIZE + FFT_SIZE), but positive log-spectral
@@ -43,9 +59,27 @@ extern float nar_automix_window_rms_neon(
 
 typedef struct {
   double bpm;
+  // Runner-up metrical interpretation (half/double/other simple ratio). NAN
+  // when the winning level is unambiguous or no second candidate exists.
+  double alternate_bpm;
   double confidence;
   int valid;
 } TempoEstimate;
+
+typedef struct {
+  double period_frames;
+  double bpm;
+  double score;
+  double comb;
+  double coverage;
+  double fill;
+  double contrast;
+  double phase;
+} MetricalCandidate;
+
+static double clamp01_double(double value) {
+  return fmin(1.0, fmax(0.0, value));
+}
 
 static int compare_float(const void* lhs, const void* rhs) {
   const float a = *(const float*)lhs;
@@ -227,6 +261,33 @@ static const double kKsMinor[12] = {
     6.33, 2.68, 3.52, 5.38, 2.60, 3.53,
     2.54, 4.75, 3.98, 2.69, 3.34, 3.17};
 
+// Circular fractional chroma rotation. A recording tuned a few tens of cents
+// sharp or flat produces spectral peaks between pitch classes; rotating the
+// chromagram before profile matching recovers the intended key instead of
+// landing on a neighbouring class.
+static void rotate_chroma_12(const double* input, double shift,
+                             double* output) {
+  for (int i = 0; i < 12; ++i) {
+    double source = (double)i - shift;
+    while (source < 0.0) source += 12.0;
+    while (source >= 12.0) source -= 12.0;
+    const int lower = (int)floor(source) % 12;
+    const double fraction = source - floor(source);
+    const int upper = (lower + 1) % 12;
+    output[i] = input[lower] * (1.0 - fraction) +
+                input[upper] * fraction;
+  }
+}
+
+static double chroma_entropy(const double* normalized) {
+  double entropy = 0.0;
+  for (int i = 0; i < 12; ++i) {
+    const double value = normalized[i];
+    if (value > 1e-9) entropy -= value * log(value);
+  }
+  return entropy / log(12.0);
+}
+
 static int estimate_key(const double* chroma, int32_t* tonic, int32_t* is_minor,
                         double* confidence) {
   double total = 0.0;
@@ -235,33 +296,98 @@ static int estimate_key(const double* chroma, int32_t* tonic, int32_t* is_minor,
   if (total < 1e-6) return 0;
   for (int i = 0; i < 12; ++i) normalized[i] = chroma[i] / total;
 
+  // A key from percussion or white noise is not "uncertain", it is
+  // meaningless. Require both spectral spread (entropy) and at least a triad's
+  // worth of distinct pitch classes before publishing any key at all.
+  const double entropy = chroma_entropy(normalized);
+  double max_share = 0.0;
+  for (int i = 0; i < 12; ++i) {
+    if (normalized[i] > max_share) max_share = normalized[i];
+  }
+  const double class_floor = fmax(0.02, 0.12 * max_share);
+  int32_t rich_classes = 0;
+  for (int i = 0; i < 12; ++i) {
+    if (normalized[i] >= class_floor) ++rich_classes;
+  }
+  if (entropy > 0.95 || rich_classes < 3) {
+    *tonic = -1;
+    *is_minor = 0;
+    *confidence = 0.0;
+    return 1;
+  }
+
   int best_pc = -1;
   int best_is_minor = 0;
+  int best_tuning_step = 0;
   double best = -INFINITY;
-  double second = -INFINITY;
-  for (int mode = 0; mode < 2; ++mode) {
-    const double* profile = mode == 0 ? kKsMajor : kKsMinor;
-    double rotated[12];
-    for (int shift = 0; shift < 12; ++shift) {
-      for (int i = 0; i < 12; ++i) {
-        rotated[i] = profile[(i - shift + 12) % 12];
-      }
-      const double corr = pearson_12(normalized, rotated);
-      if (corr > best) {
-        second = best;
-        best = corr;
-        best_pc = shift;
-        best_is_minor = mode == 1;
-      } else if (corr > second) {
-        second = corr;
+  // Tuning search: +-50 cents in 5-cent steps. HPCP already tolerates a
+  // half-semitone before folding, so the residual rotation needed here is small
+  // and a coarse grid cannot invent a different key.
+  double tuned[12];
+  for (int step = -10; step <= 10; ++step) {
+    rotate_chroma_12(normalized, (double)step * 0.05, tuned);
+    for (int mode = 0; mode < 2; ++mode) {
+      const double* profile = mode == 0 ? kKsMajor : kKsMinor;
+      double rotated[12];
+      for (int shift = 0; shift < 12; ++shift) {
+        for (int i = 0; i < 12; ++i) {
+          rotated[i] = profile[(i - shift + 12) % 12];
+        }
+        const double corr = pearson_12(tuned, rotated);
+        if (corr > best) {
+          best = corr;
+          best_pc = shift;
+          best_is_minor = mode == 1;
+          best_tuning_step = step;
+        }
       }
     }
   }
 
+  // Measure the margin at the winning tuning. Comparing across tuning steps
+  // would report a near-tie for every track because a rotated profile can
+  // approximate a different key almost as well.
+  rotate_chroma_12(normalized, (double)best_tuning_step * 0.05, tuned);
+  double second = -INFINITY;
+  const int relative_pc = best_is_minor ? (best_pc + 3) % 12
+                                        : (best_pc + 9) % 12;
+  const int relative_is_minor = !best_is_minor;
+  double relative_corr = -INFINITY;
+  for (int mode = 0; mode < 2; ++mode) {
+    const double* profile = mode == 0 ? kKsMajor : kKsMinor;
+    double rotated[12];
+    for (int shift = 0; shift < 12; ++shift) {
+      if (shift == best_pc && (mode == 1) == (best_is_minor == 1)) continue;
+      for (int i = 0; i < 12; ++i) {
+        rotated[i] = profile[(i - shift + 12) % 12];
+      }
+      const double corr = pearson_12(tuned, rotated);
+      if (corr > second) second = corr;
+      if (shift == relative_pc && (mode == 1) == (relative_is_minor == 1)) {
+        relative_corr = corr;
+      }
+    }
+  }
+  if (!isfinite(second)) second = 0.0;
+  if (!isfinite(relative_corr)) relative_corr = 0.0;
   const double margin = fmax(0.0, best - second);
+  // Relative major/minor is a genuine ambiguity: the same pitch content fits
+  // both profiles and only the progression's emphasis would decide. A 1.00
+  // confidence here made A-minor loops look like a two-step move and could
+  // trigger the outgoing pitch shift on the wrong tonic.
+  const double relative_ratio = clamp01_double((best - relative_corr) / 0.25);
+  const double relative_factor = 0.55 + 0.45 * relative_ratio;
+  // Confidence is now absolute evidence * margin * tonal quality, not a raw
+  // 24-way argmax margin. A flat chroma can no longer score 0.754: it fails
+  // the entropy gate above, and a near-tie between relative major and minor
+  // lowers the margin term instead of reporting certainty.
+  const double absolute = clamp01_double((best - 0.55) / 0.30);
+  const double margin_term = clamp01_double(margin / 0.08);
+  const double flatness_gate = clamp01_double((0.95 - entropy) / 0.10);
   *tonic = best_pc;
   *is_minor = best_is_minor;
-  *confidence = margin < 0.02 ? 0.0 : fmin(1.0, margin / 0.12);
+  *confidence = clamp01_double(absolute * (0.55 + 0.45 * margin_term) *
+                               flatness_gate * relative_factor);
   return 1;
 }
 
@@ -374,6 +500,229 @@ static double onset_phase_coherence(const int32_t* indices,
   return total > 1e-12 ? hypot(real, imaginary) / total : 0.0;
 }
 
+// Collect the onset peaks used by every metrical hypothesis. Weighting by
+// excess over the mean keeps loud backbeats and kicks dominant over quiet
+// subdivisions, which is the evidence that separates a beat from its half-beat.
+static int32_t collect_onset_peaks(const float* env, int32_t count, double mean,
+                                   double* indices, double* weights,
+                                   int32_t capacity) {
+  int32_t used = 0;
+  if (env == NULL || indices == NULL || weights == NULL || capacity <= 0) {
+    return 0;
+  }
+  for (int32_t i = 1; i < count - 1 && used < capacity; ++i) {
+    const double value = (double)env[i];
+    if (value > (double)env[i - 1] && value >= (double)env[i + 1] &&
+        value > mean) {
+      const double weight = value - mean;
+      if (weight > 0.0 && isfinite(weight)) {
+        indices[used] = (double)i;
+        weights[used] = weight;
+        ++used;
+      }
+    }
+  }
+  return used;
+}
+
+// Fraction of onset energy that lands on the candidate grid. This is what
+// distinguishes the true beat from a multiple of it: a grid at 2P or 3P still
+// has a strong pulse at every line, but it leaves half or two-thirds of the
+// real onsets between lines.
+static double onset_grid_coverage(const double* indices, const double* weights,
+                                  int32_t count, double period, double phase,
+                                  double tolerance) {
+  if (indices == NULL || weights == NULL || count <= 0 ||
+      !isfinite(period) || period <= 1.0 || !isfinite(phase)) {
+    return 0.0;
+  }
+  double covered = 0.0;
+  double total = 0.0;
+  for (int32_t k = 0; k < count; ++k) {
+    total += weights[k];
+    double distance = fmod(indices[k] - phase, period);
+    if (distance < 0.0) distance += period;
+    if (distance > period * 0.5) distance = period - distance;
+    if (distance <= tolerance) covered += weights[k];
+  }
+  return total > 1e-12 ? covered / total : 0.0;
+}
+
+static double band_peak_at(const float* env, int32_t count, int32_t center) {
+  double peak = 0.0;
+  for (int32_t delta = -2; delta <= 2; ++delta) {
+    const int32_t index = center + delta;
+    if (index >= 0 && index < count && (double)env[index] > peak) {
+      peak = (double)env[index];
+    }
+  }
+  return peak;
+}
+
+// Grid fill and on/off contrast. Fill punishes sub-multiples: a grid at P/2
+// places every other line on a weak subdivision, so those lines fall below the
+// accent floor. Contrast punishes multiples: a grid at 2P has as much energy
+// halfway between its lines as on them.
+static void grid_fill_contrast(const float* env, int32_t count, double period,
+                               double phase, double* fill,
+                               double* contrast) {
+  *fill = 0.0;
+  *contrast = 0.0;
+  if (env == NULL || count <= 0 || !isfinite(period) || period <= 1.0 ||
+      !isfinite(phase)) {
+    return;
+  }
+  double max_env = 0.0;
+  for (int32_t i = 0; i < count; ++i) {
+    if ((double)env[i] > max_env) max_env = (double)env[i];
+  }
+  if (max_env <= 1e-9) return;
+  // A beat line must carry a clear accent, not merely some onset. The floor is
+  // relative to the strongest onset in the window, so a quiet 8th-note hat no
+  // longer counts as a filled beat slot while a backbeat does.
+  const double floor = 0.45 * max_env;
+  int32_t slots = 0;
+  int32_t filled = 0;
+  double on_sum = 0.0;
+  double off_sum = 0.0;
+  for (double time = phase; time < (double)count; time += period) {
+    const double on_peak = band_peak_at(env, count, (int32_t)llround(time));
+    const double off_peak = band_peak_at(
+        env, count, (int32_t)llround(time + period * 0.5));
+    if (on_peak >= floor) ++filled;
+    ++slots;
+    on_sum += on_peak;
+    off_sum += off_peak;
+  }
+  if (slots <= 0) return;
+  *fill = (double)filled / (double)slots;
+  const double denominator = on_sum + off_sum;
+  if (denominator > 1e-9) {
+    *contrast = clamp01_double((on_sum - off_sum) / denominator);
+  }
+}
+
+static double refine_tempo_phase_coherence(const float* odf, int32_t count,
+                                           double fps, double initial_bpm);
+
+// Evaluate one metrical-level hypothesis. The score is a weighted mean of
+// independent evidence: autocorrelation comb strength, onset coverage, grid
+// fill, beat-vs-offbeat accent contrast, and phase coherence. The tempo prior
+// remains only as a weak tie-break (15%); it is no longer the decision maker.
+static MetricalCandidate evaluate_metrical_candidate(
+    int32_t lag, const double* comb, int32_t lag_min, int32_t lag_max,
+    double comb_max, const float* env, int32_t count, double fps,
+    const double* indices, const double* weights, int32_t onset_count) {
+  MetricalCandidate candidate;
+  memset(&candidate, 0, sizeof(candidate));
+  if (lag < lag_min || lag > lag_max || comb == NULL) return candidate;
+  double period = (double)lag;
+  if (lag > lag_min && lag < lag_max) {
+    const double offset = refine_lag_peak(comb, lag_min, lag_max, lag);
+    if (isfinite(offset)) period += offset;
+  }
+  // Integer autocorrelation lags quantise a fractional beat period. A 125 BPM
+  // beat is 20.64 frames; an unfixed lag of 21 drifts a full beat every ~48 s,
+  // which destroys the very coverage/fill evidence this hypothesis is scored
+  // on. Refine each candidate against onset phase coherence (bounded to one
+  // frame, so it cannot jump to another metrical level).
+  if (onset_count >= 8) {
+    const double refined_bpm = refine_tempo_phase_coherence(
+        env, count, fps, 60.0 * fps / period);
+    if (isfinite(refined_bpm) && refined_bpm > 0.0) {
+      const double refined_period = 60.0 * fps / refined_bpm;
+      if (isfinite(refined_period) && refined_period > 1.0 &&
+          fabs(refined_period - period) <= 1.01) {
+        period = refined_period;
+      }
+    }
+  }
+  if (!isfinite(period) || period < 2.0) return candidate;
+
+  // Best grid phase from the *strong* onset subset. Folding every onset at the
+  // beat period cancels when an off-beat hat carries comparable flux, which
+  // leaves the phase (and therefore coverage and fill) arbitrary. Anchoring on
+  // accents and then scoring the full onset set against that grid removes the
+  // cancellation without discarding the subdivision as evidence.
+  double max_weight = 0.0;
+  for (int32_t k = 0; k < onset_count; ++k) {
+    if (weights[k] > max_weight) max_weight = weights[k];
+  }
+  const double strong_floor = 0.5 * max_weight;
+  double real = 0.0;
+  double imaginary = 0.0;
+  double total = 0.0;
+  double strong_total = 0.0;
+  for (int32_t k = 0; k < onset_count; ++k) {
+    const double angle = 2.0 * PI * indices[k] / period;
+    if (weights[k] >= strong_floor) {
+      real += weights[k] * cos(angle);
+      imaginary += weights[k] * sin(angle);
+      strong_total += weights[k];
+    }
+    total += weights[k];
+  }
+  if (total <= 1e-12) return candidate;
+  if (strong_total <= 1e-12) {
+    // Too few accents to anchor on: fall back to the full onset set.
+    for (int32_t k = 0; k < onset_count; ++k) {
+      const double angle = 2.0 * PI * indices[k] / period;
+      real += weights[k] * cos(angle);
+      imaginary += weights[k] * sin(angle);
+      strong_total += weights[k];
+    }
+  }
+  const double phase_strength = strong_total > 1e-12
+      ? hypot(real, imaginary) / strong_total : 0.0;
+  double phase = atan2(imaginary, real) * period / (2.0 * PI);
+  phase = fmod(phase, period);
+  if (phase < 0.0) phase += period;
+
+  const double tolerance = fmax(1.0, period * 0.12);
+  const double coverage = onset_grid_coverage(
+      indices, weights, onset_count, period, phase, tolerance);
+  double fill = 0.0;
+  double contrast = 0.0;
+  grid_fill_contrast(env, count, period, phase, &fill, &contrast);
+  const double comb_normalized = comb_max > 1e-9
+      ? clamp01_double(comb[lag] / comb_max) : 0.0;
+
+  candidate.period_frames = period;
+  candidate.bpm = 60.0 * fps / period;
+  candidate.comb = comb_normalized;
+  candidate.coverage = coverage;
+  candidate.fill = fill;
+  candidate.contrast = contrast;
+  candidate.phase = clamp01_double(phase_strength);
+  // Fill and accent contrast carry more weight than raw onset coverage: the
+  // subdivision is defined by being weaker, so a grid that lands on every
+  // quiet hat must lose to the grid that lands only on accents.
+  candidate.score =
+      0.30 * candidate.comb +
+      0.12 * candidate.coverage +
+      0.40 * candidate.fill +
+      0.06 * candidate.contrast +
+      0.12 * candidate.phase;
+  // A weak, wide prior only breaks ties between interpretations that the
+  // musical evidence genuinely cannot separate (e.g. a bare click train).
+  const double prior_ratio =
+      log2_double(candidate.bpm / METRICAL_PRIOR_CENTER) /
+      METRICAL_PRIOR_LOG2_WIDTH;
+  candidate.score *= 0.85 + 0.15 * exp(-0.5 * prior_ratio * prior_ratio);
+  return candidate;
+}
+
+static void add_metrical_lag(int32_t lag, int32_t lag_min, int32_t lag_max,
+                             int32_t* lags, int32_t* count,
+                             int32_t capacity) {
+  if (lags == NULL || count == NULL || lag < lag_min || lag > lag_max) return;
+  for (int32_t i = 0; i < *count; ++i) {
+    if (abs(lags[i] - lag) <= 1) return;
+  }
+  if (*count >= capacity) return;
+  lags[(*count)++] = lag;
+}
+
 static double refine_tempo_phase_coherence(const float* odf, int32_t count,
                                            double fps, double initial_bpm) {
   if (odf == NULL || count < 8 || !isfinite(fps) || fps <= 0.0 ||
@@ -438,7 +787,7 @@ static double refine_tempo_phase_coherence(const float* odf, int32_t count,
 
 static TempoEstimate estimate_tempo(const float* odf, int32_t count,
                                    int32_t working_rate, double fps) {
-  TempoEstimate result = {NAN, 0.0, 0};
+  TempoEstimate result = {NAN, NAN, 0.0, 0};
   if (working_rate <= 0 || count < (int32_t)round(fps)) return result;
 
   double mean = 0.0;
@@ -480,63 +829,205 @@ static TempoEstimate estimate_tempo(const float* odf, int32_t count,
     scores[lag] = acc / limit;
   }
 
-  int32_t best_lag = -1;
-  double best_weighted = -DBL_MAX;
   double sum_score = 0.0;
   double min_score = DBL_MAX;
   double max_score = -DBL_MAX;
+  int32_t comb_best_lag = -1;
+  double comb_best = -DBL_MAX;
   for (int32_t lag = lag_min; lag <= lag_max; ++lag) {
     const double score = scores[lag] +
         0.5 * lag_score(scores, lag * 2, lag_max) +
         0.25 * lag_score(scores, lag * 3, lag_max) +
         0.125 * lag_score(scores, lag * 4, lag_max);
     comb[lag] = score;
-    const double bpm = 60.0 * fps / lag;
-    const double ratio = log2_double(bpm / BPM_PRIOR_CENTER) /
-                         BPM_PRIOR_LOG2_WIDTH;
-    const double weighted = score * exp(-0.5 * ratio * ratio);
     sum_score += score;
     if (score < min_score) min_score = score;
     if (score > max_score) max_score = score;
-    if (weighted > best_weighted) {
-      best_weighted = weighted;
-      best_lag = lag;
+    if (score > comb_best) {
+      comb_best = score;
+      comb_best_lag = lag;
     }
   }
-  if (best_lag <= 0) {
+  (void)sum_score;
+  (void)min_score;
+  if (comb_best_lag <= 0) {
     free(env);
     free(scores);
     free(comb);
     return result;
   }
 
+  // Metrical-level hypotheses. Every integer multiple of the true beat period
+  // correlates equally, so autocorrelation alone cannot choose between P, P/2
+  // and 2P: the old code resolved that with a fixed 115 BPM Gaussian and the
+  // result was 2x at 60-87, 1/2x at 180-200 and 2/3x at 170-190. Enumerate the
+  // plausible levels, then arbitrate with onset evidence.
+  int32_t candidate_lags[40];
+  int32_t candidate_lag_count = 0;
+  for (int32_t lag = lag_min + 1; lag < lag_max; ++lag) {
+    if (comb[lag] < comb[lag - 1] || comb[lag] < comb[lag + 1]) continue;
+    if (comb[lag] < 0.45 * comb_best) continue;
+    add_metrical_lag(lag, lag_min, lag_max, candidate_lags,
+                     &candidate_lag_count, 40);
+  }
+  add_metrical_lag(comb_best_lag, lag_min, lag_max, candidate_lags,
+                   &candidate_lag_count, 40);
+  add_metrical_lag(comb_best_lag / 2, lag_min, lag_max, candidate_lags,
+                   &candidate_lag_count, 40);
+  add_metrical_lag(comb_best_lag * 2, lag_min, lag_max, candidate_lags,
+                   &candidate_lag_count, 40);
+  add_metrical_lag((comb_best_lag * 2) / 3, lag_min, lag_max, candidate_lags,
+                   &candidate_lag_count, 40);
+  add_metrical_lag((comb_best_lag * 3) / 2, lag_min, lag_max, candidate_lags,
+                   &candidate_lag_count, 40);
+  if (candidate_lag_count <= 0) {
+    free(env);
+    free(scores);
+    free(comb);
+    return result;
+  }
+
+  double env_mean = 0.0;
+  for (int32_t i = 0; i < count; ++i) env_mean += odf[i];
+  env_mean /= count;
+  const int32_t onset_capacity = count;
+  double* onset_indices =
+      (double*)malloc((size_t)onset_capacity * sizeof(double));
+  double* onset_weights =
+      (double*)malloc((size_t)onset_capacity * sizeof(double));
+  if (onset_indices == NULL || onset_weights == NULL) {
+    free(env);
+    free(scores);
+    free(comb);
+    free(onset_indices);
+    free(onset_weights);
+    return result;
+  }
+  const int32_t onset_count = collect_onset_peaks(
+      odf, count, env_mean, onset_indices, onset_weights, onset_capacity);
+  if (onset_count < 8) {
+    free(env);
+    free(scores);
+    free(comb);
+    free(onset_indices);
+    free(onset_weights);
+    return result;
+  }
+
+  MetricalCandidate candidates[40];
+  MetricalCandidate best;
+  MetricalCandidate second;
+  memset(&best, 0, sizeof(best));
+  memset(&second, 0, sizeof(second));
+  second.score = -DBL_MAX;
+  for (int32_t i = 0; i < candidate_lag_count; ++i) {
+    candidates[i] = evaluate_metrical_candidate(
+        candidate_lags[i], comb, lag_min, lag_max, comb_best, odf, count,
+        fps, onset_indices, onset_weights, onset_count);
+    if (!isfinite(candidates[i].score) || candidates[i].period_frames <= 0.0) {
+      continue;
+    }
+    if (candidates[i].score > best.score) {
+      second = best;
+      best = candidates[i];
+    } else if (candidates[i].score > second.score) {
+      second = candidates[i];
+    }
+#ifdef AUTOMIX_DEBUG_METRICAL
+    fprintf(stderr, "cand lag=%d bpm=%.2f score=%.3f comb=%.3f cov=%.3f fill=%.3f con=%.3f phase=%.3f\n",
+            candidate_lags[i], candidates[i].bpm, candidates[i].score,
+            candidates[i].comb, candidates[i].coverage, candidates[i].fill,
+            candidates[i].contrast, candidates[i].phase);
+#endif
+  }
+  if (best.period_frames <= 0.0) {
+    free(env);
+    free(scores);
+    free(comb);
+    free(onset_indices);
+    free(onset_weights);
+    return result;
+  }
+
+  // Publish the runner-up interpretation for the downstream octave-recovery
+  // path. Prefer a genuine half/double, but fall back to any distinct level.
+  double alternate_bpm = NAN;
+  double alternate_score = -DBL_MAX;
+  for (int32_t i = 0; i < candidate_lag_count; ++i) {
+    const double ratio = candidates[i].period_frames / best.period_frames;
+    if (!isfinite(ratio) || fabs(log2_double(ratio)) <= 0.05) continue;
+    const int is_octave = ratio > 0.45 && ratio < 0.55;
+    const int is_double = ratio > 1.8 && ratio < 2.2;
+    if (!is_octave && !is_double) continue;
+    if (candidates[i].score > alternate_score) {
+      alternate_score = candidates[i].score;
+      alternate_bpm = candidates[i].bpm;
+    }
+  }
+  if (!isfinite(alternate_bpm)) {
+    for (int32_t i = 0; i < candidate_lag_count; ++i) {
+      const double ratio = candidates[i].period_frames / best.period_frames;
+      if (!isfinite(ratio) || fabs(log2_double(ratio)) <= 0.05) continue;
+      if (candidates[i].score > alternate_score) {
+        alternate_score = candidates[i].score;
+        alternate_bpm = candidates[i].bpm;
+      }
+    }
+  }
+
   // Autocorrelation is sampled at integer lags, but the beat period is rarely
-  // an integer number of FFT hops. Fit a parabola through the three samples
-  // around the winning lag so 120 BPM is not forced to 117.4/123.0 BPM just
-  // because the ideal lag is 21.53 frames.
-  const double refined_lag =
-      (double)best_lag + refine_lag_peak(comb, lag_min, lag_max, best_lag);
+  // an integer number of FFT hops. The candidate already carries a parabolic
+  // sub-frame period; the phase-coherence refinement then only trims within
+  // one frame and cannot jump to another metrical level.
+  double refined_lag = best.period_frames;
   double bpm = 60.0 * fps / refined_lag;
   const double coherent_bpm = refine_tempo_phase_coherence(
       odf, count, fps, bpm);
   if (isfinite(coherent_bpm) && coherent_bpm > 0.0) {
-    bpm = coherent_bpm;
-    if (bpm < BPM_MIN) bpm = BPM_MIN;
-    if (bpm > BPM_MAX) bpm = BPM_MAX;
+    const double coherent_lag = 60.0 * fps / coherent_bpm;
+    if (fabs(coherent_lag - refined_lag) <= 1.01) {
+      bpm = coherent_bpm;
+      refined_lag = coherent_lag;
+    }
+  }
+  if (bpm < BPM_MIN) bpm = BPM_MIN;
+  if (bpm > BPM_MAX) bpm = BPM_MAX;
+
+  int32_t best_lag = (int32_t)llround(refined_lag);
+  if (best_lag < lag_min) best_lag = lag_min;
+  if (best_lag > lag_max) best_lag = lag_max;
+  // A fractional beat period (e.g. 125 BPM = 21.5 frames) rounds to an integer
+  // lag that can sit on the shoulder of the comb peak. Read the evidence from
+  // the best integer sample within one frame instead, otherwise a correct
+  // tempo can publish confidence 0.00 just because of rounding.
+  double comb_evidence = comb[best_lag];
+  double score_evidence = scores[best_lag];
+  for (int32_t delta = -1; delta <= 1; ++delta) {
+    const int32_t index = best_lag + delta;
+    if (index < lag_min || index > lag_max) continue;
+    if (comb[index] > comb_evidence) comb_evidence = comb[index];
+    if (scores[index] > score_evidence) score_evidence = scores[index];
   }
   const double mean_score = sum_score / (lag_max - lag_min + 1);
   const double spread = fmax(max_score - min_score, 1e-12);
-  const double periodicity = fmax(0.0, scores[best_lag] / energy0 * count);
+  const double periodicity = fmax(0.0, score_evidence / energy0 * count);
   const double prominence = fmin(1.0, fmax(0.0,
-      (comb[best_lag] - mean_score) / spread));
-  const double confidence = fmin(1.0, fmax(0.0,
+      (comb_evidence - mean_score) / spread));
+  const double metrical_margin = best.score > 1e-9
+      ? clamp01_double((best.score - second.score) / best.score / 0.06)
+      : 0.0;
+  const double base_confidence = fmin(1.0, fmax(0.0,
       0.55 * prominence + 0.45 * fmin(1.0, fmax(0.0, periodicity))));
   result.bpm = bpm;
-  result.confidence = confidence;
+  result.alternate_bpm = alternate_bpm;
+  result.confidence = clamp01_double(
+      base_confidence * (0.65 + 0.35 * metrical_margin));
   result.valid = 1;
   free(env);
   free(scores);
   free(comb);
+  free(onset_indices);
+  free(onset_weights);
   return result;
 }
 
@@ -702,6 +1193,16 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   float* imaginary = (float*)calloc(FFT_SIZE, sizeof(float));
   float* previous_log_magnitude = (float*)calloc(FFT_BINS, sizeof(float));
   float* odf = (float*)calloc((size_t)frame_count, sizeof(float));
+  // Frequency-weighted onset envelope for beat/bar phase. The full-band ODF
+  // remains the tempo and onset-rate input; this one keeps hats from
+  // competing with kicks for the beat phase.
+  float* phase_odf = (float*)calloc((size_t)frame_count, sizeof(float));
+  // Chroma novelty per frame. Bar lines are marked by harmonic and textural
+  // change far more reliably than by loudness on flat four-on-the-floor, so
+  // the phrase grid scores change evidence alongside the energy accent.
+  float* chroma_novelty = (float*)calloc((size_t)frame_count, sizeof(float));
+  double previous_chroma[12] = {0.0};
+  int has_previous_chroma = 0;
   // rms_values packs only non-silent frames for a robust median. The
   // frame-aligned timeline preserves silent windows and is used for cue timing.
   float* rms_values = (float*)malloc((size_t)frame_count * sizeof(float));
@@ -721,7 +1222,8 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   float* frame_magnitudes = (float*)malloc(FFT_BINS * sizeof(float));
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
-      previous_log_magnitude == NULL || odf == NULL || rms_values == NULL ||
+      previous_log_magnitude == NULL || odf == NULL || phase_odf == NULL ||
+      chroma_novelty == NULL || rms_values == NULL ||
       rms_frame_values == NULL || centroid_values == NULL ||
       vocal_band_ratio_values == NULL ||
       vocal_band_concentration_values == NULL ||
@@ -730,7 +1232,8 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       twiddle_real == NULL || twiddle_imaginary == NULL ||
       frame_magnitudes == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-    free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
+    free(odf); free(phase_odf); free(chroma_novelty); free(rms_values);
+    free(rms_frame_values); free(centroid_values);
     free(vocal_band_ratio_values); free(vocal_band_concentration_values);
     free(vocal_band_flatness_values); free(cpp_values); free(cepstrum_real);
     free(cepstrum_imaginary); free(twiddle_real); free(twiddle_imaginary);
@@ -780,6 +1283,9 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
 
     radix2_fft(real, imaginary, twiddle_real, twiddle_imaginary, bit_reverse);
     float flux = 0.0f;
+    double low_flux = 0.0;
+    double mid_flux = 0.0;
+    double high_flux = 0.0;
     double weight_sum = 0.0;
     double frequency_sum = 0.0;
     double total_spectral_magnitude = 0.0;
@@ -806,7 +1312,17 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
         vocal_band_bin_count++;
       }
       const float difference = log_magnitude - previous_log_magnitude[bin];
-      if (difference > 0.0f) flux += difference;
+      if (difference > 0.0f) {
+        flux += difference;
+        if (frequency >= ODF_LOW_MIN_FREQ &&
+            frequency < ODF_LOW_MAX_FREQ) {
+          low_flux += difference;
+        } else if (frequency < ODF_MID_MAX_FREQ) {
+          mid_flux += difference;
+        } else if (frequency < ODF_HIGH_MAX_FREQ) {
+          high_flux += difference;
+        }
+      }
       previous_log_magnitude[bin] = log_magnitude;
 
       if (frequency >= CHROMA_MIN_FREQ && frequency <= CHROMA_MAX_FREQ) {
@@ -814,7 +1330,28 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
         frequency_sum += magnitude * frequency;
       }
     }
-    hpcp_add_frame(frame_magnitudes, FFT_BINS, working_rate, FFT_SIZE, hpcp);
+    double frame_chroma[12] = {0.0};
+    hpcp_add_frame(frame_magnitudes, FFT_BINS, working_rate, FFT_SIZE,
+                   frame_chroma);
+    double frame_chroma_total = 0.0;
+    for (int note = 0; note < 12; ++note) {
+      hpcp[note] += frame_chroma[note];
+      frame_chroma_total += frame_chroma[note];
+    }
+    if (frame_chroma_total > 1e-12) {
+      double novelty = 0.0;
+      for (int note = 0; note < 12; ++note) {
+        const double share = frame_chroma[note] / frame_chroma_total;
+        if (has_previous_chroma && share > previous_chroma[note]) {
+          novelty += share - previous_chroma[note];
+        }
+        previous_chroma[note] = share;
+      }
+      has_previous_chroma = 1;
+      // Half the L1 increase: a chroma redistributing from one class to
+      // another then reads as one unit of change, not two.
+      chroma_novelty[frame] = (float)(0.5 * novelty);
+    }
     // The cepstrum needs a second FFT; every other frame is enough for a
     // stable median and keeps the extra offline cost bounded.
     if (rms > 1e-6 && (frame & 1) == 0) {
@@ -824,6 +1361,9 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       if (isfinite(cpp)) cpp_values[cpp_count++] = (float)cpp;
     }
     odf[frame] = flux;
+    phase_odf[frame] = (float)(ODF_PHASE_LOW_WEIGHT * low_flux +
+        ODF_PHASE_MID_WEIGHT * mid_flux +
+        ODF_PHASE_HIGH_WEIGHT * high_flux);
     if (weight_sum > 1e-9) {
       centroid_values[centroid_count++] = (float)(frequency_sum / weight_sum);
       if (total_spectral_magnitude > 1e-9 && rms > 1e-6 &&
@@ -846,15 +1386,21 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   }
 
   const double fps = working_rate / HOP_SIZE;
-  const TempoEstimate tempo = estimate_tempo(odf, frame_count, sample_rate, fps);
+  // Tempo and metre are decided on the band-weighted envelope: the low band
+  // carries the kick and the beat, the high band carries the subdivision. The
+  // full-band ODF is kept for onset rate and structural cues.
+  const TempoEstimate tempo =
+      estimate_tempo(phase_odf, frame_count, sample_rate, fps);
   if (tempo.valid) {
     output[0] = tempo.bpm;
     output[1] = tempo.confidence;
     output[20] = fmin(1.0, fmax(0.0, tempo.confidence));
-    output[2] = tempo.bpm < 90.0 ? tempo.bpm * 2.0
-        : tempo.bpm > 140.0 ? tempo.bpm / 2.0 : NAN;
+    // Publish the runner-up metrical hypothesis instead of the old fixed
+    // <90 / >140 octave guess. That is the only value downstream octave
+    // recovery can actually use, and it is now measured.
+    output[2] = isfinite(tempo.alternate_bpm) ? tempo.alternate_bpm : NAN;
     if (tempo.confidence >= 0.20) {
-      output[3] = estimate_beat_phase_ms(odf, frame_count, sample_rate,
+      output[3] = estimate_beat_phase_ms(phase_odf, frame_count, sample_rate,
                                         tempo.bpm);
     }
   }
@@ -871,9 +1417,10 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     double error_sum = 0.0;
     int32_t error_count = 0;
     for (int32_t index = 0; index < 4; ++index) {
-      const float* quarter_odf = odf + (size_t)index * (size_t)quarter;
+      const float* quarter_phase_odf =
+          phase_odf + (size_t)index * (size_t)quarter;
       const TempoEstimate local = estimate_tempo(
-          quarter_odf, quarter, sample_rate, fps);
+          quarter_phase_odf, quarter, sample_rate, fps);
       if (!local.valid || local.confidence < 0.35) continue;
       error_sum += folded_tempo_error(local.bpm, tempo.bpm);
       error_count++;
@@ -886,7 +1433,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
         const double quarter_start_ms =
             (double)index * quarter * HOP_SIZE * 1000.0 / working_rate;
         const double phase = estimate_beat_phase_ms(
-            quarter_odf, quarter, sample_rate, local.bpm);
+            quarter_phase_odf, quarter, sample_rate, local.bpm);
         const double beat_period_ms = 60000.0 / local.bpm;
         if (index == 0) {
           output[21] = local.bpm;
@@ -963,6 +1510,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     if (beat_ms >= 30.0 && isfinite(phrase_ms) && phrase_ms > 0.0 &&
         window_ms >= phrase_ms * 3.0) {
       double phase_scores[16] = {0.0};
+      double novelty_scores[16] = {0.0};
       int32_t phase_counts[16] = {0};
       const double offset_ms =
           (double)ODF_TIMESTAMP_OFFSET_SAMPLES * 1000.0 / working_rate;
@@ -987,12 +1535,68 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
           if (hi >= frame_count) hi = frame_count - 1;
           if (lo > hi) break;
           double power = 0.0;
+          double novelty = 0.0;
           for (int32_t index = lo; index <= hi; ++index) {
             power += pow(10.0, rms_frame_values[index] / 10.0);
+            novelty += (double)chroma_novelty[index];
           }
           phase_scores[beat] += power / (double)(hi - lo + 1);
+          novelty_scores[beat] += novelty / (double)(hi - lo + 1);
           phase_counts[beat]++;
         }
+      }
+
+      // Normalise the two independent evidence streams before combining them:
+      // energy accent (how loud this bar position is) and chroma novelty (how
+      // much the harmony changes there). Neither dominates by absolute scale.
+      double power_max = 0.0;
+      double novelty_max = 0.0;
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        if (phase_counts[beat] < 3) continue;
+        const double power = phase_scores[beat] / phase_counts[beat];
+        const double novelty = novelty_scores[beat] / phase_counts[beat];
+        if (power > power_max) power_max = power;
+        if (novelty > novelty_max) novelty_max = novelty;
+      }
+      // Only accept novelty as bar evidence when it has 16-beat, not 4-beat,
+      // periodicity. A loop whose harmony changes on every bar is as ambiguous
+      // as a flat loop and must keep the phrase phase unknown.
+      int32_t best_novelty_beat = -1;
+      double best_novelty_score = -1.0;
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        if (phase_counts[beat] < 3) continue;
+        const double novelty = novelty_scores[beat] / phase_counts[beat];
+        if (novelty > best_novelty_score) {
+          best_novelty_score = novelty;
+          best_novelty_beat = beat;
+        }
+      }
+      double other_bar_novelty_max = 0.0;
+      if (best_novelty_beat >= 0) {
+        for (int32_t delta = 4; delta < 16; delta += 4) {
+          const int32_t other = (best_novelty_beat + delta) % 16;
+          if (phase_counts[other] < 3) continue;
+          const double novelty =
+              novelty_scores[other] / (double)phase_counts[other];
+          if (novelty > other_bar_novelty_max) {
+            other_bar_novelty_max = novelty;
+          }
+        }
+      }
+      const double novelty_contrast = best_novelty_score > 1e-9
+          ? (best_novelty_score - other_bar_novelty_max) / best_novelty_score
+          : 0.0;
+      const double novelty_weight = novelty_contrast >= 0.25 ? 1.25 : 0.0;
+      double combined[16] = {0.0};
+      for (int32_t beat = 0; beat < 16; ++beat) {
+        if (phase_counts[beat] < 3) continue;
+        const double power = phase_scores[beat] / phase_counts[beat];
+        const double novelty = novelty_scores[beat] / phase_counts[beat];
+        const double power_term =
+            power_max > 1e-12 ? power / power_max : 0.0;
+        const double novelty_term =
+            novelty_max > 1e-12 ? novelty / novelty_max : 0.0;
+        combined[beat] = power_term + novelty_weight * novelty_term;
       }
 
       int32_t best_phase_beat = -1;
@@ -1000,7 +1604,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       double second_score = -1.0;
       for (int32_t beat = 0; beat < 16; ++beat) {
         if (phase_counts[beat] < 3) continue;
-        const double score = phase_scores[beat] / phase_counts[beat];
+        const double score = combined[beat];
         if (score > best_score) {
           second_score = best_score;
           best_score = score;
@@ -1023,8 +1627,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
         for (int32_t delta = 4; delta < 16; delta += 4) {
           const int32_t other = (best_phase_beat + delta) % 16;
           if (phase_counts[other] < 3) continue;
-          const double other_score =
-              phase_scores[other] / (double)phase_counts[other];
+          const double other_score = combined[other];
           if (other_score >= best_score * 0.90) bar_conflict = 1;
         }
       }
@@ -1251,7 +1854,8 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   }
 
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-  free(odf); free(rms_values); free(rms_frame_values); free(centroid_values);
+  free(odf); free(phase_odf); free(chroma_novelty); free(rms_values);
+  free(rms_frame_values); free(centroid_values);
   free(vocal_band_ratio_values); free(vocal_band_concentration_values);
   free(vocal_band_flatness_values); free(cpp_values); free(cepstrum_real);
   free(cepstrum_imaginary);
@@ -1436,6 +2040,23 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
             const int pc = (root + kChordIntervals[quality][tone]) % 12;
             in_chord += normalized[pc];
           }
+          // A seventh quality is only a chord when the seventh itself has
+          // energy. Without this test a plain triad always won the maj7/min7
+          // quality with saturated confidence, because the extra tone could
+          // only add to the score and never cost anything.
+          if (kChordToneCount[quality] == 4) {
+            const int seventh_pc =
+                (root + kChordIntervals[quality][3]) % 12;
+            double triad_sum = 0.0;
+            for (int tone = 0; tone < 3; ++tone) {
+              triad_sum += normalized[(root + kChordIntervals[quality][tone]) % 12];
+            }
+            const double seventh_energy = normalized[seventh_pc];
+            if (seventh_energy < 0.10 ||
+                seventh_energy < 0.70 * (triad_sum / 3.0)) {
+              continue;
+            }
+          }
           const double score = 0.82 * in_chord + 0.18 * normalized[root];
           if (score > best_quality_score) {
             best_quality_score = score;
@@ -1532,7 +2153,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
       const double margin = fmax(0.0, best_score - second_score);
       const double tonal_evidence = fmin(1.0, fmax(0.0,
           (best_score - 0.28) / 0.42));
-      const double unique_evidence = fmin(1.0, fmax(0.0, margin / 0.065));
+      const double unique_evidence = fmin(1.0, fmax(0.0, margin / 0.035));
       confidence = tonal_evidence * unique_evidence;
       if (best_score < 0.32 || margin < 0.006 || confidence < 0.08) {
         best_root = -1;

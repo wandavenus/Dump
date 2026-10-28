@@ -675,10 +675,11 @@ measured on the field set rather than on clicks.
 
 ## Appendix — probe inventory and exact runs
 
-All probes were compiled against the unmodified sources with
+All probes were compiled against the pre-remediation sources with
 `clang -O2 -std=c11 -I native_audio_runtime/src` and linked with `automix_analyzer.c`,
 `automix_live_tracker.c`, `automix_phase_lock.c` (plus `automix_tone_processor.c`/`automix_planner.c` where
-needed). They live in `build/audit_tmp/` (git-ignored scratch) and can be re-run unchanged:
+needed). Their sources remain in `build/audit_tmp/` (git-ignored scratch) and can be rebuilt against any
+revision; the numbers below are the pre-fix baseline, not post-remediation results:
 
 | Probe | Covers |
 |---|---|
@@ -703,3 +704,42 @@ Key measured deltas, restated for the changelog:
 * beat phase: **`NaN` on 2 of 5** gesture patterns, published-but-wrong on 1 of 5;
 * key: **3 of 6** cases wrong, one at confidence 1.00, one (noise) at 0.754;
 * energy sub-cost coefficient sum: **1.40** (+0.30 momentum) against a clamp of **1.0**.
+
+---
+
+## H. Remediation status (2026-10-28, app v1.5.55)
+
+Implemented after this audit, still fully offline and non-AI. Files touched:
+`native_audio_runtime/src/automix_analyzer.c`, `automix_live_tracker.c`, `automix_planner.c`,
+`lib/services/automix_service/engine.dart`, `service.dart`,
+`android/.../automix/AutomixGridMerge.kt`, `AutomixTransitionPolicy.kt`,
+`android/.../crossfade/CrossfadeController.kt`, plus native/Kotlin/Dart tests.
+
+| ID | Status | What changed |
+|---|---|---|
+| AM8-01 | Fixed | `estimate_tempo()` now enumerates `{P/2, P, 2P, ⅔P, 3⁄2P}` plus comb peaks and scores each by comb strength, onset-grid coverage, grid fill, on/off-beat accent contrast and phase coherence. The 120 BPM prior is a 15% tie-break only. `alternateBpm` is the measured runner-up. |
+| AM8-02 | Partial | `AutomixGridMerge` now keeps the offline grid whole whenever the sources disagree by >4% log (phase from live only when it agrees within 0.25 beat). Live confidence is capped at 0.55 for a strong half-period and 0.30 for a third. The live tracker still uses its own ACF and a one-directional rescue. |
+| AM8-03 | Partial | Offline phrase scoring adds per-frame chroma novelty, accepted only when the novelty itself has 16-beat contrast ≥0.25. Live downbeat evidence is unchanged (still 0.000 on flat material), but it no longer overwrites the offline grid. |
+| AM8-04 | Fixed | The phase ODF is band-split (30–150 Hz ×1.0, 150–1500 Hz ×0.55, 1500–8000 Hz ×0.15); tempo/structure keep the full-band ODF. Regression: kick + off-beat hat at 90–140 BPM publishes a finite phase within 15 ms. |
+| AM8-05 | Fixed | Key requires chroma entropy <0.95 and ≥3 populated classes, searches tuning ±50 cents in 5-cent steps, and derives confidence from absolute correlation × margin × flatness × relative-major/minor ambiguity. The cue-level hard harmonic reject is gone; the pitch-shift gate moved from 0.55 to 0.70. |
+| AM8-06 | Fixed | Energy coefficients normalized to 1.0 (0.22/0.40/0.18/0.10, momentum cap 0.10) in both Dart and C; clamp is a guard. |
+| AM8-07 | Open | No 3/6-beat metre hypothesis yet. |
+| AM8-08 | Partial | A seventh quality requires ≥10% chroma energy and ≥70% of the triad's average tone energy. Harmony is now scored only by the planner. The confidence gap at chord changes remains. |
+| AM8-09 | Fixed | `boundedFadeLeadMs()` limits a phrase-snapped fade to `plannedFade + ½ beat`, never past EOF; used by `CrossfadeController` outside the early-handover path. |
+| AM8-10 | Fixed | Density factors scale the beat count, then round to ½ beat; fade duration is re-derived and re-clamped. |
+| AM8-11 | Partial | Artist cooldown reduced to a 0.04/0.02 tie-breaker; `variety` remains the main term to keep Dart/native parity. |
+| AM8-12 | Partial | 241–300 s files add one centred window when the head/tail gap exceeds 30 s. Structural segmentation remains window-level. |
+| AM8-13 | Open by design | L1 headroom is unchanged until the seam loudness dip is measured on real audio; the limiter path needs verification first. |
+| AM8-14/15 | Fixed | `alternateBpm` comes from the metrical runner-up; the vocal term is a weighted sub-cost inside the shared denominator. |
+
+Analysis cache schema is now **v19** (all cached tempo/grid/key/chord values are invalidated).
+
+**Verification actually run:** native C suite `automix_native_c_test` exit 0, including new sweeps for
+metrical level (60–200 BPM), beat phase with off-beat hats, key noise/detune rejection, and phrase phase from
+harmonic change; `dart analyze` clean on the changed Dart files. Post-fix synthetic sweep (`bpm_sweep`,
+27 tempi × 4 styles): four-on-floor **27/27 correct and usable** (was 15/27); backbeat-only 4/27 correct
+(half/double ambiguity remains, but `alternateBpm` carries the other level); syncopated 14/27 correct with
+only 12/27 at confidence ≥0.20 (ambiguous levels are withheld rather than confidently wrong); pad-only is not
+a rhythmic signal and is not claimed. These are synthetic signals, not a perceptual result. `flutter test` could not run in this
+workspace (filesystem 99%, test compiler `ENOSPC` after freeing 55 MB of generated caches), and Kotlin/Gradle
+was not run. Those suites must be executed in CI before treating the fixes as regression-proven.

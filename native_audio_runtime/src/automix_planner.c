@@ -400,7 +400,7 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
       outro_slope_a > 1.0) {
     const double interrupted = outro_slope_a - intro_slope_b;
     if (interrupted > 0.0) {
-      momentum = fmin(0.30, interrupted / 24.0 * 0.30);
+      momentum = fmin(0.10, interrupted / 24.0 * 0.10);
     }
   }
   // Section-shape compatibility across the seam, gated on both windows having
@@ -426,12 +426,15 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
       structure = structure_seam_cost(tail_region, head_region);
     }
   }
-  double energy = 0.30 * fabs(delta) +
-      0.55 * fabs(energies[b] - energy_target_arc(position, profile, arc)) +
-      0.30 * seam + 0.25 * structure + momentum;
+  // Coefficients sum to 1.0 including the momentum cap, so the cost keeps a
+  // gradient instead of saturating at 1.0 for every bad pair (the old terms
+  // summed to 1.40 + 0.30 momentum). Keep the clamp only as a guard.
+  double energy = 0.22 * fabs(delta) +
+      0.40 * fabs(energies[b] - energy_target_arc(position, profile, arc)) +
+      0.18 * seam + 0.10 * structure + momentum;
   if (profile == PROFILE_ENERGY) {
-    if (position < 0.55 && delta < -0.05) energy += 0.8 * -delta;
-    else if (position >= 0.55 && delta > 0.05) energy += 0.8 * delta;
+    if (position < 0.55 && delta < -0.05) energy += 0.12 * -delta;
+    else if (position >= 0.55 && delta > 0.05) energy += 0.12 * delta;
   }
   energy = fmin(1.0, fmax(0.0, energy));
   const int same_artist = artist_groups[a] > 0 &&
@@ -444,21 +447,23 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const double vocal_b = feature(rows, b, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
   const double conf_a = feature(rows, a, NAR_AUTOMIX_VOCAL_CONFIDENCE);
   const double conf_b = feature(rows, b, NAR_AUTOMIX_VOCAL_CONFIDENCE);
-  double vocal_penalty = 0.0;
+  double vocal_cost = 0.0;
   if (isfinite(vocal_a) && isfinite(vocal_b) &&
       isfinite(conf_a) && isfinite(conf_b) &&
       conf_a >= 0.35 && conf_b >= 0.35 &&
       vocal_a > 0.5 && vocal_b > 0.5) {
     const double effective_a = (vocal_a - 0.5) * conf_a;
     const double effective_b = (vocal_b - 0.5) * conf_b;
-    vocal_penalty = effective_a * effective_b * 0.4;
+    vocal_cost = fmin(1.0, fmax(0.0, effective_a * effective_b * 4.0));
   }
 
   const double* weights = kProfileWeights[profile];
+  const double w_vocal = 0.10;
   const double denominator =
-      weights[0] + weights[1] + weights[2] + weights[3];
+      weights[0] + weights[1] + weights[2] + weights[3] + w_vocal;
   const double total = weights[0] * tempo + weights[1] * key +
-                       weights[2] * energy + weights[3] * variety + vocal_penalty;
+                       weights[2] * energy + weights[3] * variety +
+                       w_vocal * vocal_cost;
   (void)song_ids;
   return fmin(1.0, fmax(0.0, total / denominator));
 }
@@ -642,21 +647,19 @@ static void sort_scored(ScoredCandidate* scored, int32_t count) {
   }
 }
 
-// Greedy-only bias against artist clustering: penalize a candidate whose
-// artist already sits 2..NAR_PLAN_ARTIST_COOLDOWN positions back. The
-// immediately previous slot is handled by the variety term inside
-// transition_cost. `plan` holds the path so far; for the lookahead scan call
-// with plan_count + 1 so the candidate's extra slot shifts the window the
+// Greedy-only tie-breaker against artist clustering: break exact cost ties
+// when a candidate's artist sits 2..NAR_PLAN_ARTIST_COOLDOWN positions back.
+// The main artist penalty is the variety term inside transition_cost; this
+// second mechanism is deliberately tiny so the same signal is not weighted
+// twice at full strength. `plan` holds the path so far; for the lookahead scan
+// call with plan_count + 1 so the candidate's extra slot shifts the window the
 // same way the eventual path would. Returns 0 for unlabeled artists.
 static double artist_cooldown_cost(const int32_t* plan, int32_t plan_count,
                                    const int32_t* artist_groups,
                                    int32_t candidate_group,
                                    int32_t avoid_artist_repeat) {
   if (candidate_group <= 0) return 0.0;
-  // Keep a cooldown repeat cheaper than an immediate same-artist variety
-  // penalty (0.55 * 0.15 = 0.0825), otherwise the optimizer would prefer two
-  // adjacent repeats over one repeat a few slots later.
-  const double base = avoid_artist_repeat ? 0.12 : 0.05;
+  const double base = avoid_artist_repeat ? 0.04 : 0.02;
   double penalty = 0.0;
   for (int32_t back = 2; back <= NAR_PLAN_ARTIST_COOLDOWN; ++back) {
     const int32_t index = plan_count - back;

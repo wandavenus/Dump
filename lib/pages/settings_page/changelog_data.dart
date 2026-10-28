@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.55',
+    date: '28 Oktober 2026',
+    changes: [
+      'AutoMix: tempo kini ditentukan lewat uji hipotesis metrikal (bukan prior BPM), sehingga lagu 60–200 BPM tidak lagi salah oktaf 2x/0.5x/0.67x; beat phase tetap terdeteksi meski ada hi-hat off-beat.',
+      'AutoMix: key detection menolak noise dan material tanpa harmoni, mengoreksi detune hingga ±50 sen, dan menurunkan confidence saat mayor/minor relatif ambigu; pergeseran pitch hanya aktif pada key yang benar-benar yakin.',
+      'AutoMix: bar/frasa memakai bukti perubahan harmoni selain aksen energi, fade dikunci ke grid setengah-beat dan tidak lagi memanjang akibat phrase snap, serta biaya energi tidak lagi jenuh di 1.0.',
+      'AutoMix: grid offline diprioritaskan saat berbeda dari live tracker, analisis lagu 241–300 detik menambah jendela tengah, dan cache analisis dinaikkan ke skema v19.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.54',
     date: '28 Oktober 2026',
     changes: [

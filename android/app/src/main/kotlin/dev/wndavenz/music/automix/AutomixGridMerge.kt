@@ -11,12 +11,13 @@ import kotlin.math.ln
  * different clocks: the analyzer works in decoded-file time while the live
  * tracker measures elapsed time at the audio sink. Long-term tempo is
  * clock-independent, so BPMs that agree within [BPM_AGREEMENT_LOG_TOLERANCE]
- * are blended proportionally to their weights; a disagreement keeps the
- * heavier source whole, because averaging sources that disagree (for example
- * a half/double reading) would produce a tempo that matches neither. Beat and
- * downbeat phases are never averaged across clocks: when the sources agree the
- * live phase wins (it describes what is actually audible), and when they
- * disagree the heavier source wins whole.
+ * are blended proportionally to their weights. A larger disagreement keeps the
+ * offline source whole: it has ~48 s of analysis plus bar/chord context, while
+ * the live history is at most a few seconds, and averaging sources that
+ * disagree (for example a half/double reading) would produce a tempo that
+ * matches neither. Beat and downbeat phases are never averaged across clocks:
+ * when the sources agree the live phase wins only if it also agrees with the
+ * analysed phase; otherwise the offline grid wins whole.
  */
 internal object AutomixGridMerge {
 
@@ -106,13 +107,21 @@ internal object AutomixGridMerge {
                     offlinePositionMs!! - offlineBeatOffsetMs!!,
                     60_000.0 / offlineTempo,
                 ) / (60_000.0 / offlineTempo)
+                // Phase only follows the live deck when it actually agrees
+                // with the analysed phase. A confident but contradictory live
+                // estimate must not overwrite 48 s of analysed history.
                 useLiveBeat =
                     circularFractionalDistance(liveFraction, offlineFraction) <=
-                        PHASE_AGREEMENT_FRACTION || liveWeight >= OFFLINE_GRID_WEIGHT
+                        PHASE_AGREEMENT_FRACTION
             }
             else -> {
-                useLiveBeat = liveWeight >= OFFLINE_GRID_WEIGHT
-                bpm = if (useLiveBeat) liveBpm!! else offlineBpmValue!!
+                // The sources disagree by more than the 4% log tolerance. The
+                // offline estimate has ~48 s of analysis and is the only source
+                // with bar/chord context; the live history is <= 6 s. Prefer
+                // offline and let the live tracker resume only when the
+                // analyzer has no usable grid at all.
+                useLiveBeat = false
+                bpm = offlineBpmValue!!
             }
         }
 

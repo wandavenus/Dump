@@ -2534,6 +2534,170 @@ static void test_live_tracker_reports_activity_trend(void) {
   assert(nar_automix_live_tracker_set_enabled(0) == 1);
 }
 
+// Deterministic four-on-the-floor: 52 Hz kick on every beat and a short
+// 9 kHz hat on every eighth. This is the pattern that used to force 2x, 1/2x
+// and 2/3x metrical errors.
+static void render_four_on_floor(float* pcm, int32_t count, int32_t sample_rate,
+                                 double bpm) {
+  const double pi = 3.14159265358979323846;
+  const double beat = 60.0 / bpm;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const double phase = fmod(t, beat);
+    double value = 0.0;
+    if (phase < 0.10) {
+      value += 0.8 * exp(-phase * 32.0) * sin(2.0 * pi * 52.0 * phase);
+    }
+    const double hat_phase = fmod(t, beat * 0.5);
+    if (hat_phase < 0.012) {
+      value += 0.10 * (1.0 - hat_phase / 0.012) *
+          sin(2.0 * pi * 9000.0 * t);
+    }
+    pcm[i] = (float)value;
+  }
+}
+
+static void test_analyzer_metrical_level_sweep(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 40;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double bpms[] = {60.0, 64.0, 70.0, 80.0, 90.0, 110.0, 125.0,
+                         128.0, 145.0, 160.0, 170.0, 174.0, 180.0,
+                         190.0, 200.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    render_four_on_floor(pcm, count, sample_rate, bpms[i]);
+    assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                               NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+    assert(isfinite(output[0]));
+    // The detector must publish the beat, not a half/double/2:3 multiple of
+    // it. The runner-up is still published for downstream octave recovery.
+    assert(fabs(output[0] / bpms[i] - 1.0) < 0.02);
+    assert(output[1] >= 0.30);
+  }
+  free(pcm);
+}
+
+static void test_analyzer_beat_phase_survives_offbeat_hats(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 40;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double expected_ms = 137.0;
+  const double bpms[] = {90.0, 100.0, 110.0, 120.0, 128.0, 140.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    const double beat = 60.0 / bpms[i];
+    const double pi = 3.14159265358979323846;
+    for (int32_t n = 0; n < count; ++n) {
+      const double t = (double)n / sample_rate;
+      const double since = fmod(t - expected_ms / 1000.0, beat);
+      const double phase = since < 0.0 ? since + beat : since;
+      double value = 0.0;
+      if (phase < 0.09) {
+        value += 0.8 * exp(-phase * 35.0) * sin(2.0 * pi * 55.0 * phase);
+      }
+      const double hat_phase = fmod(t, beat * 0.5);
+      if (hat_phase < 0.012) {
+        value += 0.10 * (1.0 - hat_phase / 0.012) *
+            sin(2.0 * pi * 9000.0 * t);
+      }
+      pcm[n] = (float)value;
+    }
+    assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                               NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+    assert(isfinite(output[3]));
+    const double period_ms = 60000.0 / output[0];
+    double error = fmod(fabs(output[3] - expected_ms), period_ms);
+    if (error > period_ms * 0.5) error = period_ms - error;
+    assert(error < 15.0);
+  }
+  free(pcm);
+}
+
+static void test_analyzer_key_rejects_noise_and_survives_detune(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 6;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  unsigned int seed = 0x9E3779B9u;
+  for (int32_t i = 0; i < count; ++i) {
+    seed = seed * 1664525u + 1013904223u;
+    pcm[i] = (float)(((double)(seed >> 8) / 16777216.0) * 2.0 - 1.0);
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  // Noise has no key. The old estimator reported one at confidence 0.754.
+  assert(output[6] < 0.20);
+  assert(output[4] == -1.0);
+
+  const double equal_tones[3] = {0.2, 0.2, 0.2};
+  const double detune = 1.02640;  // 2^(45/1200)
+  const double c_major_sharp[3] = {261.6256 * detune, 329.6276 * detune,
+                                   391.9954 * detune};
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double value = 0.0;
+    for (int tone = 0; tone < 3; ++tone) {
+      value += equal_tones[tone] *
+          sin(2.0 * 3.14159265358979323846 * c_major_sharp[tone] * t);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[4] == 0.0);
+  assert(output[5] == 0.0);
+  free(pcm);
+}
+
+static void test_analyzer_phrase_phase_from_harmonic_change(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 48;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double bpms[] = {90.0, 120.0, 128.0, 140.0};
+  const double expected_ms = 137.0;
+  const double pi = 3.14159265358979323846;
+  for (size_t b = 0; b < sizeof(bpms) / sizeof(bpms[0]); ++b) {
+    const double beat = 60.0 / bpms[b];
+    const double phrase = beat * 16.0;
+    for (int32_t i = 0; i < count; ++i) {
+      const double t = (double)i / sample_rate;
+      double local = t - expected_ms / 1000.0;
+      if (local < 0.0) local += phrase * 4.0;
+      const int chord = ((int)floor(local / phrase)) % 2;
+      const double root = chord ? 196.0 : 130.8128;
+      const double third = chord ? 246.9417 : 164.8138;
+      const double fifth = chord ? 293.6648 : 195.9977;
+      // Constant RMS: every beat has the same kick, so loudness cannot tell
+      // the phrase start. Only the chord change at the boundary can.
+      const double beat_phase = fmod(local, beat);
+      double value = 0.12 * (sin(2.0 * pi * root * t) +
+                             sin(2.0 * pi * third * t) +
+                             sin(2.0 * pi * fifth * t));
+      if (beat_phase < 0.09) {
+        value += 0.35 * exp(-beat_phase * 35.0) *
+            sin(2.0 * pi * 55.0 * beat_phase);
+      }
+      pcm[i] = (float)value;
+    }
+    assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                               NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+    assert(isfinite(output[0]));
+    assert(fabs(output[0] / bpms[b] - 1.0) < 0.02);
+    assert(isfinite(output[11]));
+    const double phrase_ms = 60000.0 / output[0] * 16.0;
+    double error = fmod(fabs(output[11] - expected_ms), phrase_ms);
+    if (error > phrase_ms * 0.5) error = phrase_ms - error;
+    assert(error < 25.0);
+  }
+  free(pcm);
+}
+
 int main(void) {
   test_live_tracker_fractional_phase_accuracy();
   test_live_tracker_fractional_downbeat_accuracy();
@@ -2576,6 +2740,10 @@ int main(void) {
   test_analyzer_beat_phase_timestamp();
   test_analyzer_phrase_phase_fractional_grid();
   test_analyzer_energy_quarters();
+  test_analyzer_metrical_level_sweep();
+  test_analyzer_beat_phase_survives_offbeat_hats();
+  test_analyzer_key_rejects_noise_and_survives_detune();
+  test_analyzer_phrase_phase_from_harmonic_change();
   test_chord_vocabulary_expansion();
   test_phase_lock_factor();
   test_phrase_lock();
