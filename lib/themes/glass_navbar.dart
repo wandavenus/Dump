@@ -373,9 +373,6 @@ class _PillItemsState extends State<_PillItems> {
                                   Expanded(
                                     child: _PillItem(
                                       icon: widget.icons[i],
-                                      iconSize: i == 2
-                                          ? FloatingPillNavBar._iconSize + 2
-                                          : FloatingPillNavBar._iconSize,
                                       label: widget.labels[i],
                                       semanticsLabel:
                                           widget.semanticsLabels != null
@@ -412,9 +409,7 @@ class _PillItemsState extends State<_PillItems> {
                               scale: 0.84 + 0.16 * compactProgress,
                               child: Icon(
                                 widget.icons[compactIndex],
-                                size: compactIndex == 2
-                                  ? FloatingPillNavBar._iconSize + 2
-                                  : FloatingPillNavBar._iconSize,
+                                size: FloatingPillNavBar._iconSize,
                                 color: compactColor,
                               ),
                             ),
@@ -434,7 +429,6 @@ class _PillItemsState extends State<_PillItems> {
 
 class _PillItem extends StatelessWidget {
   final IconData icon;
-  final double iconSize;
   final String? label;
   final String? semanticsLabel;
   final bool active;
@@ -442,7 +436,6 @@ class _PillItem extends StatelessWidget {
 
   const _PillItem({
     required this.icon,
-    required this.iconSize,
     required this.label,
     required this.semanticsLabel,
     required this.active,
@@ -476,7 +469,7 @@ class _PillItem extends StatelessWidget {
                 children: [
                   Icon(
                     FloatingPillNavBar._iconSize == 24 ? icon : icon,
-                    size: iconSize,
+                    size: FloatingPillNavBar._iconSize,
                     color: color,
                   ),
                   if (label != null) ...[
