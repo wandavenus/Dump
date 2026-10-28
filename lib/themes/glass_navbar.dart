@@ -6,7 +6,9 @@ import 'package:musicplayer/services/floating_pill_transition_controller.dart';
 const double kMiniPlayerHeight = 62.0;
 
 // Horizontal offsets used by the four Floating Pill navigation icons.
-const List<double> _pillIconHorizontalOffsets = <double>[6, 5, -5, -6];
+// Final offsets combine both rounds of requested icon adjustments:
+// initial [2, 1, -1, -2] plus subsequent [6, 5, -5, -6].
+const List<double> _pillIconHorizontalOffsets = <double>[8, 6, -6, -8];
 const double _pillHighlightExpansion = 6.0;
 
 /// Soft neutral-gray tint inspired by Mornye's glass surfaces.
