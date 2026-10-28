@@ -5,11 +5,10 @@ import 'package:musicplayer/services/floating_pill_transition_controller.dart';
 
 const double kMiniPlayerHeight = 62.0;
 
-// Horizontal offsets used by the four Floating Pill navigation icons.
-// Final offsets combine both rounds of requested icon adjustments:
-// initial [2, 1, -1, -2] plus subsequent [6, 5, -5, -6].
-const List<double> _pillIconHorizontalOffsets = <double>[8, 6, -6, -8];
-const double _pillHighlightExpansion = 9.0;
+// Final horizontal offsets for the four Floating Pill navigation icons.
+// Browse and Radio are each moved 1 px inward from the previous positions.
+const List<double> _pillIconHorizontalOffsets = <double>[8, 5, -5, -8];
+const double _pillHighlightExpansion = 13.0;
 
 /// Soft neutral-gray tint inspired by Mornye's glass surfaces.
 /// Keep navbar glass more transparent than the mini player, without changing
@@ -407,6 +406,9 @@ class _PillItemsState extends State<_PillItems> {
                                       horizontalOffset: i < _pillIconHorizontalOffsets.length
                                           ? _pillIconHorizontalOffsets[i]
                                           : 0.0,
+                                      iconSize: i == 0
+                                          ? FloatingPillNavBar._iconSize + 2.0
+                                          : FloatingPillNavBar._iconSize,
                                       onTap: () => widget.onTap(i),
                                     ),
                                   ),
@@ -461,6 +463,7 @@ class _PillItem extends StatelessWidget {
   final String? semanticsLabel;
   final bool active;
   final double horizontalOffset;
+  final double iconSize;
   final VoidCallback onTap;
 
   const _PillItem({
@@ -469,6 +472,7 @@ class _PillItem extends StatelessWidget {
     required this.semanticsLabel,
     required this.active,
     required this.horizontalOffset,
+    required this.iconSize,
     required this.onTap,
   });
 
@@ -501,7 +505,7 @@ class _PillItem extends StatelessWidget {
                     offset: Offset(horizontalOffset, 0),
                     child: Icon(
                       icon,
-                      size: FloatingPillNavBar._iconSize,
+                      size: iconSize,
                       color: color,
                     ),
                   ),
