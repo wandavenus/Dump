@@ -1,10 +1,10 @@
 part of '../player_content.dart';
 
 const double _playerHorizontalPadding = 32.0;
+const double _smallCoverSize = 55.0;
 
 class PlayerContent extends StatefulWidget {
   final LocalSong song;
-  final AudioPlaybackState playbackState;
   final String Function(Duration duration) formatTime;
   final bool showLyrics;
   final VoidCallback onLyricsToggle;
@@ -15,7 +15,6 @@ class PlayerContent extends StatefulWidget {
   const PlayerContent({
     super.key,
     required this.song,
-    required this.playbackState,
     required this.formatTime,
     required this.showLyrics,
     required this.onLyricsToggle,
@@ -29,8 +28,6 @@ class PlayerContent extends StatefulWidget {
 }
 
 class _PlayerContentState extends State<PlayerContent> {
-  static const _smallCoverSize = 55.0;
-
   bool _showMarquee = false;
   Timer? _marqueeTimer;
 
@@ -107,8 +104,7 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   void didUpdateWidget(PlayerContent old) {
     super.didUpdateWidget(old);
-    if (old.song.id != widget.song.id ||
-        old.song.path != widget.song.path) {
+    if (old.song.id != widget.song.id || old.song.path != widget.song.path) {
       _fetchLyricsIfNeeded();
       _restartMarquee();
       // Load this metadata only when the mini header is actually shown.
@@ -146,7 +142,6 @@ class _PlayerContentState extends State<PlayerContent> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = PlayerSheetController.progress.value;
     final media = MediaQuery.of(context);
     final width = media.size.width;
     final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
@@ -164,13 +159,7 @@ class _PlayerContentState extends State<PlayerContent> {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 25),
-            child: _buildTwoColumn(
-              context,
-              media,
-              progress,
-              showLyrics,
-              showQueue,
-            ),
+            child: _buildTwoColumn(context, media, showLyrics, showQueue),
           ),
         ],
       );
@@ -215,11 +204,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                 Opacity(opacity: value, child: child),
                             child: IgnorePointer(
                               ignoring: showOverlay,
-                              child: Opacity(
-                                opacity: ((progress - 0.15) / 0.85).clamp(
-                                  0.0,
-                                  1.0,
-                                ),
+                              child: _SheetProgressOpacity(
+                                opacityFor: (progress) =>
+                                    ((progress - 0.15) / 0.85).clamp(0.0, 1.0),
                                 child: PlayerSongHeader(song: widget.song),
                               ),
                             ),
@@ -335,92 +322,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           key: const ValueKey('albumCover'),
                           top: coverTop,
                           left: coverLeft,
-                          child: Opacity(
-                            opacity: widget.hideArtwork ? 0.0 : 1.0,
-                            child: Transform.translate(
-                              offset: Offset(
-                                showOverlay
-                                    ? (16.0 - coverLeft)
-                                    : lerpDouble(
-                                        22.0 - coverLeft,
-                                        0.0,
-                                        progress,
-                                      )!,
-                                showOverlay
-                                    ? (-0.5 - coverTop)
-                                    : lerpDouble(
-                                        sh - 140 - coverTop,
-                                        0.0,
-                                        progress,
-                                      )!,
-                              ),
-                              child: Transform.scale(
-                                scale: showOverlay
-                                    ? (_smallCoverSize / largeCoverSize)
-                                    : lerpDouble(
-                                        70.0 / largeCoverSize,
-                                        1.0,
-                                        progress,
-                                      )!,
-                                alignment: Alignment.topLeft,
-                                child: Container(
-                                  width: largeCoverSize,
-                                  height: largeCoverSize,
-                                  clipBehavior: Clip.hardEdge,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(3),
-                                    color: Colors.black,
-                                    // Hairline stroke on the visible bounding
-                                    // box — must live here (not inside
-                                    // SongArtwork) since the inner image is
-                                    // cropped by FittedBox/cover and would
-                                    // clip a border drawn on its own edge.
-                                    border: Border.all(
-                                      color:
-                                          Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? kArtworkHairlineDarkColor
-                                          : kArtworkHairlineLightColor,
-                                      width: kArtworkHairlineWidth,
-                                      // Inset alignment — stays crisp as
-                                      // the Transform scales it.
-                                      strokeAlign: BorderSide.strokeAlignInside,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.0 + (0.10 * progress),
-                                        ),
-                                        blurRadius: 0.0 + (1 * progress),
-                                        spreadRadius: 0.0 + (0.1 * progress),
-                                        offset: Offset(0, 0 + (1 * progress)),
-                                      ),
-                                    ],
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.cover,
-                                    child: SizedBox(
-                                      width: largeCoverSize,
-                                      height: largeCoverSize,
-                                      child: Hero(
-                                        tag: PlayerHeroTags.artwork(
-                                          widget.song,
-                                        ),
-                                        child: SongArtwork(
-                                          songId: widget.song.id,
-                                          size: largeCoverSize,
-                                          borderRadius: BorderRadius.zero,
-                                          // Hairline already drawn on the
-                                          // outer Container above — avoids
-                                          // a doubled/mismatched stroke here.
-                                          showBorder: false,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          child: _SheetProgressArtwork(
+                            song: widget.song,
+                            largeCoverSize: largeCoverSize,
+                            coverLeft: coverLeft,
+                            coverTop: coverTop,
+                            sectionHeight: sh,
+                            showOverlay: showOverlay,
+                            hideArtwork: widget.hideArtwork,
                           ),
                         ),
                       ],
@@ -464,8 +373,9 @@ class _PlayerContentState extends State<PlayerContent> {
                       Opacity(opacity: value, child: child),
                   child: IgnorePointer(
                     ignoring: _lyricsExpand > 0.0,
-                    child: Opacity(
-                      opacity: Curves.easeOut.transform(progress),
+                    child: _SheetProgressOpacity(
+                      opacityFor: (progress) =>
+                          Curves.easeOut.transform(progress),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -476,28 +386,25 @@ class _PlayerContentState extends State<PlayerContent> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Opacity(
-                                  opacity: ((progress - 0.2) / 0.8).clamp(
-                                    0.0,
-                                    1.0,
-                                  ),
+                                _SheetProgressOpacity(
+                                  opacityFor: (progress) =>
+                                      ((progress - 0.2) / 0.8).clamp(0.0, 1.0),
                                   child: PlayerProgressSection(
                                     formatTime: widget.formatTime,
                                   ),
                                 ),
                                 const SizedBox(height: 33),
-                                Opacity(
-                                  opacity: ((progress - 0.35) / 0.65).clamp(
-                                    0.0,
-                                    1.0,
-                                  ),
-                                  child: PlayerTransportControls(
-                                    playbackState: widget.playbackState,
-                                  ),
+                                _SheetProgressOpacity(
+                                  opacityFor: (progress) =>
+                                      ((progress - 0.35) / 0.65).clamp(
+                                        0.0,
+                                        1.0,
+                                      ),
+                                  child: PlayerTransportControls(),
                                 ),
                                 const SizedBox(height: 37),
-                                Opacity(
-                                  opacity: progress,
+                                _SheetProgressOpacity(
+                                  opacityFor: (progress) => progress,
                                   child: PlayerSecondaryControls(
                                     song: widget.song,
                                     showLyrics: showLyrics,
@@ -554,8 +461,9 @@ class _PlayerContentState extends State<PlayerContent> {
     required bool showOverlay,
   }) {
     final explicitStatusFuture = showOverlay
-        ? (_explicitStatusFuture ??=
-              MediaStoreService.getExplicitStatus(widget.song))
+        ? (_explicitStatusFuture ??= MediaStoreService.getExplicitStatus(
+            widget.song,
+          ))
         : null;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: showOverlay ? 1.0 : 0.0),
@@ -662,7 +570,6 @@ class _PlayerContentState extends State<PlayerContent> {
   Widget _buildTwoColumn(
     BuildContext context,
     MediaQueryData media,
-    double progress,
     bool showLyrics,
     bool showQueue,
   ) {
@@ -688,9 +595,6 @@ class _PlayerContentState extends State<PlayerContent> {
     );
     final lyricsPad = (overlayHeight * 0.25).clamp(24.0, 130.0);
 
-    final headerOpacity = ((progress - 0.15) / 0.85).clamp(0.0, 1.0);
-    final progressOpacity = ((progress - 0.2) / 0.8).clamp(0.0, 1.0);
-    final transportOpacity = ((progress - 0.35) / 0.65).clamp(0.0, 1.0);
     final panelTopInset =
         ((panel.height - overlayBottom) - metrics.contentHeight).clamp(
           0.0,
@@ -754,22 +658,24 @@ class _PlayerContentState extends State<PlayerContent> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Opacity(
-                              opacity: headerOpacity,
+                            _SheetProgressOpacity(
+                              opacityFor: (progress) =>
+                                  ((progress - 0.15) / 0.85).clamp(0.0, 1.0),
                               child: PlayerSongHeader(song: widget.song),
                             ),
                             SizedBox(height: metrics.spacing),
-                            Opacity(
-                              opacity: progressOpacity,
+                            _SheetProgressOpacity(
+                              opacityFor: (progress) =>
+                                  ((progress - 0.2) / 0.8).clamp(0.0, 1.0),
                               child: PlayerProgressSection(
                                 formatTime: widget.formatTime,
                               ),
                             ),
                             SizedBox(height: metrics.spacing),
-                            Opacity(
-                              opacity: transportOpacity,
+                            _SheetProgressOpacity(
+                              opacityFor: (progress) =>
+                                  ((progress - 0.35) / 0.65).clamp(0.0, 1.0),
                               child: PlayerTransportControls(
-                                playbackState: widget.playbackState,
                                 scale: metrics.transportScale,
                               ),
                             ),
@@ -787,8 +693,8 @@ class _PlayerContentState extends State<PlayerContent> {
                 right: 0,
                 bottom: 0,
                 height: kNowPlayingSecondaryStrip,
-                child: Opacity(
-                  opacity: progress,
+                child: _SheetProgressOpacity(
+                  opacityFor: (progress) => progress,
                   child: PlayerSecondaryControls(
                     song: widget.song,
                     showLyrics: showLyrics,

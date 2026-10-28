@@ -32,15 +32,12 @@ class ArtistHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Artwork centered — sama persis dengan AlbumHero
-          Hero(
-            tag: 'artist-artwork-${songs.first.artist}',
-            child: ClipRRect(
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SongArtwork(
+              songId: songs.first.id,
+              size: 220,
               borderRadius: BorderRadius.circular(12),
-              child: SongArtwork(
-                songId: songs.first.id,
-                size: 220,
-                borderRadius: BorderRadius.circular(12),
-              ),
             ),
           ),
           const SizedBox(height: 16),

@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:musicplayer/l10n/app_localizations.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/themes/app_themes.dart';
-import 'package:musicplayer/services/audio_playback_state.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';
 import 'package:musicplayer/widgets/player/player_content.dart';
 
@@ -34,15 +33,6 @@ final _song = LocalSong(
   duration: const Duration(minutes: 3),
 );
 
-const _state = AudioPlaybackState(
-  currentSong: null,
-  currentPlaylist: [],
-  isPlaying: true,
-  duration: Duration(minutes: 3),
-  position: Duration(seconds: 30),
-  processingState: ProcessingState.ready,
-);
-
 Future<void> _pumpPlayer(
   WidgetTester tester,
   Size size, {
@@ -65,7 +55,6 @@ Future<void> _pumpPlayer(
         body: SizedBox.expand(
           child: PlayerContent(
             song: song ?? _song,
-            playbackState: _state,
             formatTime: (d) => '${d.inSeconds}s',
             showLyrics: showLyrics,
             onLyricsToggle: () {},
@@ -139,12 +128,7 @@ void main() {
       duration: const Duration(minutes: 3),
     );
 
-    await _pumpPlayer(
-      tester,
-      _landscape,
-      showLyrics: true,
-      song: explicitSong,
-    );
+    await _pumpPlayer(tester, _landscape, showLyrics: true, song: explicitSong);
 
     expect(find.text('[E]'), findsNothing);
     final miniHeader = find.byKey(const ValueKey('wideMiniSongHeader'));
@@ -199,7 +183,6 @@ void main() {
           body: SizedBox.expand(
             child: PlayerContent(
               song: _song,
-              playbackState: _state,
               formatTime: (d) => '${d.inSeconds}s',
               showLyrics: true,
               onLyricsToggle: () {},

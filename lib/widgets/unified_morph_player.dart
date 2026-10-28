@@ -6,7 +6,6 @@ import 'package:flutter/cupertino.dart';
 
 import '../models/local_song.dart';
 import '../theme/app_colors.dart';
-import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
 import '../services/artwork_repository.dart';
 import '../services/player_sheet_controller.dart';
@@ -21,9 +20,7 @@ import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
 // Part files (same library — private types shared):
-//   unified_morph_player/playback_content.dart   → _PlaybackContent
 //   unified_morph_player/bottom_reveal_clipper.dart → _BottomRevealClipper
-part 'unified_morph_player/playback_content.dart';
 part 'unified_morph_player/bottom_reveal_clipper.dart';
 
 class UnifiedMorphPlayer extends StatefulWidget {
@@ -398,6 +395,19 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final song = _currentSong;
     if (song == null) return const SizedBox.shrink();
 
+    // Constructed once per song/sub-view change — never per sheet-progress
+    // tick. PlayerContent owns its own narrow progress subscriptions for the
+    // opacity/transform wrappers that actually depend on the sheet position.
+    final playbackContent = PlayerContent(
+      song: song,
+      formatTime: _formatTime,
+      showLyrics: _showLyrics,
+      onLyricsToggle: _toggleLyrics,
+      showQueue: _showQueue,
+      onQueueToggle: _toggleQueue,
+      hideArtwork: true,
+    );
+
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
@@ -425,6 +435,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               isGlass,
                               navStyle,
                               backgroundStyle,
+                              playbackContent,
                             );
                           },
                         );
@@ -448,6 +459,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     bool isGlass,
     NavBarStyle navStyle,
     PlayerBackgroundStyle backgroundStyle,
+    Widget playbackContent,
   ) {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
@@ -669,7 +681,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             );
                           },
                         ),
-  
+
                         // ── Pre-blurred artwork background (fades in with progress) ────
                         // AnimatedBlurredPlayerBackground now serves a cached ui.Image
                         // blit — no runtime ImageFilter cost per frame.
@@ -692,7 +704,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     ),
                             ),
                           ),
-  
+
                         // ── Gradient overlay ───────────────────────────────────────────
                         if (bgAlpha > 0)
                           Opacity(
@@ -724,7 +736,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               ),
                             ),
                           ),
-  
+
                         // ── Full player content (slides up from bottom + fades in) ──────
                         // All UI elements (except the morphing artwork above) enter as a
                         // single unit: they slide up from the bottom of the screen to their
@@ -742,23 +754,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   bottom: false,
                                   child: Padding(
                                     padding: const EdgeInsets.only(top: 12),
-                                    child: _PlaybackContent(
-                                      song: song,
-                                      formatTime: _formatTime,
-                                      showLyrics: _showLyrics,
-                                      onLyricsToggle: _toggleLyrics,
-                                      showQueue: _showQueue,
-                                      onQueueToggle: _toggleQueue,
-                                      // Unified player owns the artwork for all states;
-                                      // PlayerContent always hides its own artwork widget.
-                                      hideArtwork: true,
-                                    ),
+                                    child: playbackContent,
                                   ),
                                 ),
                               ),
                             ),
                           ),
-  
+
                         // ── Morphing artwork (mini → full → overlay thumbnail) ─────────
                         // Single artwork widget handles all three states via _overlayAnim,
                         // so there is no crossfade between two separate artwork widgets.
@@ -768,7 +770,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             final overlayT = Curves.easeInOutCubic.transform(
                               _overlayAnim.value,
                             );
-  
+
                             // Absolute position of the small thumbnail when overlay is active.
                             // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
                             // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
@@ -776,7 +778,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             const smallSize = 55.0;
                             const smallRadius = 3.0;
                             final smallTop = safeTop + 36.5;
-  
+
                             // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
                             // scale down the thumbnail's influence proportionally with t so the artwork
                             // smoothly flies from the small-thumbnail position to the mini-player
@@ -786,7 +788,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               0.0,
                               1.0,
                             );
-  
+
                             final finalLeft = lerpDouble(
                               artLeft,
                               smallLeft,
@@ -816,7 +818,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             final shadowAlpha = 0.20 * shadowBase;
                             final shadowBlur = 20.0 * shadowBase;
                             final shadowOff = 10.0 * shadowBase;
-  
+
                             // In Fluid mode, the full-player artwork rests at 97% while paused
                             // (or before playback starts) and returns to its natural size on play.
                             // Scale only the expanded artwork; keep the mini-player and overlay
@@ -834,7 +836,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       .clamp(0.0, 1.0)
                                       .toDouble()
                                 : 0.0;
-  
+
                             // Keep the hairline on the collapsed artwork in both
                             // background modes. Fluid keeps it on expanded artwork
                             // and the lyrics/queue thumbnail. Artwork Blur hides it
@@ -851,7 +853,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                 Theme.of(context).brightness == Brightness.dark
                                 ? kArtworkHairlineDarkColor
                                 : kArtworkHairlineLightColor;
-  
+
                             final artworkWithFade = SongArtwork(
                               songId: song.id,
                               size: artSize,
@@ -862,7 +864,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   ? artworkFadeStrength
                                   : 0.0,
                             );
-  
+
                             return Positioned(
                               left: finalLeft,
                               top: finalTop,
@@ -999,7 +1001,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             );
                           },
                         ),
-  
+
                         // ── Mini player overlay (fades out in first 28% of progress) ───
                         if (miniAlpha > 0)
                           Opacity(
@@ -1015,7 +1017,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               ),
                             ),
                           ),
-  
+
                         // ── Directional glass rim for the collapsed pill mini player.
                         // Reuses the navbar's specular painter so both capsules share
                         // the same edge treatment in dark and light themes.
@@ -1034,7 +1036,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             ),
                           ),
                       ],
-                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1166,7 +1168,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 }
 
-// ── _PlaybackContent & _BottomRevealClipper ────────────────────────────────
+// ── _BottomRevealClipper ───────────────────────────────────────────────────
 // Dipindah ke part file (lihat deklarasi `part` di atas):
-//   unified_morph_player/playback_content.dart
 //   unified_morph_player/bottom_reveal_clipper.dart
