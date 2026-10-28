@@ -309,8 +309,25 @@ class _PillItemsState extends State<_PillItems> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final segment = constraints.maxWidth / count;
-        final lensWidth = (segment - 10).clamp(0.0, segment).toDouble();
-        final left = segment * activeIndex + 5;
+
+        // Keep the active lens aligned with the intentionally offset pill icons.
+        // Interpolate offsets during swipe so the highlight follows the gesture.
+        const iconOffsets = <double>[2, 1, -1, -2];
+        double offsetFor(double index) {
+          final lower = index.floor().clamp(0, count - 1).toInt();
+          final upper = (lower + 1).clamp(0, count - 1).toInt();
+          final fraction = (index - lower).clamp(0.0, 1.0);
+          final lowerOffset = lower < iconOffsets.length ? iconOffsets[lower] : 0.0;
+          final upperOffset = upper < iconOffsets.length ? iconOffsets[upper] : 0.0;
+          return lowerOffset + (upperOffset - lowerOffset) * fraction;
+        }
+
+        final currentOffset = offsetFor(activeIndex);
+        final nextOffset = offsetFor((activeIndex + 1).clamp(0.0, count - 1.0));
+        final lensWidth = (segment - 10 + nextOffset - currentOffset)
+            .clamp(0.0, segment)
+            .toDouble();
+        final left = segment * activeIndex + 5 + currentOffset;
 
         return SizedBox(
           height: FloatingPillNavBar.bodyHeight,
@@ -379,6 +396,7 @@ class _PillItemsState extends State<_PillItems> {
                                           ? widget.semanticsLabels![i]
                                           : widget.labels[i],
                                       active: i == widget.selectedIndex,
+                                      horizontalOffset: const <double>[2, 1, -1, -2][i],
                                       onTap: () => widget.onTap(i),
                                     ),
                                   ),
@@ -407,10 +425,13 @@ class _PillItemsState extends State<_PillItems> {
                           child: Center(
                             child: Transform.scale(
                               scale: 0.84 + 0.16 * compactProgress,
-                              child: Icon(
-                                widget.icons[compactIndex],
-                                size: FloatingPillNavBar._iconSize,
-                                color: compactColor,
+                              child: Transform.translate(
+                                offset: const Offset(2, 0),
+                                child: Icon(
+                                  widget.icons[compactIndex],
+                                  size: FloatingPillNavBar._iconSize,
+                                  color: compactColor,
+                                ),
                               ),
                             ),
                           ),
@@ -432,6 +453,7 @@ class _PillItem extends StatelessWidget {
   final String? label;
   final String? semanticsLabel;
   final bool active;
+  final double horizontalOffset;
   final VoidCallback onTap;
 
   const _PillItem({
@@ -439,6 +461,7 @@ class _PillItem extends StatelessWidget {
     required this.label,
     required this.semanticsLabel,
     required this.active,
+    required this.horizontalOffset,
     required this.onTap,
   });
 
@@ -467,10 +490,13 @@ class _PillItem extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    FloatingPillNavBar._iconSize == 24 ? icon : icon,
-                    size: FloatingPillNavBar._iconSize,
-                    color: color,
+                  Transform.translate(
+                    offset: Offset(horizontalOffset, 0),
+                    child: Icon(
+                      icon,
+                      size: FloatingPillNavBar._iconSize,
+                      color: color,
+                    ),
                   ),
                   if (label != null) ...[
                     const SizedBox(height: 3),
