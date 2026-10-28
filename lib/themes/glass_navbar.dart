@@ -309,8 +309,6 @@ class _PillItemsState extends State<_PillItems> {
     final compactColor = widget.selectedIndex == compactIndex
         ? primary
         : (isLight ? Colors.black : Colors.white);
-    const compactIconOffset = -7.0;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final segment = constraints.maxWidth / count;
@@ -435,13 +433,10 @@ class _PillItemsState extends State<_PillItems> {
                           child: Center(
                             child: Transform.scale(
                               scale: 0.84 + 0.16 * compactProgress,
-                              child: Transform.translate(
-                                offset: Offset(compactIconOffset, 0),
-                                child: Icon(
-                                  widget.icons[compactIndex],
-                                  size: FloatingPillNavBar._iconSize,
-                                  color: compactColor,
-                                ),
+                              child: Icon(
+                                widget.icons[compactIndex],
+                                size: FloatingPillNavBar._iconSize,
+                                color: compactColor,
                               ),
                             ),
                           ),
