@@ -5,6 +5,10 @@ import 'package:musicplayer/services/floating_pill_transition_controller.dart';
 
 const double kMiniPlayerHeight = 62.0;
 
+// Horizontal offsets used by the four Floating Pill navigation icons.
+const List<double> _pillIconHorizontalOffsets = <double>[6, 5, -5, -6];
+const double _pillHighlightExpansion = 6.0;
+
 /// Soft neutral-gray tint inspired by Mornye's glass surfaces.
 /// Keep navbar glass more transparent than the mini player, without changing
 /// the other Liquid Glass components.
@@ -305,29 +309,36 @@ class _PillItemsState extends State<_PillItems> {
     final compactColor = widget.selectedIndex == compactIndex
         ? primary
         : (isLight ? Colors.black : Colors.white);
+    final compactIconOffset =
+        compactIndex < _pillIconHorizontalOffsets.length
+        ? _pillIconHorizontalOffsets[compactIndex]
+        : 0.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final segment = constraints.maxWidth / count;
 
-        // Keep the active lens aligned with the intentionally offset pill icons.
-        // Interpolate offsets during swipe so the highlight follows the gesture.
-        const iconOffsets = <double>[2, 1, -1, -2];
+        // Interpolate icon offsets during a swipe so the highlight stays aligned.
         double offsetFor(double index) {
           final lower = index.floor().clamp(0, count - 1).toInt();
           final upper = (lower + 1).clamp(0, count - 1).toInt();
-          final fraction = (index - lower).clamp(0.0, 1.0);
-          final lowerOffset = lower < iconOffsets.length ? iconOffsets[lower] : 0.0;
-          final upperOffset = upper < iconOffsets.length ? iconOffsets[upper] : 0.0;
+          final fraction = (index - lower).clamp(0.0, 1.0).toDouble();
+          final lowerOffset = lower < _pillIconHorizontalOffsets.length
+              ? _pillIconHorizontalOffsets[lower]
+              : 0.0;
+          final upperOffset = upper < _pillIconHorizontalOffsets.length
+              ? _pillIconHorizontalOffsets[upper]
+              : 0.0;
           return lowerOffset + (upperOffset - lowerOffset) * fraction;
         }
 
         final currentOffset = offsetFor(activeIndex);
-        final nextOffset = offsetFor((activeIndex + 1).clamp(0.0, count - 1.0));
-        final lensWidth = (segment - 10 + nextOffset - currentOffset)
+        final lensWidth = (segment - 10 + _pillHighlightExpansion)
             .clamp(0.0, segment)
             .toDouble();
-        final left = segment * activeIndex + 5 + currentOffset;
+        // Center the wider highlight on the shifted icon instead of moving its center.
+        final left =
+            segment * activeIndex + (segment - lensWidth) / 2 + currentOffset;
 
         return SizedBox(
           height: FloatingPillNavBar.bodyHeight,
@@ -396,7 +407,9 @@ class _PillItemsState extends State<_PillItems> {
                                           ? widget.semanticsLabels![i]
                                           : widget.labels[i],
                                       active: i == widget.selectedIndex,
-                                      horizontalOffset: const <double>[2, 1, -1, -2][i],
+                                      horizontalOffset: i < _pillIconHorizontalOffsets.length
+                                          ? _pillIconHorizontalOffsets[i]
+                                          : 0.0,
                                       onTap: () => widget.onTap(i),
                                     ),
                                   ),
@@ -426,7 +439,7 @@ class _PillItemsState extends State<_PillItems> {
                             child: Transform.scale(
                               scale: 0.84 + 0.16 * compactProgress,
                               child: Transform.translate(
-                                offset: const Offset(2, 0),
+                                offset: Offset(compactIconOffset, 0),
                                 child: Icon(
                                   widget.icons[compactIndex],
                                   size: FloatingPillNavBar._iconSize,
