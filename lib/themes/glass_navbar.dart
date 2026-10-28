@@ -330,18 +330,17 @@ class _PillItemsState extends State<_PillItems> {
             (segment - lensWidth) / 2 +
             _offsetFor(activeIndex, count);
 
-        // The old icons never translate. As the right boundary collapses left,
-        // each icon fades in sequence from right to left.
+        // Only the selected icon travels into the left circle. All other icons
+        // retain their original coordinates and fade sequentially right-to-left.
         double iconOpacity(int index) {
           if (compactProgress <= 0.0 || index == compactIndex) return 1.0;
           final stepsFromRight = count - 1 - index;
           final fadeStart = stepsFromRight / count;
           final fadeEnd = (stepsFromRight + 1) / count;
-          final fade = ((compactProgress - fadeStart) /
-                  (fadeEnd - fadeStart))
-              .clamp(0.0, 1.0)
+          return (1.0 -
+                  ((compactProgress - fadeStart) / (fadeEnd - fadeStart))
+                      .clamp(0.0, 1.0))
               .toDouble();
-          return 1.0 - fade;
         }
 
         final selectedCenter = segment * (compactIndex + 0.5) +
