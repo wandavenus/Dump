@@ -35,8 +35,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (notifier != null) {
       return ValueListenableBuilder<double>(
         valueListenable: notifier,
-        builder: (context, offset, _) =>
-            _buildBar(context, offset),
+        builder: (context, offset, _) => _buildBar(context, offset),
       );
     }
     return _buildBar(context, scrollOffset);

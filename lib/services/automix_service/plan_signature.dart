@@ -28,9 +28,7 @@ List<Map<String, Object?>> automixImmediateTransitionTargets(
 /// the incoming/next track. Empty lists, a single target, missing IDs, and a
 /// same-ID pair must all fall back to the ordinary crossfade path instead of
 /// arming AutoMix-specific DSP, tracking, and fade durations.
-bool automixHasUsableTransitionTargets(
-  List<Map<String, Object?>> targets,
-) {
+bool automixHasUsableTransitionTargets(List<Map<String, Object?>> targets) {
   if (targets.length < 2) return false;
   final outgoingId = targets[0]['id'];
   final incomingId = targets[1]['id'];

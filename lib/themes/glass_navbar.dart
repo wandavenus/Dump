@@ -14,14 +14,9 @@ const double _pillHighlightExpansion = 8.0;
 /// Soft neutral-gray tint inspired by Mornye's glass surfaces.
 /// Keep navbar glass more transparent than the mini player, without changing
 /// the other Liquid Glass components.
-Color pillGlassSurfaceTint(
-  BuildContext context, {
-  bool miniPlayer = false,
-}) {
+Color pillGlassSurfaceTint(BuildContext context, {bool miniPlayer = false}) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  final color = isDark
-      ? const Color(0xFF2C2C2E)
-      : const Color(0xFFF2F2F7);
+  final color = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
   final opacity = isDark
       ? (miniPlayer ? 0.32 : 0.22)
       : (miniPlayer ? 0.38 : 0.28);
@@ -137,15 +132,16 @@ class FloatingPillNavBar extends StatelessWidget {
                 final normalCapsuleWidth = hasTrailing
                     ? availableWidth - trailingGap - trailingSize
                     : availableWidth;
-                final capsuleWidth = normalCapsuleWidth +
+                final capsuleWidth =
+                    normalCapsuleWidth +
                     (bodyHeight - normalCapsuleWidth) * compactProgress;
                 final dockWidth = hasTrailing
                     ? (availableWidth -
-                              bodyHeight -
-                              trailingSize -
-                              trailingGap * 2)
-                          .clamp(0.0, availableWidth) *
-                        compactProgress
+                                  bodyHeight -
+                                  trailingSize -
+                                  trailingGap * 2)
+                              .clamp(0.0, availableWidth) *
+                          compactProgress
                     : 0.0;
 
                 return Row(
@@ -274,9 +270,10 @@ class _PillItemsState extends State<_PillItems> {
     final count = widget.icons.length;
     if (count == 0 || width <= 0) return;
     final segment = width / count;
-    final next = ((_dragIndex ?? widget.selectedIndex.toDouble()) +
-            details.delta.dx / segment)
-        .clamp(0.0, count - 1.0);
+    final next =
+        ((_dragIndex ?? widget.selectedIndex.toDouble()) +
+                details.delta.dx / segment)
+            .clamp(0.0, count - 1.0);
     setState(() => _dragIndex = next);
   }
 
@@ -316,8 +313,9 @@ class _PillItemsState extends State<_PillItems> {
 
     // Search keeps its independent right-side circle. Home is the fallback
     // compact icon when Search is the selected destination.
-    final compactIndex =
-        widget.selectedIndex < count ? widget.selectedIndex : 0;
+    final compactIndex = widget.selectedIndex < count
+        ? widget.selectedIndex
+        : 0;
     final activeIndex = _dragIndex ?? widget.selectedIndex.toDouble();
     final compactProgress = widget.compactProgress;
 
@@ -327,9 +325,11 @@ class _PillItemsState extends State<_PillItems> {
         final baseLensWidth = (segment + _pillHighlightExpansion)
             .clamp(0.0, constraints.maxWidth)
             .toDouble();
-        final lensWidth = baseLensWidth +
+        final lensWidth =
+            baseLensWidth +
             (FloatingPillNavBar.bodyHeight - baseLensWidth) * compactProgress;
-        final baseLensLeft = segment * activeIndex +
+        final baseLensLeft =
+            segment * activeIndex +
             (segment - baseLensWidth) / 2 +
             _offsetFor(activeIndex, count);
         final lensLeft = baseLensLeft * (1.0 - compactProgress);
@@ -347,21 +347,23 @@ class _PillItemsState extends State<_PillItems> {
           // Compress the fade window by 10% so icons disappear slightly faster.
           final fadeStart = (fadeRank / fadeCount) * 0.9;
           final fadeEnd = ((fadeRank + 1) / fadeCount) * 0.9;
-          final fade = ((compactProgress - fadeStart) /
-                  (fadeEnd - fadeStart))
+          final fade = ((compactProgress - fadeStart) / (fadeEnd - fadeStart))
               .clamp(0.0, 1.0)
               .toDouble();
           return 1.0 - fade;
         }
 
-        final selectedCenter = segment * (compactIndex + 0.5) +
+        final selectedCenter =
+            segment * (compactIndex + 0.5) +
             _offsetFor(compactIndex.toDouble(), count);
         final targetCenter = FloatingPillNavBar.bodyHeight / 2;
-        final selectedTravel = (targetCenter - selectedCenter) * compactProgress;
+        final selectedTravel =
+            (targetCenter - selectedCenter) * compactProgress;
         // The label still occupies layout space while fading, so move the
         // selected glyph down to the vertical center of the collapsed circle.
-        final selectedVerticalTravel =
-            widget.labels[compactIndex] == null ? 0.0 : 8.0 * compactProgress;
+        final selectedVerticalTravel = widget.labels[compactIndex] == null
+            ? 0.0
+            : 8.0 * compactProgress;
         final labelOpacity = (1.0 - compactProgress).clamp(0.0, 1.0).toDouble();
 
         return SizedBox(
@@ -402,8 +404,9 @@ class _PillItemsState extends State<_PillItems> {
                                       decoration: BoxDecoration(
                                         color: AppColors.of(context)
                                             .glassActiveLens,
-                                        borderRadius:
-                                            BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -424,8 +427,9 @@ class _PillItemsState extends State<_PillItems> {
                                       decoration: BoxDecoration(
                                         color: AppColors.of(context)
                                             .glassActiveLens,
-                                        borderRadius:
-                                            BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -440,15 +444,16 @@ class _PillItemsState extends State<_PillItems> {
                                     label: widget.labels[i],
                                     semanticsLabel:
                                         widget.semanticsLabels != null
-                                            ? widget.semanticsLabels![i]
-                                            : widget.labels[i],
+                                        ? widget.semanticsLabels![i]
+                                        : widget.labels[i],
                                     active: i == widget.selectedIndex,
                                     horizontalOffset:
                                         i < _pillIconHorizontalOffsets.length
-                                            ? _pillIconHorizontalOffsets[i]
-                                            : 0.0,
-                                    horizontalTravel:
-                                        i == compactIndex ? selectedTravel : 0.0,
+                                        ? _pillIconHorizontalOffsets[i]
+                                        : 0.0,
+                                    horizontalTravel: i == compactIndex
+                                        ? selectedTravel
+                                        : 0.0,
                                     verticalTravel: i == compactIndex
                                         ? selectedVerticalTravel
                                         : 0.0,
@@ -551,11 +556,7 @@ class _PillItem extends StatelessWidget {
                         horizontalOffset + horizontalTravel,
                         verticalTravel,
                       ),
-                      child: Icon(
-                        icon,
-                        size: iconSize,
-                        color: color,
-                      ),
+                      child: Icon(icon, size: iconSize, color: color),
                     ),
                     if (label != null) ...[
                       const SizedBox(height: 3),
@@ -657,10 +658,7 @@ class _TrailingButton extends StatelessWidget {
 
 /// Draws a subtle specular glass reflection without a hairline contact outline.
 class PillGlassRimPainter extends CustomPainter {
-  const PillGlassRimPainter({
-    required this.radius,
-    required this.isDark,
-  });
+  const PillGlassRimPainter({required this.radius, required this.isDark});
 
   final double radius;
   final bool isDark;

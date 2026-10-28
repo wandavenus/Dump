@@ -21,8 +21,9 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
 
   // Lazy initialization avoids constructing the cutout painter until the
   // favorited appearance is first shown, then reuses it across button rebuilds.
-  late final _FavoriteCutoutPainter _favoritePainter =
-      _FavoriteCutoutPainter(iconSize: _favoriteIconSize);
+  late final _FavoriteCutoutPainter _favoritePainter = _FavoriteCutoutPainter(
+    iconSize: _favoriteIconSize,
+  );
 
   bool _isFavorite = false;
   int _loadGeneration = 0;

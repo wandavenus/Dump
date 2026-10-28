@@ -8,7 +8,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
       onNotification: (n) {
         liveScrollContext = n.context ?? liveScrollContext;
         final externalDrag = widget.dragHandle?.isExternalDragActive == true;
-        final dragUpdate = n is ScrollUpdateNotification &&
+        final dragUpdate =
+            n is ScrollUpdateNotification &&
             (n.dragDetails != null || externalDrag);
         final activeUserScroll =
             n is UserScrollNotification && n.direction != ScrollDirection.idle;
@@ -50,10 +51,9 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
 
               final distance = (index - _currentIndex).abs();
               final targetBlur = lyricFocusBlurSigma(distance);
-              final scrollDistance =
-                  ((_currentIndex - _previousIndex) * 16.0)
-                      .clamp(-96.0, 96.0)
-                      .toDouble();
+              final scrollDistance = ((_currentIndex - _previousIndex) * 16.0)
+                  .clamp(-96.0, 96.0)
+                  .toDouble();
 
               // Keep the staggered motion local to each visible row. Listening
               // above caused the entire ScrollablePositionedList subtree to
@@ -191,14 +191,8 @@ class _AnimatedLyricBlurState extends State<_AnimatedLyricBlur>
       return;
     }
 
-    _animation = Tween<double>(
-      begin: currentSigma,
-      end: widget.sigma,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOutCubic,
-      ),
+    _animation = Tween<double>(begin: currentSigma, end: widget.sigma).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
     _controller.forward(from: 0);
   }

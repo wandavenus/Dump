@@ -39,9 +39,8 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
       final songs = await MediaStoreService.getSongs();
       if (!context.mounted) return;
       if (songs.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l.noSongsInLibrary)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.noSongsInLibrary)));
         return;
       }
       // Library scan is read/compute-only. Permanent tag changes must go
