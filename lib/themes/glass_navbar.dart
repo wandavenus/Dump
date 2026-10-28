@@ -448,11 +448,7 @@ class _PillItemsState extends State<_PillItems> {
                 ),
               ),
               if (compactProgress > 0.0)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  width: FloatingPillNavBar.bodyHeight,
-                  height: FloatingPillNavBar.bodyHeight,
+                Positioned.fill(
                   child: IgnorePointer(
                     ignoring: compactProgress < 0.5,
                     child: Semantics(
