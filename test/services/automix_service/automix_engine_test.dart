@@ -1852,15 +1852,15 @@ void main() {
 
     test('density scaling keeps the fade on a half-beat grid', () {
       final cue = automixTransitionCue(
-        outgoing: track(1, tailBpm: 120, outro: 0.2),
-        incoming: track(2, tailBpm: 120, intro: 0.2),
-        settings: const AutomixSettings(crossfadeBeats: 4),
+        outgoing: track(1, tailBpm: 100),
+        incoming: track(2, tailBpm: 100, intro: 0.2),
+        settings: const AutomixSettings(crossfadeBeats: 16),
       );
 
-      // 4 beats x 1.25 (sparse outro) x 1.15 (sparse intro) = 5.75 beats. The
-      // old code multiplied seconds, so the fade ended on a quarter beat; it
-      // must quantize the beat count instead and stay at 6 beats (3 s @ 120).
-      expect(cue.fadeSeconds, closeTo(3.0, 1e-9));
+      // 16 beats x 1.15 (sparse intro) = 18.4 beats. The old code multiplied
+      // seconds, so the fade ended on a fraction of a beat; beat-count scaling
+      // with half-beat quantization yields 18.5 beats = 11.1 s at 100 BPM.
+      expect(cue.fadeSeconds, closeTo(11.1, 1e-9));
     });
 
     test('shapes chord compatibility without a cue-level reject', () {
