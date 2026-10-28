@@ -30,7 +30,6 @@ part 'library_sections/item.dart';
 part 'library_sections/content.dart';
 part 'library_sections/state.dart';
 part 'library_sections/header.dart';
-part 'library_sections/row.dart';
 part 'library_sections/detail.dart';
 part 'library_sections/detail/playlist_banner_card.dart';
 part 'library_sections/detail/sticky_controls_delegate.dart';

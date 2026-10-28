@@ -70,9 +70,9 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
               ),
               const SizedBox(height: 16),
               const SizedBox(height: 8),
-              // Body — constrained to 75% of screen height. Not scrollable
-              // internally (fits within the constraint), so the whole card
-              // can safely respond to swipe-to-dismiss drags.
+              // Body — constrained to 75% of screen height. The content owns
+              // its vertical scrolling; the surrounding card still handles
+              // swipe-to-dismiss drags outside that scrollable area.
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.sizeOf(context).height * 0.75,
