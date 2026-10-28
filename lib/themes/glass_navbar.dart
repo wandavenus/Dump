@@ -357,6 +357,10 @@ class _PillItemsState extends State<_PillItems> {
             _offsetFor(compactIndex.toDouble(), count);
         final targetCenter = FloatingPillNavBar.bodyHeight / 2;
         final selectedTravel = (targetCenter - selectedCenter) * compactProgress;
+        // The label still occupies layout space while fading, so move the
+        // selected glyph down to the vertical center of the collapsed circle.
+        final selectedVerticalTravel =
+            widget.labels[compactIndex] == null ? 0.0 : 8.0 * compactProgress;
         final labelOpacity = (1.0 - compactProgress).clamp(0.0, 1.0).toDouble();
 
         return SizedBox(
@@ -378,7 +382,8 @@ class _PillItemsState extends State<_PillItems> {
                       child: Stack(
                         clipBehavior: Clip.hardEdge,
                         children: [
-                          if (widget.selectedIndex < count)
+                          if (widget.selectedIndex < count &&
+                              compactProgress < 1.0)
                             if (_dragIndex == null && compactProgress == 0.0)
                               AnimatedPositioned(
                                 duration: const Duration(milliseconds: 220),
@@ -388,11 +393,17 @@ class _PillItemsState extends State<_PillItems> {
                                 width: lensWidth,
                                 height: 53,
                                 child: IgnorePointer(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: AppColors.of(context)
-                                          .glassActiveLens,
-                                      borderRadius: BorderRadius.circular(999),
+                                  child: Opacity(
+                                    opacity: (1.0 - compactProgress)
+                                        .clamp(0.0, 1.0)
+                                        .toDouble(),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.of(context)
+                                            .glassActiveLens,
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -404,11 +415,17 @@ class _PillItemsState extends State<_PillItems> {
                                 width: lensWidth,
                                 height: 53,
                                 child: IgnorePointer(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: AppColors.of(context)
-                                          .glassActiveLens,
-                                      borderRadius: BorderRadius.circular(999),
+                                  child: Opacity(
+                                    opacity: (1.0 - compactProgress)
+                                        .clamp(0.0, 1.0)
+                                        .toDouble(),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.of(context)
+                                            .glassActiveLens,
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -431,6 +448,9 @@ class _PillItemsState extends State<_PillItems> {
                                             : 0.0,
                                     horizontalTravel:
                                         i == compactIndex ? selectedTravel : 0.0,
+                                    verticalTravel: i == compactIndex
+                                        ? selectedVerticalTravel
+                                        : 0.0,
                                     iconSize: i == 0
                                         ? FloatingPillNavBar._iconSize + 2.0
                                         : FloatingPillNavBar._iconSize,
@@ -478,6 +498,7 @@ class _PillItem extends StatelessWidget {
   final bool active;
   final double horizontalOffset;
   final double horizontalTravel;
+  final double verticalTravel;
   final double iconSize;
   final double opacity;
   final double labelOpacity;
@@ -490,6 +511,7 @@ class _PillItem extends StatelessWidget {
     required this.active,
     required this.horizontalOffset,
     required this.horizontalTravel,
+    required this.verticalTravel,
     required this.iconSize,
     required this.opacity,
     required this.labelOpacity,
@@ -524,7 +546,10 @@ class _PillItem extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Transform.translate(
-                      offset: Offset(horizontalOffset + horizontalTravel, 0),
+                      offset: Offset(
+                        horizontalOffset + horizontalTravel,
+                        verticalTravel,
+                      ),
                       child: Icon(
                         icon,
                         size: iconSize,
