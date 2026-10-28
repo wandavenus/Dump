@@ -337,10 +337,10 @@ class _PillItemsState extends State<_PillItems> {
           final stepsFromRight = count - 1 - index;
           final fadeStart = stepsFromRight / count;
           final fadeEnd = (stepsFromRight + 1) / count;
-          return (1.0 -
-                  ((compactProgress - fadeStart) / (fadeEnd - fadeStart))
-                      .clamp(0.0, 1.0))
+          final fade = ((compactProgress - fadeStart) / (fadeEnd - fadeStart))
+              .clamp(0.0, 1.0)
               .toDouble();
+          return 1.0 - fade;
         }
 
         final selectedCenter = segment * (compactIndex + 0.5) +
