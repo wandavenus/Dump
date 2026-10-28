@@ -344,8 +344,9 @@ class _PillItemsState extends State<_PillItems> {
             if (candidate != compactIndex) fadeRank++;
           }
           final fadeCount = count > 1 ? count - 1 : 1;
-          final fadeStart = fadeRank / fadeCount;
-          final fadeEnd = (fadeRank + 1) / fadeCount;
+          // Compress the fade window by 10% so icons disappear slightly faster.
+          final fadeStart = (fadeRank / fadeCount) * 0.9;
+          final fadeEnd = ((fadeRank + 1) / fadeCount) * 0.9;
           final fade = ((compactProgress - fadeStart) /
                   (fadeEnd - fadeStart))
               .clamp(0.0, 1.0)
