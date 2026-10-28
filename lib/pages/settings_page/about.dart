@@ -45,9 +45,8 @@ class _AboutSection extends StatelessWidget {
         ),
         SettingsActionRow(
           title: l.openSourceLicense,
-          onTap: () => Navigator.of(context).push(
-            ZoomFadeRoute<void>(page: const OpenSourceLicensePage()),
-          ),
+          onTap: () => Navigator.of(context)
+              .push(ZoomFadeRoute<void>(page: const OpenSourceLicensePage())),
         ),
         SettingsActionRow(
           title: l.aboutApp,

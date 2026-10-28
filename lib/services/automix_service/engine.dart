@@ -204,7 +204,10 @@ List<T> automixUpcomingTracks<T>(
     return queue.skip(currentIndex + 1).toList(growable: false);
   }
   final next = nextTrackIndex;
-  if (next == null || next < 0 || next >= queue.length || next == currentIndex) {
+  if (next == null ||
+      next < 0 ||
+      next >= queue.length ||
+      next == currentIndex) {
     return <T>[];
   }
   return <T>[queue[next]];
@@ -297,7 +300,8 @@ List<AutomixChordEvent> automixMergeChordProgressions(
     final deltaMs = chord.startMs - previous.startMs;
     if (deltaMs < 0) continue;
     if (previous.rootPitchClass == chord.rootPitchClass &&
-        previous.quality == chord.quality && deltaMs <= 3000) {
+        previous.quality == chord.quality &&
+        deltaMs <= 3000) {
       if (chord.confidence > previous.confidence) {
         merged[merged.length - 1] = AutomixChordEvent(
           startMs: previous.startMs,
@@ -319,7 +323,6 @@ List<AutomixChordEvent> automixMergeChordProgressions(
   return List<AutomixChordEvent>.unmodifiable(merged);
 }
 
-
 /// Edge-local section label derived from the two quarters nearest the mix
 /// seam. The native label is computed from a whole 120 s window, which can
 /// average a quiet intro with a loud drop; this directional label keeps the
@@ -337,9 +340,11 @@ List<AutomixChordEvent> automixMergeChordProgressions(
   final slope = second - first;
 
   final cue = head ? segment.dropCueMs : segment.breakdownCueMs;
-  final cueConfidence =
-      head ? segment.dropConfidence : segment.breakdownConfidence;
-  final cueNearEdge = cue != null &&
+  final cueConfidence = head
+      ? segment.dropConfidence
+      : segment.breakdownConfidence;
+  final cueNearEdge =
+      cue != null &&
       cue.isFinite &&
       cue >= 0 &&
       segment.seconds > 0 &&
@@ -355,10 +360,7 @@ List<AutomixChordEvent> automixMergeChordProgressions(
     return (region: 1, confidence: 0.70);
   }
   if (slope > 1.5 && meanDb < -18.0) {
-    return (
-      region: 2,
-      confidence: automixClamp01(0.55 + slope / 12.0),
-    );
+    return (region: 2, confidence: automixClamp01(0.55 + slope / 12.0));
   }
   if (meanDb > -18.0 && slope.abs() <= 1.5) {
     return (region: 5, confidence: 0.70);
@@ -564,30 +566,27 @@ AutomixTrackFeatures automixMergeSegments({
   // Only the last (tail) window may publish the exit grid. Falling back to
   // middle/head windows here would attach a valid phase and confidence to a
   // completely different part of the file when the tail tempo is unusable.
-  final exitWindow =
-      tailSegmentAnalyzed && segments.isNotEmpty ? segments.last : null;
+  final exitWindow = tailSegmentAnalyzed && segments.isNotEmpty
+      ? segments.last
+      : null;
   if (exitWindow != null) {
     final s = exitWindow;
     if (s.endBpm != null && s.endBpmConfidence >= 0.35) {
-      tailBpm = bpm == null
-          ? s.endBpm!
-          : automixFoldToOctave(s.endBpm!, bpm);
+      tailBpm = bpm == null ? s.endBpm! : automixFoldToOctave(s.endBpm!, bpm);
       tailBpmConfidence = s.endBpmConfidence;
       if (edgePhaseSurvivesFold(s.endBpm, tailBpm) &&
           s.endBeatOffsetMs != null &&
           s.endBeatOffsetMs!.isFinite &&
           s.endBeatOffsetMs! >= 0) {
-        tailBeatOffsetMs =
-            s.startSeconds * 1000.0 + s.endBeatOffsetMs!;
+        tailBeatOffsetMs = s.startSeconds * 1000.0 + s.endBeatOffsetMs!;
       }
       // This phrase phase was estimated with whole-window tempo. Do not pair
       // it with a local exit BPM.
     } else if (s.bpm != null && s.bpmConfidence >= 0.20) {
       tailBpm = bpm == null ? s.bpm! : automixFoldToOctave(s.bpm!, bpm);
       final tailConfidence = s.tailBpmConfidence;
-      tailBpmConfidence = tailConfidence.isFinite &&
-              tailConfidence >= 0 &&
-              tailConfidence <= 1
+      tailBpmConfidence =
+          tailConfidence.isFinite && tailConfidence >= 0 && tailConfidence <= 1
           ? tailConfidence
           : 0.0;
       final phaseSurvivesFold = edgePhaseSurvivesFold(s.bpm, tailBpm);
@@ -669,8 +668,7 @@ AutomixTrackFeatures automixMergeSegments({
     if (headPhaseUsable) {
       final beatOffset = firstSegment.beatOffsetMs;
       if (beatOffset != null && beatOffset.isFinite && beatOffset >= 0) {
-        headBeatOffsetMs =
-            firstSegment.startSeconds * 1000.0 + beatOffset;
+        headBeatOffsetMs = firstSegment.startSeconds * 1000.0 + beatOffset;
       }
       final downbeatOffset = firstSegment.downbeatOffsetMs;
       if (downbeatOffset != null &&
@@ -743,17 +741,21 @@ AutomixTrackFeatures automixMergeSegments({
     structureRegion:
         headStructure?.region ?? firstSegment?.structureRegion ?? 0,
     structureConfidence: headStructure != null
-        ? math.max(headStructure.confidence,
-            firstSegment?.structureConfidence ?? 0)
+        ? math.max(
+            headStructure.confidence,
+            firstSegment?.structureConfidence ?? 0,
+          )
         : (firstSegment?.structureConfidence ?? 0),
     tailStructureRegion: tailSegmentAnalyzed
         ? (tailStructure?.region ?? lastSegment?.structureRegion ?? 0)
         : 0,
     tailStructureConfidence: tailSegmentAnalyzed
         ? (tailStructure != null
-            ? math.max(tailStructure.confidence,
-                lastSegment?.structureConfidence ?? 0)
-            : (lastSegment?.structureConfidence ?? 0))
+              ? math.max(
+                  tailStructure.confidence,
+                  lastSegment?.structureConfidence ?? 0,
+                )
+              : (lastSegment?.structureConfidence ?? 0))
         : 0,
     vocalLikelihood: vocalLikelihood,
     vocalConfidence: vocalConfidence,
@@ -883,9 +885,8 @@ double? automixExitBpm(AutomixTrackFeatures features) =>
 /// when a confident tail BPM is the value actually being used.
 double automixExitBpmConfidence(AutomixTrackFeatures features) =>
     automixHasConfidentTailBpm(features)
-        ? features.tailBpmConfidence
-        : features.bpmConfidence;
-
+    ? features.tailBpmConfidence
+    : features.bpmConfidence;
 
 /// Minimum measured edge-tempo stability required for active tempo pull.
 /// Unknown stability keeps legacy behavior; a measured unstable curve uses a
@@ -922,8 +923,8 @@ double? automixEntryBpm(AutomixTrackFeatures features) =>
 
 double automixEntryBpmConfidence(AutomixTrackFeatures features) =>
     automixHasConfidentIntroBpm(features)
-        ? features.startBpmConfidence
-        : features.bpmConfidence;
+    ? features.startBpmConfidence
+    : features.bpmConfidence;
 
 /// A local intro grid is usable only when BPM and phase came from the same
 /// quarter. Never combine local BPM with whole-window beat phase.
@@ -953,7 +954,8 @@ double? automixChordProgressionCost(
   for (final chord in outgoing.chordProgression) {
     if (chord.confidence < 0.45) continue;
     if (outgoing.durationSeconds > 0 &&
-        chord.startMs < (outgoing.durationSeconds - 30).clamp(0, double.infinity) * 1000) {
+        chord.startMs <
+            (outgoing.durationSeconds - 30).clamp(0, double.infinity) * 1000) {
       continue;
     }
     if (lastOutgoing == null || chord.startMs > lastOutgoing.startMs) {
@@ -969,7 +971,8 @@ double? automixChordProgressionCost(
   }
   if (lastOutgoing == null || firstIncoming == null) return null;
 
-  final rawDistance = (lastOutgoing.rootPitchClass - firstIncoming.rootPitchClass).abs();
+  final rawDistance =
+      (lastOutgoing.rootPitchClass - firstIncoming.rootPitchClass).abs();
   final distance = rawDistance > 6 ? 12 - rawDistance : rawDistance;
   final baseCost = switch (distance) {
     0 => 0.04,
@@ -984,7 +987,9 @@ double? automixChordProgressionCost(
   final qualityAdjusted = lastOutgoing.quality == firstIncoming.quality
       ? baseCost
       : (baseCost + 0.08).clamp(0.0, 1.0).toDouble();
-  final confidence = math.min(lastOutgoing.confidence, firstIncoming.confidence).toDouble();
+  final confidence = math
+      .min(lastOutgoing.confidence, firstIncoming.confidence)
+      .toDouble();
   // Partial confidence returns the estimate toward neutral, never makes an
   // uncertain spectral-template match into a hard rejection.
   return automixClamp01(
@@ -1016,9 +1021,11 @@ double automixEarlyHandoverLeadSeconds({
     final density = outroEnergy.clamp(0.0, 1.0).toDouble();
     final lead = density <= 0.525
         ? minLead +
-            ((density - 0.35) / 0.175).clamp(0.0, 1.0) * (neutralLead - minLead)
+              ((density - 0.35) / 0.175).clamp(0.0, 1.0) *
+                  (neutralLead - minLead)
         : neutralLead +
-            ((density - 0.525) / 0.175).clamp(0.0, 1.0) * (maxLead - neutralLead);
+              ((density - 0.525) / 0.175).clamp(0.0, 1.0) *
+                  (maxLead - neutralLead);
     weighted += lead * 2.0;
     weight += 2.0;
   }
@@ -1100,7 +1107,8 @@ AutomixTransitionCue automixTransitionCue({
   final exitTempo = automixExitBpm(outgoing);
   final incomingTempo = automixEntryBpm(incoming);
   final incomingTempoConfidence = automixEntryBpmConfidence(incoming);
-  final tempoMismatch = automixTempoCurveAllowsPair(outgoing, incoming) &&
+  final tempoMismatch =
+      automixTempoCurveAllowsPair(outgoing, incoming) &&
       automixExitBpmConfidence(outgoing) >= 0.35 &&
       incomingTempoConfidence >= 0.35 &&
       exitTempo != null &&
@@ -1116,15 +1124,18 @@ AutomixTransitionCue automixTransitionCue({
     incoming.camelotNumber,
     incoming.camelotMinor,
   );
-  final keyMismatch = outgoing.keyConfidence >= 0.55 &&
+  final keyMismatch =
+      outgoing.keyConfidence >= 0.55 &&
       incoming.keyConfidence >= 0.55 &&
       keyCost >= 0.60;
   final chordCost = automixChordProgressionCost(outgoing, incoming);
   final chordMismatch = chordCost != null && chordCost >= 0.62;
-  final denseTail = (outro != null && outro >= 0.70) ||
+  final denseTail =
+      (outro != null && outro >= 0.70) ||
       (outgoing.tailStructureRegion == 3 &&
           outgoing.tailStructureConfidence >= 0.65);
-  final sparseTail = (outro != null && outro <= 0.35) ||
+  final sparseTail =
+      (outro != null && outro <= 0.35) ||
       (outgoing.tailStructureRegion == 1 &&
           outgoing.tailStructureConfidence >= 0.75);
   final sparseIntro = intro != null && intro <= 0.35;
@@ -1133,15 +1144,17 @@ AutomixTransitionCue automixTransitionCue({
   // breakdown cue that happens only in the final 12 seconds. Otherwise that
   // near-EOF cue can repeatedly force transitions to wait until the song ends.
   final incomingDropMs = incoming.dropCueMs;
-  final hasConfidentIncomingDrop = incomingDropMs != null &&
+  final hasConfidentIncomingDrop =
+      incomingDropMs != null &&
       incomingDropMs.isFinite &&
       incomingDropMs >= 8000 &&
       incomingDropMs <= 90000 &&
       incoming.dropConfidence >= 0.55;
   final outgoingGridBpm = outgoing.tailBpm;
   final incomingHasLocalGrid = automixHasConfidentIntroGrid(incoming);
-  final incomingGridBpm =
-      incomingHasLocalGrid ? incoming.startBpm : incoming.bpm;
+  final incomingGridBpm = incomingHasLocalGrid
+      ? incoming.startBpm
+      : incoming.bpm;
   final incomingGridOffsetMs = incomingHasLocalGrid
       ? incoming.introBeatOffsetMs
       : incoming.beatOffsetMs;
@@ -1169,7 +1182,8 @@ AutomixTransitionCue automixTransitionCue({
         referenceBpm: outgoingGridBpm,
         trackBpm: incomingGridBpm,
       ).$1;
-  final earlyHandoverEligible = outgoing.durationSeconds >= 120 &&
+  final earlyHandoverEligible =
+      outgoing.durationSeconds >= 120 &&
       durationMs.isFinite &&
       durationMs > 0 &&
       hasConfidentIncomingDrop &&
@@ -1226,12 +1240,12 @@ AutomixTransitionCue automixTransitionCue({
     final breakdown = outgoing.tailBreakdownCueMs;
     final breakdownLeadSeconds =
         outgoing.tailBreakdownConfidence >= 0.45 &&
-                breakdown != null &&
-                breakdown.isFinite &&
-                breakdown >= 0 &&
-                breakdown < durationMs
-            ? (durationMs - breakdown) / 1000.0
-            : null;
+            breakdown != null &&
+            breakdown.isFinite &&
+            breakdown >= 0 &&
+            breakdown < durationMs
+        ? (durationMs - breakdown) / 1000.0
+        : null;
     final double leadSeconds;
     if (breakdownLeadSeconds != null &&
         breakdownLeadSeconds >= 30 &&
@@ -1257,14 +1271,15 @@ AutomixTransitionCue automixTransitionCue({
   // Derive conservative per-deck EQ targets from actual measured features.
   // Unknown metadata keeps bands neutral. These are overlap-only
   // attenuations; neither deck is boosted.
-  final confidentVocalClash = outgoing.vocalConfidence >= 0.45 &&
+  final confidentVocalClash =
+      outgoing.vocalConfidence >= 0.45 &&
       incoming.vocalConfidence >= 0.45 &&
       outgoing.vocalLikelihood >= 0.55 &&
       incoming.vocalLikelihood >= 0.55;
-  final outgoingBusy = (outgoing.outroEnergy ?? 0.5) >= 0.75 &&
-      (outgoing.onsetRate ?? 0) >= 2.5;
-  final incomingBusy = (incoming.introEnergy ?? 0.5) >= 0.75 &&
-      (incoming.onsetRate ?? 0) >= 2.5;
+  final outgoingBusy =
+      (outgoing.outroEnergy ?? 0.5) >= 0.75 && (outgoing.onsetRate ?? 0) >= 2.5;
+  final incomingBusy =
+      (incoming.introEnergy ?? 0.5) >= 0.75 && (incoming.onsetRate ?? 0) >= 2.5;
   final outgoingBassGain = outgoingBusy ? 0.88 : 1.0;
   final incomingBassGain = incomingBusy ? 0.90 : 1.0;
   final outgoingMidGain = confidentVocalClash
@@ -1272,10 +1287,9 @@ AutomixTransitionCue automixTransitionCue({
       : (strategy == AutomixTransitionStrategy.quickHandover ? 0.92 : 1.0);
   final incomingMidGain = confidentVocalClash
       ? 0.78
-      : (incoming.structureRegion == 4 &&
-              incoming.structureConfidence >= 0.70
-          ? 0.90
-          : 1.0);
+      : (incoming.structureRegion == 4 && incoming.structureConfidence >= 0.70
+            ? 0.90
+            : 1.0);
   double highGain(AutomixTrackFeatures features, {required double fallback}) {
     final centroid = features.centroidHz;
     if (centroid == null || !centroid.isFinite || centroid <= 0) {
@@ -1284,14 +1298,13 @@ AutomixTransitionCue automixTransitionCue({
     final brightness = automixClamp01((centroid - 900.0) / 2600.0);
     return (0.90 - 0.55 * brightness).clamp(0.32, 0.90).toDouble();
   }
+
   final outgoingHighGain = highGain(outgoing, fallback: 0.90);
   final incomingHighGain = incoming.centroidHz == null
       ? 1.0
-      : (1.0 -
-              0.18 *
-                  automixClamp01((incoming.centroidHz! - 900.0) / 2600.0))
-          .clamp(0.82, 1.0)
-          .toDouble();
+      : (1.0 - 0.18 * automixClamp01((incoming.centroidHz! - 900.0) / 2600.0))
+            .clamp(0.82, 1.0)
+            .toDouble();
 
   // Level-match only comparable measurements. Section RMS is dBFS while
   // ReplayGain loudness is integrated LUFS; comparing one to the other can
@@ -1306,8 +1319,7 @@ AutomixTransitionCue automixTransitionCue({
   if (outgoing.outroRmsDb != null && incoming.introRmsDb != null) {
     outLevelDb = outgoing.outroRmsDb;
     inLevelDb = incoming.introRmsDb;
-  } else if (outgoing.loudnessLufs != null &&
-      incoming.loudnessLufs != null) {
+  } else if (outgoing.loudnessLufs != null && incoming.loudnessLufs != null) {
     outLevelDb = outgoing.loudnessLufs;
     inLevelDb = incoming.loudnessLufs;
   } else if (outgoing.rmsDb != null && incoming.rmsDb != null) {
@@ -1339,8 +1351,7 @@ AutomixTransitionCue automixTransitionCue({
     incomingMidOverlapGain: incomingMidGain,
     outgoingHighOverlapGain: outgoingHighGain,
     incomingHighOverlapGain: incomingHighGain,
-    outgoingPitchSemitones:
-        automixOutgoingPitchSemitones(outgoing, incoming),
+    outgoingPitchSemitones: automixOutgoingPitchSemitones(outgoing, incoming),
   );
 }
 
@@ -1635,8 +1646,7 @@ const Map<AutomixProfile, (double, double, double, double)> _profileWeights = {
 double _structureSeamCost(int tailRegion, int headRegion) {
   // Region ids follow NarAutomixStructureRegion: 1 low activity, 2 buildup,
   // 3 drop, 4 breakdown, 5 stable high.
-  bool quiet(int region) =>
-      region == 1 || region == 2 || region == 4;
+  bool quiet(int region) => region == 1 || region == 2 || region == 4;
   bool peak(int region) => region == 3 || region == 5;
   if (peak(tailRegion) && peak(headRegion)) {
     return (tailRegion == 3 || headRegion == 3) ? 0.5 : 0.35;
@@ -1729,7 +1739,8 @@ double _transitionCost({
   // mismatched hand-over. Missing or non-finite sections stay neutral.
   final outro = a.outroEnergy;
   final intro = b.introEnergy;
-  final seam = outro != null && intro != null && outro.isFinite && intro.isFinite
+  final seam =
+      outro != null && intro != null && outro.isFinite && intro.isFinite
       ? (outro - intro).abs() * 0.5
       : 0.0;
   // Energy momentum across the seam: a still-rising tail is rough unless the
@@ -1932,7 +1943,15 @@ class DartAutomixEngineReference {
         final jEnd = (i + _maxSwapBreach).clamp(i + 1, n - 1);
         for (int j = i + 1; j <= jEnd && evals < _maxEvalsPerPass; j++) {
           evals++;
-          final before = _localCost(plan, i, j, tracks, energies, settings, arc);
+          final before = _localCost(
+            plan,
+            i,
+            j,
+            tracks,
+            energies,
+            settings,
+            arc,
+          );
           final origI = plan[i];
           final origJ = plan[j];
           plan[i] = origJ;
@@ -1951,12 +1970,16 @@ class DartAutomixEngineReference {
         // this also re-times the interior links (their arc positions shift),
         // so the move is scored by recomputing the affected link window.
         for (int i = 1; i < n - 1 && insertEvals < _maxInsertEvals; i++) {
-          for (int step = 1;
-              step <= _maxSwapBreach && insertEvals < _maxInsertEvals;
-              step++) {
-            for (int backwards = 0;
-                backwards < 2 && insertEvals < _maxInsertEvals;
-                backwards++) {
+          for (
+            int step = 1;
+            step <= _maxSwapBreach && insertEvals < _maxInsertEvals;
+            step++
+          ) {
+            for (
+              int backwards = 0;
+              backwards < 2 && insertEvals < _maxInsertEvals;
+              backwards++
+            ) {
               final to = backwards == 1 ? i - step : i + step;
               // Never displace the pinned start track or run off the end.
               if (to <= 0 || to >= n) continue;
@@ -1994,9 +2017,11 @@ class DartAutomixEngineReference {
         // 2-opt style reversal of short segments; arc positions stay attached
         // to the plan slots, only the links inside the window change.
         for (int i = 1; i < n - 1 && reverseEvals < _maxReverseEvals; i++) {
-          for (int step = 2;
-              step <= _maxSwapBreach && reverseEvals < _maxReverseEvals;
-              step++) {
+          for (
+            int step = 2;
+            step <= _maxSwapBreach && reverseEvals < _maxReverseEvals;
+            step++
+          ) {
             final j = i + step;
             if (j >= n) continue;
             reverseEvals++;
@@ -2139,7 +2164,8 @@ class DartAutomixEngineReference {
       for (int s = 0; s < nTotal; s++) {
         final cand = slotOrder[s];
         if (played[cand]) continue;
-        final cost = _transitionCost(
+        final cost =
+            _transitionCost(
               a: tracks[current],
               b: tracks[cand],
               eA: energies[current],
@@ -2200,7 +2226,8 @@ class DartAutomixEngineReference {
         if (played[cand2] || cand2 == current) continue;
         // plan.length + 1 because the candidate will occupy one more slot
         // than the path built so far when cand2 actually follows it.
-        final c = _transitionCost(
+        final c =
+            _transitionCost(
               a: tracks[cand],
               b: tracks[cand2],
               eA: energies[cand],
@@ -2294,8 +2321,8 @@ class DartAutomixEngineReference {
         final seam = automixHasConfidentIntroBpm(tracks[i])
             ? tracks[i].startBpm
             : automixHasConfidentTailBpm(tracks[i])
-                ? tracks[i].tailBpm
-                : null;
+            ? tracks[i].tailBpm
+            : null;
         if (seam == null || !seam.isFinite || seam <= 0) continue;
         if (automixTempoCost(bpm, alternate, seam, null, 0.08) <= 0.25) {
           found.add(i);
@@ -2468,7 +2495,8 @@ class DartAutomixEngineReference {
   ) {
     var sum = 0.0;
     for (var p = firstLink; p <= lastLink; p++) {
-      sum += _transitionCost(
+      sum +=
+          _transitionCost(
             a: tracks[plan[p - 1]],
             b: tracks[plan[p]],
             eA: energies[plan[p - 1]],

@@ -168,30 +168,43 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                             builder: (context, current, _) {
                               return SizedBox(
                                 width: double.infinity,
-                                child: CupertinoSlidingSegmentedControl<NavBarStyle>(
-                                  groupValue: current,
-                                  onValueChanged: (v) {
-                                    if (v != null) {
-                                      unawaited(ThemeController.setNavBarStyle(v));
-                                    }
-                                  },
-                                  children: {
-                                    NavBarStyle.solid: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                                      child: Text(
-                                        l.navBarStyleSolid,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
+                                child:
+                                    CupertinoSlidingSegmentedControl<
+                                      NavBarStyle
+                                    >(
+                                      groupValue: current,
+                                      onValueChanged: (v) {
+                                        if (v != null) {
+                                          unawaited(
+                                            ThemeController.setNavBarStyle(v),
+                                          );
+                                        }
+                                      },
+                                      children: {
+                                        NavBarStyle.solid: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          child: Text(
+                                            l.navBarStyleSolid,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                        NavBarStyle.pill: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          child: Text(
+                                            l.navBarStylePill,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                      },
                                     ),
-                                    NavBarStyle.pill: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                                      child: Text(
-                                        l.navBarStylePill,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  },
-                                ),
                               );
                             },
                           ),

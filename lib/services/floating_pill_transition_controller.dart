@@ -26,8 +26,7 @@ class FloatingPillTransitionController {
 
   /// Horizontal artwork/title offset, in logical pixels.
   static double artworkTitleOffsetForProgress(double value) {
-    return compactArtworkTitleOffset *
-        value.clamp(0.0, 1.0).toDouble();
+    return compactArtworkTitleOffset * value.clamp(0.0, 1.0).toDouble();
   }
 
   static final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
@@ -202,10 +201,7 @@ class FloatingPillTransitionController {
     _observedPixels = currentPixels;
 
     if (previousPixels != null) {
-      _applyAxisDelta(
-        currentPixels - previousPixels,
-        position.axisDirection,
-      );
+      _applyAxisDelta(currentPixels - previousPixels, position.axisDirection);
     }
   }
 
@@ -222,9 +218,7 @@ class FloatingPillTransitionController {
   }
 
   static void _applyAxisDelta(double delta, AxisDirection direction) {
-    updateFromScrollDelta(
-      direction == AxisDirection.up ? -delta : delta,
-    );
+    updateFromScrollDelta(direction == AxisDirection.up ? -delta : delta);
   }
 
   /// Applies a signed scroll delta to the shared transition progress.

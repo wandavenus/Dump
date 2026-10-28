@@ -510,9 +510,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // Keep the docked player visible inside the navbar's original clipping
     // region while preserving the existing mini-to-full-player geometry.
-    final clipVisibleHeight =
-        t > 0.0 ? screenH : (screenH - collapsedBottom);
-    final dockHorizMargin = miniHorizMargin +
+    final clipVisibleHeight = t > 0.0 ? screenH : (screenH - collapsedBottom);
+    final dockHorizMargin =
+        miniHorizMargin +
         (FloatingPillNavBar.trailingSize + FloatingPillNavBar.trailingGap) *
             compactDockProgress;
     final horizMargin = lerpDouble(dockHorizMargin, 0.0, t)!;
@@ -529,7 +529,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // ── Artwork morph positions ──────────────────────────────────────────────
     final miniArtSize = lerpDouble(46.3, 36.0, compactDockProgress)!;
     final isFluidStyle = backgroundStyle == PlayerBackgroundStyle.fluid;
-    final miniArtLeft = lerpDouble(
+    final miniArtLeft =
+        lerpDouble(
           isPill ? 22.0 : (isFluidStyle ? 14.0 : 12.0),
           10.0,
           compactDockProgress,
@@ -652,11 +653,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       fit: StackFit.expand,
                                       children: [
                                         BackdropFilter.grouped(
-                                          filterConfig: const ImageFilterConfig.blur(
-                                            sigmaX: 6,
-                                            sigmaY: 6,
-                                            bounded: true,
-                                          ),
+                                          filterConfig:
+                                              const ImageFilterConfig.blur(
+                                                sigmaX: 6,
+                                                sigmaY: 6,
+                                                bounded: true,
+                                              ),
                                           blendMode: BlendMode.srcOver,
                                           child: const ColoredBox(
                                             color: Colors.transparent,
@@ -844,7 +846,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             // transitions into the small overlay thumbnail.
                             final hairlineOpacity =
                                 (isArtworkBlurStyle
-                                        ? (1.0 - t) * (1.0 - effectiveOverlayT) +
+                                        ? (1.0 - t) *
+                                                  (1.0 - effectiveOverlayT) +
                                               effectiveOverlayT
                                         : 1.0)
                                     .clamp(0.0, 1.0)
@@ -913,8 +916,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                                 child: const DecoratedBox(
                                                   decoration: BoxDecoration(
                                                     gradient: LinearGradient(
-                                                      begin: Alignment.topCenter,
-                                                      end: Alignment.bottomCenter,
+                                                      begin:
+                                                          Alignment.topCenter,
+                                                      end: Alignment
+                                                          .bottomCenter,
                                                       colors: [
                                                         Color.fromARGB(
                                                           75,
@@ -1029,7 +1034,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                 child: CustomPaint(
                                   painter: PillGlassRimPainter(
                                     radius: radius,
-                                    isDark: Theme.of(context).brightness == Brightness.dark,
+                                    isDark:
+                                        Theme.of(context).brightness ==
+                                        Brightness.dark,
                                   ),
                                 ),
                               ),
@@ -1058,7 +1065,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     double compactProgress,
   ) {
     final isFluidStyle =
-        ThemeController.playerBackgroundStyle.value == PlayerBackgroundStyle.fluid;
+        ThemeController.playerBackgroundStyle.value ==
+        PlayerBackgroundStyle.fluid;
     final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
     final compact = compactProgress.clamp(0.0, 1.0).toDouble();
 
@@ -1081,8 +1089,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                 width: lerpDouble(
                   isPill ? 66.0 : (isFluidStyle ? 58.0 : 56.0),
                   44.0 +
-                      FloatingPillTransitionController
-                          .artworkTitleOffsetForProgress(1.0),
+                      FloatingPillTransitionController.artworkTitleOffsetForProgress(
+                        1.0,
+                      ),
                   compact,
                 )!,
               ),

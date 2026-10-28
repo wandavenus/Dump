@@ -146,11 +146,17 @@ class _FirstPageState extends State<FirstPage> {
                     label: context.l10n.navHome,
                   ),
                   BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.square_grid_2x2_fill, size: 26),
+                    icon: const Icon(
+                      CupertinoIcons.square_grid_2x2_fill,
+                      size: 26,
+                    ),
                     label: context.l10n.navBrowse,
                   ),
                   BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.dot_radiowaves_left_right, size: 26),
+                    icon: const Icon(
+                      CupertinoIcons.dot_radiowaves_left_right,
+                      size: 26,
+                    ),
                     label: context.l10n.navRadio,
                   ),
                   BottomNavigationBarItem(
@@ -247,8 +253,7 @@ class _FirstPageState extends State<FirstPage> {
                               }
 
                               return ValueListenableBuilder<double>(
-                                valueListenable:
-                                    PlayerSheetController.progress,
+                                valueListenable: PlayerSheetController.progress,
                                 child: bottomChild,
                                 builder: (context, progress, child) {
                                   final safeBottom = MediaQuery.paddingOf(

@@ -100,10 +100,7 @@ class _KaraokeLinePainter extends CustomPainter {
         if (!box.rect.isEmpty) pending.addRect(box.rect);
       }
 
-      final width = boxes.fold<double>(
-        0,
-        (sum, box) => sum + box.rect.width,
-      );
+      final width = boxes.fold<double>(0, (sum, box) => sum + box.rect.width);
       if (width <= 0) continue;
 
       if (progress >= 1.0) {
@@ -117,9 +114,7 @@ class _KaraokeLinePainter extends CustomPainter {
         for (final box in boxes) {
           final revealWidth = width * progress - consumedWidth;
           if (revealWidth >= box.rect.width) {
-            completedPaths
-                .putIfAbsent(lift, Path.new)
-                .addRect(box.rect);
+            completedPaths.putIfAbsent(lift, Path.new).addRect(box.rect);
           } else if (revealWidth > -feather && box.rect.width > 0) {
             partialBoxes.add((
               box.rect,
@@ -138,8 +133,9 @@ class _KaraokeLinePainter extends CustomPainter {
       final durationMs = spanUs / 1000.0;
       final elapsedMs = elapsedUs / 1000.0;
       if (elapsedMs >= 0 && elapsedMs <= durationMs + 500.0) {
-        final heldStrength =
-            ((durationMs - 900.0) / 1100.0).clamp(0.0, 1.0).toDouble();
+        final heldStrength = ((durationMs - 900.0) / 1100.0)
+            .clamp(0.0, 1.0)
+            .toDouble();
         if (heldStrength > 0) {
           final riseWindow = math.min(900.0, durationMs * 0.5);
           final rise = _smooth((elapsedMs - 250.0) / riseWindow);
@@ -211,18 +207,19 @@ class _KaraokeLinePainter extends CustomPainter {
     });
   }
 
-  Rect _revealedRect(
-    Rect rect,
-    TextDirection direction,
-    double revealWidth,
-  ) {
+  Rect _revealedRect(Rect rect, TextDirection direction, double revealWidth) {
     final width = revealWidth.clamp(0.0, rect.width).toDouble();
     return direction == TextDirection.rtl
         ? Rect.fromLTRB(rect.right - width, rect.top, rect.right, rect.bottom)
         : Rect.fromLTRB(rect.left, rect.top, rect.left + width, rect.bottom);
   }
 
-  void _paintLiftedText(Canvas canvas, TextPainter painter, Path clip, double lift) {
+  void _paintLiftedText(
+    Canvas canvas,
+    TextPainter painter,
+    Path clip,
+    double lift,
+  ) {
     canvas.save();
     canvas.translate(0, -lift);
     canvas.clipPath(clip, doAntiAlias: false);
@@ -237,9 +234,7 @@ class _KaraokeLinePainter extends CustomPainter {
     double lift,
     double strength,
   ) {
-    final sigma = (fontSize * textScaleFactor * 0.2)
-        .clamp(0.0, 8.0)
-        .toDouble();
+    final sigma = (fontSize * textScaleFactor * 0.2).clamp(0.0, 8.0).toDouble();
     if (sigma <= 0) return;
     if (_wordGlowFilter == null || _wordGlowSigma != sigma) {
       _wordGlowSigma = sigma;

@@ -15,17 +15,16 @@ final Curve lyricScrollSpringCurve = _LyricsScrollSpringCurve();
 class _LyricsScrollSpringCurve extends Curve {
   const _LyricsScrollSpringCurve();
 
-  static final physics.SpringSimulation _simulation =
-      physics.SpringSimulation(
-        physics.SpringDescription.withDampingRatio(
-          mass: 1,
-          stiffness: 196,
-          ratio: 1,
-        ),
-        0,
-        1,
-        0,
-      );
+  static final physics.SpringSimulation _simulation = physics.SpringSimulation(
+    physics.SpringDescription.withDampingRatio(
+      mass: 1,
+      stiffness: 196,
+      ratio: 1,
+    ),
+    0,
+    1,
+    0,
+  );
 
   static final double _end = _simulation.x(
     lyricScrollAnimationDuration.inMicroseconds /
@@ -43,23 +42,20 @@ class _LyricsScrollSpringCurve extends Curve {
   }
 }
 
-final physics.SpringSimulation _lyricFollowerSpring =
-    physics.SpringSimulation(
-      physics.SpringDescription.withDampingRatio(
-        mass: 1,
-        stiffness: 121,
-        ratio: 0.85,
-      ),
-      0,
-      1,
-      0,
-    );
+final physics.SpringSimulation _lyricFollowerSpring = physics.SpringSimulation(
+  physics.SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 121,
+    ratio: 0.85,
+  ),
+  0,
+  1,
+  0,
+);
 
 double _lyricFollowerProgress(double elapsedSeconds) {
   if (elapsedSeconds <= 0) return 0;
-  return _lyricFollowerSpring.x(elapsedSeconds)
-      .clamp(0.0, 1.0)
-      .toDouble();
+  return _lyricFollowerSpring.x(elapsedSeconds).clamp(0.0, 1.0).toDouble();
 }
 
 /// Returns a small transient offset for rows below the focus. The list's
@@ -90,7 +86,6 @@ double lyricStaggeredRowOffset({
 
   return boundedDistance * (scrollProgress - followingProgress);
 }
-
 
 /// Matches Mornye's word-lift envelope. The full text segment uses the same
 /// offset before and after the karaoke color sweep, preventing a stationary

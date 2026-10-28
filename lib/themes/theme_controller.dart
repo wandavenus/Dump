@@ -30,8 +30,9 @@ class ThemeController {
   static final ValueNotifier<NavBarStyle> navBarStyle = ValueNotifier(
     NavBarStyle.solid,
   );
-  static final ValueNotifier<bool> liquidGlassSectionExpanded =
-      ValueNotifier(false);
+  static final ValueNotifier<bool> liquidGlassSectionExpanded = ValueNotifier(
+    false,
+  );
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<PlayerBackgroundStyle> playerBackgroundStyle =
       ValueNotifier(PlayerBackgroundStyle.fluid);

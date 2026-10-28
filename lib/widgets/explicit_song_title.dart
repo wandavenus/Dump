@@ -136,8 +136,7 @@ class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
 
     final badgeStyle = widget.titleStyle.copyWith(
       fontSize:
-          (widget.referenceFontSize ?? widget.titleStyle.fontSize ?? 14) *
-          0.78,
+          (widget.referenceFontSize ?? widget.titleStyle.fontSize ?? 14) * 0.78,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.1,
     );
@@ -193,10 +192,7 @@ class _ExplicitAdvisoryBadgeState extends State<ExplicitAdvisoryBadge> {
           textDirection: textDirection,
           badgeSize: badgeSize,
         ),
-        child: SizedBox(
-          width: badgeSize.width,
-          height: badgeSize.height,
-        ),
+        child: SizedBox(width: badgeSize.width, height: badgeSize.height),
       ),
     );
   }
