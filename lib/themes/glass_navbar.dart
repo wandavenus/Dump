@@ -356,42 +356,43 @@ class _PillItemsState extends State<_PillItems> {
                         height: FloatingPillNavBar.bodyHeight,
                         child: Stack(
                           children: [
-                            if (_dragIndex == null && compactProgress == 0.0)
-                              AnimatedPositioned(
-                                duration: const Duration(milliseconds: 220),
-                                curve: Curves.easeOutCubic,
-                                left: left,
-                                top: 4.5,
-                                width: lensWidth,
-                                height: 53,
-                                child: IgnorePointer(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: AppColors.of(
-                                        context,
-                                      ).glassActiveLens,
-                                      borderRadius: BorderRadius.circular(999),
+                            if (widget.selectedIndex < count)
+                              if (_dragIndex == null && compactProgress == 0.0)
+                                AnimatedPositioned(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                  left: left,
+                                  top: 4.5,
+                                  width: lensWidth,
+                                  height: 53,
+                                  child: IgnorePointer(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.of(
+                                          context,
+                                        ).glassActiveLens,
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                Positioned(
+                                  left: left,
+                                  top: 4.5,
+                                  width: lensWidth,
+                                  height: 53,
+                                  child: IgnorePointer(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.of(
+                                          context,
+                                        ).glassActiveLens,
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              )
-                            else
-                              Positioned(
-                                left: left,
-                                top: 4.5,
-                                width: lensWidth,
-                                height: 53,
-                                child: IgnorePointer(
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: AppColors.of(
-                                        context,
-                                      ).glassActiveLens,
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                  ),
-                                ),
-                              ),
                             Row(
                               children: [
                                 for (var i = 0; i < count; i++)
