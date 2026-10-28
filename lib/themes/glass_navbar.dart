@@ -309,10 +309,7 @@ class _PillItemsState extends State<_PillItems> {
     final compactColor = widget.selectedIndex == compactIndex
         ? primary
         : (isLight ? Colors.black : Colors.white);
-    final compactIconOffset =
-        compactIndex < _pillIconHorizontalOffsets.length
-        ? _pillIconHorizontalOffsets[compactIndex]
-        : 0.0;
+    const compactIconOffset = -7.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
