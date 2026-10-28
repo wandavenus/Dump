@@ -158,7 +158,7 @@ class _FirstPageState extends State<FirstPage> {
                     label: context.l10n.navLibrary,
                   ),
                   BottomNavigationBarItem(
-                    icon: const Icon(Icons.search, size: 26),
+                    icon: const Icon(CupertinoIcons.search, size: 26),
                     label: context.l10n.navSearch,
                   ),
                 ],
@@ -239,7 +239,7 @@ class _FirstPageState extends State<FirstPage> {
                                     context.l10n.navRadio,
                                     context.l10n.navLibrary,
                                   ],
-                                  trailingIcon: Icons.search,
+                                  trailingIcon: CupertinoIcons.search,
                                   trailingLabel: context.l10n.navSearch,
                                 );
                               } else {
