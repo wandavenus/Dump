@@ -146,7 +146,7 @@ class _FirstPageState extends State<FirstPage> {
                     label: context.l10n.navHome,
                   ),
                   BottomNavigationBarItem(
-                    icon: const Icon(Icons.grid_view_rounded, size: 26),
+                    icon: const Icon(CupertinoIcons.square_grid_2x2_fill, size: 26),
                     label: context.l10n.navBrowse,
                   ),
                   BottomNavigationBarItem(
@@ -154,7 +154,7 @@ class _FirstPageState extends State<FirstPage> {
                     label: context.l10n.navRadio,
                   ),
                   BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.square_grid_2x2_fill, size: 26),
+                    icon: const Icon(Icons.subscriptions_rounded, size: 26),
                     label: context.l10n.navLibrary,
                   ),
                   BottomNavigationBarItem(
@@ -229,9 +229,9 @@ class _FirstPageState extends State<FirstPage> {
                                   onTap: _navgateBottomBar,
                                   icons: const [
                                     Icons.home_filled,
-                                    Icons.grid_view_rounded,
-                                    Icons.sensors,
                                     CupertinoIcons.square_grid_2x2_fill,
+                                    Icons.sensors,
+                                    Icons.subscriptions_rounded,
                                   ],
                                   labels: [
                                     context.l10n.navHome,
