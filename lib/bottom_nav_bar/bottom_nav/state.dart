@@ -150,7 +150,7 @@ class _FirstPageState extends State<FirstPage> {
                     label: context.l10n.navBrowse,
                   ),
                   BottomNavigationBarItem(
-                    icon: const Icon(CupertinoIcons.dot_radiowaves_left_right, size: 28),
+                    icon: const Icon(CupertinoIcons.dot_radiowaves_left_right, size: 26),
                     label: context.l10n.navRadio,
                   ),
                   BottomNavigationBarItem(
