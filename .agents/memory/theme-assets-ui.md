@@ -87,6 +87,15 @@ assets/
 
 Font family: **SF Pro Text** (Apple system font) — 5 weights.
 
+## Launcher icon generation
+
+- `flutter_launcher_icons` writes Android PNG density variants and an adaptive icon. After regeneration, remove stale same-name WebP launcher resources to avoid duplicate density resources.
+- Enable only platforms that exist in the project; the generator can fail on iOS output when the `ios/` project is absent, even after Android assets were written.
+
+**Why:** the generator does not clean up legacy WebP icons, and an absent platform directory can leave a partial generation.
+
+**How to apply:** confirm the project has the configured platform folders, regenerate icons, then verify each launcher resource name has only one file per density.
+
 ## lib/utils/ Files
 
 | File | Class/Symbol | Role |
