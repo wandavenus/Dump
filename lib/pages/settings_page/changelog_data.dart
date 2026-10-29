@@ -20,6 +20,20 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.57',
+    date: '29 Oktober 2026',
+    changes: [
+      'Decoder Opus dihapus dari build FFmpeg lokal karena perangkat sudah punya decoder Opus MediaCodec/CCodec bawaan; Opus kini didekode lewat jalur platform dan FFmpeg hanya membawa codec yang tidak tersedia di Android (ALAC, DTS/DTS-HD, TrueHD/MLP, Vorbis).',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.56',
+    date: '29 Oktober 2026',
+    changes: [
+      'Pure Playback (single player tanpa DSP) kini mengaktifkan hardware audio offload Media3 saat perangkat dan format mendukung, sehingga decoding berjalan di DSP dan konsumsi baterai berkurang; format yang tidak didukung tetap jatuh ke PCM biasa.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.55',
     date: '28 Oktober 2026',
     changes: [

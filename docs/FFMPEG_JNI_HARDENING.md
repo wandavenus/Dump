@@ -10,6 +10,6 @@
 
 ## Verification boundary
 
-CI build/package checks are the source of truth for compilation and packaging. Physical-device validation remains separate: install a fresh APK on an arm64 Android device, verify FfmpegCapabilityProbe reports the expected codecs, and test ALAC, DTS, TrueHD, Vorbis, and Opus playback.
+CI build/package checks are the source of truth for compilation and packaging. Physical-device validation remains separate: install a fresh APK on an arm64 Android device, verify FfmpegCapabilityProbe reports the expected codecs, test ALAC, DTS, TrueHD, and Vorbis playback through FFmpeg, and confirm Opus playback uses the platform MediaCodec/CCodec decoder (no FFmpeg Opus decoder is built).
 
 The FFmpeg source and build recipe are included/referenced in the repository, but packaging notices alone do not establish full LGPL compliance for the combined native library. Review source availability, replacement/relinking requirements, and the actual distribution method before publishing.

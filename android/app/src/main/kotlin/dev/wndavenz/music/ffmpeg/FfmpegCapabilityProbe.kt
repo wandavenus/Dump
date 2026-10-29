@@ -38,14 +38,15 @@ object FfmpegCapabilityProbe {
     // Official-path scope only (Phase 9): formats Media3 can already demux
     // (container/extractor support exists) but has no on-device MediaCodec
     // decoder for. APE/WavPack/TAK are explicitly out of scope — see the
-    // Phase 9 doc's "Deferred" section.
+    // Phase 9 doc's "Deferred" section. Opus is intentionally not listed:
+    // Android's MediaCodec/CCodec Opus decoder is present on the target
+    // device, so the FFmpeg build and this probe omit it.
     private val PROBE_MIME_TYPES = linkedMapOf(
         "audio/alac" to "ALAC",
         "audio/vnd.dts" to "DTS",
         "audio/vnd.dts.hd" to "DTS-HD",
         "audio/true-hd" to "TrueHD",
         "audio/vorbis" to "Vorbis",
-        "audio/opus" to "Opus",
     )
 
     data class Status(

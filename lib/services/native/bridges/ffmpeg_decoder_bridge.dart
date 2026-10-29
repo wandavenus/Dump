@@ -128,10 +128,12 @@ class FfmpegDecoderInfo {
 /// ## Scope (Phase 9, "official path only")
 ///
 /// Covers formats Media3 can already demux but has no on-device MediaCodec
-/// decoder for: ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus edge cases. APE,
-/// WavPack, TAK, and Monkey's Audio are explicitly out of scope — Media3 has
-/// no container `Extractor` for them at all, which is a categorically bigger
-/// (and unproven) undertaking. Tracked as a separate follow-up.
+/// decoder for: ALAC, DTS/DTS-HD, TrueHD, and Vorbis. Opus is deliberately
+/// excluded — the target device's MediaCodec/CCodec Opus decoder handles it,
+/// so FFmpeg does not compile an Opus decoder. APE, WavPack, TAK, and Monkey's
+/// Audio are explicitly out of scope — Media3 has no container `Extractor` for
+/// them at all, which is a categorically bigger (and unproven) undertaking.
+/// Tracked as a separate follow-up.
 ///
 /// ## Build-time state
 ///
@@ -269,7 +271,7 @@ class FfmpegDecoderBridge implements NativeModule {
 
   @override
   Future<List<NativeCapability>> queryCapabilities() async {
-    const targetCodecs = ['ALAC', 'DTS', 'DTS-HD', 'TrueHD', 'Vorbis', 'Opus'];
+    const targetCodecs = ['ALAC', 'DTS', 'DTS-HD', 'TrueHD', 'Vorbis'];
     return targetCodecs
         .map(
           (codec) => NativeCapability(
@@ -298,6 +300,5 @@ class FfmpegDecoderBridge implements NativeModule {
     'audio/vnd.dts.hd': 'DTS-HD',
     'audio/true-hd': 'TrueHD',
     'audio/vorbis': 'Vorbis',
-    'audio/opus': 'Opus',
   };
 }

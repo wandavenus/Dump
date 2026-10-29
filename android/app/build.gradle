@@ -174,7 +174,8 @@ dependencies {
     implementation "androidx.media3:media3-extractor:$media3_version"
     implementation "androidx.media3:media3-inspector:$media3_version"
     implementation "androidx.media3:media3-container:$media3_version"
-    // Phase 9 — locally built FFmpeg decoder (ALAC/DTS/TrueHD/Vorbis/Opus).
+    // Phase 9 — locally built FFmpeg decoder (ALAC/DTS/TrueHD/Vorbis).
+    // Opus intentionally uses the platform MediaCodec/CCodec decoder.
     // The module's libffmpegJNI.so is produced from the pinned FFmpeg source
     // tree by android/build-ffmpeg-jni.sh; arm64-v8a is the only packaged ABI.
     implementation project(':decoder-ffmpeg')

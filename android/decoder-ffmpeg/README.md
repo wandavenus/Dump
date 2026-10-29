@@ -50,8 +50,9 @@ archives are rebuilt when that fingerprint changes instead of trusting only
 the presence of `libavcodec.a`.
 
 Defaults: FFmpeg `n8.1.3`, arm64-v8a, Android API 27, decoders ALAC, DCA
-(DTS/DTS-HD), TrueHD/MLP, Vorbis, and Opus. Override the tag with
-`FFMPEG_TAG=...` and run with `--clean` when changing it.
+(DTS/DTS-HD), TrueHD/MLP, and Vorbis. Opus is intentionally not built because
+the target device's MediaCodec/CCodec Opus decoder handles it. Override the tag
+with `FFMPEG_TAG=...` and run with `--clean` when changing it.
 
 ## License notes
 

@@ -389,7 +389,8 @@ class PlaybackManager {
 
   /// Capability snapshot detected at startup: whether the bundled FFmpeg
   /// build is available, its version, and which Phase 9 target codecs
-  /// (ALAC/DTS/TrueHD/Vorbis/Opus) it actually supports.
+  /// (ALAC/DTS/TrueHD/Vorbis) it actually supports. Opus is handled by the
+  /// platform MediaCodec/CCodec decoder instead.
   static FfmpegDecoderCapabilities get ffmpegDecoderCapabilities =>
       FfmpegDecoderBridge.instance.capabilities;
 

@@ -17,10 +17,10 @@ Bluetooth, etc.) for DSP; DSP is never routed through Kotlin/JNI.
 
 **Phase 9 update:** `FfmpegDecoderBridge` no longer uses `native_audio_runtime`
 FFI at all. Decoding for formats Media3 can demux but can't decode natively
-(ALAC, DTS, TrueHD, Vorbis/Opus edge cases) is handled by Media3's FFmpeg
-extension (`FfmpegAudioRenderer`), built locally as the `:decoder-ffmpeg`
-Android module and running inside `Media3PlaybackService.kt`'s ExoPlayer
-instance. `FfmpegDecoderBridge` is now a Kotlin/JNI bridge (its own small
+(ALAC, DTS, TrueHD, Vorbis edge cases; Opus uses platform MediaCodec) is handled
+by Media3's FFmpeg extension (`FfmpegAudioRenderer`), built locally as the
+`:decoder-ffmpeg` Android module and running inside `Media3PlaybackService.kt`'s
+ExoPlayer instance. `FfmpegDecoderBridge` is now a Kotlin/JNI bridge (its own small
 MethodChannel + EventChannel pair) rather than an FFI bridge. The native
 library (`libffmpegJNI.so`) is compiled by `android/build-ffmpeg-jni.sh` from
 FFmpeg source with `--disable-gpl`; the former Jellyfin prebuilt AAR (GPL v3)
@@ -88,8 +88,9 @@ All native access goes through `PlaybackManager`.
 - Decoding itself happens inside ExoPlayer via the local `:decoder-ffmpeg`
   module (Media3 wrapper + `libffmpegJNI.so`) — Dart never touches raw
   audio; this bridge only reports status
-- Covers (Phase 9 scope): ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus edge cases —
-  formats Media3 can demux but has no on-device MediaCodec decoder for
+- Covers (Phase 9 scope): ALAC, DTS/DTS-HD, TrueHD, Vorbis edge cases —
+  formats Media3 can demux but has no on-device MediaCodec decoder for.
+  Opus is excluded because the platform MediaCodec/CCodec decoder handles it
 - Out of scope: APE, WavPack, TAK, Monkey's Audio (no Media3 container
   `Extractor` exists for these at all — separate, larger follow-up)
 - **Status:** Architecture + real code complete. `libffmpegJNI.so` is built
@@ -146,7 +147,7 @@ Planned future modules:
 | Module ID           | Class                  | Purpose                         |
 |---------------------|------------------------|---------------------------------|
 | `native_dsp`        | NativeDspBridge        | C++ parametric DSP              |
-| `ffmpeg_decoder`    | FfmpegDecoderBridge    | Extended format decoding (ALAC/DTS/TrueHD/Vorbis/Opus) |
+| `ffmpeg_decoder`    | FfmpegDecoderBridge    | Extended format decoding (ALAC/DTS/TrueHD/Vorbis); Opus uses platform MediaCodec |
 | `fft_analyser`      | (future)               | Real-time spectrum data         |
 | `audio_visualizer`  | (future)               | Waveform / VU meter             |
 | `loudness_analyser` | (future)               | EBU R128 offline scan           |
@@ -198,6 +199,6 @@ Summary:
 - PCM from `FfmpegAudioRenderer` flows through the exact same
   `NativeDspAudioProcessor` chain as any built-in decoder — DSP pipeline
   unchanged.
-- Scope: ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus only. APE/WavPack/TAK/Monkey's
-  Audio need a custom `Extractor` (no container demuxer exists for them in
-  Media3) and are a separate, larger follow-up — not attempted here.
+- Scope: ALAC, DTS/DTS-HD, TrueHD, Vorbis only (Opus uses platform MediaCodec).
+  APE/WavPack/TAK/Monkey's Audio need a custom `Extractor` (no container demuxer
+  exists for them in Media3) and are a separate, larger follow-up — not attempted here.
