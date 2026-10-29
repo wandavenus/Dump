@@ -53,7 +53,9 @@ TARGET_ABI="arm64-v8a"
 EXPECTED_NDK_VERSION="28.2.13676358"
 
 # Keep this list aligned with FfmpegCapabilityProbe.PROBE_MIME_TYPES.
-ENABLED_DECODERS=(alac dca truehd mlp vorbis opus)
+# Opus is intentionally absent: Android's MediaCodec/CCodec Opus decoder is
+# present on the target device, so FFmpeg only needs the codecs Android lacks.
+ENABLED_DECODERS=(alac dca truehd mlp vorbis)
 
 FORCE_LINK=false
 CLEAN=false

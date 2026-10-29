@@ -37,8 +37,14 @@ import dev.wndavenz.music.events.NativeLogger
  *   audio writes without any explicit API call.  This is not configurable.
  *
  * ════════════════════════════════════════════════════════════════════
- * WHY FULL OFFLOAD IS STILL INCOMPATIBLE WITH THIS APP
+ * WHY OFFLOAD REMAINS DISABLED IN THE DUAL-PLAYER PIPELINE
  * ════════════════════════════════════════════════════════════════════
+ *
+ * The Bit-Perfect player (single active player, no custom AudioProcessors,
+ * no attached AudioEffects) opts IN to offload via
+ * TrackSelectionParameters.AudioOffloadPreferences in
+ * Media3PlaybackService.createBitPerfectPlayer(). The constraints below are
+ * the reason the normal dual-player pipeline leaves it DISABLED.
  *
  * 1. CROSSFADE — FATAL
  *    The equal-power fade updates player.volume every 16 ms via Handler.

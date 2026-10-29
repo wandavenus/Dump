@@ -16,6 +16,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -1629,11 +1630,13 @@ class Media3PlaybackService : MediaSessionService() {
      * nothing in this chain needs float PCM and skipping the int↔float round
      * trip avoids an unnecessary precision-loss step.
      *
-     * Never registered with [stereoWidthManager] and never given an
-     * [ExoPlayer.AudioOffloadListener] — this player is single-purpose and
-     * only exists while Bit-Perfect Mode is on. [AudioEffectsManager] effects
-     * (EQ, LoudnessEnhancer, BassBoost) are never attached to its
-     * session either — see [switchToBitPerfectPlayer].
+     * Never registered with [stereoWidthManager]. This player is single-purpose
+     * and only exists while Bit-Perfect Mode is on. [AudioEffectsManager] effects
+     * (EQ, LoudnessEnhancer, BassBoost) are never attached to its session either —
+     * see [switchToBitPerfectPlayer]. Because it is the only active player (no
+     * crossfade standby) and has no custom processors/effects, it is the one
+     * pipeline where hardware audio offload is safe to enable. Offload events are
+     * observed through the service's single tracked listener.
      */
     private fun createBitPerfectPlayer(): ExoPlayer {
         val loadControl = DefaultLoadControl.Builder()
@@ -1661,11 +1664,24 @@ class Media3PlaybackService : MediaSessionService() {
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             .setEnableDecoderFallback(true)
 
+        // Hardware offload is safe only on this pipeline: it is the sole active
+        // player (crossfade is cancelled before the switch) and has no custom
+        // AudioProcessors or attached AudioEffects. AudioOffloadPreferences is
+        // Media3 1.11.1's supported switch (the old
+        // DefaultRenderersFactory.setEnableAudioOffload is gone). ENABLED (not
+        // REQUIRED) keeps PCM fallback for unsupported formats/devices.
+        val offloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
+            .setAudioOffloadMode(
+                TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+            )
+            .build()
+
         val trackSelector = DefaultTrackSelector(this).apply {
             setParameters(
                 buildUponParameters()
                     .setMaxAudioChannelCount(Int.MAX_VALUE)
                     .setForceLowestBitrate(false)
+                    .setAudioOffloadPreferences(offloadPreferences)
                     .build()
             )
         }
@@ -1697,7 +1713,8 @@ class Media3PlaybackService : MediaSessionService() {
             }
 
         NativeLogger.emit("info", "Media3",
-            "BitPerfect: dedicated clean player created (no AudioProcessors, floatOutput=false)")
+            "BitPerfect: dedicated clean player created (no AudioProcessors, " +
+                "floatOutput=false, offload=ENABLED)")
 
         return player
     }

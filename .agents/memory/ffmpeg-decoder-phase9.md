@@ -51,8 +51,11 @@ repo:
 
 ## Native build details that matter
 
-- Decoders enabled: `alac dca truehd mlp vorbis opus` — matches
-  `FfmpegCapabilityProbe.PROBE_MIME_TYPES`. The script verifies each
+- Decoders enabled: `alac dca truehd mlp vorbis` — matches
+  `FfmpegCapabilityProbe.PROBE_MIME_TYPES`. Opus was removed from the FFmpeg
+  build in 1.5.57 because the target device already ships a platform
+  MediaCodec/CCodec Opus decoder; Media3 therefore routes Opus to MediaCodec
+  and only uses FFmpeg for the codecs Android lacks. The script verifies each
   `ff_<name>_decoder` symbol and that `JNI_OnLoad` is exported.
 - Link flags: `-nostdlib++ -Wl,-Bsymbolic -Wl,--gc-sections --no-undefined`.
   The result depends only on `libandroid`, `liblog`, `libm`, `libdl`, `libc`
