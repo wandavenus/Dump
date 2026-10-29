@@ -294,7 +294,7 @@ class PlaybackNotificationManager(
         val artist = track?.get("artist") as? String ?: ""
 
         val builder = NotificationCompat.Builder(service, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_overlay_music_note)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setColor(notificationIconColor())
             .setContentTitle(title)
             .setContentText(artist)

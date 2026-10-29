@@ -73,3 +73,12 @@ Kalau device masih zoom, tersisa hipotesis: kartu MIUI membaca `artworkUri` dari
 
 ## UPDATE 1.5.29d — Overlay player (NowPlayingOverlayActivity) ikut ZOOM-01
 Overlay floating window (buka file audio dari file manager/Telegram) decode embedded art VIA `BitmapFactory.decodeByteArray(bytes, 0, bytes.size)` — FULL-SIZE tanpa cap dan tanpa normalisasi — lalu render di `ImageView` 56dp `scaleType=centerCrop` → art non-persegi di-crop, art kecil di-upscale (zoom/pecah), art raksasa berisiko OOM. Fix: helper `decodeCappedSquare(bytes)` — bounds-first decode cap `MAX_ART_PX=1024` (sisi terpanjang, ARGB_8888) + letterbox persegi never-upscale (pola sama dengan `normalizeNotificationArtwork`); `MediaMetadataRetriever.release()` dipindah ke `finally`. Catatan: jalur Flutter in-app (`SongArtwork`/`ArtworkRepository`) sudah aman — pakai `getArtworkPath(songId)` → cache WebP ≤1000px, `LocalSong.artworkUri` di Dart tidak pernah dibaca UI (dead field).
+
+## Small status-bar icon
+
+- Keep the notification's small status-bar icon separate from the launcher icon and album artwork: use a transparent, monochrome alpha-mask silhouette.
+- Provide density-specific resources. Android/system UI applies the contrasting tint for light and dark surfaces; an opaque square background is unsuitable.
+
+**Why:** status-bar icons are tiny and rendered differently from the media card artwork; alpha-only silhouettes stay legible across system themes.
+
+**How to apply:** preserve transparent negative space and verify the icon on both light and dark backgrounds when changing it.
