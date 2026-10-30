@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
-import 'sentry_observability.dart';
 import 'dart:io' show File;
 import 'dart:math' as math;
 
@@ -9,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:native_audio_runtime/native_audio_runtime.dart';
+
+import 'sentry_observability.dart';
 
 import '../models/local_song.dart';
 import 'audio_service.dart';
