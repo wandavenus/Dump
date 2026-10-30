@@ -11,6 +11,13 @@ Future<void> main() async {
           // DSN is intentionally injected at compile time by the release workflow.
           // ignore: do_not_use_environment
           options.dsn = const String.fromEnvironment('SENTRY_DSN');
+          // Runtime release must match symbol uploads from Noisegraph CI.
+          // ignore: do_not_use_environment
+          const sentryRelease = String.fromEnvironment('SENTRY_RELEASE');
+          // ignore: do_not_use_environment
+          const sentryDist = String.fromEnvironment('SENTRY_DIST');
+          if (sentryRelease.isNotEmpty) options.release = sentryRelease;
+          if (sentryDist.isNotEmpty) options.dist = sentryDist;
           options.environment = kReleaseMode ? 'production' : 'development';
           options.sendDefaultPii = false;
           options.enableNativeCrashHandling = true;
