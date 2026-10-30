@@ -121,6 +121,16 @@ class BugReportPage extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () => SentryFeedbackForm.show(context),
+            icon: const Icon(CupertinoIcons.chat_bubble_2),
+            label: Text(
+              Localizations.localeOf(context).languageCode == 'id'
+                  ? 'Kirim masukan lewat Sentry'
+                  : 'Send feedback via Sentry',
+            ),
+          ),
         ],
       ),
     );
