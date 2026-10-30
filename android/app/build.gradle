@@ -24,10 +24,6 @@ sentry {
     projectName = System.getenv("SENTRY_PROJECT")
     authToken = System.getenv("SENTRY_AUTH_TOKEN")
 
-    tracingInstrumentation {
-        enabled = true
-        features = [InstrumentationFeature.FILE_IO, InstrumentationFeature.DATABASE]
-    }
 }
 
 kotlin {
