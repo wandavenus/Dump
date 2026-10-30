@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.59',
+    date: '30 Oktober 2026',
+    changes: [
+      'AutoMix: pemilihan tempo analyzer offline kini mengutamakan coverage onset, bukan puncak autokorelasi; four-on-the-floor 120 BPM dengan snare di ketukan 2/4 tidak lagi terbaca 60 BPM, dan breakbeat 174 BPM tidak lagi terbaca 87 BPM.',
+      'AutoMix: jika minimal tiga dari empat quarter lagu sepakat pada satu level tempo, analyzer memakai konsensus itu; lagu dengan intro sparse 32 detik lalu chorus penuh tidak lagi dipentalkan setengah tempo (60 → 120 BPM).',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.58',
     date: '30 Oktober 2026',
     changes: [

@@ -697,14 +697,18 @@ static MetricalCandidate evaluate_metrical_candidate(
   candidate.fill = fill;
   candidate.contrast = contrast;
   candidate.phase = clamp01_double(phase_strength);
-  // Fill and accent contrast carry more weight than raw onset coverage: the
-  // subdivision is defined by being weaker, so a grid that lands on every
-  // quiet hat must lose to the grid that lands only on accents.
+  // Coverage is the discriminator: it is the share of measured onset energy a
+  // grid actually explains, so a bar-level grid that catches only the backbeat
+  // (every second kick) can no longer win on a strong 2-beat autocorrelation
+  // peak and perfect fill. Fill and contrast stay as guards against grids
+  // whose lines are mostly empty or whose "off-beat" is as loud as the beat,
+  // and the autocorrelation comb is now only a tie-break between levels that
+  // explain the onsets equally well.
   candidate.score =
-      0.30 * candidate.comb +
-      0.12 * candidate.coverage +
-      0.40 * candidate.fill +
-      0.06 * candidate.contrast +
+      0.10 * candidate.comb +
+      0.45 * candidate.coverage +
+      0.25 * candidate.fill +
+      0.08 * candidate.contrast +
       0.12 * candidate.phase;
   // A weak, wide prior only breaks ties between interpretations that the
   // musical evidence genuinely cannot separate (e.g. a bare click train).
@@ -788,8 +792,8 @@ static double refine_tempo_phase_coherence(const float* odf, int32_t count,
   return 60.0 * fps / best_period;
 }
 
-static TempoEstimate estimate_tempo(const float* odf, int32_t count,
-                                   int32_t working_rate, double fps) {
+static TempoEstimate estimate_tempo_window(const float* odf, int32_t count,
+                                           int32_t working_rate, double fps) {
   TempoEstimate result = {NAN, NAN, 0.0, 0};
   if (working_rate <= 0 || count < (int32_t)round(fps)) return result;
 
@@ -1035,6 +1039,67 @@ static TempoEstimate estimate_tempo(const float* odf, int32_t count,
 }
 
 static double beat_period_ms(double bpm) { return 60000.0 / bpm; }
+
+// Whole-window autocorrelation mixes density regimes: a quiet intro carrying
+// only off-beat hats and a full chorus can make the bar-level pulse win the
+// global vote even when every local quarter agrees on the beat. The quarter
+// estimates already exist for the tempo curve, so use them as an independent
+// vote: when three or more quarters agree within 4% on a level that differs
+// from the whole-window estimate, publish the local consensus. This is
+// symmetric (it can slow a wrongly-fast whole-window result too) and never
+// fires on uniform material, where the quarters already agree with the whole.
+static TempoEstimate estimate_tempo(const float* odf, int32_t count,
+                                    int32_t working_rate, double fps) {
+  TempoEstimate whole =
+      estimate_tempo_window(odf, count, working_rate, fps);
+  if (!whole.valid || odf == NULL || count <= 0 || working_rate <= 0 ||
+      !isfinite(fps) || fps <= 0.0) {
+    return whole;
+  }
+  // A quarter must contain at least four seconds for its own estimate to be
+  // independent of the whole window; shorter files keep the direct result.
+  const int32_t min_quarter = (int32_t)round(4.0 * fps);
+  const int32_t quarter = count / 4;
+  if (min_quarter <= 0 || quarter < min_quarter) return whole;
+  double bpms[4];
+  double confidences[4];
+  int32_t votes = 0;
+  for (int32_t index = 0; index < 4; ++index) {
+    const TempoEstimate local = estimate_tempo_window(
+        odf + (size_t)index * (size_t)quarter, quarter, working_rate, fps);
+    if (!local.valid || !isfinite(local.bpm) || local.confidence < 0.35) {
+      continue;
+    }
+    bpms[votes] = local.bpm;
+    confidences[votes] = local.confidence;
+    ++votes;
+  }
+  if (votes < 3) return whole;
+  for (int32_t i = 1; i < votes; ++i) {
+    const double value = bpms[i];
+    const double confidence = confidences[i];
+    int32_t j = i - 1;
+    while (j >= 0 && bpms[j] > value) {
+      bpms[j + 1] = bpms[j];
+      confidences[j + 1] = confidences[j];
+      --j;
+    }
+    bpms[j + 1] = value;
+    confidences[j + 1] = confidence;
+  }
+  const double median = bpms[votes / 2];
+  if (!isfinite(median) || median <= 0.0) return whole;
+  for (int32_t i = 0; i < votes; ++i) {
+    if (fabs(bpms[i] - median) / median > 0.04) return whole;
+  }
+  const double ratio = median / whole.bpm;
+  if (!isfinite(ratio) || (ratio > 0.75 && ratio < 1.25)) return whole;
+  TempoEstimate consensus = whole;
+  consensus.bpm = median;
+  consensus.alternate_bpm = whole.bpm;
+  consensus.confidence = fmin(whole.confidence, confidences[votes / 2]);
+  return consensus;
+}
 
 static double estimate_beat_phase_ms(const float* odf, int32_t count,
                                      int32_t working_rate, double bpm) {

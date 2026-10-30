@@ -673,13 +673,123 @@ measured on the field set rather than on clicks.
 
 ---
 
+## J. Real-audio pass (2026-10-30) — ffmpeg-decoded fixtures through the production analyzer
+
+Everything below was measured, not estimated. Fixtures are deterministic numpy
+syntheses written as 44.1 kHz 16-bit WAV, then decoded by `ffmpeg -ac 1 -ar 22050
+-f f32le` and fed to `nar_automix_analyze_centered` / `nar_automix_analyze_chords`
+— the same PCM shape the Android bridge produces (`AutomixAnalysisBridge`).
+One fixture was additionally encoded to MP3 192k and decoded back to check the
+lossy path. Harness sources live in git-ignored `build/audit_real/`
+(`gen_audio.py`, `real_probe.c`); ffmpeg 4.4.2 was installed for this pass.
+
+| Fixture (nominal) | BPM (conf) | alternate | meter | section cue | verdict |
+|---|---|---|---|---|---|
+| 124 four-on-floor, 32 s | **124.01** (0.85) | 61.90 | — | — | correct |
+| same, all events shifted +100 ms | **124.00** (0.85) | 61.89 | 4 | 6000 @0.41 | phase error **7.8 ms**; section cue below the 0.50 gate |
+| same, MP3 192k round-trip | **124.01** (0.85) | 61.90 | — | — | beat offset differs from WAV by **0.3 ms**, chord rows identical |
+| 120 four-on-floor, no snare | **120.02** (0.74) | 60.09 | — | — | correct |
+| 120 four-on-floor + snare on 2/4 | **60.00** (0.87) | 119.98 | — | — | **half-tempo lock** |
+| 124 four-on-floor + snare on 2/4 | 124.01 (0.50) | 61.99 | — | — | correct, but confidence halves and `start_bpm`=61.9 |
+| 174 four-on-floor | **174.03** (0.83) | 86.81 | — | — | correct |
+| 174 breakbeat (half-time backbeat) | **87.01** (0.48) | 174.00 | — | — | **half-tempo lock** |
+| 3/4 waltz, accented beat 1, 120 | 120.00 (0.70) | 61.52 | **3** | — | correct metre |
+| 6/8 compound, dotted-quarter 80 | 80.05 (0.81) | 159.96 | **4** | — | 6/8 not represented (bar grid twice the real 1.5 s bar) |
+| 120 track: 32 s sparse intro + 32 s chorus | **60.00** (0.88) | 119.46 | — | **none** | whole/end tempo at 0.5× although `start_bpm`=120 and drop cue = 31.9 s |
+| same shape, static harmony (Am verse → C chorus) | **60.00** (0.89) | 119.40 | — | **32000 @1.00** | section detector exact; tempo still 0.5× |
+| chord progression C–Am–F–G, pads only | n/a | — | — | — | key **C major 0.84**; chord roots **0, 9, 5, 7** with maj/min/maj/maj |
+
+### Findings, classified by evidence
+
+**Confirmed defect — backbeat-driven half-tempo lock (offline analyzer; fixed in this pass, see below).** A plain
+120 BPM four-on-the-floor with a snare on beats 2 and 4 is reported as
+**60.00 BPM at confidence 0.87**, while the alternate hypothesis holds 119.98.
+The same beat without the snare is correct (120.02). At 124 the snare version
+stays correct but its confidence drops from 0.85 to 0.50 and the start quarter
+locks to 61.9. A 174 BPM breakbeat is reported as 87.01 (alternate 174.00).
+This is the class AM8-02 fixed in the **live** tracker with the symmetric
+metrical test; the offline `estimate_tempo` path still prefers the bar-level
+pulse when a backbeat is present. Building `automix_analyzer.c` from the parent
+commit (`HEAD~1`) reproduces 60.00 / 87.01 identically, so this is pre-existing,
+not a regression from the AM8 pass. Consequence: the Dart planner takes
+`tailBpm`/`bpm` from this value, so an outgoing 120 BPM house track can be
+tempo-matched as 60 BPM, and a 174 BPM track as 87.
+
+**Confirmed limitation — mixed-density tracks lock to 0.5×.** With a 32 s
+sparse intro and a 32 s full chorus, the whole-window estimate and the
+end-quarter estimate are both 60.00 even though `start_bpm` is 120.0 and the
+drop cue lands at 31.9 s. Both fixtures reproduce it (with and without a chord
+progression), so the trigger is the arrangement density change, not harmony.
+The consequence is the same as above for the outgoing grid.
+
+**Confirmed limitation — 6/8 is not representable at a dotted-quarter pulse.**
+The compound fixture is correctly heard at 80 BPM (dotted-quarter pulse) but
+then labelled metre 4, i.e. a 3 s bar instead of the real 1.5 s bar. The
+metre hypothesis set is 3/4/6 and none of them equals "2 beats per bar"; a real
+6/8 track analysed this way would get a phrase grid twice as long as the music.
+
+**Confirmed limitation — section cue needs static harmony.** With static
+harmony the verse→chorus boundary is found exactly (32000 ms, confidence
+1.00). With a chord progression every two bars, the same arrangement change
+returns **no boundary** (NaN): intra-section chroma changes raise the novelty
+median and the second-best peak, so the `best > 2×median` and 20 % separation
+gates fail. AM8-12's detector is therefore correct but rarely active on
+progression-based music; it needs a novelty curve that separates *arrangement*
+change from *chord* change (timbre/energy blocks, or de-trending the 2 s chroma
+novelty by the local change rate).
+
+**Positive results.** Four-on-the-floor tempo is accurate to ≤0.03 BPM at 120,
+124 and 174; beat phase is within 8 ms on a deliberately shifted 124 BPM track;
+the MP3 decode path reproduces the WAV analysis (0.3 ms phase difference, same
+32 chord rows); the waltz metre is 3 with correct downbeat phase; clean triads
+are identified exactly (C/Am/F/G, including the decayed hangover row at the
+C→G change); key confidence is high on static harmony (0.98) and low on
+percussion-only material (0.05–0.12), which is the intended behaviour.
+
+**Not covered by this pass.** No Android device, Kotlin/XFade execution, or
+listening test was possible (no Android SDK in the sandbox); the crossfade
+envelope regression still requires the Gradle path. Fixtures are synthetic
+music, not commercial recordings, so the half-tempo and section findings should
+be re-checked on a handful of real tracks before changing thresholds.
+
+### Post-fix re-measurement (same harness)
+
+The half-tempo defect was fixed in the same session. The offline candidate
+score now weights onset coverage at 0.45 (was 0.12) and the autocorrelation
+comb at 0.10 (was 0.30), and `estimate_tempo` votes the four quarter estimates
+when at least three agree within 4% and differ from the whole-window level.
+Two regressions were added to the C suite —
+`test_analyzer_backbeat_keeps_beat_level` and
+`test_analyzer_sparse_intro_keeps_chorus_tempo` — and both abort on the
+previous analyzer, so the change is locked in.
+
+| Fixture | Before | After |
+|---|---|---|
+| 120 four-on-floor + snare 2/4 | 60.00 (0.87) | **119.98 (0.57)** |
+| 124 four-on-floor + snare 2/4 | 124.01 (0.50), start 61.9 | **124.01 (0.72)**, start 123.9 |
+| 174 breakbeat | 87.01 (0.48) | **173.98 (0.63)** |
+| sparse intro + chorus (progression) | 60.00 (0.88), end 60.00 | **120.00 (0.63)**, end 120.01 |
+| sparse intro + chorus (static harmony) | 60.00 (0.89), end 60.00 | **120.01 (0.78)**, end 120.01; section 32000 @1.00 preserved |
+| 120 / 124 / 174 four-on-floor, waltz, 6/8, 124+100 ms | correct | unchanged (120.02, 124.01, 174.03, 119.98 m3, 80.02 m4, 92.3 ms) |
+| MP3 192k round-trip | 124.01, Δ0.3 ms | unchanged |
+
+Confidence is now the margin between the beat and bar levels, so the backbeat
+case publishes 0.57 instead of the old wrong-but-confident 0.87; 0.57 remains
+above the 0.35 grid threshold Dart uses. One side effect: the sparse-intro
+fixture no longer publishes a head beat phase (NaN) because the first 32 s
+carry no beat-level onsets for the head phase fold; the exit and quarter phases
+are unaffected. The 6/8 metre limitation and the section-cue masking by chord
+progressions remain open — they need separate changes (a 2-beat metre
+hypothesis, and section novelty de-trended against the local chord-change
+rate).
+
 ## Appendix — probe inventory and exact runs
 
 All probes were compiled against the pre-remediation sources with
 `clang -O2 -std=c11 -I native_audio_runtime/src` and linked with `automix_analyzer.c`,
 `automix_live_tracker.c`, `automix_phase_lock.c` (plus `automix_tone_processor.c`/`automix_planner.c` where
-needed). Their sources remain in `build/audit_tmp/` (git-ignored scratch) and can be rebuilt against any
-revision; the numbers below are the pre-fix baseline, not post-remediation results:
+needed). The probe sources were throwaway files under the git-ignored `build/audit_tmp/` and were removed
+after the audit, so the numbers below are the recorded pre-fix baseline, not a checked-in harness:
 
 | Probe | Covers |
 |---|---|
