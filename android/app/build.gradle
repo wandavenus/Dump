@@ -11,13 +11,23 @@ def sentryUploadEnabled = [
 ].every { value -> value != null && !value.trim().isEmpty() }
 
 sentry {
+    autoInstallation {
+        enabled = false // sentry_flutter already supplies the matching native SDK.
+    }
+    includeProguardMapping = sentryUploadEnabled
     autoUploadProguardMapping = sentryUploadEnabled
     uploadNativeSymbols = sentryUploadEnabled
     autoUploadNativeSymbols = sentryUploadEnabled
     includeNativeSources = false
+    includeSourceContext = false
     org = System.getenv("SENTRY_ORG")
     projectName = System.getenv("SENTRY_PROJECT")
     authToken = System.getenv("SENTRY_AUTH_TOKEN")
+
+    tracingInstrumentation {
+        enabled = true
+        features = [InstrumentationFeature.FILE_IO, InstrumentationFeature.DATABASE]
+    }
 }
 
 kotlin {
