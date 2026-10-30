@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.64',
+    date: '30 Oktober 2026',
+    changes: [
+      'Perbaikan lint pada inisialisasi Sentry tanpa mengubah perilaku pelaporan error.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.63',
     date: '30 Oktober 2026',
     changes: [
