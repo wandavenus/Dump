@@ -182,8 +182,9 @@ class LogService {
     _sentryLogsInWindow++;
 
     final safeCategory = _categoryAliases[category] ?? category;
-    final safeMessage = LogRedaction.apply(message);
-    final body = '[$safeCategory] $safeMessage';
+    // Log messages can contain media metadata even after path/URI redaction.
+    // Keep only the safe category and level in Sentry structured logs.
+    final body = '[$safeCategory] ${level.name} event';
     unawaited(
       Future<void>.sync(() {
         if (level == LogLevel.warning) {
