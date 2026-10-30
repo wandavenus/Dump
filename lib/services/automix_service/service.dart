@@ -1884,16 +1884,79 @@ class AutomixService {
     return (segment, fileSeconds, reachedEof);
   }
 
-  /// Head / middle / tail windows covering the whole file, ordered by position.
-  ///
-  /// Apple-Music-style analysis is not "the first N seconds": a six-minute
-  /// track's outro tempo and level are what the transition actually needs, so
-  /// the tail window is always analyzed for anything longer than one window,
-  /// and the file length reported by native decides whether a middle window is
-  /// worth the extra decode.
+  /// Analyzes every window in one native call: the Android bridge decodes the
+  /// file once, captures head/middle windows while streaming past and keeps a
+  /// bounded ring for the tail (D10). The legacy per-window path below remains
+  /// as a fail-open fallback for an older native bridge.
   static Future<(List<AutomixSegmentFeatures>, double, bool)> _analyzeSegments(
     LocalSong song,
   ) async {
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>(
+        'analyzeAll',
+        {
+          'path': song.path,
+          'segmentSeconds': _segmentSeconds,
+          'veryLongFileSeconds': _veryLongFileSeconds,
+        },
+      );
+      if (res == null || res['success'] != true) {
+        return (const <AutomixSegmentFeatures>[], 0.0, false);
+      }
+      final rawWindows = res['windows'];
+      final segments = <AutomixSegmentFeatures>[];
+      var tailAnalyzed = false;
+      if (rawWindows is List) {
+        for (final raw in rawWindows) {
+          if (raw is! Map) continue;
+          final map = raw.cast<String, dynamic>();
+          final start = (map['segmentStartSeconds'] as num?)?.toDouble() ?? 0.0;
+          final seconds =
+              (map['segmentSeconds'] as num?)?.toDouble() ?? _segmentSeconds;
+          segments.add(
+            automixSegmentFeaturesFromAnalysisMap(
+              map,
+              fallbackStartSeconds: start,
+              fallbackSeconds: seconds,
+            ),
+          );
+          if (map['reachedEof'] == true) tailAnalyzed = true;
+        }
+      }
+      if (segments.isEmpty) {
+        return (const <AutomixSegmentFeatures>[], 0.0, false);
+      }
+      final rawFileSeconds = (res['fileSeconds'] as num?)?.toDouble();
+      final fileSeconds =
+          rawFileSeconds != null &&
+              rawFileSeconds.isFinite &&
+              rawFileSeconds > 0
+          ? rawFileSeconds
+          : 0.0;
+      return (segments, fileSeconds, tailAnalyzed);
+    } on MissingPluginException {
+      // Older Android builds do not expose analyzeAll yet. Keep the bounded
+      // per-window decoder path as a fail-open fallback.
+      return _analyzeSegmentsLegacy(song);
+    } on PlatformException catch (e) {
+      if (e.code == 'scan_busy') {
+        LogService.verbose('Automix', 'analysis channel busy');
+        throw const _AutomixAnalysisBusy();
+      }
+      LogService.warn('Automix', 'analyzeAll failed: $e');
+      return (const <AutomixSegmentFeatures>[], 0.0, false);
+    } on Exception catch (e) {
+      LogService.warn('Automix', 'analyzeAll failed: $e');
+      return (const <AutomixSegmentFeatures>[], 0.0, false);
+    }
+  }
+
+  /// Legacy head/middle/tail path: one decoder open and seek per window.
+  ///
+  /// Kept only for an older native bridge without `analyzeAll`; the batch path
+  /// above is the normal Android path.
+  static Future<(List<AutomixSegmentFeatures>, double, bool)>
+  _analyzeSegmentsLegacy(LocalSong song) async {
     final mediaDuration = song.duration.inMilliseconds / 1000.0;
     var windowSeconds = mediaDuration.isFinite && mediaDuration > 0
         ? analysisWindowSecondsForDuration(mediaDuration)

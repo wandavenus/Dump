@@ -901,9 +901,33 @@ wrong rows are the two-second windows that straddle a chord change (row at
 unrelated relative seventh at all three (Am7 0.75, Dm7 0.51, Em7 0.25).
 That is the pre-existing 2 s-window straddle, not a bass-root error, and it is
 unchanged. Regression: `test_chord_full_band_mix_keeps_harmonic_root` asserts
-all 12 stable roots and confidence ≥0.40 in both variants. Still open from §J:
-L1 seam loudness (E, needs Kotlin/CI), streaming decode (F) and SSM
-segmentation (G).
+all 12 stable roots and confidence ≥0.40 in both variants.
+
+### Single-pass streaming decode (finding F / D10, same day, v1.5.62)
+
+Each Dart `_analyzeWindow` used to invoke the Android channel `analyze`, and
+every invocation opened a fresh `MediaExtractor` + `MediaCodec`, seeked to the
+window start and allocated a window-sized PCM buffer. A track with head, tail
+and one or two middle windows therefore paid 3–4 decoder sessions.
+
+The new `analyzeAll` channel call decodes the file once from sample 0. At
+`onFormat` the bridge plans the same window geometry from the decoder-reported
+duration (head plus middle windows, including the 241–300 s centred window),
+captures each head/middle buffer while the stream passes and keeps one bounded
+ring buffer for the tail. A window is analysed as soon as its last sample
+arrives; the tail is unwrapped from the ring at actual EOF, so stale container
+duration cannot hide the real end. Peak memory stays bounded by the active
+capture buffers plus one ring, never a file-sized PCM array. Dart now makes
+one call per track;
+it falls back to the old per-window path on `MissingPluginException` for an
+older native bridge.
+
+This implements the D10 structure, but the Kotlin/Gradle toolchain is not
+available in this workspace, so the Android bridge was **not compiled or run on
+device** and the expected scan wall-clock improvement is **not measured**. The
+Dart channel caller, parser and AutoMix suite pass; native C behavior is
+unchanged. Still open from §J: L1 seam loudness (E, needs Kotlin/CI) and SSM
+segmentation (G); F's device wall-clock validation remains pending.
 
 ## Appendix — probe inventory and exact runs
 

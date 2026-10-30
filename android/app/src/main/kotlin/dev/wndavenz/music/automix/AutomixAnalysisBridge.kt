@@ -1,7 +1,10 @@
 package dev.wndavenz.music.automix
 
 import dev.wndavenz.music.replaygain.PcmDecoder
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * Thin glue between MainActivity's Automix channel and the DSP analysis.
@@ -137,10 +140,291 @@ object AutomixAnalysis {
         if (collected.size < analysisRate) return null // under 1 s of audio
 
         if (!AutomixNative.ensureLoaded()) return null
-        // Reuse one bounded PCM copy for both native passes. Long tracks can
-        // produce several million samples, so avoid a second ~26 MB allocation.
-        val monoPcm = collected.toFloatArray()
-        val centerRatio = downsampler?.centerChannelRatio ?: Double.NaN
+        return analyzeSamples(
+            collected.toFloatArray(),
+            analysisRate,
+            downsampler?.centerChannelRatio ?: Double.NaN,
+            safeStartSeconds,
+            fileSeconds,
+            reachedEof,
+        )
+    }
+
+    /**
+     * Decodes a file once, capturing the windows AutoMix needs while the audio
+     * streams past. The head and any middle windows are analysed as soon as
+     * their sample buffers fill; a bounded ring buffer holds the actual tail
+     * even when the container duration is stale. This replaces one decoder
+     * open/seek per window with one sequential decode session.
+     */
+    fun analyzeAll(
+        filePath: String,
+        segmentSeconds: Double = 120.0,
+        veryLongFileSeconds: Double = 300.0,
+    ): Map<String, Any?> {
+        val segment = segmentSeconds.takeIf {
+            it.isFinite() && it in 1.0..MAX_ANALYZE_SECONDS.toDouble()
+        } ?: 120.0
+        val veryLong = veryLongFileSeconds.takeIf {
+            it.isFinite() && it >= segment
+        } ?: 300.0
+
+        var sampleRate = 0
+        var channels = 0
+        var analysisRate = 0
+        var downsampler: AutomixPcmDownsampler? = null
+        var formatSeconds = 0.0
+        var ring = FloatArray(0)
+        var windowSeconds = segment
+        var captures: List<WindowCapture> = emptyList()
+        var totalSamples = 0L
+        var reachedEof = false
+        val results = mutableListOf<MutableMap<String, Any?>>()
+
+        fun finishCapture(capture: WindowCapture) {
+            val buffer = capture.buffer ?: return
+            capture.release()
+            if (buffer.size < analysisRate) return
+            val map = analyzeSamples(
+                buffer,
+                analysisRate,
+                downsampler?.centerChannelRatio ?: Double.NaN,
+                capture.startSeconds,
+                0.0,
+                false,
+            ) ?: return
+            results.add(map)
+        }
+
+        val decoded = PcmDecoder.decode(
+            path = filePath,
+            onFormat = { fmt ->
+                sampleRate = fmt.sampleRate
+                channels = fmt.channels
+                if (fmt.durationUs > 0) formatSeconds = fmt.durationUs / 1_000_000.0
+                downsampler = AutomixPcmDownsampler(
+                    sourceRateHz = sampleRate,
+                    channels = channels,
+                    targetRateHz = TARGET_RATE_HZ,
+                    channelMask = fmt.channelMask,
+                )
+                analysisRate = downsampler!!.outputRateHz
+                windowSeconds = planWindowSeconds(formatSeconds, segment, veryLong)
+                val ringSeconds = if (formatSeconds.isFinite() && formatSeconds > 0.0) {
+                    minOf(windowSeconds, formatSeconds).coerceAtLeast(1.0)
+                } else {
+                    windowSeconds
+                }
+                ring = FloatArray(
+                    (analysisRate * ringSeconds).roundToInt().coerceAtLeast(1),
+                )
+                captures = planWindowStarts(formatSeconds, windowSeconds, veryLong).map {
+                    WindowCapture(it, windowSeconds, analysisRate)
+                }
+            },
+            feed = { buf, frameCount ->
+                val rate = analysisRate
+                val resampler = downsampler
+                if (rate <= 0 || resampler == null) return@decode false
+                for (frame in 0 until frameCount) {
+                    val mono = resampler.processFrame(buf, frame) ?: continue
+                    val position = totalSamples
+                    if (ring.isNotEmpty()) {
+                        ring[(position % ring.size.toLong()).toInt()] = mono
+                    }
+                    for (capture in captures) {
+                        if (capture.append(position, mono)) finishCapture(capture)
+                    }
+                    totalSamples++
+                }
+                true
+            },
+            onProgress = { /* single sequential pass; progress not consumed */ },
+            onEos = { reachedEof = true },
+        )
+
+        if (sampleRate <= 0 || analysisRate <= 0 || totalSamples <= 0L) {
+            return mapOf("success" to false, "error" to "analysis_failed")
+        }
+        val actualSeconds = totalSamples.toDouble() / analysisRate
+        if (actualSeconds < 1.0) {
+            return mapOf("success" to false, "error" to "analysis_failed")
+        }
+
+        // The tail comes from the ring, not from a predicted start offset: a
+        // stale container duration must not hide the real end of the file.
+        val ringCount = minOf(totalSamples, ring.size.toLong()).toInt()
+        if (ringCount >= analysisRate) {
+            val tailPcm = FloatArray(ringCount)
+            val startIndex = if (totalSamples >= ring.size.toLong()) {
+                (totalSamples % ring.size.toLong()).toInt()
+            } else {
+                0
+            }
+            for (index in 0 until ringCount) {
+                tailPcm[index] = ring[(startIndex + index) % ring.size]
+            }
+            // A file shorter than one window has no head/tail split; the ring
+            // is the whole track and the partial captures are discarded.
+            if (totalSamples <= (captures.firstOrNull()?.sampleCount ?: 0).toLong()) {
+                results.clear()
+            }
+            val tailStartSeconds =
+                (totalSamples - ringCount).toDouble() / analysisRate
+            val tail = analyzeSamples(
+                tailPcm,
+                analysisRate,
+                downsampler?.centerChannelRatio ?: Double.NaN,
+                tailStartSeconds,
+                actualSeconds,
+                reachedEof,
+            )
+            if (tail != null) results.add(tail)
+        }
+        for (capture in captures) capture.release()
+        if (results.isEmpty()) {
+            return mapOf("success" to false, "error" to "analysis_failed")
+        }
+
+        // The decoder only reports the real length after the pass, so patch
+        // the bookkeeping fields that were built while it was still unknown.
+        for (map in results) {
+            map["fileSeconds"] = actualSeconds
+            val start = (map["segmentStartSeconds"] as? Number)?.toDouble() ?: 0.0
+            val seconds = (map["segmentSeconds"] as? Number)?.toDouble() ?: 0.0
+            map["reachedEof"] = reachedEof && start + seconds >= actualSeconds - 0.05
+        }
+        results.sortBy { (it["segmentStartSeconds"] as? Number)?.toDouble() ?: 0.0 }
+        val windows = mutableListOf<MutableMap<String, Any?>>()
+        for (map in results) {
+            val start = (map["segmentStartSeconds"] as? Number)?.toDouble() ?: 0.0
+            val previous = windows.lastOrNull()
+            val previousStart = (previous?.get("segmentStartSeconds") as? Number)
+                ?.toDouble() ?: -1.0
+            if (previous != null && abs(start - previousStart) < 0.5) {
+                if (map["reachedEof"] == true) {
+                    windows[windows.lastIndex] = map
+                }
+            } else {
+                windows.add(map)
+            }
+        }
+        return mapOf(
+            "success" to true,
+            "windows" to windows,
+            "fileSeconds" to actualSeconds,
+            "reachedEof" to reachedEof,
+            "decoded" to decoded,
+        )
+    }
+
+    private fun planWindowSeconds(
+        durationSeconds: Double,
+        segmentSeconds: Double,
+        veryLongFileSeconds: Double,
+    ): Double {
+        if (!durationSeconds.isFinite() || durationSeconds <= 0.0) return segmentSeconds
+        if (durationSeconds > segmentSeconds &&
+            durationSeconds < segmentSeconds * 2.0
+        ) {
+            return floor(durationSeconds / 2.0).coerceAtLeast(1.0)
+        }
+        return segmentSeconds
+    }
+
+    private fun planWindowStarts(
+        durationSeconds: Double,
+        windowSeconds: Double,
+        veryLongFileSeconds: Double,
+    ): List<Double> {
+        val starts = mutableListOf(0.0)
+        if (!durationSeconds.isFinite() || durationSeconds <= windowSeconds) {
+            return starts
+        }
+        val tailStart = durationSeconds - windowSeconds
+        if (durationSeconds <= veryLongFileSeconds) {
+            // 241-300 s: one centred window closes the head/tail gap, even
+            // though it overlaps both edges (the old coverage fix).
+            if (tailStart - windowSeconds > 30.0) {
+                starts.add((durationSeconds / 2.0 - windowSeconds / 2.0)
+                    .coerceIn(0.0, durationSeconds - windowSeconds))
+            }
+        } else {
+            fun addCentered(centerSeconds: Double) {
+                val start = (centerSeconds - windowSeconds / 2.0)
+                    .coerceIn(0.0, durationSeconds - windowSeconds)
+                // Keep the head/tail edges exclusive for very long files; the
+                // existing analyser already avoids duplicated windows here.
+                if (start < windowSeconds) return
+                if (durationSeconds - (start + windowSeconds) < windowSeconds) return
+                if (starts.any { abs(it - start) < windowSeconds }) return
+                starts.add(start)
+            }
+            if (durationSeconds > veryLongFileSeconds * 2.0) {
+                addCentered(durationSeconds / 4.0)
+                addCentered(durationSeconds / 2.0)
+                addCentered(durationSeconds * 3.0 / 4.0)
+            } else {
+                addCentered(durationSeconds / 2.0)
+            }
+        }
+        return starts
+    }
+
+    private class WindowCapture(
+        val startSeconds: Double,
+        seconds: Double,
+        rate: Int,
+    ) {
+        val startSample: Long = (startSeconds * rate).roundToLong()
+        val sampleCount: Int = (seconds * rate).roundToInt().coerceAtLeast(1)
+        // Grow like FloatSampleBuffer: a short file must not allocate a full
+        // 120 s window just because its container duration was unknown or stale.
+        private var target = FloatArray(minOf(16 * 1024, sampleCount).coerceAtLeast(1))
+        var buffer: FloatArray? = target
+        private var fill = 0
+        private var completed = false
+
+        fun release() {
+            completed = true
+            buffer = null
+            target = FloatArray(0)
+        }
+
+        /** Returns true exactly once, when this window's last sample arrives. */
+        fun append(position: Long, sample: Float): Boolean {
+            if (completed) return false
+            val offset = position - startSample
+            if (offset < 0L) return false
+            if (offset >= sampleCount.toLong()) {
+                completed = true
+                return false
+            }
+            if (fill >= target.size) {
+                target = target.copyOf(minOf(sampleCount, target.size * 2))
+                buffer = target
+            }
+            target[fill++] = sample
+            if (fill == sampleCount) {
+                completed = true
+                buffer = target.copyOf(fill)
+                target = FloatArray(0)
+                return true
+            }
+            return false
+        }
+    }
+
+    private fun analyzeSamples(
+        monoPcm: FloatArray,
+        analysisRate: Int,
+        centerRatio: Double,
+        startSeconds: Double,
+        fileSeconds: Double,
+        reachedEof: Boolean,
+    ): MutableMap<String, Any?>? {
+        if (monoPcm.size < analysisRate) return null
+        if (!AutomixNative.ensureLoaded()) return null
         val analysis = try {
             AutomixNative.nativeAnalyzeCentered(
                 monoPcm,
@@ -183,7 +467,7 @@ object AutomixAnalysis {
                     quality !in chordQualities.indices || !confidence.isFinite() ||
                     confidence !in 0.0..1.0 || confidence < 0.08
                 ) null else mapOf(
-                    "startMs" to (safeStartSeconds * 1000.0 + startMs),
+                    "startMs" to (startSeconds * 1000.0 + startMs),
                     "rootPitchClass" to root,
                     "root" to pitchNames[root],
                     "quality" to chordQualities[quality],
@@ -226,7 +510,7 @@ object AutomixAnalysis {
             null
         }
 
-        return mapOf(
+        return mutableMapOf(
             "success" to true,
             "bpm" to bpm,
             "bpmConfidence" to bpmConfidence,
@@ -283,14 +567,14 @@ object AutomixAnalysis {
             // and needs to know each window's position and the file length.
             // Use the sanitized value so the reported offset always matches the
             // position the decoder actually started from.
-            "segmentStartSeconds" to safeStartSeconds,
+            "segmentStartSeconds" to startSeconds,
             "segmentSeconds" to analysis[10],
             "fileSeconds" to fileSeconds,
             // True only when the decoder reached End-Of-Stream inside this
             // window. A capped tail window can be full yet still stop before
             // the real file end when container duration metadata is stale.
             "reachedEof" to reachedEof,
-            "decodedSeconds" to collected.size.toDouble() / analysisRate,
+            "decodedSeconds" to monoPcm.size.toDouble() / analysisRate,
         )
     }
 
