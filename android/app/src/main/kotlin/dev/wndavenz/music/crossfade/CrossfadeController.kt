@@ -175,9 +175,9 @@ class CrossfadeController(
         const val MAX_TAIL_FILTER = 0.75f
 
         /**
-         * Per-deck ceiling used only during an AutoMix overlap. With the L1
-         * fade budget (outgoing + incoming <= 1) this also bounds the summed
-         * signal at the platform mixer to roughly the ceiling.
+         * Per-deck ceiling used only during an AutoMix overlap. Each deck is
+         * limited independently; this does not bound their combined signal
+         * after the platform mixer sums them.
          */
         const val AUTOMIX_TRUE_PEAK_CEILING = 0.95f
 

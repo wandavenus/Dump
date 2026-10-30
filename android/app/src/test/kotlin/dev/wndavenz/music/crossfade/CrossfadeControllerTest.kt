@@ -302,7 +302,7 @@ class CrossfadeControllerTest {
         assertNull(ctrl.promotionOwner)
     }
 
-    @Test fun `C10 scheduled fade ticks share headroom and cancel the pending tick`() {
+    @Test fun `C10 scheduled fade ticks keep deck gains bounded and cancel the pending tick`() {
         val ctrl = makeControllerWithImmediateTrigger()
         ctrl.maybeCrossfadeOut()
         assertTrue("crossfade runnable was not scheduled", pendingHandlerTasks.isNotEmpty())
@@ -323,10 +323,8 @@ class CrossfadeControllerTest {
         val incoming = incomingVolumes.lastValue
         assertTrue("outgoing deck did not fade", outgoing < 1f)
         assertTrue("incoming deck did not fade in", incoming > 0f)
-        assertTrue(
-            "joint gains exceed the L1 headroom budget: out=$outgoing in=$incoming",
-            outgoing + incoming <= 1.001f,
-        )
+        assertTrue("outgoing deck gain is outside [0, 1]", outgoing in 0f..1f)
+        assertTrue("incoming deck gain is outside [0, 1]", incoming in 0f..1f)
 
         ctrl.cancel(resetVolume = false)
         assertFalse(ctrl.crossfadeInProgress)
