@@ -14,6 +14,10 @@ Future<void> main() async {
           options.environment = kReleaseMode ? 'production' : 'development';
           options.sendDefaultPii = false;
           options.enableNativeCrashHandling = true;
+          options.enableNativeTraceSync = true;
+          options.enableNdkScopeSync = true;
+          options.enableAutoNativeBreadcrumbs = true;
+          options.enableUserInteractionBreadcrumbs = true;
           options.anrEnabled = true;
           options.enableTombstone = true;
           options.tracesSampleRate = kReleaseMode ? 0.15 : 1.0;
