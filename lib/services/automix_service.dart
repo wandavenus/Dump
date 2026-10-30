@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+
+import 'sentry_observability.dart';
 import 'dart:io' show File;
 import 'dart:math' as math;
 
