@@ -11,9 +11,33 @@ Future<void> main() async {
           // DSN is intentionally injected at compile time by the release workflow.
           // ignore: do_not_use_environment
           options.dsn = const String.fromEnvironment('SENTRY_DSN');
+          // Runtime release must match symbol uploads from Noisegraph CI.
+          // ignore: do_not_use_environment
+          const sentryRelease = String.fromEnvironment('SENTRY_RELEASE');
+          // ignore: do_not_use_environment
+          const sentryDist = String.fromEnvironment('SENTRY_DIST');
+          if (sentryRelease.isNotEmpty) options.release = sentryRelease;
+          if (sentryDist.isNotEmpty) options.dist = sentryDist;
           options.environment = kReleaseMode ? 'production' : 'development';
           options.sendDefaultPii = false;
           options.enableNativeCrashHandling = true;
+          options.enableNativeTraceSync = true;
+          options.enableNdkScopeSync = true;
+          options.enableAutoNativeBreadcrumbs = true;
+          options.enableUserInteractionBreadcrumbs = true;
+          options.anrEnabled = true;
+          options.enableTombstone = true;
+          options.tracesSampleRate = kReleaseMode ? 0.15 : 1.0;
+          options.enableAutoPerformanceTracing = true;
+          options.enableFramesTracking = true;
+          options.enableUserInteractionTracing = true;
+          options.enableTimeToFullDisplayTracing = true;
+          options.enableExceptionTypeIdentification = true;
+          options.replay.sessionSampleRate = kReleaseMode ? 0.05 : 0.0;
+          options.replay.onErrorSampleRate = 1.0;
+          options.privacy.maskAllText = true;
+          options.privacy.maskAllImages = true;
+          options.privacy.maskAssetImages = true;
         });
       } on Object catch (error, stack) {
         debugPrint('[Sentry] Initialization failed: $error\n$stack');
@@ -158,7 +182,7 @@ Future<void> main() async {
       AudioFocusService.initialize();
       SleepTimerService.initialize();
       unawaited(AudioService.syncFromNative());
-      runApp(const MyApp());
+      runApp(SentryWidget(child: const MyApp()));
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         unawaited(OpenFileService.checkInitialUri());
       }

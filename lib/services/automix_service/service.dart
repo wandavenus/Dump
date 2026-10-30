@@ -317,6 +317,11 @@ class AutomixService {
     } on Object catch (e, st) {
       // This pass is launched unawaited from a ValueNotifier listener; an
       // unexpected failure must never escape as an unhandled async error.
+      SentryObservability.captureException(
+        e,
+        st,
+        operation: 'automix.playback_check',
+      );
       LogService.warn('Automix', 'automatic queue check failed: $e');
       LogService.verbose('Automix', st.toString());
     } finally {
@@ -821,6 +826,15 @@ class AutomixService {
         if (!_isAutoMixGenerationCurrent(generation)) return;
         _lastNativeSignature = signature;
         _replanRetryCount = 0;
+        SentryObservability.breadcrumb(
+          'automix.plan',
+          'AutoMix transition plan armed',
+          data: {
+            'deck_targets': plannedFeatures.length,
+            'upcoming_tracks': tailIds.length,
+            'tempo_matching': bpm != null,
+          },
+        );
         LogService.log(
           'Automix',
           'DJ plan ready (${plannedFeatures.length} deck targets of '
@@ -829,6 +843,11 @@ class AutomixService {
         );
       }
     } on Object catch (e, st) {
+      SentryObservability.captureException(
+        e,
+        st,
+        operation: 'automix.plan_prepare',
+      );
       LogService.warn('Automix', 'automatic queue preparation failed: $e');
       LogService.verbose('Automix', st.toString());
       _scheduleReplanRetry();

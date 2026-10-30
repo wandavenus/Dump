@@ -1,6 +1,29 @@
 plugins {
     id "com.android.application"
     id "dev.flutter.flutter-gradle-plugin"
+    id "io.sentry.android.gradle" version "6.24.0"
+}
+
+def sentryUploadEnabled = [
+    System.getenv("SENTRY_AUTH_TOKEN"),
+    System.getenv("SENTRY_ORG"),
+    System.getenv("SENTRY_PROJECT")
+].every { value -> value != null && !value.trim().isEmpty() }
+
+sentry {
+    autoInstallation {
+        enabled = false // sentry_flutter already supplies the matching native SDK.
+    }
+    includeProguardMapping = sentryUploadEnabled
+    autoUploadProguardMapping = sentryUploadEnabled
+    uploadNativeSymbols = sentryUploadEnabled
+    autoUploadNativeSymbols = sentryUploadEnabled
+    includeNativeSources = false
+    includeSourceContext = false
+    org = System.getenv("SENTRY_ORG")
+    projectName = System.getenv("SENTRY_PROJECT")
+    authToken = System.getenv("SENTRY_AUTH_TOKEN")
+
 }
 
 kotlin {
@@ -155,6 +178,9 @@ android {
             minifyEnabled true
             shrinkResources true
             crunchPngs true
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -4,6 +4,8 @@ class LogService {
   LogService._();
 
   static const int _maxEntries = 5000;
+  static DateTime? _sentryLogWindowStart;
+  static int _sentryLogsInWindow = 0;
 
   static final Queue<LogEntry> _logs = Queue<LogEntry>();
   static final ValueNotifier<int> logCount = ValueNotifier(0);
@@ -134,6 +136,7 @@ class LogService {
     LogLevel level = LogLevel.info,
     String? stackTrace,
   }) {
+    _forwardSentryLog(category, level);
     if (!loggingEnabled.value) return;
     if (errorsOnly.value && level.index < LogLevel.warning.index) return;
     if (level == LogLevel.verbose && !verboseEnabled.value) return;
@@ -159,6 +162,37 @@ class LogService {
     logRevision.value = ++_revision;
 
     if (kDebugMode) debugPrint(entry.toString());
+  }
+
+  /// Forward only redacted warnings/errors, capped to avoid telemetry floods.
+  static void _forwardSentryLog(
+    String category,
+    LogLevel level,
+  ) {
+    if (!Sentry.isEnabled || level.index < LogLevel.warning.index) return;
+    final now = DateTime.now();
+    final windowStart = _sentryLogWindowStart;
+    if (windowStart == null ||
+        now.difference(windowStart) >= const Duration(minutes: 1)) {
+      _sentryLogWindowStart = now;
+      _sentryLogsInWindow = 0;
+    }
+    if (_sentryLogsInWindow >= 20) return;
+    _sentryLogsInWindow++;
+
+    final safeCategory = _categoryAliases[category] ?? category;
+    // Log messages can contain media metadata even after path/URI redaction.
+    // Keep only the safe category and level in Sentry structured logs.
+    final body = '[$safeCategory] ${level.name} event';
+    unawaited(
+      Future<void>.sync(() {
+        if (level == LogLevel.warning) {
+          Sentry.logger.warn(body);
+        } else {
+          Sentry.logger.error(body);
+        }
+      }),
+    );
   }
 
   /// Keeps warning/error entries longer than verbose/info noise.

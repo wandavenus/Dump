@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../services/log_service.dart';
+import '../../sentry_observability.dart';
 import '../cancellation.dart';
 import '../rate_limiter.dart';
 
@@ -76,7 +78,17 @@ class ProviderHttp {
         // Jangan retry 2xx/3xx
         if (response.statusCode < 400) return response;
 
-        // 5xx → retry
+        // 5xx → retry. Never attach the query URL: it can contain song titles.
+        SentryObservability.breadcrumb(
+          'network.lyrics',
+          'Lyrics provider returned a server error',
+          level: SentryLevel.warning,
+          data: {
+            'provider': providerName,
+            'host': uri.host,
+            'status_code': response.statusCode,
+          },
+        );
         LogService.verbose(
           providerName,
           'HTTP ${response.statusCode} — akan retry',
@@ -84,12 +96,29 @@ class ProviderHttp {
       } on CancelledException {
         return null;
       } on TimeoutException {
+        SentryObservability.breadcrumb(
+          'network.lyrics',
+          'Lyrics provider request timed out',
+          level: SentryLevel.warning,
+          data: {'provider': providerName, 'host': uri.host, 'attempt': attempt},
+        );
         LogService.verbose(providerName, 'Timeout attempt $attempt');
       } on Exception catch (e) {
         if (cancelToken.isCancelled) return null;
+        SentryObservability.breadcrumb(
+          'network.lyrics',
+          'Lyrics provider connection failed',
+          level: SentryLevel.warning,
+          data: {
+            'provider': providerName,
+            'host': uri.host,
+            'error_type': e.runtimeType.toString(),
+            'attempt': attempt,
+          },
+        );
         LogService.verbose(
           providerName,
-          'Connection error attempt $attempt: $e',
+          'Connection error attempt $attempt: ${e.runtimeType}',
         );
       }
     }
@@ -128,12 +157,39 @@ class ProviderHttp {
           return response;
         }
         if (response.statusCode < 400) return response;
+        SentryObservability.breadcrumb(
+          'network.lyrics',
+          'Lyrics provider returned a server error',
+          level: SentryLevel.warning,
+          data: {
+            'provider': providerName,
+            'host': uri.host,
+            'status_code': response.statusCode,
+          },
+        );
       } on CancelledException {
         return null;
       } on TimeoutException {
+        SentryObservability.breadcrumb(
+          'network.lyrics',
+          'Lyrics provider POST timed out',
+          level: SentryLevel.warning,
+          data: {'provider': providerName, 'host': uri.host, 'attempt': attempt},
+        );
         LogService.verbose(providerName, 'POST Timeout attempt $attempt');
-      } on Exception catch (_) {
+      } on Exception catch (e) {
         if (cancelToken.isCancelled) return null;
+        SentryObservability.breadcrumb(
+          'network.lyrics',
+          'Lyrics provider POST failed',
+          level: SentryLevel.warning,
+          data: {
+            'provider': providerName,
+            'host': uri.host,
+            'error_type': e.runtimeType.toString(),
+            'attempt': attempt,
+          },
+        );
       }
     }
     return null;

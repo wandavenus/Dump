@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 
+import 'sentry_observability.dart';
+
 import '../models/local_song.dart';
 import 'audio_service.dart';
 import 'audio_playback_state.dart';
