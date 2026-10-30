@@ -30,23 +30,21 @@ class EventEmitterTest {
         override fun endOfStream() {}
     }
 
-    /** Tracks names of all streams subscribed in this test so @After can clean up. */
-    private val registeredStreams = mutableListOf<String>()
+    private val testEngine = Any()
 
     private fun subscribe(name: String, sink: EventChannel.EventSink): EventChannel.StreamHandler {
-        val handler = EventEmitter.handler(name)
+        val handler = EventEmitter.handler(name, testEngine)
         handler.onListen(null, sink)
-        registeredStreams.add(name)
         return handler
     }
 
     @After
     fun tearDown() {
         NativeLogger.setEnabled(false)
-        registeredStreams.forEach { name ->
-            EventEmitter.handler(name).onCancel(null)
-        }
-        registeredStreams.clear()
+        EventEmitter.cleanupEngine(testEngine)
+        NativeLogger.cleanupEngine(testEngine)
+        ServiceReadyGate.cleanupEngine(testEngine)
+        ServiceReadyGate.reset()
         // Reset onSubscribe callback so it doesn't bleed across tests
         EventEmitter.setOnSubscribeCallback { }
         // Restore production dispatcher in case a test overrode it
@@ -215,7 +213,7 @@ class EventEmitterTest {
     @Test fun `D01 NativeLogger defaults to disabled and suppresses events`() {
         NativeLogger.setEnabled(false)
         val sink = FakeSink()
-        val handler = NativeLogger.handler()
+        val handler = NativeLogger.handler(testEngine)
         handler.onListen(null, sink)
 
         NativeLogger.emit("info", "Test", "suppressed while disabled")
@@ -232,7 +230,7 @@ class EventEmitterTest {
         NativeLogger.dispatcher = { it.run() }
 
         val sink = FakeSink()
-        val handler = NativeLogger.handler()
+        val handler = NativeLogger.handler(testEngine)
         handler.onListen(null, sink)
 
         NativeLogger.emit("warn", "CrossfadeTest", "test message")
@@ -250,7 +248,7 @@ class EventEmitterTest {
     @Test fun `D03 NativeLogger emit after cancel delivers nothing`() {
         NativeLogger.setEnabled(true)
         val sink = FakeSink()
-        val handler = NativeLogger.handler()
+        val handler = NativeLogger.handler(testEngine)
         handler.onListen(null, sink)
         handler.onCancel(null)
 
@@ -264,7 +262,7 @@ class EventEmitterTest {
         NativeLogger.dispatcher = { queued.add(it) }
         NativeLogger.setEnabled(true)
         val sink = FakeSink()
-        val handler = NativeLogger.handler()
+        val handler = NativeLogger.handler(testEngine)
         handler.onListen(null, sink)
 
         NativeLogger.emit("info", "Test", "queued")
@@ -290,7 +288,7 @@ class EventEmitterTest {
         NativeLogger.setEnabled(true)
         NativeLogger.dispatcher = { it.run() }
         val sink = FakeSink()
-        val handler = NativeLogger.handler()
+        val handler = NativeLogger.handler(testEngine)
         handler.onListen(null, sink)
 
         NativeLogger.emit("info", "Test", "scan /storage/emulated/0/Music")

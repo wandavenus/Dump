@@ -21,27 +21,62 @@ object EventEmitter {
     // main-thread contract. ConcurrentHashMap removes the latent
     // ConcurrentModificationException / visibility risk without changing
     // behavior (it implements MutableMap, so the operators below are unchanged).
-    private val sinks = ConcurrentHashMap<String, EventChannel.EventSink?>()
+    private data class OwnedSink(val owner: Any, val sink: EventChannel.EventSink)
+
+    private val sinkLock = Any()
+    private val sinks = mutableMapOf<String, OwnedSink>()
 
     /** Called whenever a new Flutter listener subscribes to any stream. */
     private var onSubscribe: (() -> Unit)? = null
 
     fun setOnSubscribeCallback(callback: () -> Unit) {
-        onSubscribe = callback
+        synchronized(sinkLock) {
+            onSubscribe = callback
+        }
     }
 
-    fun handler(name: String): EventChannel.StreamHandler = object : EventChannel.StreamHandler {
-        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-            sinks[name] = events
-            onSubscribe?.invoke()
+    /** Create a stream handler owned by a specific FlutterEngine identity. */
+    fun handler(name: String, owner: Any): EventChannel.StreamHandler =
+        object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                val callback = synchronized(sinkLock) {
+                    if (events != null) {
+                        sinks[name] = OwnedSink(owner, events)
+                    } else if (sinks[name]?.owner === owner) {
+                        sinks.remove(name)
+                    }
+                    onSubscribe
+                }
+                // Snapshot emission can call back into EventEmitter; never invoke
+                // it while holding sinkLock.
+                callback?.invoke()
+            }
+
+            override fun onCancel(arguments: Any?) {
+                synchronized(sinkLock) {
+                    if (sinks[name]?.owner === owner) {
+                        sinks.remove(name)
+                    }
+                }
+            }
         }
-        override fun onCancel(arguments: Any?) {
-            sinks.remove(name)
+
+    /** Remove only event sinks registered by the FlutterEngine being detached. */
+    fun cleanupEngine(owner: Any) {
+        synchronized(sinkLock) {
+            val iterator = sinks.iterator()
+            while (iterator.hasNext()) {
+                if (iterator.next().value.owner === owner) iterator.remove()
+            }
         }
     }
 
     fun emit(name: String, value: Any?) {
-        sinks[name]?.success(value)
+        synchronized(sinkLock) {
+            // Serialize delivery with cleanup so no event can target an engine
+            // after its cleanup hook has completed.
+            sinks[name]?.sink?.success(value)
+        }
     }
 }
 
@@ -68,26 +103,52 @@ object EventEmitter {
  * attached at the moment `markReady()` runs.
  */
 object ServiceReadyGate {
+    private data class OwnedSink(val owner: Any, val sink: EventChannel.EventSink)
+
+    private val sinkLock = Any()
     @Volatile private var ready = false
-    private var sink: EventChannel.EventSink? = null
+    private var sink: OwnedSink? = null
 
-    fun handler(): EventChannel.StreamHandler = object : EventChannel.StreamHandler {
-        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-            sink = events
-            if (ready) events?.success(true)
+    fun handler(owner: Any): EventChannel.StreamHandler =
+        object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                synchronized(sinkLock) {
+                    if (events != null) {
+                        sink = OwnedSink(owner, events)
+                        if (ready) events.success(true)
+                    } else if (sink?.owner === owner) {
+                        sink = null
+                    }
+                }
+            }
+
+            override fun onCancel(arguments: Any?) {
+                synchronized(sinkLock) {
+                    if (sink?.owner === owner) sink = null
+                }
+            }
         }
-        override fun onCancel(arguments: Any?) { sink = null }
-    }
 
-    /** Called once, at the end of [dev.wndavenz.music.Media3PlaybackService.onCreate]. */
+    /** Called once, at the end of Media3PlaybackService.onCreate(). */
     fun markReady() {
-        ready = true
-        sink?.success(true)
+        synchronized(sinkLock) {
+            ready = true
+            sink?.sink?.success(true)
+        }
     }
 
-    /** Reset when the service is torn down, so the next onCreate() must mark ready again. */
+    /** Remove a Flutter listener without changing the service readiness state. */
+    fun cleanupEngine(owner: Any) {
+        synchronized(sinkLock) {
+            if (sink?.owner === owner) sink = null
+        }
+    }
+
+    /** Reset only when the Media3 service itself is torn down. */
     fun reset() {
-        ready = false
+        synchronized(sinkLock) {
+            ready = false
+        }
     }
 }
 
@@ -167,11 +228,11 @@ object NativeLogger {
         emit("error", tag, safe)
     }
 
-    // @Volatile: emit() is now called from arbitrary background threads (audio/
-    // playback thread, native JNI callbacks) in addition to the main thread —
-    // without this, a background-thread read of `sink` is not guaranteed to see
-    // the value published by onListen() on the main thread.
-    @Volatile private var sink: EventChannel.EventSink? = null
+    private data class OwnedSink(val owner: Any, val sink: EventChannel.EventSink)
+
+    private val sinkLock = Any()
+    private var sink: OwnedSink? = null
+    private var sinkGeneration = 0L
 
     // Reused single Handler bound to the main Looper — see emit() below.
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -192,9 +253,38 @@ object NativeLogger {
     /** Restore the production (main-looper) dispatcher after tests. */
     internal fun resetDispatcher() { dispatcher = mainHandler::post }
 
-    fun handler(): EventChannel.StreamHandler = object : EventChannel.StreamHandler {
-        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
-        override fun onCancel(arguments: Any?) { sink = null }
+    fun handler(owner: Any): EventChannel.StreamHandler =
+        object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                synchronized(sinkLock) {
+                    if (events != null) {
+                        sink = OwnedSink(owner, events)
+                        sinkGeneration++
+                    } else if (sink?.owner === owner) {
+                        sink = null
+                        sinkGeneration++
+                    }
+                }
+            }
+
+            override fun onCancel(arguments: Any?) {
+                synchronized(sinkLock) {
+                    if (sink?.owner === owner) {
+                        sink = null
+                        sinkGeneration++
+                    }
+                }
+            }
+        }
+
+    /** Clear only the sink owned by the FlutterEngine being detached. */
+    fun cleanupEngine(owner: Any) {
+        synchronized(sinkLock) {
+            if (sink?.owner === owner) {
+                sink = null
+                sinkGeneration++
+            }
+        }
     }
 
     /**
@@ -219,10 +309,20 @@ object NativeLogger {
             "category" to category,
             "message" to redact(message),
         )
+        val generation = synchronized(sinkLock) {
+            // Do not enqueue logs when there is no valid Flutter listener.
+            if (sink == null) return
+            sinkGeneration
+        }
+
         dispatcher {
-            // A log queued while enabled must not leak after the user switches
-            // the toggle OFF before the main-looper callback runs.
-            if (enabled) runCatching { sink?.success(payload) }
+            synchronized(sinkLock) {
+                // The generation check drops events queued by a detached engine
+                // and prevents them leaking to a replacement engine's listener.
+                if (enabled && sinkGeneration == generation) {
+                    runCatching { sink?.sink?.success(payload) }
+                }
+            }
         }
     }
 }
