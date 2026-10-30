@@ -860,6 +860,70 @@ static void test_chord_vocabulary_expansion(void) {
   free(pcm);
 }
 
+static void test_chord_full_band_mix_keeps_harmonic_root(void) {
+  // Full-band C-F-G-Am, four seconds per chord: kick on every beat, snare on
+  // 2 and 4, off-beat hats, a sine bass and a triad pad. The bass doubles the
+  // root in the first pass and plays the fifth (second inversion) in the
+  // second; the labelled roots stay C/F/G/A either way. Ground truth is by
+  // construction, which the three uploaded Opus tracks cannot provide.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 16;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  static const double pads[4][3] = {
+      {261.6256, 329.6276, 391.9954},   // C4 E4 G4
+      {349.2282, 440.0, 523.2511},      // F4 A4 C5
+      {391.9954, 493.8833, 587.3295},   // G4 B4 D5
+      {440.0, 523.2511, 659.2551},      // A4 C5 E5
+  };
+  static const double roots[4] = {65.4064, 87.3071, 97.9989, 110.0};
+  static const double fifths[4] = {97.9989, 130.8128, 146.8324, 164.8138};
+  static const int32_t expected[8] = {0, 0, 5, 5, 7, 7, 9, 9};
+  double chords[64] = {0};
+
+  for (int32_t inverted = 0; inverted <= 1; ++inverted) {
+    unsigned int noise_state = 0x12345678u + (unsigned int)inverted;
+    for (int32_t i = 0; i < count; ++i) {
+      const double t = (double)i / sample_rate;
+      const int32_t chord = ((int32_t)(t / 4.0)) % 4;
+      const double bass = inverted ? fifths[chord] : roots[chord];
+      double value = 0.30 * sin(2.0 * pi * bass * t);
+      for (int32_t tone = 0; tone < 3; ++tone) {
+        value += 0.055 * sin(2.0 * pi * pads[chord][tone] * t);
+      }
+      const double beat_phase = fmod(t, 0.5);
+      const int32_t beat = ((int32_t)(t / 0.5)) % 4;
+      if (beat_phase < 0.20) {
+        value += 0.65 * sin(2.0 * pi * 58.0 * beat_phase) *
+                 exp(-beat_phase * 18.0);
+      }
+      noise_state = noise_state * 1664525u + 1013904223u;
+      const double noise =
+          (double)(noise_state >> 8) / 8388608.0 - 1.0;
+      if ((beat == 1 || beat == 3) && beat_phase < 0.15) {
+        value += 0.22 * noise * exp(-beat_phase * 30.0);
+      }
+      if (fmod(t, 0.5) >= 0.25 && fmod(t, 0.5) < 0.34) {
+        value += 0.06 * noise * exp(-(fmod(t, 0.5) - 0.25) * 60.0);
+      }
+      pcm[i] = (float)value;
+    }
+
+    const int32_t rows = nar_automix_analyze_chords(
+        pcm, count, sample_rate, chords, 64);
+    assert(rows == 15);
+    for (int32_t index = 0; index < 8; ++index) {
+      const int32_t row = index < 2 ? index + 1
+          : index < 4 ? index + 3
+          : index < 6 ? index + 5 : index + 7;
+      assert((int32_t)llround(chords[row * 4 + 1]) == expected[index]);
+      assert(chords[row * 4 + 3] >= 0.40);
+    }
+  }
+  free(pcm);
+}
+
 static void test_analyzer_energy_quarters(void) {
   // 8 s tone: the first half at 0.5 amplitude, the second at 0.05. The four
   // quarter medians must follow that step instead of reporting a flat profile.
@@ -2684,6 +2748,73 @@ static void render_four_on_floor_backbeat(float* pcm, int32_t count,
   }
 }
 
+static void test_analyzer_section_boundary_survives_chord_progression(void) {
+  // A chord change every bar produces a chroma spike every 2 s-block. Against
+  // a global median those regular spikes masked the real verse→chorus change:
+  // the 32 s boundary scored 0.658 while the chord spikes scored 0.34–0.56,
+  // and the old detector published NaN. The section curve is now de-trended
+  // against its local chord-change rate instead of the whole-window median.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 64;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double pi = 3.14159265358979323846;
+  const double beat = 0.5;  // 120 BPM
+  const double bar = 4.0 * beat;
+  // Verse: Am/F pads, hats only. Chorus: C/G pads louder, four-on-the-floor,
+  // snare backbeat and a root bass. Mirrors the ffmpeg fixture that exposed
+  // the masking; the harmony changes every two bars on both sides.
+  static const double verse_roots[2][3] = {
+      {220.0, 261.6256, 329.6276}, {220.0, 261.6256, 329.6276}};
+  static const double chorus_roots[2][3] = {
+      {261.6256, 329.6276, 392.0}, {261.6256, 329.6276, 392.0}};
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const int bar_index = (int)(t / bar);
+    const int chorus = t >= 32.0;
+    const int chord = (bar_index / 2) % 2;
+    const double* freqs = chorus ? chorus_roots[chord] : verse_roots[chord];
+    const double local = t - (double)bar_index * bar;
+    double envelope = 1.0;
+    if (local < 0.02) envelope = local / 0.02;
+    const double release = bar * 0.95 - local;
+    if (release < 0.2) envelope *= release > 0.0 ? release / 0.2 : 0.0;
+    double value = (chorus ? 0.08 : 0.045) * envelope *
+        (sin(2.0 * pi * freqs[0] * t) + sin(2.0 * pi * freqs[1] * t) +
+         sin(2.0 * pi * freqs[2] * t));
+    const double beat_phase = fmod(t, beat);
+    if (chorus) {
+      if (beat_phase < 0.10) {
+        value += 0.7 * exp(-beat_phase * 30.0) *
+            sin(2.0 * pi * 55.0 * beat_phase);
+      }
+      const int64_t beat_index = (int64_t)floor(t / beat);
+      if (beat_index % 4 == 1 || beat_index % 4 == 3) {
+        unsigned int seed = (unsigned int)(beat_index * 2654435761u);
+        const double noise = ((double)(seed >> 9) / 8388608.0) - 1.0;
+        value += 0.25 * noise * exp(-beat_phase * 18.0);
+      }
+    }
+    const double hat_phase = fmod(t, beat * 0.5);
+    if (hat_phase < 0.010) {
+      value += (chorus ? 0.16 : 0.10) * (1.0 - hat_phase / 0.010) *
+          sin(2.0 * pi * 9000.0 * t);
+    }
+    if (chorus && local < 0.9) {
+      value += 0.24 * exp(-local * 3.0) * sin(2.0 * pi * freqs[0] * local);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.02);
+  assert(isfinite(output[33]));
+  assert(fabs(output[33] - 32000.0) <= 2500.0);
+  assert(output[34] >= 0.5);
+  free(pcm);
+}
+
 static void test_analyzer_backbeat_keeps_beat_level(void) {
   // Regression from the ffmpeg real-audio pass: a 120 BPM four-on-the-floor
   // with a snare backbeat was published as 60.00 BPM at confidence 0.87. The
@@ -2811,6 +2942,85 @@ static void test_analyzer_compound_meter_two_beats(void) {
                              NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
   assert(fabs(output[0] / 80.0 - 1.0) < 0.03);
   assert(output[32] == 2.0);
+  free(pcm);
+}
+
+static void test_analyzer_waltz_meter_three_beats(void) {
+  // 3/4 at 120 BPM with the accent on beat 1 and a chord pad per bar. The
+  // bar · beat evidence is independent of the tempo confidence, but the
+  // phrase gate used to require 0.45 confidence; after the beat-band tempo
+  // change this fixture measured 0.44 and silently lost metre 3. The gate now
+  // matches the 0.35 the Dart grid already uses.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 24;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  const double beat = 0.5;  // 120 BPM
+  const double bar = 3.0 * beat;
+  const double roots[] = {261.6256, 349.2282, 392.0, 293.6648};
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const int bar_index = (int)(t / bar);
+    const double root = roots[bar_index % 4];
+    double value = 0.06 * (sin(2.0 * pi * root * t) +
+                           sin(2.0 * pi * root * 1.25 * t) +
+                           sin(2.0 * pi * root * 1.5 * t));
+    const double bar_phase = fmod(t, bar);
+    if (bar_phase < 0.10) {
+      value += 0.65 * exp(-bar_phase * 30.0) *
+          sin(2.0 * pi * 55.0 * bar_phase);
+    }
+    const double beat_phase = fmod(t, beat);
+    if (beat_phase < 0.06 && bar_phase >= 0.10) {
+      value += 0.18 * exp(-beat_phase * 40.0) *
+          sin(2.0 * pi * 70.0 * beat_phase);
+    }
+    pcm[i] = (float)value;
+  }
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.03);
+  assert(output[32] == 3.0);
+  free(pcm);
+}
+
+static void test_analyzer_harmonic_bar_downbeat_on_flat_house(void) {
+  // Flat four-on-the-floor (a kick on every beat, no accent contrast) with a
+  // chord per bar: the bar downbeat is carried by harmony, not by a bar
+  // accent. The phrase grid must publish that downbeat (index 11) while metre
+  // stays unknown; otherwise house tracks keep an unknown phrase phase and
+  // every phrase-level grid falls back to beat locking.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 32;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  const double beat = 0.5;  // 120 BPM
+  const double bar = 4.0 * beat;
+  const double roots[] = {261.6256, 220.0, 174.6141, 196.0};
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const double root = roots[(int)(t / bar) % 4];
+    double value = 0.07 * (sin(2.0 * pi * root * t) +
+                           sin(2.0 * pi * root * 1.2599 * t) +
+                           sin(2.0 * pi * root * 1.4983 * t));
+    const double phase = fmod(t, beat);
+    if (phase < 0.10) {
+      value += 0.7 * exp(-phase * 30.0) * sin(2.0 * pi * 55.0 * phase);
+    }
+    pcm[i] = (float)value;
+  }
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.02);
+  assert(isfinite(output[11]));
+  const double bar_ms = 60000.0 / output[0] * 4.0;
+  double error = fmod(output[11], bar_ms);
+  if (error > bar_ms * 0.5) error -= bar_ms;
+  assert(fabs(error) < 60.0);
   free(pcm);
 }
 
@@ -3035,9 +3245,12 @@ int main(void) {
   test_live_tracker_resolves_third_and_double_tempo();
   test_live_tracker_reports_meter_and_rejects_flat_bars();
   test_analyzer_metre_and_section_boundary();
+  test_analyzer_section_boundary_survives_chord_progression();
   test_analyzer_backbeat_keeps_beat_level();
   test_analyzer_sparse_intro_keeps_chorus_tempo();
   test_analyzer_compound_meter_two_beats();
+  test_analyzer_waltz_meter_three_beats();
+  test_analyzer_harmonic_bar_downbeat_on_flat_house();
   test_live_tracker_fractional_downbeat_accuracy();
   test_live_tracker_145bpm_accented_downbeat();
   test_live_tracker_resolves_half_tempo_lock();
@@ -3084,6 +3297,7 @@ int main(void) {
   test_analyzer_key_rejects_noise_and_survives_detune();
   test_analyzer_phrase_phase_from_harmonic_change();
   test_chord_vocabulary_expansion();
+  test_chord_full_band_mix_keeps_harmonic_root();
   test_phase_lock_factor();
   test_phrase_lock();
   test_edge_cases_silence_and_noise();

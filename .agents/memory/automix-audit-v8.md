@@ -140,3 +140,37 @@ jika ada akor yakin dalam 1500 ms berikutnya; trailing silence tetap `-1`. Regre
 `test_chord_hangover_bridges_one_gap_and_not_trailing_silence`. Verifikasi akhir: native C suite exit 0,
 `flutter test test/services/automix_service` **137 lulus**, `dart test` native bridge **4 lulus**,
 `dart analyze` pada layanan/test AutoMix + paket native bersih. Kotlin belum terverifikasi (tanpa Android SDK).
+
+**Tempo lagu nyata dengan ODF pita ketukan 2026-10-30 (v1.5.61):** tiga trek `.opus` komersial yang
+diunggah pengguna (227/205/200 s, decode `ffmpeg -ac 1 -ar 22050 -f f32le`) membongkar bug tempo nyata:
+ODF full-band menghitung hi-hat/ghost note sebagai ketukan sehingga 2 On→200,00, Baby→175,54,
+Dirty Dirty→141,98 BPM (aubio 109,54/119,43/140,69). Analyzer sekarang membangun ODF pita ketukan
+(`low + 0,55×mid`) khusus untuk tempo dan fallback ke envelope lebar bila confidence <0,20; hasil final
+**101,02 / 117,03 / 141,97** (tail konsisten untuk trek 2–3; trek 1 masih ~8% di bawah aubio, bukan oktaf).
+Beat phase tetap memakai `phase_odf` full-band. Gate frasa turun 0,45→0,35 (waltz sempat 0,44 dan
+kehilangan meter 3), dan meter 2 butuh margin 0,20 (trek 4/4 nyata sempat salah dilabeli 2). Regresi baru
+`test_analyzer_waltz_meter_three_beats`; native C suite exit 0, fixture four-on-floor tetap 120/124/174.
+Sisa temuan §J (A harmonic downbeat, B section masking, C chord bass-root, D head phase sparse, E L1,
+F streaming decode, G SSM) belum dikerjakan.
+
+**Downbeat harmonik & section de-trend 2026-10-30 (v1.5.61):** house four-on-the-floor datar (kick tiap
+ketukan, akor per bar) kini mempublikasikan downbeat bar dari novelty akor lokal: rumah 120/124 → fase
+1993,2/1929,7 ms terhadap bar 2000/1935,5 ms (error −6,8/−5,8 ms), meter tetap NaN; waltz/6/8/breakbeat
+tidak berubah. Deteksi section `estimate_section_boundary_ms` sekarang men-de-trend novelty 2 s terhadap
+median lokal ±16 s (laju perubahan akor), bukan median global; fixture progresi akor + drum masuk 32 s →
+**32000 ms conf 1,00** (sebelumnya NaN), harmoni statis tetap 32000@1,00, loop stabil tetap tanpa batas.
+Regresi C baru: `test_analyzer_harmonic_bar_downbeat_on_flat_house`,
+`test_analyzer_section_boundary_survives_chord_progression`. Start phase trek sparse kini terukur finite
+(257 ms) sehingga temuan D tidak lagi mereproduksi. Native C suite exit 0.
+
+**Ground truth full-band chord roots 2026-10-30 (C ditutup):** karena tiga trek Opus tidak punya label
+akor, dibuat dua fixture by-construction di `build/audit_real/gen_audio.py`: `full_band_chords.wav`
+(bass root) dan `full_band_chords_inverted.wav` (bass fifth: C/G, F/C, G/D, Am/E), 120 BPM C–F–G–Am
+masing-masing 4 s dengan kick tiap ketukan, snare 2/4, hat off-beat, bass sine, dan pad triad. Hasil
+`nar_automix_analyze_chords`: **12/12 baris stabil benar** untuk kedua varian (root 0/5/7/9), confidence
+0,51–1,00; term `0.18×chroma[root]` sudah cukup, jadi gate bass-root terpisah **tidak diperlukan**.
+Baris jendela 2 s yang melintasi pergantian akor (3/7/11 s) tetap ambigu — varian root: Fmaj7 0,37 /
+Dm7 0,22 / Am7 0,54; varian inversi: Am7 0,75 / Dm7 0,51 / Em7 0,25 — ini keterbatasan straddle 2 s
+yang sudah ada, bukan kesalahan bass-root. Regresi baru
+`test_chord_full_band_mix_keeps_harmonic_root` (12 root stabil + conf ≥0,40, dua varian); native C suite
+exit 0. Sisa §J: E (L1, butuh Kotlin/CI), F (streaming decode), G (SSM).

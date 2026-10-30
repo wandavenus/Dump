@@ -1260,43 +1260,80 @@ static double estimate_section_boundary_ms(const float* novelty,
       block_ms <= 0.0) {
     return NAN;
   }
-  float sorted[AUTOMIX_MAX_SECTION_BLOCKS];
   const int32_t usable = count < AUTOMIX_MAX_SECTION_BLOCKS
       ? count
       : AUTOMIX_MAX_SECTION_BLOCKS;
-  for (int32_t i = 0; i < usable; ++i) sorted[i] = novelty[i];
-  for (int32_t i = 1; i < usable; ++i) {
-    const float value = sorted[i];
+
+  // De-trend every candidate against its own neighbourhood. A chord change
+  // every bar or two produces a chroma spike at a *regular* period; against
+  // the global median those spikes raised both the baseline and the scale and
+  // masked the one-off arrangement change (a real 32 s verse→chorus boundary
+  // scored 0.658 while the recurring chord spikes scored 0.34–0.56). The
+  // local median over ±16 s, excluding the candidate and its neighbours, is
+  // the chord-change rate, so only a change *faster* than that rate survives.
+  const int32_t radius = 8;
+  float residual[AUTOMIX_MAX_SECTION_BLOCKS] = {0.0f};
+  float residual_sorted[AUTOMIX_MAX_SECTION_BLOCKS];
+  int32_t residual_count = 0;
+  for (int32_t i = 2; i < usable - 2; ++i) {
+    float local[2 * 8 + 1];
+    int32_t local_count = 0;
+    for (int32_t j = i - radius; j <= i + radius; ++j) {
+      if (j < 0 || j >= usable) continue;
+      if (j >= i - 1 && j <= i + 1) continue;
+      local[local_count++] = novelty[j];
+    }
+    if (local_count < 4) continue;
+    for (int32_t j = 1; j < local_count; ++j) {
+      const float value = local[j];
+      int32_t k = j - 1;
+      while (k >= 0 && local[k] > value) {
+        local[k + 1] = local[k];
+        --k;
+      }
+      local[k + 1] = value;
+    }
+    const double baseline = (double)local[local_count / 2];
+    const double delta = (double)novelty[i] - baseline;
+    residual[i] = delta > 0.0 ? (float)delta : 0.0f;
+    residual_sorted[residual_count++] = residual[i];
+  }
+  if (residual_count < 4) return NAN;
+  for (int32_t i = 1; i < residual_count; ++i) {
+    const float value = residual_sorted[i];
     int32_t j = i - 1;
-    while (j >= 0 && sorted[j] > value) {
-      sorted[j + 1] = sorted[j];
+    while (j >= 0 && residual_sorted[j] > value) {
+      residual_sorted[j + 1] = residual_sorted[j];
       --j;
     }
-    sorted[j + 1] = value;
+    residual_sorted[j + 1] = value;
   }
-  const double median = (double)sorted[usable / 2];
+  const double median = (double)residual_sorted[residual_count / 2];
   double deviation_sum = 0.0;
-  for (int32_t i = 0; i < usable; ++i) {
-    deviation_sum += fabs((double)novelty[i] - median);
+  for (int32_t i = 0; i < residual_count; ++i) {
+    deviation_sum += fabs((double)residual_sorted[i] - median);
   }
-  const double scale = fmax(1e-4, deviation_sum / (double)usable);
+  const double scale = fmax(1e-4, deviation_sum / (double)residual_count);
 
   // Do not accept a boundary in the first or last two blocks: a window edge
   // truncates the block mean, so an "edge change" is an analysis artefact.
   int32_t best_index = -1;
   double best = -1.0;
   for (int32_t i = 2; i < usable - 2; ++i) {
-    const double value = (double)novelty[i];
+    // A section change still has to be a visible chroma change, not a bare
+    // outlier in a nearly static window.
+    if (novelty[i] < 0.15f) continue;
+    const double value = (double)residual[i];
     if (value > best) {
       best = value;
       best_index = i;
     }
   }
-  if (best_index < 0 || best <= median * 2.0) return NAN;
+  if (best_index < 0 || best < 0.06) return NAN;
   double second = 0.0;
   for (int32_t i = 2; i < usable - 2; ++i) {
     if (i >= best_index - 2 && i <= best_index + 2) continue;
-    const double value = (double)novelty[i];
+    const double value = (double)residual[i];
     if (value > second) second = value;
   }
   const double z = (best - median) / scale;
@@ -1417,10 +1454,55 @@ static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
   }
   // A bar accent needs at least a fourth of the strongest beat interval and a
   // stable position across at least four bars; a flat loop keeps 4/4 as the
-  // default but publishes no metre confidence.
-  if (meter_score >= 0.12) {
+  // default but publishes no metre confidence. A two-beat bar needs more
+  // evidence than that: 4/4 with a strong kick on 1 and 3 produces a two-beat
+  // accent period, and a false 2 would halve every phrase grid (measured on a
+  // real 4/4 track that scored just over the generic gate).
+  const double meter_gate = meter == 2 ? 0.20 : 0.12;
+  if (meter_score >= meter_gate) {
     result.meter = meter;
     result.meter_confident = 1;
+  }
+
+  // A flat four-on-the-floor mix has no accent contrast (a kick on every
+  // beat), but it often changes chord on the bar line. Even when metre 4 is
+  // confident, the phrase path rejects bar-period novelty (it demands
+  // phrase-period repetition), so a clear bar novelty peak is published as a
+  // bar downbeat. If a genuine phrase phase is found below, it overrides
+  // this. The phase is modulo the bar, which is all downstream grids consume.
+  if ((meter == 4 || (meter == 2 && !result.meter_confident)) &&
+      beat_count >= 32 && novelty_max > 1e-12) {
+    double bar_novelty[4] = {0.0, 0.0, 0.0, 0.0};
+    int32_t bar_counts[4] = {0, 0, 0, 0};
+    for (int32_t beat = 0; beat < beat_count; ++beat) {
+      const int32_t position = beat % 4;
+      bar_novelty[position] += beat_novelty[beat] / novelty_max;
+      bar_counts[position]++;
+    }
+    int32_t best_position = -1;
+    double best = -1.0;
+    double second = -1.0;
+    for (int32_t position = 0; position < 4; ++position) {
+      if (bar_counts[position] <= 0) continue;
+      const double value = bar_novelty[position] / bar_counts[position];
+      if (value > best) {
+        second = best;
+        best = value;
+        best_position = position;
+      } else if (value > second) {
+        second = value;
+      }
+    }
+    if (second < 0.0) second = 0.0;
+    const double contrast = best > 1e-9 ? (best - second) / best : 0.0;
+    if (best_position >= 0 && best >= 0.35 && contrast >= 0.30) {
+      const double bar_ms = beat_ms * 4.0;
+      double phase = fmod(beat_phase_ms + (double)best_position * beat_ms,
+                          bar_ms);
+      if (phase < 0.0) phase += bar_ms;
+      result.phase_ms = phase;
+      result.valid = 1;
+    }
   }
 
   const int32_t phrase_beats = meter * 4;
@@ -1569,6 +1651,13 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // remains the tempo and onset-rate input; this one keeps hats from
   // competing with kicks for the beat phase.
   float* phase_odf = (float*)calloc((size_t)frame_count, sizeof(float));
+  // Beat-band ODF (30-1500 Hz): kick and snare body only. Tempo candidates are
+  // scored on this envelope so that a loud hi-hat subdivision cannot make the
+  // faster level win just by explaining more total flux; phase still uses the
+  // wider phase_odf above. Measured on three real tracks, the full-band
+  // envelope published 175.5 / 200 BPM where a local tracker measured
+  // 119.4 / 109.5, while this band published 117 / 101.
+  float* beat_odf = (float*)calloc((size_t)frame_count, sizeof(float));
   // Chroma novelty per frame. Bar lines are marked by harmonic and textural
   // change far more reliably than by loudness on flat four-on-the-floor, so
   // the phrase grid scores change evidence alongside the energy accent.
@@ -1611,6 +1700,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
       previous_log_magnitude == NULL || odf == NULL || phase_odf == NULL ||
+      beat_odf == NULL ||
       chroma_novelty == NULL || section_novelty == NULL || rms_values == NULL ||
       rms_frame_values == NULL || centroid_values == NULL ||
       vocal_band_ratio_values == NULL ||
@@ -1620,7 +1710,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       twiddle_real == NULL || twiddle_imaginary == NULL ||
       frame_magnitudes == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-    free(odf); free(phase_odf); free(chroma_novelty);
+    free(odf); free(phase_odf); free(beat_odf); free(chroma_novelty);
     free(section_novelty); free(rms_values);
     free(rms_frame_values); free(centroid_values);
     free(vocal_band_ratio_values); free(vocal_band_concentration_values);
@@ -1779,6 +1869,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     phase_odf[frame] = (float)(ODF_PHASE_LOW_WEIGHT * low_flux +
         ODF_PHASE_MID_WEIGHT * mid_flux +
         ODF_PHASE_HIGH_WEIGHT * high_flux);
+    beat_odf[frame] = (float)(low_flux + ODF_PHASE_MID_WEIGHT * mid_flux);
     if (weight_sum > 1e-9) {
       centroid_values[centroid_count++] = (float)(frequency_sum / weight_sum);
       if (total_spectral_magnitude > 1e-9 && rms > 1e-6 &&
@@ -1804,8 +1895,16 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // Tempo and metre are decided on the band-weighted envelope: the low band
   // carries the kick and the beat, the high band carries the subdivision. The
   // full-band ODF is kept for onset rate and structural cues.
-  const TempoEstimate tempo =
-      estimate_tempo(phase_odf, frame_count, sample_rate, fps);
+  TempoEstimate tempo =
+      estimate_tempo(beat_odf, frame_count, sample_rate, fps);
+  // Material without a low/mid pulse (bright acoustic, hiss-only intros) can
+  // leave the beat band too sparse for a tempo. Fall back to the wide envelope
+  // rather than publishing no tempo at all.
+  if (!tempo.valid || tempo.confidence < 0.20) {
+    const TempoEstimate wide =
+        estimate_tempo(phase_odf, frame_count, sample_rate, fps);
+    if (wide.valid) tempo = wide;
+  }
   if (tempo.valid) {
     output[0] = tempo.bpm;
     output[1] = tempo.confidence;
@@ -1834,8 +1933,10 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     for (int32_t index = 0; index < 4; ++index) {
       const float* quarter_phase_odf =
           phase_odf + (size_t)index * (size_t)quarter;
+      const float* quarter_beat_odf =
+          beat_odf + (size_t)index * (size_t)quarter;
       const TempoEstimate local = estimate_tempo(
-          quarter_phase_odf, quarter, sample_rate, fps);
+          quarter_beat_odf, quarter, sample_rate, fps);
       if (!local.valid || local.confidence < 0.35) continue;
       error_sum += folded_tempo_error(local.bpm, tempo.bpm);
       error_count++;
@@ -1910,7 +2011,11 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // bar that drifts by one beat every bar.
   output[11] = NAN;
   output[32] = NAN;
-  if (tempo.valid && tempo.confidence >= 0.45 && isfinite(output[3])) {
+  // Confidence is the margin between metrical levels, so 0.45 was unnecessarily
+  // strict for a bar/metre hypothesis that is scored on its own evidence. The
+  // Dart grid publishes at 0.35, and a waltz measured 0.44 after the beat-band
+  // tempo change while its metre evidence was unchanged.
+  if (tempo.valid && tempo.confidence >= 0.35 && isfinite(output[3])) {
     const double beat_ms = beat_period_ms(tempo.bpm);
     if (beat_ms >= 30.0) {
       const NarPhraseEstimate phrase = estimate_phrase_grid(
@@ -2148,7 +2253,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   }
 
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-  free(odf); free(phase_odf); free(chroma_novelty);
+  free(odf); free(phase_odf); free(beat_odf); free(chroma_novelty);
   free(section_novelty); free(rms_values);
   free(rms_frame_values); free(centroid_values);
   free(vocal_band_ratio_values); free(vocal_band_concentration_values);

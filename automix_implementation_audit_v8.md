@@ -776,9 +776,11 @@ previous analyzer, so the change is locked in.
 Confidence is now the margin between the beat and bar levels, so the backbeat
 case publishes 0.57 instead of the old wrong-but-confident 0.87; 0.57 remains
 above the 0.35 grid threshold Dart uses. One side effect: the sparse-intro
-fixture no longer publishes a head beat phase (NaN) because the first 32 s
+fixture no longer published a head beat phase (NaN) because the first 32 s
 carry no beat-level onsets for the head phase fold; the exit and quarter phases
-are unaffected.
+were unaffected. Re-measured after the beat-band ODF pass below, the same
+fixture now publishes a finite start phase (257.2 ms, start BPM 120.05,
+stability 0.86), so finding D no longer reproduces.
 
 ### Two-beat metre for compound 6/8 (same day, v1.5.60)
 
@@ -797,6 +799,111 @@ clean; Kotlin remains CI-only in this sandbox.
 Still open: the section cue remains masked when a chord progression produces
 chroma changes comparable to the arrangement change. That needs section novelty
 de-trended against the local chord-change rate.
+
+### Real-track tempo on a beat-band ODF (same day, v1.5.61)
+
+The user uploaded three commercial `.opus` tracks to the repository, so the
+analyzer was finally measured on real mixes (227 s, 205 s, 200 s; decoded with
+`ffmpeg -ac 1 -ar 22050 -f f32le`, same PCM shape as the Android bridge).
+
+| Track | Full-band ODF | Beat-band ODF (final) | aubio | Verdict |
+|---|---|---|---|---|
+| 2 On (Tinashe) | 200.00 (0.56), alt 100.61 | **101.02** (0.37), alt 67.41 | 109.54 | no 2×; 8 % below aubio, not an octave |
+| Baby (Clean Bandit) | 175.54 (0.35), alt 93.64 | **117.03** (0.58), tail 117.22 | 119.43 | correct |
+| Dirty Dirty (Charlotte Cardin) | 141.98 (0.59), alt 70.96 | **141.97** (0.58), tail 142.03 | 140.69 | correct |
+
+The full-band spectral-flux ODF counted hi-hats and ghost notes as beats on
+these dense mixes. The tempo path now builds a separate band-limited ODF
+(`low + 0.55 × mid` power) and estimates tempo on it; if the band-limited
+confidence is below 0.20 the analyzer is already falling back to the wide
+envelope. The beat phase still uses the full-band `phase_odf` because phase
+must follow the audible transient. Four-on-floor fixtures are unchanged
+(120.02, 124.03, 174.04), and the 16th-hat + backbeat synthesis still reads
+120.03.
+
+At the same time the phrase gate dropped from 0.45 to 0.35 confidence (the
+threshold Dart already uses): the waltz fixture measured 0.44 after the ODF
+change and silently lost metre 3 even though its bar evidence was unchanged.
+Metre 2 now needs a 0.20 margin instead of the generic 0.12, because a real 4/4
+track with strong kicks on 1 and 3 scored just over 0.12 and was published as a
+two-beat bar. Re-measured after both gates: waltz **metre 3**, compound 6/8
+**metre 2**, three real tracks and the four-on-floor fixtures **no metre**.
+Regressions: `test_analyzer_waltz_meter_three_beats` plus the existing metre
+suite. Native C suite exit 0; Kotlin remains CI-only.
+
+### Harmonic bar downbeat on flat house (same day, v1.5.61)
+
+Finding A: the house fixtures (a kick on every beat, a chord per bar) published
+no metre and no phrase phase, so phrase-level grids fell back to beat locking.
+The phrase path correctly rejects novelty that repeats every bar (it requires
+phrase-period repetition), so a separate bar-phase fallback now runs at the
+default four-beat bar: mean novelty per bar position over at least eight bars,
+published only with a normalised peak ≥ 0.35 and a ≥ 0.30 margin. It publishes
+the downbeat phase (index 11) and leaves metre unknown; a genuine phrase phase,
+when found, overrides it.
+
+| Fixture | Downbeat phase | Bar | Error |
+|---|---|---|---|
+| 120 four-on-the-floor + chords/bar | **1993.2 ms** | 2000 ms | −6.8 ms |
+| 124 four-on-the-floor + chords/bar | **1929.7 ms** | 1935.5 ms | −5.8 ms |
+| 120 + snare | **1992.3 ms** | 2000 ms | −7.7 ms |
+| 124 + snare | **1932.6 ms** | 1935.5 ms | −2.9 ms |
+| 174 four-on-the-floor | **1376.2 ms** | 1379.3 ms | −3.1 ms |
+| waltz / 6/8 / 174 breakbeat | unchanged (metre 3 / 2 / 4, no bar phase) | — | — |
+| three real tracks | no bar phase (harmonic change does not repeat cleanly per bar) | — | — |
+
+Regression: `test_analyzer_harmonic_bar_downbeat_on_flat_house` (32 s flat
+kick + chord per bar, expects a finite downbeat within 60 ms of the bar line).
+Native C suite exit 0.
+
+### Section boundary de-trended against chord rate (same day, v1.5.61)
+
+Finding B: the 32 s verse→chorus boundary in the chord-progression fixture was
+masked by the regular chroma spikes of the progression (0.658 at the boundary
+vs 0.34–0.56 on the recurring chord changes). The detector compared against a
+global median, so those recurring spikes raised both the baseline and the
+dispersion and the boundary failed the z/separation gates (NaN).
+
+`estimate_section_boundary_ms` now de-trends every candidate against the local
+median over ±16 s (excluding the candidate and its immediate neighbours) — the
+local chord-change rate — and requires both a visible chroma change (≥0.15)
+and a residual ≥0.06 before scoring. Re-measured: progression fixture **32000
+ms at confidence 1.00** (was NaN), static-harmony fixture **32000 @1.00**
+(unchanged), a steady loop still publishes **no boundary**, and the three real
+tracks publish no boundary. Regression:
+`test_analyzer_section_boundary_survives_chord_progression` (progression with
+per-bar re-attacks, drums entering at 32 s; fails on the previous detector).
+
+Head beat phase on sparse intros (finding D) no longer reproduces: the
+sparse-intro fixture now publishes a finite start phase (257.2 ms) alongside
+start BPM 120.05 and stability 0.86, so no separate change was needed.
+
+### Full-band chord roots (finding C, closed by measurement)
+
+The uploaded Opus tracks have no chord labels, so C was tested on two new
+by-construction fixtures (`full_band_chords.wav` and
+`full_band_chords_inverted.wav`, generated by `build/audit_real/gen_audio.py`):
+120 BPM C–F–G–Am, four
+seconds per chord, kick on every beat, snare on 2/4, off-beat hats, sine bass
+and a triad pad. In the inverted variant the bass plays the fifth of each chord
+(C/G, F/C, G/D, Am/E), which is the case a naive bass-root gate would break.
+
+| fixture | stable rows | correct root | stable confidence |
+|---|---|---|---|
+| root-position bass | 12/12 | **12/12 C, F, G, Am** | 0.73–1.00 |
+| bass on the fifth | 12/12 | **12/12 C, F, G, Am** | 0.51–1.00 |
+
+No additional bass-root gate is needed: the existing `0.18 × chroma[root]`
+term already keeps the harmonic root when the bass is an inversion. The only
+wrong rows are the two-second windows that straddle a chord change (row at
+3/7/11 s); the root-position fixture names the next chord at 3/11 s (F maj7
+0.37, Am7 0.54) and Dm7 at 7 s (0.22), while the inverted fixture names an
+unrelated relative seventh at all three (Am7 0.75, Dm7 0.51, Em7 0.25).
+That is the pre-existing 2 s-window straddle, not a bass-root error, and it is
+unchanged. Regression: `test_chord_full_band_mix_keeps_harmonic_root` asserts
+all 12 stable roots and confidence ≥0.40 in both variants. Still open from §J:
+L1 seam loudness (E, needs Kotlin/CI), streaming decode (F) and SSM
+segmentation (G).
 
 ## Appendix — probe inventory and exact runs
 
