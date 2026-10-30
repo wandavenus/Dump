@@ -188,17 +188,6 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
   float outgoing = clamp_gain(outgoing_trim_now * cosf(theta));
   float incoming = clamp_gain(incoming_trim_now * sinf(theta));
 
-  // Headroom policy (L1 gain budget): Equal-power gains sum to ~1.414 at mid-fade (t = 0.5).
-  // Normalizing the L1 budget (outgoing + incoming <= 1.0) creates a ~3 dB RMS dip at center
-  // for uncorrelated material, but strictly prevents digital clipping (sample peak > 1.0)
-  // when correlated material sums on the platform mixer without requiring a true-peak bus limiter.
-  const float gain_sum = outgoing + incoming;
-  if (gain_sum > 1.0f) {
-    const float scale = 1.0f / gain_sum;
-    outgoing *= scale;
-    incoming *= scale;
-  }
-
   *outgoing_gain = outgoing;
   *incoming_gain = incoming;
   return 1;

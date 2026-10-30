@@ -38,16 +38,10 @@ internal object AutomixGainEnvelope {
         val theta = (shaped * PI / 2.0).toFloat()
         val outgoingGain = outgoingTrimNow * cos(theta)
         val incomingGain = incomingTrimNow * sin(theta)
-        // Headroom policy (L1 gain budget): Equal-power gains sum to ~1.414 at mid-fade (t = 0.5).
-        // Normalizing the L1 budget (outgoing + incoming <= 1.0) creates a ~3 dB RMS dip at center
-        // for uncorrelated material, but strictly prevents digital clipping (sample peak > 1.0)
-        // when correlated material sums on the platform mixer without requiring a true-peak bus limiter.
-        val gainSum = outgoingGain + incomingGain
-        val headroomScale = if (gainSum > 1f) 1f / gainSum else 1f
 
         return Gains(
-            outgoing = (target * outgoingGain * headroomScale).coerceIn(0f, target),
-            incoming = (target * incomingGain * headroomScale).coerceIn(0f, target),
+            outgoing = (target * outgoingGain).coerceIn(0f, target),
+            incoming = (target * incomingGain).coerceIn(0f, target),
         )
     }
 }
