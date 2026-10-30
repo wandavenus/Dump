@@ -1219,8 +1219,8 @@ static void test_native_crossfade_curve(void) {
 
   assert(nar_automix_tone_compute_fade_gains(
              0.5f, 1.0f, 1.0f, 1.0f, &outgoing, &incoming) == 1);
-  assert(fabsf(outgoing - 0.5f) < 1e-5f);
-  assert(fabsf(incoming - 0.5f) < 1e-5f);
+  assert(fabsf(outgoing - sqrtf(0.5f)) < 1e-5f);
+  assert(fabsf(incoming - sqrtf(0.5f)) < 1e-5f);
 
   assert(nar_automix_tone_compute_fade_gains(
              0.5f, 1.0f, 0.8f, 0.5f, &outgoing, &incoming) == 1);
@@ -1259,11 +1259,15 @@ static void test_native_crossfade_curve(void) {
     assert(fabsf(outgoing - 0.76f * cosf(theta)) < 1e-5f);
     assert(fabsf(incoming - 0.4f * sinf(theta)) < 1e-5f);
   }
-  // By the end of the attack window the trim is fully applied and the pair
-  // obeys the shared L1 headroom budget.
+  // By the end of the attack window the trim is fully applied; the equal-power
+  // curve is not subsequently scaled to constrain the arithmetic gain sum.
   assert(nar_automix_tone_compute_fade_gains(
              0.25f, 1.0f, 0.4f, 0.4f, &outgoing, &incoming) == 1);
-  assert(outgoing + incoming <= 1.0f + 1e-6f);
+  {
+    const float theta = 0.25f * (3.14159265358979323846f * 0.5f);
+    assert(fabsf(outgoing - 0.4f * cosf(theta)) < 1e-6f);
+    assert(fabsf(incoming - 0.4f * sinf(theta)) < 1e-6f);
+  }
   assert(outgoing > 0.0f && incoming > 0.0f);
 
   assert(nar_automix_tone_compute_fade_gains(
@@ -1707,10 +1711,12 @@ static void test_stereo_mid_gain(void) {
   free(dry);
 }
 
-static void test_crossfade_sample_peak_budget(void) {
-  // Even fully correlated decks must have a combined gain budget <= 1.
+static void test_crossfade_equal_power_envelope(void) {
+  // Each deck coefficient remains in [0, 1] and follows the equal-power
+  // cosine/sine curve. Their arithmetic sum may exceed 1 for correlated decks.
   for (int i = 0; i <= 100; ++i) {
     const float progress = (float)i / 100.0f;
+    const float theta = progress * (3.14159265358979323846f * 0.5f);
     float outgoing = -1.0f;
     float incoming = -1.0f;
     assert(nar_automix_tone_compute_fade_gains(
@@ -1718,7 +1724,8 @@ static void test_crossfade_sample_peak_budget(void) {
     assert(isfinite(outgoing) && isfinite(incoming));
     assert(outgoing >= 0.0f && outgoing <= 1.0f);
     assert(incoming >= 0.0f && incoming <= 1.0f);
-    assert(outgoing + incoming <= 1.00001f);
+    assert(fabsf(outgoing - cosf(theta)) < 1e-5f);
+    assert(fabsf(incoming - sinf(theta)) < 1e-5f);
   }
 
   // The scalar/multichannel and ARM64 NEON paths must enforce the same final
@@ -3266,7 +3273,7 @@ int main(void) {
   test_tone_processor_unity_bands_preserve_fade_target();
   test_tone_processor_nonfinite_intermediates_are_sanitized();
   test_tone_processor_various_frame_counts();
-  test_crossfade_sample_peak_budget();
+  test_crossfade_equal_power_envelope();
   test_ffi_contract_and_bounds();
   test_analyzer_rms();
   test_analyzer_vocal_center_channel();

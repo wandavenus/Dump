@@ -188,17 +188,6 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_compute_fade_gains(
   float outgoing = clamp_gain(outgoing_trim_now * cosf(theta));
   float incoming = clamp_gain(incoming_trim_now * sinf(theta));
 
-  // Headroom policy (L1 gain budget): Equal-power gains sum to ~1.414 at mid-fade (t = 0.5).
-  // Normalizing the L1 budget (outgoing + incoming <= 1.0) creates a ~3 dB RMS dip at center
-  // for uncorrelated material, but strictly prevents digital clipping (sample peak > 1.0)
-  // when correlated material sums on the platform mixer without requiring a true-peak bus limiter.
-  const float gain_sum = outgoing + incoming;
-  if (gain_sum > 1.0f) {
-    const float scale = 1.0f / gain_sum;
-    outgoing *= scale;
-    incoming *= scale;
-  }
-
   *outgoing_gain = outgoing;
   *incoming_gain = incoming;
   return 1;
@@ -290,9 +279,9 @@ static void begin_true_peak_release(NarAutomixToneState* state) {
 }
 
 // Per-deck safety limiter. The platform mixer is downstream and sums both
-// decks; the AutoMix L1 fade budget (outgoing + incoming <= 1) keeps that sum
-// bounded when each deck's true peak is bounded here. This is a causal
-// estimator with instant attack and a ~50 ms release, so the first transient
+// decks, so limiting each deck independently does not bound their combined
+// peak. A shared post-mix limiter would be required for a hard sum ceiling.
+// This is a causal estimator with instant attack and a ~50 ms release, so the first transient
 // after enabling can still overshoot slightly; the sample clamp below keeps
 // the per-deck output inside the ceiling.
 static void apply_true_peak_limiter(

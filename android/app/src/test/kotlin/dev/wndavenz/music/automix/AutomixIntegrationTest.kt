@@ -25,9 +25,9 @@ class AutomixIntegrationTest {
             outgoingTrim = 1f,
             incomingTrim = 1f,
         )
-        assertEquals(0.15f, ducked.outgoing, 0.001f)
-        assertEquals(0.15f, ducked.incoming, 0.001f)
-        assertEquals(0.3f, ducked.outgoing + ducked.incoming, 0.001f)
+        assertEquals(0.3f * 0.70710677f, ducked.outgoing, 0.001f)
+        assertEquals(0.3f * 0.70710677f, ducked.incoming, 0.001f)
+        assertEquals(0.3f * 1.4142135f, ducked.outgoing + ducked.incoming, 0.001f)
 
         val end = AutomixGainEnvelope.gains(
             progress = 1f,
@@ -41,7 +41,7 @@ class AutomixIntegrationTest {
     }
 
     @Test
-    fun `production gain envelope bounds correlated deck sum across trims and curves`() {
+    fun `production gain envelope keeps each deck bounded across trims and curves`() {
         val targets = floatArrayOf(0.15f, 0.3f, 0.7f, 1f)
         val gammas = floatArrayOf(0.6f, 0.85f, 1f, 1.35f, 1.6f)
         val trims = floatArrayOf(0f, 0.32f, 0.7f, 1f)
@@ -61,7 +61,7 @@ class AutomixIntegrationTest {
                             assertTrue(gains.outgoing in 0f..target)
                             assertTrue(gains.incoming in 0f..target)
                             assertTrue(
-                                gains.outgoing + gains.incoming <= target + 0.0001f,
+                                gains.outgoing + gains.incoming <= target * 1.4143f + 0.0001f,
                             )
                         }
                     }
@@ -71,7 +71,7 @@ class AutomixIntegrationTest {
     }
 
     @Test
-    fun `mid-fade gains strictly adhere to L1 gain budget`() {
+    fun `mid-fade gains follow the equal-power curve`() {
         val midGains = AutomixGainEnvelope.gains(
             progress = 0.5f,
             targetVolume = 1.0f,
@@ -79,10 +79,10 @@ class AutomixIntegrationTest {
             outgoingTrim = 1.0f,
             incomingTrim = 1.0f,
         )
-        // At mid-fade with gamma=1, unscaled cos(pi/4)=sin(pi/4)=0.7071. L1 scaling divides by 1.4142 -> 0.5 each.
-        assertEquals(0.5f, midGains.outgoing, 0.001f)
-        assertEquals(0.5f, midGains.incoming, 0.001f)
-        assertEquals(1.0f, midGains.outgoing + midGains.incoming, 0.001f)
+        // At the linear midpoint, equal-power cos(pi/4) and sin(pi/4) are both 0.7071.
+        assertEquals(0.70710677f, midGains.outgoing, 0.001f)
+        assertEquals(0.70710677f, midGains.incoming, 0.001f)
+        assertEquals(1.4142135f, midGains.outgoing + midGains.incoming, 0.001f)
     }
 
     @Test
