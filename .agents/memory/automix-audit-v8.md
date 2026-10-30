@@ -7,7 +7,7 @@ diperiksa v7: metrical level, bar phase, key, loudness, kalibrasi skor, dan kese
 
 ## Bukti
 
-Probe C (`build/audit_tmp/`, git-ignored) dikompilasi terhadap sumber asli
+Probe C (scratch `build/audit_tmp/`, git-ignored dan sudah dihapus) dikompilasi terhadap sumber asli
 `automix_analyzer.c`/`automix_live_tracker.c`/`automix_phase_lock.c` dan dijalankan pada sinyal sintetis
 dengan ground truth. Native C suite (58 test) **lulus** (`exit 0`). `flutter test` AutoMix **tidak bisa
 dijalankan** di sesi ini: filesystem 99% (53 MB) → `ENOSPC` dari test compiler. Kotlin/Gradle butuh Android SDK
@@ -100,6 +100,31 @@ syncopated 14/27 benar, hanya 12/27 dengan conf ≥0.20 (level ambigu ditahan, b
 sinyal ritmis. Setelah cache sandbox dibersihkan, `flutter test --no-pub test/services/automix_service/`
 menjalankan **131 test, semuanya lulus** (`ENOSPC` sebelumnya murni disk penuh, bukan kegagalan test).
 Kotlin/Gradle tetap tidak tersedia dan `ffmpeg` tidak ada, jadi suite Kotlin dan audio nyata tetap untuk CI.
+
+**Uji audio nyata 2026-10-30 (ffmpeg 4.4.2):** harness `build/audit_real/` (gitignored) — numpy
+mensintesis 13 fixture musikal → WAV 44,1 kHz → `ffmpeg -ac 1 -ar 22050 -f f32le` →
+`nar_automix_analyze_centered`/`_chords`, jalur PCM yang sama dengan `AutomixAnalysisBridge`. Hasil:
+four-on-floor 120/124/174 benar (≤0,03 BPM), phase error 7,8 ms pada trek 124 yang digeser 100 ms,
+MP3 192k identik dengan WAV (Δ0,3 ms, chord sama), waltz meter 3, progresi C–Am–F–G + key C mayor 0,84
+benar. **Temuan:** (1) four-on-floor 120 + snare 2/4 terbaca **60,00 BPM conf 0,87** (alt 119,98) —
+lock half-tempo offline, kelas yang sudah diperbaiki di live tracker (AM8-02) tapi belum di
+`estimate_tempo` offline — **pre-existing**, dikonfirmasi dengan membangun ulang analyzer dari `HEAD~1`
+(hasil identik 60,00/87,01); 174 breakbeat → 87,01 (alt 174); (2) trek dengan intro sparse 32 s +
+chorus padat: whole/end BPM 60 padahal `start_bpm` 120; (3) 6/8 pada pulsa dotted-quarter 80 →
+meter 4 (bar 3 s, 2× bar asli); (4) section cue tepat 32000 ms conf 1,00 saat harmoni statis,
+tapi NaN saat ada progresi akor tiap 2 bar (novelty akor menutupi boundary). Detail tabel di
+`automix_implementation_audit_v8.md` §J.
+
+**Perbaikan half-tempo 2026-10-30 (v1.5.59):** `evaluate_metrical_candidate` sekarang memberi bobot
+coverage 0.45 / fill 0.25 / comb 0.10 / contrast 0.08 / phase 0.12 (dulu 0.12/0.40/0.30/0.06/0.12), dan
+`estimate_tempo` (wrapper baru; body lama = `estimate_tempo_window`) memakai voting 4 quarter bila ≥3
+sepakat dalam 4% dan berbeda dari whole-window. Hasil harness yang sama: 120+snare 60,00→**119,98**
+(conf 0,87→0,57), 124+snare conf 0,50→**0,72** (start 61,9→123,9), breakbeat 174 87,01→**173,98**,
+intro sparse 60,00→**120,01** (start/end 120,01), section statis tetap 32000@1,00. Efek samping: beat
+phase head pada trek intro-sparse jadi NaN (tidak ada onset level-beat di 32 s pertama). Regresi C baru:
+`test_analyzer_backbeat_keeps_beat_level`, `test_analyzer_sparse_intro_keeps_chorus_tempo` (keduanya
+abort di analyzer lama). **Belum diperbaiki:** meter 6/8 (pulsa dotted-quarter → meter 4) dan section cue
+yang tertutup progresi akor.
 
 **Penutupan 2026-10-30:** chord hangover (AM8-08) ditambahkan di `nar_automix_analyze_chords` — baris yang
 jendelanya melintasi pergantian akor diisi akor sebelumnya dengan confidence meluruh (1 − gap/1500 ms), hanya

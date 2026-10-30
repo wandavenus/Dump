@@ -2642,6 +2642,102 @@ static void render_four_on_floor(float* pcm, int32_t count, int32_t sample_rate,
   }
 }
 
+static void render_four_on_floor_backbeat(float* pcm, int32_t count,
+                                          int32_t sample_rate, double bpm) {
+  // Standard house pattern: kick on every beat, snare (noise) on 2 and 4,
+  // closed hat on the off-beat. This is the arrangement that used to make the
+  // offline analyzer publish the bar-level pulse (60 BPM) instead of the beat.
+  const double pi = 3.14159265358979323846;
+  const double beat = 60.0 / bpm;
+  unsigned int seed = 0x7F4A7C15u;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const double phase = fmod(t, beat);
+    double value = 0.0;
+    if (phase < 0.10) {
+      value += 0.8 * exp(-phase * 32.0) * sin(2.0 * pi * 52.0 * phase);
+    }
+    const double hat_phase = fmod(t, beat * 0.5);
+    if (hat_phase < 0.012) {
+      value += 0.10 * (1.0 - hat_phase / 0.012) *
+          sin(2.0 * pi * 9000.0 * t);
+    }
+    const int64_t beat_index = (int64_t)floor(t / beat);
+    if ((beat_index % 4 == 1 || beat_index % 4 == 3) && phase < 0.18) {
+      seed = seed * 1664525u + 1013904223u;
+      const double noise = ((double)(seed >> 9) / 8388608.0) - 1.0;
+      value += 0.35 * noise * exp(-phase * 18.0);
+    }
+    pcm[i] = (float)value;
+  }
+}
+
+static void test_analyzer_backbeat_keeps_beat_level(void) {
+  // Regression from the ffmpeg real-audio pass: a 120 BPM four-on-the-floor
+  // with a snare backbeat was published as 60.00 BPM at confidence 0.87. The
+  // grid arbitration must keep the beat and push the bar level to the
+  // runner-up slot, otherwise tempo matching halves a standard house track.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 40;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  render_four_on_floor_backbeat(pcm, count, sample_rate, 120.0);
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.02);
+  assert(isfinite(output[2]));
+  assert(fabs(output[2] / 60.0 - 1.0) < 0.04);
+  free(pcm);
+}
+
+static void test_analyzer_sparse_intro_keeps_chorus_tempo(void) {
+  // Regression from the ffmpeg real-audio pass: 32 s of off-beat hats and a
+  // soft pad followed by 32 s of full 120 BPM four-on-the-floor published
+  // 60.00 BPM for the whole window (and for the end quarter), even though the
+  // first quarter already measured 120. The quarter-vote rescue must publish
+  // the level all four local windows agree on.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 64;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double pi = 3.14159265358979323846;
+  const double beat = 0.5;  // 120 BPM
+  unsigned int seed = 0x2545F491u;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const int chorus = t >= 32.0;
+    double value = 0.05 * (sin(2.0 * pi * 261.6256 * t) +
+                           sin(2.0 * pi * 329.6276 * t) +
+                           sin(2.0 * pi * 391.9954 * t));
+    const double hat_phase = fmod(t, beat * 0.5);
+    if (hat_phase < 0.012) {
+      value += (chorus ? 0.12 : 0.08) * (1.0 - hat_phase / 0.012) *
+          sin(2.0 * pi * 9000.0 * t);
+    }
+    if (chorus) {
+      const double phase = fmod(t, beat);
+      if (phase < 0.10) {
+        value += 0.7 * exp(-phase * 32.0) * sin(2.0 * pi * 52.0 * phase);
+      }
+      const int64_t beat_index = (int64_t)floor(t / beat);
+      if ((beat_index % 4 == 1 || beat_index % 4 == 3) && phase < 0.18) {
+        seed = seed * 1664525u + 1013904223u;
+        const double noise = ((double)(seed >> 9) / 8388608.0) - 1.0;
+        value += 0.28 * noise * exp(-phase * 18.0);
+      }
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.02);
+  assert(fabs(output[21] / 120.0 - 1.0) < 0.03);
+  assert(fabs(output[22] / 120.0 - 1.0) < 0.03);
+  free(pcm);
+}
+
 static void test_analyzer_metrical_level_sweep(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 40;
@@ -2885,6 +2981,8 @@ int main(void) {
   test_live_tracker_resolves_third_and_double_tempo();
   test_live_tracker_reports_meter_and_rejects_flat_bars();
   test_analyzer_metre_and_section_boundary();
+  test_analyzer_backbeat_keeps_beat_level();
+  test_analyzer_sparse_intro_keeps_chorus_tempo();
   test_live_tracker_fractional_downbeat_accuracy();
   test_live_tracker_145bpm_accented_downbeat();
   test_live_tracker_resolves_half_tempo_lock();
