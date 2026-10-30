@@ -93,16 +93,14 @@ class Media3PlaybackBridge {
       _playbackStateEvents
           .receiveBroadcastStream()
           .where((e) => e is Map)
-          .cast<Map<dynamic, dynamic>>()
-          .asBroadcastStream();
+          .cast<Map<dynamic, dynamic>>();
 
   /// True only while the native dual-player crossfade is actually running.
   static final Stream<bool> crossfadeStateStream = _crossfadeStateEvents
       .receiveBroadcastStream()
       .where((e) => e is bool)
       .cast<bool>()
-      .distinct()
-      .asBroadcastStream();
+      .distinct();
 
   /// Stream of offload state snapshots emitted by [AudioOffloadManager].
   ///
@@ -117,8 +115,7 @@ class Media3PlaybackBridge {
       _offloadStateEvents
           .receiveBroadcastStream()
           .where((e) => e is Map)
-          .cast<Map<dynamic, dynamic>>()
-          .asBroadcastStream();
+          .cast<Map<dynamic, dynamic>>();
 
   // A bad tick here (e.g. a native-side ratio computed with a zero
   // denominator) must never crash the whole position/duration pipeline —
@@ -127,58 +124,49 @@ class Media3PlaybackBridge {
   static final Stream<Duration> positionStream = _positionEvents
       .receiveBroadcastStream()
       .where((e) => e is num)
-      .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
-      .asBroadcastStream();
+      .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)));
 
   static final Stream<Duration> durationStream = _durationEvents
       .receiveBroadcastStream()
       .where((e) => e is num)
-      .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
-      .asBroadcastStream();
+      .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)));
 
   static final Stream<Map<dynamic, dynamic>?> currentTrackStream =
       _currentTrackEvents
           .receiveBroadcastStream()
           .where((e) => e == null || e is Map)
-          .cast<Map<dynamic, dynamic>?>()
-          .asBroadcastStream();
+          .cast<Map<dynamic, dynamic>?>();
 
   static final Stream<List<dynamic>> queueStream = _queueEvents
       .receiveBroadcastStream()
       .where((e) => e is List)
-      .cast<List<dynamic>>()
-      .asBroadcastStream();
+      .cast<List<dynamic>>();
 
   static final Stream<bool> bufferingStateStream = _bufferingStateEvents
       .receiveBroadcastStream()
       .where((e) => e is bool)
-      .cast<bool>()
-      .asBroadcastStream();
+      .cast<bool>();
 
   static final Stream<int> audioSessionIdStream = _audioSessionIdEvents
       .receiveBroadcastStream()
       .where((e) => e is num)
-      .map((e) => (e as num).toIntOrElse(-1))
-      .asBroadcastStream();
+      .map((e) => (e as num).toIntOrElse(-1));
 
   static final Stream<bool> shuffleModeStream = _shuffleModeEvents
       .receiveBroadcastStream()
       .where((e) => e is bool)
-      .cast<bool>()
-      .asBroadcastStream();
+      .cast<bool>();
 
   static final Stream<String> repeatModeStream = _repeatModeEvents
       .receiveBroadcastStream()
       .where((e) => e is String)
-      .cast<String>()
-      .asBroadcastStream();
+      .cast<String>();
 
   static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
       _sleepTimerEvents
           .receiveBroadcastStream()
           .where((e) => e is Map)
-          .cast<Map<dynamic, dynamic>>()
-          .asBroadcastStream();
+          .cast<Map<dynamic, dynamic>>();
 
   /// Live audio format emitted by ExoPlayer's [onTracksChanged] listener.
   ///
@@ -195,8 +183,7 @@ class Media3PlaybackBridge {
       _audioFormatEvents
           .receiveBroadcastStream()
           .where((e) => e is Map)
-          .cast<Map<dynamic, dynamic>>()
-          .asBroadcastStream();
+          .cast<Map<dynamic, dynamic>>();
 
   /// Live stereo-widening state — emitted after [StereoWidthManager] applies
   /// the matrix to all live [ChannelMixingAudioProcessor] instances.
@@ -208,8 +195,7 @@ class Media3PlaybackBridge {
       _stereoWideningEvents
           .receiveBroadcastStream()
           .where((e) => e is Map)
-          .cast<Map<dynamic, dynamic>>()
-          .asBroadcastStream();
+          .cast<Map<dynamic, dynamic>>();
 
   /// Live reverb state — emitted after [ReverbManager] applies the effect
   /// to all live [ReverbAudioProcessor] instances.
@@ -220,8 +206,7 @@ class Media3PlaybackBridge {
   static final Stream<Map<dynamic, dynamic>> reverbStream = _reverbEvents
       .receiveBroadcastStream()
       .where((e) => e is Map)
-      .cast<Map<dynamic, dynamic>>()
-      .asBroadcastStream();
+      .cast<Map<dynamic, dynamic>>();
 
   /// Cold-start race fix (see ServiceReadyGate.kt / MainActivity.kt).
   /// Emits `true` once — either immediately (service already finished
@@ -233,8 +218,7 @@ class Media3PlaybackBridge {
   static final Stream<bool> serviceReadyStream = _serviceReadyEvents
       .receiveBroadcastStream()
       .where((e) => e is bool)
-      .cast<bool>()
-      .asBroadcastStream();
+      .cast<bool>();
 
   // ── Internal invoke with retry ─────────────────────────────────────────────
   //
