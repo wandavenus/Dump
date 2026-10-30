@@ -14,7 +14,7 @@ Future<void> main() async {
           options.enableNativeCrashHandling = true;
         });
       } catch (error, stack) {
-        debugPrint('[Sentry] Initialization failed: $error\\n$stack');
+        debugPrint('[Sentry] Initialization failed: $error\n$stack');
       }
       if (!kIsWeb) {
         unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
