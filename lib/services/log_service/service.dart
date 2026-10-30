@@ -136,7 +136,7 @@ class LogService {
     LogLevel level = LogLevel.info,
     String? stackTrace,
   }) {
-    _forwardSentryLog(category, message, level);
+    _forwardSentryLog(category, level);
     if (!loggingEnabled.value) return;
     if (errorsOnly.value && level.index < LogLevel.warning.index) return;
     if (level == LogLevel.verbose && !verboseEnabled.value) return;
@@ -167,7 +167,6 @@ class LogService {
   /// Forward only redacted warnings/errors, capped to avoid telemetry floods.
   static void _forwardSentryLog(
     String category,
-    String message,
     LogLevel level,
   ) {
     if (!Sentry.isEnabled || level.index < LogLevel.warning.index) return;
