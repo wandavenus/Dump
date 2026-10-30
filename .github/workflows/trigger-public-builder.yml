@@ -9,11 +9,22 @@ permissions:
 jobs:
   trigger:
     runs-on: ubuntu-latest
+    environment: production
     steps:
+      - name: Validate Sentry DSN
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SENTRY_DSN" ]; then
+            echo "::error::SENTRY_DSN is missing from the production environment in Dump."
+            exit 1
+          fi
+
       - name: Trigger build in Noisegraph
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
           repository: wandavenus/Noisegraph
           event-type: build-private-source
-          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref_name }}"}'
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref_name }}","sentry_dsn":"${{ vars.SENTRY_DSN }}"}'
