@@ -17,6 +17,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
+import dev.wndavenz.music.events.EventEmitter
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.automix.AutomixAnalysis
@@ -175,6 +176,18 @@ class MainActivity : FlutterActivity() {
         setupNativePaletteChannel(flutterEngine)
         setupAutomixChannel(flutterEngine)
         setupDeviceStateChannel(flutterEngine)
+    }
+
+
+    /**
+     * Clear this engine's listeners before Flutter detaches its messenger.
+     * Media3 playback owns a separate lifecycle and is intentionally untouched.
+     */
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        EventEmitter.cleanupEngine(flutterEngine)
+        NativeLogger.cleanupEngine(flutterEngine)
+        ServiceReadyGate.cleanupEngine(flutterEngine)
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -494,7 +507,7 @@ class MainActivity : FlutterActivity() {
             "queue", "bufferingState", "audioSessionId", "crossfadeState"
         ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
-                .setStreamHandler(Media3PlaybackService.Events.handler(name))
+                .setStreamHandler(Media3PlaybackService.Events.handler(name, flutterEngine))
         }
 
         listOf(
@@ -508,18 +521,18 @@ class MainActivity : FlutterActivity() {
             "reverb",
         ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
-                .setStreamHandler(Media3PlaybackService.Events.handler(name))
+                .setStreamHandler(Media3PlaybackService.Events.handler(name, flutterEngine))
         }
 
         EventChannel(messenger, "musicplayer/native_logs")
-            .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
+            .setStreamHandler(Media3PlaybackService.NativeLogs.handler(flutterEngine))
 
         // Cold-start race fix: Dart awaits this before its first push into
         // media3PlaybackChannel (see ServiceReadyGate doc comment). Replays
         // "ready" immediately to a listener attaching after onCreate() already
         // finished (service alive from a previous launch in this process).
         EventChannel(messenger, "musicplayer/media3_serviceReady")
-            .setStreamHandler(ServiceReadyGate.handler())
+            .setStreamHandler(ServiceReadyGate.handler(flutterEngine))
     }
 
     // ── FFmpeg decoder channel (Phase 9) ────────────────────────────────────
@@ -552,7 +565,7 @@ class MainActivity : FlutterActivity() {
         }
 
         EventChannel(messenger, "musicplayer/ffmpeg_decoder_events")
-            .setStreamHandler(Media3PlaybackService.Events.handler("ffmpegDecoderInfo"))
+            .setStreamHandler(Media3PlaybackService.Events.handler("ffmpegDecoderInfo", flutterEngine))
     }
 
     // ── MediaStore channel ─────────────────────────────────────────────────────
