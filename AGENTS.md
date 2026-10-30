@@ -32,6 +32,7 @@
 - Web guards are intentional: e.g. `MediaStoreService.getSongs()` throws `MissingPluginException` on web; treat it as an empty library.
 
 ## Workflow
+- Third-party API changes: look up official docs with Context7 and match them to the resolved version (`pubspec.lock`, `android/build.gradle` `media3Version`, `android/settings.gradle` plugins) before coding (`.agents/rules/dependency-docs-context7.md`).
 - Every behavior change: add a new top entry in `lib/pages/settings_page/changelog_data.dart` and bump `version:` in `pubspec.yaml` to the same version. Never reuse the previous version.
 - After any repo-changing session, update the relevant `.agents/memory/*.md` topic and its `MEMORY.md` index.
 - `lib/` Dart edits: use Dart MCP `hot_reload`; `hot_restart` after `initState`, global/static state, or `main()` changes (`.agents/rules/flutter-hot-reload.md`).

@@ -321,7 +321,9 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final beatOffset = nonNegativeValue('beatOffsetMs');
   final downbeatOffset = nonNegativeValue('downbeatOffsetMs');
   final rawMeter = map['meter'];
-  final meterValue = rawMeter is num && rawMeter.isFinite &&
+  final meterValue =
+      rawMeter is num &&
+          rawMeter.isFinite &&
           rawMeter.toDouble() == rawMeter.toInt().toDouble()
       ? rawMeter.toInt()
       : null;
