@@ -475,6 +475,11 @@ class AudioService {
         clearNextTrackIndex: nativeNextIndex == null,
       ),
     );
+    SentryObservability.breadcrumb(
+      'audio.playback',
+      'Track changed',
+      data: {'queue_index': index, 'queue_size': _playlist.length},
+    );
 
     LogService.verbose(
       'AudioService',
@@ -581,6 +586,11 @@ class AudioService {
     final previousIndex = _currentIndex;
     final previousState = playbackState.value;
     final previousSong = _previousSong;
+    SentryObservability.breadcrumb(
+      'audio.playback',
+      'Playback queue requested',
+      data: {'queue_size': playlist.length, 'queue_index': index},
+    );
     _isLoading = true;
     final immutable = List<LocalSong>.unmodifiable(playlist);
     final selectedSong = immutable[index];
@@ -613,6 +623,11 @@ class AudioService {
       );
       unawaited(HistoryService.trackPlay(selectedSong));
     } on Object catch (e, st) {
+      SentryObservability.captureException(
+        e,
+        st,
+        operation: 'audio.playSongAt',
+      );
       LogService.error(
         'AudioService',
         'playSongAt failed: $e',
