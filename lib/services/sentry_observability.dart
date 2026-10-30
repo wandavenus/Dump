@@ -25,6 +25,14 @@ class SentryObservability {
     );
   }
 
+  static Future<T> trace<T>(
+    String name,
+    Future<T> Function() operation,
+  ) {
+    if (!Sentry.isEnabled) return operation();
+    return Sentry.startSpan<T>(name, (_) => operation());
+  }
+
   static void captureException(
     Object error,
     StackTrace stackTrace, {
