@@ -5,8 +5,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final display = SentryFlutter.currentDisplay();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(SentryFlutter.reportFullyDisplayed());
+      unawaited(display?.reportFullyDisplayed());
     });
   }
 
