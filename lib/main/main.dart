@@ -26,7 +26,6 @@ Future<void> main() async {
           options.enableUserInteractionTracing = true;
           options.enableTimeToFullDisplayTracing = true;
           options.enableExceptionTypeIdentification = true;
-          options.captureFailedRequests = true;
           options.replay.sessionSampleRate = kReleaseMode ? 0.05 : 0.0;
           options.replay.onErrorSampleRate = 1.0;
           options.privacy.maskAllText = true;
