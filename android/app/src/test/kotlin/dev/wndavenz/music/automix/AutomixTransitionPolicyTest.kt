@@ -221,6 +221,64 @@ class AutomixTransitionPolicyTest {
     }
 
     @Test
+    fun `phrase snap uses the analyzed metre instead of a fixed four-beat bar`() {
+        // 120 BPM, 3/4: bar = 1500 ms, four bars = 6 s, two bars = 3 s.
+        assertEquals(
+            6_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                6_100L, 500.0, 0.0, 0.0, meter = 3,
+            ),
+        )
+        assertEquals(
+            3_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                3_200L, 500.0, 0.0, 0.0, meter = 3,
+            ),
+        )
+        // A 4/4 grid would have snapped this to 8 s, which is not a boundary
+        // of a 3-beat bar and drifts by one beat per bar.
+        assertEquals(
+            6_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                7_900L, 500.0, 0.0, 0.0, meter = 3,
+            ),
+        )
+        // Out-of-contract metre falls back to the 4/4 prior.
+        assertEquals(
+            8_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                8_100L, 500.0, 0.0, 0.0, meter = 2,
+            ),
+        )
+    }
+
+    @Test
+    fun `target metre parses only supported bar lengths`() {
+        assertEquals(4, ParsedAutomixTransitionTarget.fromMap(mapOf("id" to 1.0))!!.meter)
+        assertEquals(
+            3,
+            ParsedAutomixTransitionTarget.fromMap(
+                mapOf("id" to 1.0, "meter" to 3.0),
+            )!!.meter,
+        )
+        assertEquals(
+            6,
+            ParsedAutomixTransitionTarget.fromMap(
+                mapOf("id" to 1.0, "meter" to 6.0),
+            )!!.meter,
+        )
+        for (raw in listOf(2.0, 7.0, 4.5, Double.NaN)) {
+            assertEquals(
+                4,
+                ParsedAutomixTransitionTarget.fromMap(
+                    mapOf("id" to 1.0, "meter" to raw),
+                )!!.meter,
+                "meter=$raw",
+            )
+        }
+    }
+
+    @Test
     fun `Dart transition fixture is parsed into the exact Media3 cue fields`() {
         val properties = Properties()
         val stream = javaClass.classLoader!!

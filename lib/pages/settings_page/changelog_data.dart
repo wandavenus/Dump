@@ -20,6 +20,17 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.58',
+    date: '30 Oktober 2026',
+    changes: [
+      'AutoMix: live tracker kini menguji semua level metrikal (1x, 1/2x, 2x, 2/3x, 3/2x, 1/3x, 3x) sehingga lagu 90, 135, 160, 174, dan 180 BPM tidak lagi terkunci di 2/3x atau 1/2x tempo; confidence mengikuti margin antar-hipotesis.',
+      'AutoMix: meter 3/4 dan 6/8 dideteksi di analyzer offline maupun live, dipakai untuk grid frasa, snap fade, dan phrase lock; meter hanya dipublikasikan jika menang di dua jendela riwayat dan didukung kenaikan low-band share, sehingga materi four-on-the-floor datar tidak lagi mengarang downbeat.',
+      'AutoMix: analyzer mempublikasikan batas seksi track-level dari perubahan chroma 2 detik; jika batas itu jatuh 30-65 detik sebelum akhir lagu, early handover dimulai tepat di awal seksi terakhir, bukan di titik acak.',
+      'AutoMix: akor dengan keyakinan rendah di tengah perubahan harmoni kini dijembatani hangover yang meluruh, jadi skor harmoni tidak lagi melihat celah 0.00 pada transisi yang sebenarnya selaras.',
+      'AutoMix: pengulangan artis kini hanya diatur oleh artist cooldown (variety dihapus dari skor, bobotnya dibagi ke tempo/key/energi); crash potensial pada lookahead planner native diperbaiki, dan cache analisis dinaikkan ke skema v20.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.57',
     date: '29 Oktober 2026',
     changes: [

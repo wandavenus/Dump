@@ -20,8 +20,9 @@ void main() {
       expect(result!.rmsDb, closeTo(-9.03, 1.0));
       expect(result.analyzedSeconds, closeTo(2.0, 1e-9));
       expect(result.onsetRate, greaterThanOrEqualTo(0));
-      // The analyzer ABI has 32 output slots. The FFI facade must pass the
-      // full count or native rejects the call before writing any analysis.
+      // The analyzer ABI has 35 output slots. The FFI facade must pass the
+      // full count or native rejects the call before writing any analysis
+      // (the 32-slot facade made every host analysis return null).
       expect(result.bpmConfidence, inInclusiveRange(0.0, 1.0));
       expect(result.keyConfidence, inInclusiveRange(0.0, 1.0));
       expect(result.isMinor, isA<bool>());
@@ -34,6 +35,11 @@ void main() {
       expect(result.endBpmConfidence, isNull);
       expect(result.startBeatOffsetMs, isNull);
       expect(result.endBeatOffsetMs, isNull);
+      // Metre and section-boundary slots exist in the extended ABI and must
+      // stay inside their contracts on material too short to measure them.
+      expect(result.meter, anyOf(isNull, 3, 4, 6));
+      expect(result.sectionCueMs, isNull);
+      expect(result.sectionCueConfidence, 0);
       // The quarter RMS profile is always published for a successful analysis,
       // even when the tempo curve is too short to measure.
       expect(result.energyQuarters, hasLength(4));

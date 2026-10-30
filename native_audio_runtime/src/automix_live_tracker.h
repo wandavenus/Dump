@@ -6,10 +6,11 @@
 extern "C" {
 #endif
 #define NAR_AUTOMIX_LIVE_TRACKER_SLOT_COUNT 2
-#define NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT 6
+#define NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT 7
 // Output order: BPM, elapsed ms since latest beat pulse, confidence [0,1],
 // elapsed ms since the latest estimated downbeat, downbeat confidence [0,1],
-// recent energy trend in [-1,1] (positive = the section is building up).
+// recent energy trend in [-1,1] (positive = the section is building up),
+// selected metre in beats per bar (3, 4 or 6; 0 when unknown).
 // Realtime tracking is per deck, bounded, allocation-free and non-blocking in
 // process() (the publish path uses a try-lock and skips a callback under
 // contention). get() returns a seqlock-consistent snapshot of one estimate.

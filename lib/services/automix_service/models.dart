@@ -132,10 +132,13 @@ class AutomixSegmentFeatures {
     this.alternateBpm,
     this.beatOffsetMs,
     this.downbeatOffsetMs,
+    this.meter = 4,
     this.dropCueMs,
     this.breakdownCueMs,
+    this.sectionCueMs,
     this.dropConfidence = 0,
     this.breakdownConfidence = 0,
+    this.sectionCueConfidence = 0,
     this.structureRegion = 0,
     this.structureConfidence = 0,
     this.vocalLikelihood = 0,
@@ -175,11 +178,22 @@ class AutomixSegmentFeatures {
   /// It stays null unless repeated onset accents distinguish one phrase phase.
   final double? downbeatOffsetMs;
 
+  /// Beats per bar (3, 4 or 6) the native metre hypothesis selected for this
+  /// window. Four is the prior when no hypothesis had a clear margin.
+  final int meter;
+
   /// Candidate structural cues relative to this window (ms), if detected.
   final double? dropCueMs;
   final double? breakdownCueMs;
+
+  /// Strongest track-level section boundary inside this window (ms relative to
+  /// the window start), derived from 2 s chroma change blocks. This is a real
+  /// change point (verse→chorus, breakdown entry), not a per-window loudness
+  /// label, and it is what structure-aligned scheduling should anchor to.
+  final double? sectionCueMs;
   final double dropConfidence;
   final double breakdownConfidence;
+  final double sectionCueConfidence;
 
   /// Structural region (0=unknown, 1=low_activity, 2=buildup, 3=drop, 4=breakdown, 5=stable_high)
   final int structureRegion;
@@ -305,6 +319,13 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final seconds = finiteValue('segmentSeconds');
   final beatOffset = nonNegativeValue('beatOffsetMs');
   final downbeatOffset = nonNegativeValue('downbeatOffsetMs');
+  final rawMeter = map['meter'];
+  final meterValue = rawMeter is num && rawMeter.isFinite
+      ? rawMeter.toInt()
+      : null;
+  final meter = meterValue != null && meterValue >= 3 && meterValue <= 6
+      ? meterValue
+      : 4;
   final startBpm = positiveBpm('startBpm');
   final endBpm = positiveBpm('endBpm');
 
@@ -325,10 +346,13 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     downbeatOffsetMs: bpm != null && bpm > 0 && bpmConfidence >= 0.20
         ? downbeatOffset
         : null,
+    meter: meter,
     dropCueMs: nonNegativeValue('dropCueMs'),
     breakdownCueMs: nonNegativeValue('breakdownCueMs'),
+    sectionCueMs: nonNegativeValue('sectionCueMs'),
     dropConfidence: unitValue('dropConfidence'),
     breakdownConfidence: unitValue('breakdownConfidence'),
+    sectionCueConfidence: unitValue('sectionCueConfidence'),
     structureRegion: structureValue('structureRegion'),
     structureConfidence: unitValue('structureConfidence'),
     vocalLikelihood: unitValue('vocalLikelihood'),
@@ -384,6 +408,8 @@ class AutomixTrackFeatures {
     this.tailBeatOffsetMs,
     this.downbeatOffsetMs,
     this.tailDownbeatOffsetMs,
+    this.meter = 4,
+    this.tailMeter = 4,
     this.dropCueMs,
     this.tailBreakdownCueMs,
     this.dropConfidence = 0,
@@ -392,6 +418,8 @@ class AutomixTrackFeatures {
     this.structureConfidence = 0,
     this.tailStructureRegion = 0,
     this.tailStructureConfidence = 0,
+    this.tailSectionCueMs,
+    this.tailSectionCueConfidence = 0,
     this.vocalLikelihood = 0,
     this.vocalConfidence = 0,
     this.durationSeconds = 0,
@@ -431,6 +459,13 @@ class AutomixTrackFeatures {
   /// Estimated outro 16-beat phrase phase in milliseconds from the file start.
   final double? tailDownbeatOffsetMs;
 
+  /// Beats per bar of the head (intro) analysis window, and of the exit
+  /// (tail) window. The phrase grid, the bar-relative fade snap and the
+  /// native phrase lock all use the metre of the deck edge they describe, so a
+  /// 3/4 or 6/8 track is never locked to a four-beat bar.
+  final int meter;
+  final int tailMeter;
+
   /// Intro drop cue (absolute milliseconds from file start), if confidently
   /// detected in the head analysis window.
   final double? dropCueMs;
@@ -445,6 +480,13 @@ class AutomixTrackFeatures {
   final double structureConfidence;
   final int tailStructureRegion;
   final double tailStructureConfidence;
+
+  /// Track-level section boundary near the mix seam, in absolute milliseconds
+  /// from the file start: the start of the final section of the outgoing track
+  /// (where the outro or last chorus begins). Null unless the exit window
+  /// produced a confident 2 s-block chroma change point.
+  final double? tailSectionCueMs;
+  final double tailSectionCueConfidence;
   final double vocalLikelihood;
   final double vocalConfidence;
 
@@ -531,6 +573,8 @@ class AutomixTrackFeatures {
     if (beatOffsetMs != null) 'bo': beatOffsetMs,
     if (downbeatOffsetMs != null) 'dbo': downbeatOffsetMs,
     if (tailDownbeatOffsetMs != null) 'tdbo': tailDownbeatOffsetMs,
+    if (meter != 4) 'mt': meter,
+    if (tailMeter != 4) 'tmt': tailMeter,
     if (dropCueMs != null) 'dc': dropCueMs,
     if (tailBreakdownCueMs != null) 'tbkc': tailBreakdownCueMs,
     if (dropConfidence > 0) 'dconf': dropConfidence,
@@ -539,6 +583,8 @@ class AutomixTrackFeatures {
     if (structureConfidence > 0) 'sconf': structureConfidence,
     if (tailStructureRegion > 0) 'tsreg': tailStructureRegion,
     if (tailStructureConfidence > 0) 'tsconf': tailStructureConfidence,
+    if (tailSectionCueMs != null) 'scue': tailSectionCueMs,
+    if (tailSectionCueConfidence > 0) 'scc': tailSectionCueConfidence,
     if (vocalLikelihood > 0) 'vlike': vocalLikelihood,
     if (vocalConfidence > 0) 'vconf': vocalConfidence,
     if (durationSeconds > 0) 'dur': durationSeconds,
@@ -585,6 +631,8 @@ class AutomixTrackFeatures {
       beatOffsetMs: (map['bo'] as num?)?.toDouble(),
       downbeatOffsetMs: (map['dbo'] as num?)?.toDouble(),
       tailDownbeatOffsetMs: (map['tdbo'] as num?)?.toDouble(),
+      meter: _validMeter(map['mt']),
+      tailMeter: _validMeter(map['tmt']),
       dropCueMs: (map['dc'] as num?)?.toDouble(),
       tailBreakdownCueMs: (map['tbkc'] as num?)?.toDouble(),
       dropConfidence: (map['dconf'] as num?)?.toDouble() ?? 0,
@@ -593,6 +641,8 @@ class AutomixTrackFeatures {
       structureConfidence: (map['sconf'] as num?)?.toDouble() ?? 0,
       tailStructureRegion: (map['tsreg'] as num?)?.toInt() ?? 0,
       tailStructureConfidence: (map['tsconf'] as num?)?.toDouble() ?? 0,
+      tailSectionCueMs: (map['scue'] as num?)?.toDouble(),
+      tailSectionCueConfidence: (map['scc'] as num?)?.toDouble() ?? 0,
       vocalLikelihood: (map['vlike'] as num?)?.toDouble() ?? 0,
       vocalConfidence: (map['vconf'] as num?)?.toDouble() ?? 0,
       durationSeconds: (map['dur'] as num?)?.toDouble() ?? 0,
@@ -625,6 +675,14 @@ class AutomixTrackFeatures {
       chordProgression: automixChordEventsFromValue(map['chords']),
     );
   }
+}
+
+/// Persisted metre is limited to the bar lengths the native hypotheses can
+/// publish (3, 4, 6). Anything else is the legacy 4/4 assumption.
+int _validMeter(Object? raw) {
+  if (raw is! num || !raw.isFinite) return 4;
+  final value = raw.toInt();
+  return value >= 3 && value <= 6 ? value : 4;
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────────────

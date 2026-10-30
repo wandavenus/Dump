@@ -718,21 +718,60 @@ Implemented after this audit, still fully offline and non-AI. Files touched:
 | ID | Status | What changed |
 |---|---|---|
 | AM8-01 | Fixed | `estimate_tempo()` now enumerates `{P/2, P, 2P, ⅔P, 3⁄2P}` plus comb peaks and scores each by comb strength, onset-grid coverage, grid fill, on/off-beat accent contrast and phase coherence. The 120 BPM prior is a 15% tie-break only. `alternateBpm` is the measured runner-up. |
-| AM8-02 | Partial | `AutomixGridMerge` now keeps the offline grid whole whenever the sources disagree by >4% log (phase from live only when it agrees within 0.25 beat). Live confidence is capped at 0.55 for a strong half-period and 0.30 for a third. The live tracker still uses its own ACF and a one-directional rescue. |
-| AM8-03 | Partial | Offline phrase scoring adds per-frame chroma novelty, accepted only when the novelty itself has 16-beat contrast ≥0.25. Live downbeat evidence is unchanged (still 0.000 on flat material), but it no longer overwrites the offline grid. |
+| AM8-02 | Fixed | Offline and live share the same onset-grid metrical test. The live tracker now scores every level around its ACF peak (`1, ½, 2, ⅔, 3⁄2, ⅓, 3`) by grid coverage and fill, so both directions are corrected (90→90, 135→135, 160→160, 174→174, 180→180 on the audit sweep) and confidence is scaled by the margin between hypotheses. `AutomixGridMerge` keeps the offline grid whole whenever the sources disagree by >4% log. |
+| AM8-03 | Fixed | Bar phase is scored from a sustained low-band accent **plus** a timbre-change (novelty) term, and a metre must win both ends of the history with a corroborating low-band share increase. Flat material publishes no metre/downbeat (13/13 tempi at 0.000); accented metre-3/4/6 material publishes metre and downbeat ≥0.30. Offline phrase scoring keeps its chroma-novelty term. |
 | AM8-04 | Fixed | The phase ODF is band-split (30–150 Hz ×1.0, 150–1500 Hz ×0.55, 1500–8000 Hz ×0.15); tempo/structure keep the full-band ODF. Regression: kick + off-beat hat at 90–140 BPM publishes a finite phase within 15 ms. |
 | AM8-05 | Fixed | Key requires chroma entropy <0.95 and ≥3 populated classes, searches tuning ±50 cents in 5-cent steps, and derives confidence from absolute correlation × margin × flatness × relative-major/minor ambiguity. The cue-level hard harmonic reject is gone; the pitch-shift gate moved from 0.55 to 0.70. |
 | AM8-06 | Fixed | Energy coefficients normalized to 1.0 (0.22/0.40/0.18/0.10, momentum cap 0.10) in both Dart and C; clamp is a guard. |
-| AM8-07 | Open | No 3/6-beat metre hypothesis yet. |
-| AM8-08 | Partial | A seventh quality requires ≥10% chroma energy and ≥70% of the triad's average tone energy. Harmony is now scored only by the planner. The confidence gap at chord changes remains. |
+| AM8-07 | Fixed | The analyzer and live tracker both evaluate bar lengths 3/4/6, publish the winner with its own confidence, and the metre flows through JNI → Dart → the native target payload. The phrase grid is `meter × 4` beats, the fade snap uses meter-sized bars, and phrase lock only runs when both decks agree on the metre. |
+| AM8-08 | Fixed | A seventh quality requires ≥10% chroma energy and ≥70% of the triad's average tone energy; a low-confidence chord row inside a change is bridged by a decayed hangover instead of a 0.00-confidence gap; harmony is scored only by the planner. |
 | AM8-09 | Fixed | `boundedFadeLeadMs()` limits a phrase-snapped fade to `plannedFade + ½ beat`, never past EOF; used by `CrossfadeController` outside the early-handover path. |
 | AM8-10 | Fixed | Density factors scale the beat count, then round to ½ beat; fade duration is re-derived and re-clamped. |
-| AM8-11 | Partial | Artist cooldown reduced to a 0.04/0.02 tie-breaker; `variety` remains the main term to keep Dart/native parity. |
-| AM8-12 | Partial | 241–300 s files add one centred window when the head/tail gap exceeds 30 s. Structural segmentation remains window-level. |
+| AM8-11 | Fixed | The `variety` sub-cost is removed from both the Dart oracle and the native planner; the artist cooldown is the single owner, now covering the immediately previous slot (base 0.09/0.03, linear decay over 4 slots). The removed weight is redistributed across tempo/key/energy with the old relative proportions. |
+| AM8-12 | Fixed | 241–300 s files add one centred window when the head/tail gap exceeds 30 s, and the analyzer now publishes a track-level section boundary from 2 s chroma-change blocks. A confident boundary 30–65 s before EOF is used as the early-handover start, so structure-aligned transitions anchor to a real change point instead of a per-window loudness label. |
 | AM8-13 | Open by design | L1 headroom is unchanged until the seam loudness dip is measured on real audio; the limiter path needs verification first. |
 | AM8-14/15 | Fixed | `alternateBpm` comes from the metrical runner-up; the vocal term is a weighted sub-cost inside the shared denominator. |
 
-Analysis cache schema is now **v19** (all cached tempo/grid/key/chord values are invalidated).
+Analysis cache schema is now **v20** (v19 entries predate the metre and section-boundary fields, so they are re-analysed).
+
+## I. Remediation status (2026-10-30, app v1.5.58) — AM8-02/03/07/08/11/12 follow-up
+
+What this pass closed, with the measurements that were actually taken (native C suite, synthetic signals):
+
+* **Live metrical rescue (AM8-02):** click-train sweep at 70–200 BPM, 30 s each. All 13 tempi now within
+  0.2 BPM; the 90→60, 135→67, 160→80, 174→87 and 180→60 locks are gone. New regression:
+  `test_live_tracker_resolves_third_and_double_tempo` (90/135/160/174/180).
+* **Bar evidence and metre (AM8-03/07 live):** bar candidates are scored by sustained low-band accent plus a
+  timbre-change term; a hypothesis must also win two independent two-bar windows and show a low-band share
+  increase. Flat sweep 13/13 tempi publish **meter 0 / downbeat confidence 0.000**; accented metre-3 at
+  100/120/140 BPM publishes **meter 3, dbc 0.62–0.77**; metre-6 at 120/140 publishes **meter 6**.
+  New regression: `test_live_tracker_reports_meter_and_rejects_flat_bars`.
+* **Offline metre (AM8-07):** bar length 3/4/6 is published at index 32 and forwarded by the JNI bridge to
+  Dart and the native target payload (outgoing = exit window, incoming = head window). Synthetic sweep:
+  100/120/140 BPM × metre 3/4/6 → correct metre and downbeat phase error 0.5–12 ms. New regression:
+  `test_analyzer_metre_and_section_boundary`.
+* **Track-level structure (AM8-12):** the analyzer publishes the strongest 2 s-block chroma change point
+  (index 33) and its confidence (index 34). A 30 s→60 s verse/chorus fixture reports **30000 ms at
+  confidence 1.00**; a steady arrangement reports **no boundary**. Dart only uses it when confidence ≥0.50
+  and the lead is 30–65 s, and never over a confident near-EOF breakdown cue. Covered by the per-transition
+  cue tests (`confident section boundary moves the early handover…`, out-of-window and low-confidence cases).
+* **Artist repetition (AM8-11):** `variety` removed from both costs; cooldown owns artist spread
+  (0.09/0.03 base, back = 1..4). The lookahead's virtual slot no longer reads an unwritten plan entry — that
+  out-of-bounds read segfaulted the native planner test after the cooldown started covering back = 1.
+* **Chords (AM8-08):** the triad/7th quality gate already existed; this pass adds the hangover it was missing.
+  A row whose window straddles a chord change is bridged with the previous chord at a decayed confidence
+  (1 − gap/1500 ms), only when a confident chord follows within 1500 ms, so trailing silence stays unknown.
+  New regression: `test_chord_hangover_bridges_one_gap_and_not_trailing_silence` (gap row 3 → root C,
+  confidence 0.33 < 1.00; 5 s chord + trailing silence → last rows stay `-1`).
+
+**Verification actually run in this pass:** native C suite (`automix_native_c_test`, now including the three
+metrical/section regressions and the chord-hangover regression) exit 0; `flutter test
+test/services/automix_service` **137 tests passed**; `dart test` in `native_audio_runtime` (planner bridge) **4 tests passed**; `dart analyze
+lib/services/automix_service test/services/automix_service native_audio_runtime/lib native_audio_runtime/test`
+clean. Kotlin unit tests could **not** run here: this sandbox has no Android SDK/Gradle dependency cache, so
+the Kotlin changes remain CI-verified only. No real-audio (ffmpeg) measurement was made; the section-boundary
+block size (2 s) and the 30–65 s use window still need a real-track check before they are claimed as
+perceptual improvements.
 
 **Verification actually run:** native C suite `automix_native_c_test` exit 0, including new sweeps for
 metrical level (60–200 BPM), beat phase with off-beat hats, key noise/detune rejection, and phrase phase from

@@ -52,36 +52,39 @@ void main() {
     messenger.setMockMethodCallHandler(playbackChannel, null);
   });
 
-  test('withholds outgoing phase when only the whole-track grid is available', () {
-    const outgoing = AutomixTrackFeatures(
-      songId: 201,
-      bpm: 120,
-      bpmConfidence: 0.9,
-      beatOffsetMs: 300,
-      downbeatOffsetMs: 900,
-      tailAnalyzed: true,
-      tailBpmConfidence: 0.1,
-    );
-    const incoming = AutomixTrackFeatures(
-      songId: 202,
-      bpm: 122,
-      bpmConfidence: 0.9,
-      beatOffsetMs: 120,
-      downbeatOffsetMs: 480,
-    );
-    final targets = AutomixService.buildNativeTargetsForTesting(outgoing, [
-      incoming,
-    ]);
-    expect(targets, hasLength(2));
-    // Whole-track BPM may still be used for tempo sequencing, but the head
-    // phase must never masquerade as the outgoing exit grid.
-    expect(targets.first['bpm'], 120.0);
-    expect(targets.first.containsKey('beatOffsetMs'), isFalse);
-    expect(targets.first.containsKey('downbeatOffsetMs'), isFalse);
-    expect(targets[1]['bpm'], 122.0);
-    expect(targets[1]['beatOffsetMs'], 120.0);
-    expect(targets[1]['downbeatOffsetMs'], 480.0);
-  });
+  test(
+    'withholds outgoing phase when only the whole-track grid is available',
+    () {
+      const outgoing = AutomixTrackFeatures(
+        songId: 201,
+        bpm: 120,
+        bpmConfidence: 0.9,
+        beatOffsetMs: 300,
+        downbeatOffsetMs: 900,
+        tailAnalyzed: true,
+        tailBpmConfidence: 0.1,
+      );
+      const incoming = AutomixTrackFeatures(
+        songId: 202,
+        bpm: 122,
+        bpmConfidence: 0.9,
+        beatOffsetMs: 120,
+        downbeatOffsetMs: 480,
+      );
+      final targets = AutomixService.buildNativeTargetsForTesting(outgoing, [
+        incoming,
+      ]);
+      expect(targets, hasLength(2));
+      // Whole-track BPM may still be used for tempo sequencing, but the head
+      // phase must never masquerade as the outgoing exit grid.
+      expect(targets.first['bpm'], 120.0);
+      expect(targets.first.containsKey('beatOffsetMs'), isFalse);
+      expect(targets.first.containsKey('downbeatOffsetMs'), isFalse);
+      expect(targets[1]['bpm'], 122.0);
+      expect(targets[1]['beatOffsetMs'], 120.0);
+      expect(targets[1]['downbeatOffsetMs'], 480.0);
+    },
+  );
 
   test('publishes the tail grid when the exit estimate is confident', () {
     const outgoing = AutomixTrackFeatures(
@@ -107,6 +110,36 @@ void main() {
     expect(targets.first['bpm'], 126.0);
     expect(targets.first['beatOffsetMs'], 31250.0);
     expect(targets.first['downbeatOffsetMs'], 31800.0);
+  });
+
+  test('publishes the metre of the edge that owns each beat grid', () {
+    // The outgoing deck is described by its exit window and every incoming deck
+    // by its head window, so native must receive metre 3 for a waltz exit and
+    // metre 4 for a 4/4 head instead of one metre for the whole track.
+    const outgoing = AutomixTrackFeatures(
+      songId: 401,
+      bpm: 126,
+      bpmConfidence: 0.9,
+      meter: 4,
+      tailMeter: 3,
+      tailBpm: 126,
+      tailBpmConfidence: 0.9,
+      tailBeatOffsetMs: 31250,
+      tailDownbeatOffsetMs: 31800,
+      tailAnalyzed: true,
+    );
+    const incoming = AutomixTrackFeatures(
+      songId: 402,
+      bpm: 126,
+      bpmConfidence: 0.9,
+      meter: 4,
+      tailMeter: 3,
+    );
+    final targets = AutomixService.buildNativeTargetsForTesting(outgoing, [
+      incoming,
+    ]);
+    expect(targets.first['meter'], 3);
+    expect(targets[1]['meter'], 4);
   });
 
   test('re-engaging AutoMix does not resend an unchanged duration', () async {
@@ -153,10 +186,9 @@ void main() {
     expect(AudioEffectsService.crossfadeDuration.value, 0.0);
     expect(AutomixService.automixActive.value, isFalse);
 
-    expect(
-      playbackCalls.map((call) => call.method).toSet(),
-      <String>{'setAutomixTransition'},
-    );
+    expect(playbackCalls.map((call) => call.method).toSet(), <String>{
+      'setAutomixTransition',
+    });
     final transitions = playbackCalls
         .where((call) => call.method == 'setAutomixTransition')
         .map((call) => call.arguments as Map<Object?, Object?>)

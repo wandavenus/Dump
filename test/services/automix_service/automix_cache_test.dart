@@ -66,7 +66,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 19,
+            'version': 20,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -95,6 +95,10 @@ void main() {
               'sconf': 0.8,
               'tsreg': 4,
               'tsconf': 0.75,
+              'mt': 4,
+              'tmt': 3,
+              'scue': 200000.0,
+              'scc': 0.82,
               'vlike': 0.85,
               'vconf': 0.9,
               'chords': <Map<String, dynamic>>[
@@ -129,6 +133,10 @@ void main() {
         expect(features.structureConfidence, 0.8);
         expect(features.tailStructureRegion, 4);
         expect(features.tailStructureConfidence, 0.75);
+        expect(features.meter, 4);
+        expect(features.tailMeter, 3);
+        expect(features.tailSectionCueMs, 200000.0);
+        expect(features.tailSectionCueConfidence, 0.82);
         expect(features.vocalLikelihood, 0.85);
         expect(features.vocalConfidence, 0.9);
         expect(features.chordProgression, hasLength(1));
@@ -236,7 +244,7 @@ void main() {
         await prefs.setString(
           'automix_45',
           jsonEncode(<String, dynamic>{
-            'version': 19,
+            'version': 20,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 45,

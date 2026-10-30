@@ -18,8 +18,9 @@ enum {
   NAR_PLAN_MAX_BREACH = 6,
   NAR_PLAN_POLISH_MIN_TRACKS = 12,
   // A repeated artist inside this many recent positions is discouraged by the
-  // greedy pick. The immediately previous slot is already covered by the
-  // variety term inside transition_cost, so the cooldown starts one back.
+  // greedy pick. This is the single artist-spread mechanism: the old variety
+  // sub-cost inside transition_cost was removed, so the cooldown also covers
+  // the immediately previous slot (back = 1).
   NAR_PLAN_ARTIST_COOLDOWN = 4,
 };
 
@@ -35,10 +36,14 @@ typedef struct {
   int64_t song_id;
 } ScoredCandidate;
 
-static const double kProfileWeights[3][4] = {
-    {0.40, 0.20, 0.25, 0.15},
-    {0.20, 0.45, 0.20, 0.15},
-    {0.15, 0.15, 0.55, 0.15},
+// (tempo, key, energy) per profile, mirrored exactly in
+// DartAutomixEngineReference._profileWeights. Artist repetition is owned by
+// artist_cooldown_cost alone — the removed 0.15 variety weight is
+// redistributed across the three remaining terms (same relative proportions).
+static const double kProfileWeights[3][3] = {
+    {0.47, 0.24, 0.29},
+    {0.24, 0.53, 0.23},
+    {0.18, 0.18, 0.64},
 };
 
 static double feature(const double* rows, int32_t index, int32_t field) {
@@ -437,11 +442,6 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
     else if (position >= 0.55 && delta > 0.05) energy += 0.12 * delta;
   }
   energy = fmin(1.0, fmax(0.0, energy));
-  const int same_artist = artist_groups[a] > 0 &&
-                          artist_groups[a] == artist_groups[b];
-  const double variety = same_artist
-      ? (avoid_artist_repeat ? 0.55 : 0.20) : 0.0;
-
   // Vocal conflict penalty: confidence-aware
   const double vocal_a = feature(rows, a, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
   const double vocal_b = feature(rows, b, NAR_AUTOMIX_VOCAL_LIKELIHOOD);
@@ -460,10 +460,9 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const double* weights = kProfileWeights[profile];
   const double w_vocal = 0.10;
   const double denominator =
-      weights[0] + weights[1] + weights[2] + weights[3] + w_vocal;
+      weights[0] + weights[1] + weights[2] + w_vocal;
   const double total = weights[0] * tempo + weights[1] * key +
-                       weights[2] * energy + weights[3] * variety +
-                       w_vocal * vocal_cost;
+                       weights[2] * energy + w_vocal * vocal_cost;
   (void)song_ids;
   return fmin(1.0, fmax(0.0, total / denominator));
 }
@@ -647,23 +646,29 @@ static void sort_scored(ScoredCandidate* scored, int32_t count) {
   }
 }
 
-// Greedy-only tie-breaker against artist clustering: break exact cost ties
-// when a candidate's artist sits 2..NAR_PLAN_ARTIST_COOLDOWN positions back.
-// The main artist penalty is the variety term inside transition_cost; this
-// second mechanism is deliberately tiny so the same signal is not weighted
-// twice at full strength. `plan` holds the path so far; for the lookahead scan
-// call with plan_count + 1 so the candidate's extra slot shifts the window the
-// same way the eventual path would. Returns 0 for unlabeled artists.
-static double artist_cooldown_cost(const int32_t* plan, int32_t plan_count,
+// Penalty for repeating an artist within the last NAR_PLAN_ARTIST_COOLDOWN
+// slots. This is the single owner of artist spread: the old variety sub-cost
+// inside transition_cost was removed so one signal no longer drives two
+// objectives. The base reproduces the old effective immediate-repeat penalty
+// (≈ 0.09 after normalisation) and decays with distance, so a repeat close by
+// is cheaper than an immediate one while still discouraged. `plan` holds the
+// path so far; `slot` is the position the candidate would occupy and `filled`
+// is how many positions are actually written. The lookahead scan passes
+// slot = plan_count + 1 with filled = plan_count, and that virtual slot must
+// never be used as an artist lookup (reading unwritten memory used to index
+// artist_groups out of bounds). Returns 0 for unlabeled artists.
+static double artist_cooldown_cost(const int32_t* plan, int32_t slot,
+                                   int32_t filled,
                                    const int32_t* artist_groups,
                                    int32_t candidate_group,
                                    int32_t avoid_artist_repeat) {
   if (candidate_group <= 0) return 0.0;
-  const double base = avoid_artist_repeat ? 0.04 : 0.02;
+  const double base = avoid_artist_repeat ? 0.09 : 0.03;
   double penalty = 0.0;
-  for (int32_t back = 2; back <= NAR_PLAN_ARTIST_COOLDOWN; ++back) {
-    const int32_t index = plan_count - back;
+  for (int32_t back = 1; back <= NAR_PLAN_ARTIST_COOLDOWN; ++back) {
+    const int32_t index = slot - back;
     if (index < 0) break;
+    if (index >= filled) continue;
     if (artist_groups[plan[index]] != candidate_group) continue;
     const double scaled = base *
         (double)(NAR_PLAN_ARTIST_COOLDOWN - back + 1) /
@@ -694,8 +699,8 @@ static int32_t pick_next(int32_t current, int32_t step_index,
         transition_cost(current, i, step_index, total_steps, song_ids,
                         artist_groups, rows, keys, energies, arc, profile,
                         tolerance, avoid_artist_repeat, harmonic_filter) +
-            artist_cooldown_cost(plan, plan_count, artist_groups, artist_groups[i],
-                                 avoid_artist_repeat),
+            artist_cooldown_cost(plan, plan_count, plan_count, artist_groups,
+                                 artist_groups[i], avoid_artist_repeat),
         song_ids[i]};
   }
 
@@ -708,7 +713,7 @@ static int32_t pick_next(int32_t current, int32_t step_index,
                           song_ids, artist_groups, rows, keys, energies, arc,
                           profile, tolerance, avoid_artist_repeat,
                           harmonic_filter) +
-          artist_cooldown_cost(plan, plan_count, artist_groups,
+          artist_cooldown_cost(plan, plan_count, plan_count, artist_groups,
                                artist_groups[candidate], avoid_artist_repeat);
       if (scored_count == 0 || cost < scored[0].cost) {
         scored[0] = (ScoredCandidate){candidate, cost, song_ids[candidate]};
@@ -739,7 +744,7 @@ static int32_t pick_next(int32_t current, int32_t step_index,
           candidate, next, step_index + 1, total_steps, song_ids,
           artist_groups, rows, keys, energies, arc, profile, tolerance,
           avoid_artist_repeat, harmonic_filter) +
-          artist_cooldown_cost(plan, plan_count + 1, artist_groups,
+          artist_cooldown_cost(plan, plan_count + 1, plan_count, artist_groups,
                                artist_groups[next], avoid_artist_repeat);
       if (cost < min_next) min_next = cost;
     }
@@ -782,7 +787,7 @@ static double link_cost(const int32_t* plan, int32_t from, int32_t to,
              plan[from], plan[to], to, count, song_ids, artist_groups, rows,
              keys, energies, arc, profile, tolerance, avoid_artist_repeat,
              harmonic_filter) +
-      0.05 * artist_cooldown_cost(plan, to, artist_groups,
+      0.05 * artist_cooldown_cost(plan, to, to, artist_groups,
                                   artist_groups[plan[to]],
                                   avoid_artist_repeat);
 }

@@ -730,6 +730,47 @@ static void test_chord_progression_analysis(void) {
   assert(chords[1] == -1.0 && chords[2] == -1.0 && chords[3] == 0.0);
 }
 
+static void test_chord_hangover_bridges_one_gap_and_not_trailing_silence(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 8;
+  float* pcm = (float*)calloc((size_t)count, sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  // C-major triad, two silent seconds, then the same triad. The row centred on
+  // the gap cannot be named, so the hangover must bridge exactly that row with
+  // a decayed copy of the previous chord: a 0.00 hole in the harmonic timeline
+  // is what made a preceding chord look current at the change point where
+  // transition cues sample.
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    if (t >= 3.0 && t < 5.0) continue;
+    pcm[i] = (float)(
+        0.24 * sin(2.0 * pi * 261.6256 * t) +
+        0.20 * sin(2.0 * pi * 329.6276 * t) +
+        0.18 * sin(2.0 * pi * 391.9954 * t));
+  }
+  double chords[32] = {0};
+  const int32_t rows = nar_automix_analyze_chords(
+      pcm, count, sample_rate, chords, 32);
+  assert(rows == 7);
+  // Row 3 starts at 3000 ms and its 2 s window lies inside the gap.
+  assert((int32_t)llround(chords[3 * 4]) == 3000);
+  assert(chords[3 * 4 + 1] == 0.0);   // inherits C
+  assert(chords[3 * 4 + 2] == 0.0);   // with its quality
+  assert(chords[3 * 4 + 3] > 0.0 && chords[3 * 4 + 3] < 0.5);
+  assert(chords[3 * 4 + 3] < chords[2 * 4 + 3]);
+
+  // Trailing silence is not a change, so it must stay unknown instead of
+  // inheriting the last chord indefinitely.
+  for (int32_t i = sample_rate * 5; i < count; ++i) pcm[i] = 0.0f;
+  const int32_t trailed = nar_automix_analyze_chords(
+      pcm, count, sample_rate, chords, 32);
+  assert(trailed == 7);
+  assert(chords[5 * 4 + 1] == -1.0 && chords[5 * 4 + 3] == 0.0);
+  assert(chords[6 * 4 + 1] == -1.0 && chords[6 * 4 + 3] == 0.0);
+  free(pcm);
+}
+
 static void render_tones(float* pcm, int32_t count, int32_t sample_rate,
                          const double* frequencies, const double* amplitudes,
                          int32_t tone_count) {
@@ -2195,6 +2236,50 @@ static void test_live_tracker_resolves_half_tempo_lock(void) {
   free(train.pcm);
 }
 
+static void test_live_tracker_resolves_third_and_double_tempo(void) {
+  // A pulse train is equally periodic at 2x and 3x its beat, and the old
+  // one-directional rescue only ever doubled a reading that was too slow, so a
+  // 3:1 lock (180 BPM published as 60 at confidence 1.000) was unrecoverable.
+  // The symmetric metrical hypothesis test must return the beat level in both
+  // directions: 90/160 were published too slow and 135/174/180 too fast.
+  const int32_t sample_rate = 48000;
+  const double bpms[] = {90.0, 135.0, 160.0, 174.0, 180.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    FractionalClickTrain train = render_fractional_click_train(
+        bpms[i], 0, 7.0, 0.21, sample_rate);
+    double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+    run_live_tracker_click_train(&train, sample_rate, state);
+    assert(fabs(state[0] - bpms[i]) <= bpms[i] * 0.02);
+    assert(state[2] > 0.2);
+    free(train.pcm);
+  }
+}
+
+static void test_live_tracker_reports_meter_and_rejects_flat_bars(void) {
+  // Flat four-on-the-floor has no bar accent at all; the tracker must publish
+  // no metre and no downbeat rather than invent one from frame-grid aliasing.
+  const int32_t sample_rate = 48000;
+  FractionalClickTrain flat = render_fractional_click_train(
+      120.0, 0, 8.0, 0.21, sample_rate);
+  double flat_state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&flat, sample_rate, flat_state);
+  assert(flat_state[6] == 0.0);
+  assert(flat_state[4] < 0.30);
+  free(flat.pcm);
+
+  // A three-beat accent pattern (waltz) must be identified as metre 3. The old
+  // bar scan was hard-wired to four beats and could never represent it, so the
+  // published downbeat drifted by one beat every bar.
+  FractionalClickTrain waltz = render_fractional_click_train(
+      120.0, 3, 8.0, 0.21, sample_rate);
+  double waltz_state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&waltz, sample_rate, waltz_state);
+  assert(fabs(waltz_state[0] - 120.0) <= 120.0 * 0.02);
+  assert(waltz_state[6] == 3.0);
+  assert(waltz_state[4] >= 0.30);
+  free(waltz.pcm);
+}
+
 static void test_live_tracker_keeps_low_tempo(void) {
   // The same octave check must not promote genuine 70-75 BPM pulse trains:
   // their onsets are spaced at the full beat period, not half of it.
@@ -2698,8 +2783,108 @@ static void test_analyzer_phrase_phase_from_harmonic_change(void) {
   free(pcm);
 }
 
+static void test_analyzer_metre_and_section_boundary(void) {
+  // 60 s at 120 BPM with an accented first beat of every three, and a chord
+  // change from Am to F exactly at 30 s. Two independent features must be
+  // measured: the metre (3, not the four-beat default) and a single
+  // track-level section boundary at the change point.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 60;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double pi = 3.14159265358979323846;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const int chorus = t >= 30.0;
+    const double root = chorus ? 174.6141 : 220.0;
+    const double third = chorus ? 220.0 : 261.6256;
+    const double fifth = chorus ? 261.6256 : 329.6276;
+    double value = 0.12 * (sin(2.0 * pi * root * t) +
+                           sin(2.0 * pi * third * t) +
+                           sin(2.0 * pi * fifth * t));
+    const double beat = fmod(t, 0.5);
+    if (beat < 0.09) {
+      const int bar_position = ((int)floor(t / 0.5)) % 3;
+      const double accent = bar_position == 0 ? 0.50 : 0.28;
+      value += accent * exp(-beat * 35.0) * sin(2.0 * pi * 55.0 * beat);
+    }
+    if (chorus) value += 0.04 * sin(2.0 * pi * 6000.0 * t);
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.02);
+  assert(output[32] == 3.0);
+  // This fixture accents only the bar (every third beat) and changes chord
+  // once, so a four-bar phrase phase is genuinely ambiguous and must stay
+  // unknown rather than invent one from noise.
+  assert(!isfinite(output[11]));
+  // The section boundary is measured on 2 s chroma blocks, so one block of
+  // tolerance is the expected resolution.
+  assert(isfinite(output[33]));
+  assert(fabs(output[33] - 30000.0) <= 2500.0);
+  assert(output[34] >= 0.5);
+
+  // The same arrangement without the section change must not invent a second
+  // boundary: a steady loop has no section change point.
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double value = 0.12 * (sin(2.0 * pi * 220.0 * t) +
+                           sin(2.0 * pi * 261.6256 * t) +
+                           sin(2.0 * pi * 329.6276 * t));
+    const double beat = fmod(t, 0.5);
+    if (beat < 0.09) {
+      const int bar_position = ((int)floor(t / 0.5)) % 3;
+      const double accent = bar_position == 0 ? 0.50 : 0.28;
+      value += accent * exp(-beat * 35.0) * sin(2.0 * pi * 55.0 * beat);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(!isfinite(output[33]));
+
+  // Metre must also drive the phrase grid: the same chords changing every
+  // four 3-beat bars (12 beats) must produce a 12-beat phrase phase, not a
+  // 16-beat one. A hard-wired 16-beat grid would report a phase that drifts
+  // by one beat per bar.
+  const double phrase_ms = 60000.0 / 120.0 * 12.0;
+  const double expected_ms = 137.0;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double local = t - expected_ms / 1000.0;
+    if (local < 0.0) local += phrase_ms / 1000.0 * 4.0;
+    const int chord = ((int)floor(local / (phrase_ms / 1000.0))) % 2;
+    const double root = chord ? 174.6141 : 220.0;
+    const double third = chord ? 220.0 : 261.6256;
+    const double fifth = chord ? 261.6256 : 329.6276;
+    double value = 0.12 * (sin(2.0 * pi * root * t) +
+                           sin(2.0 * pi * third * t) +
+                           sin(2.0 * pi * fifth * t));
+    const double beat = fmod(local, 0.5);
+    if (beat < 0.09) {
+      const int bar_position = ((int)floor(local / 0.5)) % 3;
+      const double accent = bar_position == 0 ? 0.50 : 0.30;
+      value += accent * exp(-beat * 35.0) * sin(2.0 * pi * 55.0 * beat);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(output[32] == 3.0);
+  assert(isfinite(output[11]));
+  double phase_error = fmod(fabs(output[11] - expected_ms), phrase_ms);
+  if (phase_error > phrase_ms * 0.5) phase_error = phrase_ms - phase_error;
+  assert(phase_error < 25.0);
+  free(pcm);
+}
+
 int main(void) {
   test_live_tracker_fractional_phase_accuracy();
+  test_live_tracker_resolves_third_and_double_tempo();
+  test_live_tracker_reports_meter_and_rejects_flat_bars();
+  test_analyzer_metre_and_section_boundary();
   test_live_tracker_fractional_downbeat_accuracy();
   test_live_tracker_145bpm_accented_downbeat();
   test_live_tracker_resolves_half_tempo_lock();
@@ -2734,6 +2919,7 @@ int main(void) {
   test_planner_relocation_polish_improves_local_optimum();
   test_planner_adaptive_energy_arc_lifts_loud_mids();
   test_chord_progression_analysis();
+  test_chord_hangover_bridges_one_gap_and_not_trailing_silence();
   test_analyzer_hpcp_key_detection();
   test_analyzer_tempo_curve();
   test_analyzer_tempo_subframe();

@@ -438,11 +438,19 @@ class AutomixService {
             );
       final gridBpm = isOutgoing || match.$1 ? confidentBpm : null;
 
+      // Bar length of the edge whose grid is published above. Native sizes
+      // the phrase grid, the fade snap and the phrase lock from it, so a 3/4
+      // or 6/8 track is not forced onto a four-beat bar that drifts by one beat
+      // every bar. The outgoing deck is described by its exit window, every
+      // incoming deck by its head window.
+      final meter = isOutgoing ? features.tailMeter : features.meter;
+
       final target = <String, Object?>{
         'id': features.songId,
         // Native beat-grid scheduling works in media-position time, so this is
         // the deck's own tempo; [multiplier] controls the output tempo.
         'bpm': ?gridBpm,
+        if (gridBpm != null) 'meter': meter,
         // Beat phase is more fragile than BPM: publish it only when the tempo
         // estimate is strong and the phase is finite/non-negative, otherwise
         // native deliberately keeps the ordinary time-based fade.
@@ -1103,7 +1111,11 @@ class AutomixService {
   // v19: band-weighted onset envelope, metrical-level hypothesis test, key
   //     tuning/tonal gate, and chord 7th evidence. Every cached tempo, grid,
   //     key and chord can differ from v18, so the whole analysis is re-run.
-  static const int _analysisSchemaVersion = 19;
+  // v20: metre hypothesis (3/4/6) and the track-level section-boundary cue are
+  //     new features, and the live/offline grid merge changed. v19 entries carry
+  //     neither metre nor section cue, so they must be re-analysed rather than
+  //     silently reverting a 3/4 track to a four-beat bar.
+  static const int _analysisSchemaVersion = 20;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1244,6 +1256,12 @@ class AutomixService {
     beatOffsetMs: features.beatOffsetMs,
     downbeatOffsetMs: features.downbeatOffsetMs,
     tailDownbeatOffsetMs: features.tailDownbeatOffsetMs,
+    // Per-edge metre and the track-level section cue are part of the analysed
+    // result, so pairing cached DSP data with fresh metadata must keep them.
+    meter: features.meter,
+    tailMeter: features.tailMeter,
+    tailSectionCueMs: features.tailSectionCueMs,
+    tailSectionCueConfidence: features.tailSectionCueConfidence,
     dropCueMs: features.dropCueMs,
     tailBreakdownCueMs: features.tailBreakdownCueMs,
     dropConfidence: features.dropConfidence,
