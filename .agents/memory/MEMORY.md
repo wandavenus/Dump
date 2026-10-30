@@ -1,3 +1,4 @@
+- [Sentry observability](sentry-observability.md) — Flutter/Dart plus native Android crash reporting, DSN transport from Dump to the Noisegraph APK builder, privacy defaults, and symbolication caveats.
 - [Dependency docs via Context7](dependency-docs-context7.md) — WAJIB cek dokumentasi resmi via Context7 sebelum ubah kode, lalu cocokkan dengan versi dependency di repo (`pubspec.lock`, Media3 1.11.1, Kotlin 2.4.21, AGP 9.4.1, Flutter 3.47.7).
 - [Explicit advisory badge](explicit-advisory-badge.md) — `ITUNESADVISORY` parsing/cache, shared knockout badge, list-row size normalization, CI/golden-layout preservation, and regression tests.
 - [OpenCode background compaction](opencode-background-compaction.md) — `opencode.json` sets `experimental.background_compaction: true`; summary is written ahead of the threshold so long agent sessions do not pause.
