@@ -243,11 +243,25 @@ class AutomixTransitionPolicyTest {
                 7_900L, 500.0, 0.0, 0.0, meter = 3,
             ),
         )
+        // Compound 6/8 heard at a dotted-quarter pulse publishes metre 2: bar
+        // = 1 s at 120 BPM, four bars = 4 s, two bars = 2 s.
+        assertEquals(
+            4_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                4_100L, 500.0, 0.0, 0.0, meter = 2,
+            ),
+        )
+        assertEquals(
+            2_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                2_300L, 500.0, 0.0, 0.0, meter = 2,
+            ),
+        )
         // Out-of-contract metre falls back to the 4/4 prior.
         assertEquals(
-            8_000L,
+            10_000L,
             AutomixTransitionPolicy.phraseAlignedStartMs(
-                8_100L, 500.0, 0.0, 0.0, meter = 2,
+                10_100L, 500.0, 0.0, 0.0, meter = 5,
             ),
         )
     }
@@ -267,7 +281,13 @@ class AutomixTransitionPolicyTest {
                 mapOf("id" to 1.0, "meter" to 6.0),
             )!!.meter,
         )
-        for (raw in listOf(2.0, 7.0, 4.5, Double.NaN)) {
+        assertEquals(
+            2,
+            ParsedAutomixTransitionTarget.fromMap(
+                mapOf("id" to 1.0, "meter" to 2.0),
+            )!!.meter,
+        )
+        for (raw in listOf(5.0, 7.0, 4.5, Double.NaN)) {
             assertEquals(
                 4,
                 ParsedAutomixTransitionTarget.fromMap(

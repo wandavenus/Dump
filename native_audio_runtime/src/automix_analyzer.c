@@ -1370,7 +1370,11 @@ static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
   // published downbeat drift by one beat per bar on those tracks. Score each
   // metre by how strongly the beat accents line up with one bar position; the
   // winner needs a clear margin, otherwise 4/4 (the prior) is retained.
-  static const int32_t kMeters[] = {4, 3, 6};
+  // A compound 6/8 track at a dotted-quarter pulse has two beats per bar, so
+  // 2 is a hypothesis too. It is not publishable on a backbeat alone (4/4 with
+  // a snare on 2 and 4 looks identical at the pulse level); the accent margin
+  // gate below keeps 4/4 as the prior unless one position clearly dominates.
+  static const int32_t kMeters[] = {4, 3, 6, 2};
   int32_t meter = 4;
   double meter_score = 0.0;
   for (size_t meter_index = 0;

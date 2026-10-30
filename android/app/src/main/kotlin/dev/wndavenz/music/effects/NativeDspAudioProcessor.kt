@@ -71,7 +71,7 @@ import java.nio.ByteBuffer
  * [downbeatElapsedMs]/[downbeatConfidence] describe the bar grid: elapsed time
  * since the latest estimated downbeat and how much better that bar position
  * scored than the runner-up. [meter] is the selected bar length in beats
- * (3, 4 or 6; 0 when the bar length was not identifiable). [activityTrend]
+ * (2, 3, 4 or 6; 0 when the bar length was not identifiable). [activityTrend]
  * compares the most recent history window's frame RMS with the window before
  * it (positive = building).
  */
@@ -154,8 +154,16 @@ class NativeDspAudioProcessor(
                 val downbeatConfidence = if (values.size >= 5) values[4] else 0.0
                 val activityTrend = if (values.size >= 6) values[5] else 0.0
                 val rawMeter = if (values.size >= 7) values[6] else 0.0
-                val meter = rawMeter.takeIf { it.isFinite() && it in 3.0..6.0 }
-                    ?.toInt() ?: 0
+                val meterValue = rawMeter.toInt()
+                val meter = if (rawMeter.isFinite() &&
+                    rawMeter == meterValue.toDouble() &&
+                    (meterValue == 2 || meterValue == 3 ||
+                        meterValue == 4 || meterValue == 6)
+                ) {
+                    meterValue
+                } else {
+                    0
+                }
                 if (!bpm.isFinite() || bpm !in 50.0..250.0 ||
                     !phaseMs.isFinite() || phaseMs < 0.0 ||
                     !confidence.isFinite() || confidence !in 0.0..1.0 ||

@@ -178,8 +178,9 @@ class AutomixSegmentFeatures {
   /// It stays null unless repeated onset accents distinguish one phrase phase.
   final double? downbeatOffsetMs;
 
-  /// Beats per bar (3, 4 or 6) the native metre hypothesis selected for this
-  /// window. Four is the prior when no hypothesis had a clear margin.
+  /// Beats per bar (2, 3, 4 or 6) the native metre hypothesis selected for
+  /// this window. Two is compound 6/8 heard at a dotted-quarter pulse; four is
+  /// the prior when no hypothesis had a clear margin.
   final int meter;
 
   /// Candidate structural cues relative to this window (ms), if detected.
@@ -320,10 +321,11 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
   final beatOffset = nonNegativeValue('beatOffsetMs');
   final downbeatOffset = nonNegativeValue('downbeatOffsetMs');
   final rawMeter = map['meter'];
-  final meterValue = rawMeter is num && rawMeter.isFinite
+  final meterValue = rawMeter is num && rawMeter.isFinite &&
+          rawMeter.toDouble() == rawMeter.toInt().toDouble()
       ? rawMeter.toInt()
       : null;
-  final meter = meterValue != null && meterValue >= 3 && meterValue <= 6
+  final meter = meterValue != null && _isSupportedMeter(meterValue)
       ? meterValue
       : 4;
   final startBpm = positiveBpm('startBpm');
@@ -677,12 +679,18 @@ class AutomixTrackFeatures {
   }
 }
 
+/// Bar lengths the native hypotheses can publish: 2 (compound 6/8 at a
+/// dotted-quarter pulse), 3, 4 and 6. A range check would also admit 5, which
+/// no hypothesis produces and which would size the phrase grid wrongly.
+bool _isSupportedMeter(int value) =>
+    value == 2 || value == 3 || value == 4 || value == 6;
+
 /// Persisted metre is limited to the bar lengths the native hypotheses can
-/// publish (3, 4, 6). Anything else is the legacy 4/4 assumption.
+/// publish. Anything else is the legacy 4/4 assumption.
 int _validMeter(Object? raw) {
   if (raw is! num || !raw.isFinite) return 4;
   final value = raw.toInt();
-  return value >= 3 && value <= 6 ? value : 4;
+  return _isSupportedMeter(value) ? value : 4;
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────────────

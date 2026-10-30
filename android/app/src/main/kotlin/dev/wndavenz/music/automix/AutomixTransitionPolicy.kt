@@ -107,10 +107,20 @@ internal object AutomixTransitionPolicy {
     const val PHRASE_SNAP_MAX_BEATS = 4.0
 
     /**
+     * Bar lengths the analyzer and live tracker can publish: 2 (compound 6/8
+     * at a dotted-quarter pulse), 3, 4 and 6. A range check would also admit
+     * 5, which no hypothesis produces and which would size the phrase grid
+     * wrongly.
+     */
+    internal fun isSupportedMeter(meter: Int): Boolean =
+        meter == 2 || meter == 3 || meter == 4 || meter == 6
+
+    /**
      * Snap a requested fade start back onto the largest musical boundary that
      * stays within [PHRASE_SNAP_MAX_BEATS] beats: the four-bar, two-bar and
      * one-bar grids at the analyzed [meter] (16/8/4 beats at 4/4, 12/6/3 at
-     * 3/4, 24/12/6 at 6/8, phase-referenced to the analyzed downbeat) first,
+     * 3/4, 24/12/6 at 6/8, 8/4/2 at the two-beat compound metre,
+     * phase-referenced to the analyzed downbeat) first,
      * then the single-beat grid with the legacy one-beat tolerance. Snapping
      * only ever moves the start earlier — the same direction the beat-level
      * snap already used — so the fade never eats into the configured overlap.
@@ -141,9 +151,10 @@ internal object AutomixTransitionPolicy {
         if (downbeat != null) {
             // A four-bar phrase at the detected metre, then two bars, one bar,
             // and one beat. For 4/4 this is 16/8/4/1; a 3/4 track uses
-            // 12/6/3/1 and a 6/8 track 24/12/6/1, so the boundary is musical
-            // instead of a four-beat grid imposed on a three-beat bar.
-            val barBeats = meter.takeIf { it in 3..6 } ?: 4
+            // 12/6/3/1, a 6/8 track 24/12/6/1, and a compound 6/8 heard at a
+            // dotted-quarter pulse (metre 2) uses 8/4/2/1, so the boundary is
+            // musical instead of a four-beat grid imposed on a two-beat bar.
+            val barBeats = meter.takeIf { isSupportedMeter(it) } ?: 4
             for (beats in intArrayOf(barBeats * 4, barBeats * 2, barBeats)) {
                 snap(beatMs * beats, downbeat, maxShift)?.let { return it }
             }
@@ -259,8 +270,10 @@ internal data class ParsedAutomixTransitionTarget(
                 bpm = bpm,
                 beatOffsetMs = nonNegativeMillis("beatOffsetMs"),
                 downbeatOffsetMs = nonNegativeMillis("downbeatOffsetMs"),
-                meter = (target["meter"] as? Number)?.toInt()
-                    ?.takeIf { it in 3..6 } ?: 4,
+                meter = (target["meter"] as? Number)?.toDouble()
+                    ?.takeIf { it == it.toInt().toDouble() }
+                    ?.toInt()
+                    ?.takeIf { AutomixTransitionPolicy.isSupportedMeter(it) } ?: 4,
                 dropCueMs = nonNegativeMillis("dropCueMs"),
                 fadeSeconds = AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade),
                 transitionStartMs = transitionStartMs,

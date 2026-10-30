@@ -9,6 +9,16 @@ import 'automix_native_types.dart';
 const int _analysisOutputCount = 35;
 const int _featureCount = 27;
 
+/// Bar lengths the native metre hypotheses can publish: 2 (compound 6/8 at a
+/// dotted-quarter pulse), 3, 4 and 6. A range check would also admit 5, which
+/// no hypothesis produces.
+int? _supportedMeter(double raw) {
+  if (!raw.isFinite) return null;
+  final value = raw.toInt();
+  if (raw != value.toDouble()) return null;
+  return value == 2 || value == 3 || value == 4 || value == 6 ? value : null;
+}
+
 /// Synchronous FFI facade over the AutoMix native C core.
 class NativeAutomix {
   NativeAutomix._();
@@ -175,9 +185,7 @@ class NativeAutomix {
         endBpmConfidence: nullable(29),
         startBeatOffsetMs: nullable(30),
         endBeatOffsetMs: nullable(31),
-        meter: output[32].isFinite && output[32] >= 3 && output[32] <= 6
-            ? output[32].toInt()
-            : null,
+        meter: _supportedMeter(output[32]),
         sectionCueMs: nullable(33),
         sectionCueConfidence: output[34].isFinite ? output[34] : 0,
         energyQuarters: quarters.every((value) => value.isFinite)

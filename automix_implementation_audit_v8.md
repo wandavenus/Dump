@@ -778,10 +778,25 @@ case publishes 0.57 instead of the old wrong-but-confident 0.87; 0.57 remains
 above the 0.35 grid threshold Dart uses. One side effect: the sparse-intro
 fixture no longer publishes a head beat phase (NaN) because the first 32 s
 carry no beat-level onsets for the head phase fold; the exit and quarter phases
-are unaffected. The 6/8 metre limitation and the section-cue masking by chord
-progressions remain open — they need separate changes (a 2-beat metre
-hypothesis, and section novelty de-trended against the local chord-change
-rate).
+are unaffected.
+
+### Two-beat metre for compound 6/8 (same day, v1.5.60)
+
+The metre hypothesis set is now `{4, 3, 6, 2}` in both the analyzer and the live
+tracker, with metre 2 representing compound 6/8 heard at a dotted-quarter pulse
+(bar = 1.5 s at 80 BPM). Re-measured with the same harness: the 6/8 fixture at
+**80.02 BPM publishes metre 2** instead of 4, while 120/124/174 four-on-floor
+still publish no metre, the waltz stays at 3 and the 174 breakbeat at 4. Every
+consumer now validates the exact set `{2, 3, 4, 6}` instead of a `2..6` range,
+which also closes a latent acceptance of metre 5 (no hypothesis produces it).
+Regressions: `test_analyzer_compound_meter_two_beats`, a compound case inside
+`test_live_tracker_reports_meter_and_rejects_flat_bars`, and updated Dart/Kotlin
+parser tests. Native C suite exit 0, Flutter AutoMix 137 passed, `dart analyze`
+clean; Kotlin remains CI-only in this sandbox.
+
+Still open: the section cue remains masked when a chord progression produces
+chroma changes comparable to the arrangement change. That needs section novelty
+de-trended against the local chord-change rate.
 
 ## Appendix — probe inventory and exact runs
 
