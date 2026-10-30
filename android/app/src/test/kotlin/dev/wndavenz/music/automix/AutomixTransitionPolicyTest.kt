@@ -289,11 +289,11 @@ class AutomixTransitionPolicyTest {
         )
         for (raw in listOf(5.0, 7.0, 4.5, Double.NaN)) {
             assertEquals(
+                "meter=$raw",
                 4,
                 ParsedAutomixTransitionTarget.fromMap(
                     mapOf("id" to 1.0, "meter" to raw),
                 )!!.meter,
-                "meter=$raw",
             )
         }
     }
