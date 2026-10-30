@@ -281,9 +281,16 @@ void main() {
       expect(segment.sectionCueMs, 30000);
       expect(segment.sectionCueConfidence, 0.82);
 
-      // A missing or out-of-contract metre is the legacy 4/4 assumption, never
-      // a silently accepted 2- or 7-beat bar.
-      for (final raw in <Object?>[null, 2, 7, 4.5, double.nan]) {
+      // Compound 6/8 at a dotted-quarter pulse is metre 2 and must survive
+      // parsing; a missing or out-of-contract metre is the legacy 4/4
+      // assumption, never a silently accepted 5- or 7-beat bar.
+      final compound = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{'bpm': 80.0, 'bpmConfidence': 0.8, 'meter': 2},
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(compound.meter, 2);
+      for (final raw in <Object?>[null, 5, 7, 4.5, double.nan]) {
         final fallback = automixSegmentFeaturesFromAnalysisMap(
           <String, dynamic>{'bpm': 120.0, 'bpmConfidence': 0.9, 'meter': raw},
           fallbackStartSeconds: 0,

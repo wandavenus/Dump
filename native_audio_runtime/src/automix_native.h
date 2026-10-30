@@ -110,8 +110,8 @@ enum NarAutomixFeatureIndex {
 //      the start-quarter beat period (NaN if phase is unavailable)
 // 31: End-quarter beat phase, relative to the window start and folded to
 //      the end-quarter beat period (NaN if phase is unavailable)
-// 32: Bar metre in beats per bar (3, 4 or 6; NaN when no confident phrase
-//      hypothesis selected one)
+// 32: Bar metre in beats per bar (2, 3, 4 or 6; NaN when no confident phrase
+//      hypothesis selected one). Two is compound 6/8 at a dotted-quarter pulse.
 // The quarter profile is a coarse energy trend (rising/falling intro and
 // outro). Consumers derive per-seam slopes from adjacent quarters; silence
 // floors at -120 dBFS, so the values stay finite whenever analysis succeeds.

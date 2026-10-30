@@ -2278,6 +2278,18 @@ static void test_live_tracker_reports_meter_and_rejects_flat_bars(void) {
   assert(waltz_state[6] == 3.0);
   assert(waltz_state[4] >= 0.30);
   free(waltz.pcm);
+
+  // Compound 6/8 at a dotted-quarter pulse has two beats per bar (strong and
+  // medium accents alternating). The two-beat hypothesis must win without
+  // stealing the four-beat prior on flat or waltz material.
+  FractionalClickTrain compound = render_fractional_click_train(
+      80.0, 2, 10.0, 0.21, sample_rate);
+  double compound_state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&compound, sample_rate, compound_state);
+  assert(fabs(compound_state[0] - 80.0) <= 80.0 * 0.02);
+  assert(compound_state[6] == 2.0);
+  assert(compound_state[4] >= 0.30);
+  free(compound.pcm);
 }
 
 static void test_live_tracker_keeps_low_tempo(void) {
@@ -2760,6 +2772,48 @@ static void test_analyzer_metrical_level_sweep(void) {
   free(pcm);
 }
 
+static void test_analyzer_compound_meter_two_beats(void) {
+  // Compound 6/8 heard at a dotted-quarter pulse: the bar is two beats
+  // (1.5 s at 80 BPM), with a strong accent on beat 1, a lighter one on beat 2
+  // and three eighth-note hats per beat. Before the two-beat hypothesis the
+  // analyzer published metre 4, i.e. a 3 s bar, twice the notated bar.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 24;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  const double pi = 3.14159265358979323846;
+  const double beat = 0.75;  // 80 BPM dotted quarter
+  const double eighth = beat / 3.0;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    const double bar_phase = fmod(t, 2.0 * beat);
+    double value = 0.06 * (sin(2.0 * pi * 261.6256 * t) +
+                           sin(2.0 * pi * 329.6276 * t) +
+                           sin(2.0 * pi * 391.9954 * t));
+    if (bar_phase < 0.10) {
+      value += 0.65 * exp(-bar_phase * 30.0) *
+          sin(2.0 * pi * 55.0 * bar_phase);
+    }
+    const double beat_phase = fmod(t, beat);
+    if (beat_phase < 0.10 && bar_phase >= beat) {
+      value += 0.45 * exp(-beat_phase * 30.0) *
+          sin(2.0 * pi * 55.0 * beat_phase);
+    }
+    const double hat_phase = fmod(t, eighth);
+    if (hat_phase < 0.010) {
+      value += 0.07 * (1.0 - hat_phase / 0.010) *
+          sin(2.0 * pi * 9000.0 * t);
+    }
+    pcm[i] = (float)value;
+  }
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 80.0 - 1.0) < 0.03);
+  assert(output[32] == 2.0);
+  free(pcm);
+}
+
 static void test_analyzer_beat_phase_survives_offbeat_hats(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 40;
@@ -2983,6 +3037,7 @@ int main(void) {
   test_analyzer_metre_and_section_boundary();
   test_analyzer_backbeat_keeps_beat_level();
   test_analyzer_sparse_intro_keeps_chorus_tempo();
+  test_analyzer_compound_meter_two_beats();
   test_live_tracker_fractional_downbeat_accuracy();
   test_live_tracker_145bpm_accented_downbeat();
   test_live_tracker_resolves_half_tempo_lock();

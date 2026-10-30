@@ -115,6 +115,14 @@ meter 4 (bar 3 s, 2× bar asli); (4) section cue tepat 32000 ms conf 1,00 saat h
 tapi NaN saat ada progresi akor tiap 2 bar (novelty akor menutupi boundary). Detail tabel di
 `automix_implementation_audit_v8.md` §J.
 
+**Meter 2 (6/8 compound) 2026-10-30 (v1.5.60):** hipotesis meter di analyzer dan live tracker kini
+`{4,3,6,2}`; fixture 6/8 pada 80,02 BPM → **meter 2** (bar 1,5 s) dari sebelumnya 4, sementara
+120/124/174 four-on-floor tetap tanpa meter, waltz tetap 3, breakbeat 174 tetap 4. Semua konsumen
+(analyzer, live, Dart models/native IO, bridge, grid merge, transition policy) memvalidasi himpunan
+eksak `{2,3,4,6}` — bukan range 2..6 — sehingga meter 5 yang tidak pernah diproduksi tidak lolos.
+Regresi: `test_analyzer_compound_meter_two_beats` dan kasus compound di
+`test_live_tracker_reports_meter_and_rejects_flat_bars`; tes parser Dart/Kotlin diperbarui.
+
 **Perbaikan half-tempo 2026-10-30 (v1.5.59):** `evaluate_metrical_candidate` sekarang memberi bobot
 coverage 0.45 / fill 0.25 / comb 0.10 / contrast 0.08 / phase 0.12 (dulu 0.12/0.40/0.30/0.06/0.12), dan
 `estimate_tempo` (wrapper baru; body lama = `estimate_tempo_window`) memakai voting 4 quarter bila ≥3

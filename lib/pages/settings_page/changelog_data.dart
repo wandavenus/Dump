@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.60',
+    date: '30 Oktober 2026',
+    changes: [
+      'AutoMix: meter 2 ketukan/bar kini didukung untuk 6/8 pada pulsa dotted-quarter; analyzer dan live tracker memilih bar 1,5 detik alih-alih 3 detik, dan grid frasa/fade memakai 8/4/2 ketukan.',
+      'AutoMix: semua konsumen meter memvalidasi himpunan {2, 3, 4, 6} secara eksplisit, sehingga nilai 5 yang tidak pernah dipublikasikan hipotesis tidak lagi lolos sebagai meter yang sah.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.59',
     date: '30 Oktober 2026',
     changes: [

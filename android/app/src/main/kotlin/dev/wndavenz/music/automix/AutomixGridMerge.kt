@@ -46,7 +46,7 @@ internal object AutomixGridMerge {
         val downbeatPositionMs: Double?,
         val downbeatOffsetMs: Double,
         val live: Boolean,
-        /** Beats per bar from the source that owns the phase (3, 4 or 6). */
+        /** Beats per bar from the source that owns the phase (2, 3, 4 or 6). */
         val meter: Int,
     )
 
@@ -139,9 +139,9 @@ internal object AutomixGridMerge {
         // assumption; an offline analyzer that published 3 or 6 now drives the
         // phrase grid and the phase-lock bar length instead of a hard-coded 4.
         val meter = if (useLiveBeat) {
-            live!!.meter.takeIf { it in 3..6 } ?: 4
+            live!!.meter.takeIf { AutomixTransitionPolicy.isSupportedMeter(it) } ?: 4
         } else {
-            offlineMeter?.takeIf { it in 3..6 } ?: 4
+            offlineMeter?.takeIf { AutomixTransitionPolicy.isSupportedMeter(it) } ?: 4
         }
 
         return DeckGrid(

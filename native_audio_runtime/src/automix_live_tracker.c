@@ -56,8 +56,9 @@ typedef struct {
   double downbeat_at_estimate_ms;
   double downbeat_elapsed_ms;
   double downbeat_confidence;
-  // Beats per bar selected by the live bar-accent hypotheses (3, 4 or 6).
-  // Zero when the bar length was not identifiable.
+  // Beats per bar selected by the live bar-accent hypotheses (2, 3, 4 or 6).
+  // Two covers compound 6/8 at a dotted-quarter pulse. Zero when the bar
+  // length was not identifiable.
   int32_t meter;
   // Coarse section cue: recent frame-level RMS compared with the window
   // before it. Positive values mean the track is building up.
@@ -584,7 +585,7 @@ static void estimate_live_beat(int32_t slot) {
   // confidence even when every fourth beat was accented. Score positions from
   // the sustained low-band level (a real kick accent) plus a timbre-change
   // term (a fill or texture entry marks a bar line more reliably than loudness),
-  // and evaluate 3, 4 and 6 beat bars. The strongest bar position and metre
+  // and evaluate 2, 3, 4 and 6 beat bars. The strongest bar position and metre
   // win only with a clear margin; otherwise no downbeat is published.
   const double frames_to_ms =
       (double)tracker->frame_samples * 1000.0 / tracker->sample_rate;
@@ -658,7 +659,7 @@ static void estimate_live_beat(int32_t slot) {
           max_novelty > 1e-12 ? novelty[i] / max_novelty : 0.0;
       evidence[i] = 0.80 * accent_term + 0.35 * novelty_term;
     }
-    static const int32_t kLiveMeters[] = {4, 3, 6};
+    static const int32_t kLiveMeters[] = {4, 3, 6, 2};
     int32_t best_meter = 0;
     int32_t best_position = 0;
     double best_meter_contrast = 0.0;

@@ -200,7 +200,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixBpmBySongId = mutableMapOf<Int, Float>()
     private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
     private val automixDownbeatOffsetMsBySongId = mutableMapOf<Int, Long>()
-    // Beats per bar (3, 4 or 6) that owns the published downbeat phase. Absent
+    // Beats per bar (2, 3, 4 or 6) that owns the published downbeat phase. Absent
     // entries mean the legacy 4/4 assumption; only explicitly parsed values
     // from Dart are stored so a payload without a metre cannot flip a deck.
     private val automixMeterBySongId = mutableMapOf<Int, Int>()

@@ -160,7 +160,8 @@ class NativeAutomixAnalysis {
   final double? startBeatOffsetMs;
   final double? endBeatOffsetMs;
 
-  /// Selected bar length in beats (3, 4 or 6); null when not identifiable.
+  /// Selected bar length in beats (2, 3, 4 or 6); null when not identifiable.
+  /// Two is compound 6/8 heard at a dotted-quarter pulse.
   final int? meter;
 
   /// Strongest track-level section boundary in this window (ms from the
