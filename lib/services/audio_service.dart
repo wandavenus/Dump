@@ -9,6 +9,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'sentry_observability.dart';
 
 import 'audio/playback_manager.dart';
 
