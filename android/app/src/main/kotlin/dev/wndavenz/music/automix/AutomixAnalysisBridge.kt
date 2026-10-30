@@ -242,6 +242,17 @@ object AutomixAnalysis {
             // Structural phase hints are window-relative; Dart adds the window
             // start when building the file-level intro/outro grid.
             "downbeatOffsetMs" to optional(11),
+            // Bar length that owns the published downbeat phase. Optional so a
+            // native library predating the metre hypothesis still works; the
+            // consumer treats absence as the legacy 4/4 assumption.
+            "meter" to (analysis.getOrNull(32)?.takeIf {
+                it.isFinite() && it >= 3.0 && it <= 6.0
+            }?.toInt()),
+            // Strongest track-level section boundary in this window (2 s chroma
+            // change blocks). Window-relative like the drop/breakdown cues.
+            "sectionCueMs" to optional(33),
+            "sectionCueConfidence" to (analysis.getOrNull(34)
+                ?.takeIf { it.isFinite() && it in 0.0..1.0 } ?: 0.0),
             "dropCueMs" to optional(12),
             "breakdownCueMs" to optional(13),
             "dropConfidence" to analysis[14],

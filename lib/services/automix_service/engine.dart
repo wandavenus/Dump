@@ -661,6 +661,12 @@ AutomixTrackFeatures automixMergeSegments({
   // relies on for the local quarter grid.
   double? headBeatOffsetMs;
   double? headDownbeatOffsetMs;
+  // The metre belongs to the window whose grid is published: the head window
+  // for the intro grid, the exit window for the tail grid. Native only uses it
+  // to size the phrase grid and the phrase lock, so an unknown metre stays at
+  // the 4/4 prior rather than disabling alignment.
+  final headMeter = firstSegment?.meter ?? 4;
+  final tailMeter = exitWindow?.meter ?? 4;
   if (firstSegment != null) {
     final headPhaseUsable =
         firstSegment.bpmConfidence >= 0.20 &&
@@ -694,6 +700,27 @@ AutomixTrackFeatures automixMergeSegments({
           localBreakdownCue >= 0
       ? lastSegment!.startSeconds * 1000.0 + localBreakdownCue
       : null;
+
+  // ── Track-level section boundary near the exit ────────────────────────────
+  // The exit window's 2 s-block chroma change point is an actual section
+  // boundary, so a transition that starts there hands over at the beginning of
+  // the final section instead of at an arbitrary point. The 2 s block granularity
+  // is too coarse for a short fade lead but exactly right for the 30–65 s early
+  // handover, which is the only consumer.
+  double? tailSectionCueMs;
+  var tailSectionCueConfidence = 0.0;
+  if (exitWindow != null) {
+    final localCue = exitWindow.sectionCueMs;
+    final cueConfidence = exitWindow.sectionCueConfidence;
+    if (localCue != null &&
+        localCue.isFinite &&
+        localCue >= 0 &&
+        cueConfidence.isFinite &&
+        cueConfidence >= 0.50) {
+      tailSectionCueMs = exitWindow.startSeconds * 1000.0 + localCue;
+      tailSectionCueConfidence = cueConfidence;
+    }
+  }
 
   final anchorAlternateBpm = tempoAnchor?.alternateBpm;
   final alternateBpm =
@@ -732,6 +759,8 @@ AutomixTrackFeatures automixMergeSegments({
     beatOffsetMs: headBeatOffsetMs,
     downbeatOffsetMs: headDownbeatOffsetMs,
     tailDownbeatOffsetMs: tailDownbeatOffsetMs,
+    meter: headMeter,
+    tailMeter: tailMeter,
     dropCueMs: dropCueMs,
     tailBreakdownCueMs: tailBreakdownCueMs,
     dropConfidence: firstSegment?.dropConfidence ?? 0,
@@ -756,6 +785,10 @@ AutomixTrackFeatures automixMergeSegments({
                   lastSegment?.structureConfidence ?? 0,
                 )
               : (lastSegment?.structureConfidence ?? 0))
+        : 0,
+    tailSectionCueMs: tailSegmentAnalyzed ? tailSectionCueMs : null,
+    tailSectionCueConfidence: tailSegmentAnalyzed
+        ? tailSectionCueConfidence
         : 0,
     vocalLikelihood: vocalLikelihood,
     vocalConfidence: vocalConfidence,
@@ -1272,11 +1305,29 @@ AutomixTransitionCue automixTransitionCue({
             breakdown < durationMs
         ? (durationMs - breakdown) / 1000.0
         : null;
+    // A track-level section boundary (start of the final section) measured on
+    // 2 s chroma blocks is the musically correct place to hand over: the next
+    // track enters where the arrangement changes, not in the middle of the
+    // final section. It is only preferred when it lands inside the same 30–65 s
+    // window the early handover already supports.
+    final sectionCue = outgoing.tailSectionCueMs;
+    final sectionLeadSeconds =
+        outgoing.tailSectionCueConfidence >= 0.50 &&
+            sectionCue != null &&
+            sectionCue.isFinite &&
+            sectionCue >= 0 &&
+            sectionCue < durationMs
+        ? (durationMs - sectionCue) / 1000.0
+        : null;
     final double leadSeconds;
     if (breakdownLeadSeconds != null &&
         breakdownLeadSeconds >= 30 &&
         breakdownLeadSeconds <= 65) {
       leadSeconds = breakdownLeadSeconds;
+    } else if (sectionLeadSeconds != null &&
+        sectionLeadSeconds >= 30 &&
+        sectionLeadSeconds <= 65) {
+      leadSeconds = sectionLeadSeconds;
     } else {
       leadSeconds = automixEarlyHandoverLeadSeconds(
         outroEnergy: outgoing.outroEnergy,
@@ -1658,12 +1709,19 @@ double _energyTargetArc(double pos, AutomixProfile profile, _EnergyArc arc) {
 
 // ── Transition cost ──────────────────────────────────────────────────────────
 
-/// Weight sets per [AutomixProfile]: (tempo, key, energy, variety).
-/// They intentionally sum to 1 so the weighted mean stays on 0..1.
-const Map<AutomixProfile, (double, double, double, double)> _profileWeights = {
-  AutomixProfile.dj: (0.40, 0.20, 0.25, 0.15),
-  AutomixProfile.harmonic: (0.20, 0.45, 0.20, 0.15),
-  AutomixProfile.energy: (0.15, 0.15, 0.55, 0.15),
+/// Weight sets per [AutomixProfile]: (tempo, key, energy). They intentionally
+/// sum to 1 so the weighted mean stays on 0..1.
+///
+/// Artist repetition is deliberately *not* part of this objective any more.
+/// It used to be a fourth `variety` sub-cost (0.15 weight) while the greedy
+/// pick also added an artist-cooldown penalty, so one signal owned two
+/// objectives with hand-balanced constants. The cooldown now owns artist
+/// spread alone; the three harmonic/rhythmic weights keep their old relative
+/// proportions (the removed 0.15 is redistributed, not re-invented).
+const Map<AutomixProfile, (double, double, double)> _profileWeights = {
+  AutomixProfile.dj: (0.47, 0.24, 0.29),
+  AutomixProfile.harmonic: (0.24, 0.53, 0.23),
+  AutomixProfile.energy: (0.18, 0.18, 0.64),
 };
 
 /// Section-shape compatibility across the mix seam. The loudness side of a
@@ -1693,7 +1751,6 @@ double _structureSeamCost(int tailRegion, int headRegion) {
 /// * key   — [automixCamelotCost], scaled by key detection confidence
 /// * energy — continuity + arc-following (see [_energyTargetPos]) plus an
 ///   intro/outro section-seam term and a confidence-gated section-shape term
-/// * variety — small penalty for back-to-back same-artist tracks
 double _transitionCost({
   required AutomixTrackFeatures a,
   required AutomixTrackFeatures b,
@@ -1821,11 +1878,6 @@ double _transitionCost({
   }
   energy = energy.clamp(0.0, 1.0);
 
-  final sameArtist =
-      a.artist.trim().toLowerCase() == b.artist.trim().toLowerCase() &&
-      a.artist.trim().isNotEmpty;
-  final variety = sameArtist ? (settings.avoidArtistRepeat ? 0.55 : 0.20) : 0.0;
-
   final vA = a.vocalLikelihood;
   final vB = b.vocalLikelihood;
   final cA = a.vocalConfidence;
@@ -1844,17 +1896,13 @@ double _transitionCost({
     vocalCost = (effectiveA * effectiveB * 4.0).clamp(0.0, 1.0);
   }
 
-  final (wT, wK, wE, wV) = _profileWeights[settings.profile]!;
-  // The vocal term is a fifth weighted sub-cost, not an unnormalised addend:
-  // every term now shares one denominator, so the result cannot exceed 1.0
+  final (wT, wK, wE) = _profileWeights[settings.profile]!;
+  // The vocal term is a fourth weighted sub-cost, not an unnormalised addend:
+  // every term shares one denominator, so the result cannot exceed 1.0
   // before the final clamp.
   const wVocal = 0.10;
-  return ((wT * tempo +
-              wK * key +
-              wE * energy +
-              wV * variety +
-              wVocal * vocalCost) /
-          (wT + wK + wE + wV + wVocal))
+  return ((wT * tempo + wK * key + wE * energy + wVocal * vocalCost) /
+          (wT + wK + wE + wVocal))
       .clamp(0.0, 1.0);
 }
 
@@ -1893,8 +1941,9 @@ class DartAutomixEngineReference {
   static const int _polishMinTracks = 12;
 
   /// A repeated artist inside this many recent positions is discouraged by
-  /// the greedy pick. This is a *tie-breaker* only: the main artist penalty is
-  /// the `variety` sub-cost inside [_transitionCost].
+  /// the greedy pick. This is the *only* artist-spread mechanism: the old
+  /// `variety` sub-cost inside [_transitionCost] was removed so the same
+  /// signal is not scored by two objectives.
   static const int _artistCooldown = 4;
 
   /// Median crossfade bound guard.
@@ -2111,26 +2160,32 @@ class DartAutomixEngineReference {
     return bpms[bpms.length ~/ 2];
   }
 
-  /// Greedy-only tie-breaker against artist clustering at positions 2..4.
-  /// The immediate previous slot is owned by the `variety` sub-cost inside
-  /// [_transitionCost]; this only breaks exact cost ties and keeps a repeat
-  /// from landing two slots back. The base is deliberately small so it cannot
-  /// double-weight the same signal, and [planCount] may be `plan.length + 1`
-  /// for the lookahead scan.
+  /// Penalty for repeating an artist within the last [_artistCooldown] slots.
+  /// This is the single owner of artist spread, so it covers the immediately
+  /// previous slot too (the removed `variety` sub-cost used to own that one).
+  /// The base reproduces that old effective penalty (≈0.09 after
+  /// normalisation) and decays linearly with distance, so a repeat two to four
+  /// slots back is cheaper than an immediate one while still discouraged.
+  /// [planSlot] is the position the candidate would occupy and [planFilled] is
+  /// how many positions of [plan] are actually written; the lookahead scans
+  /// with `planSlot = plan.length + 1` while `planFilled = plan.length`, so a
+  /// not-yet-written slot must never be used as an artist lookup.
   static double _artistCooldownCost({
     required List<int> plan,
-    required int planCount,
+    required int planSlot,
+    required int planFilled,
     required List<AutomixTrackFeatures> tracks,
     required AutomixTrackFeatures candidate,
     required AutomixSettings settings,
   }) {
     final artist = candidate.artist.trim().toLowerCase();
     if (artist.isEmpty) return 0.0;
-    final base = settings.avoidArtistRepeat ? 0.04 : 0.02;
+    final base = settings.avoidArtistRepeat ? 0.09 : 0.03;
     var penalty = 0.0;
-    for (var back = 2; back <= _artistCooldown; back++) {
-      final index = planCount - back;
+    for (var back = 1; back <= _artistCooldown; back++) {
+      final index = planSlot - back;
       if (index < 0) break;
+      if (index >= planFilled) continue;
       final other = tracks[plan[index]].artist.trim().toLowerCase();
       if (other != artist) continue;
       final scaled = base * (_artistCooldown - back + 1) / _artistCooldown;
@@ -2185,7 +2240,8 @@ class DartAutomixEngineReference {
             ) +
             _artistCooldownCost(
               plan: plan,
-              planCount: plan.length,
+              planSlot: plan.length,
+              planFilled: plan.length,
               tracks: tracks,
               candidate: tracks[cand],
               settings: settings,
@@ -2214,7 +2270,8 @@ class DartAutomixEngineReference {
             ) +
             _artistCooldownCost(
               plan: plan,
-              planCount: plan.length,
+              planSlot: plan.length,
+              planFilled: plan.length,
               tracks: tracks,
               candidate: tracks[cand],
               settings: settings,
@@ -2276,7 +2333,8 @@ class DartAutomixEngineReference {
             ) +
             _artistCooldownCost(
               plan: plan,
-              planCount: plan.length + 1,
+              planSlot: plan.length + 1,
+              planFilled: plan.length,
               tracks: tracks,
               candidate: tracks[cand2],
               settings: settings,
@@ -2497,7 +2555,8 @@ class DartAutomixEngineReference {
           0.05 *
               _artistCooldownCost(
                 plan: plan,
-                planCount: to,
+                planSlot: to,
+                planFilled: to,
                 tracks: tracks,
                 candidate: tracks[plan[to]],
                 settings: settings,
@@ -2546,7 +2605,8 @@ class DartAutomixEngineReference {
           0.05 *
               _artistCooldownCost(
                 plan: plan,
-                planCount: p,
+                planSlot: p,
+                planFilled: p,
                 tracks: tracks,
                 candidate: tracks[plan[p]],
                 settings: settings,

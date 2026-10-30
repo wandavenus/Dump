@@ -46,6 +46,8 @@ internal object AutomixGridMerge {
         val downbeatPositionMs: Double?,
         val downbeatOffsetMs: Double,
         val live: Boolean,
+        /** Beats per bar from the source that owns the phase (3, 4 or 6). */
+        val meter: Int,
     )
 
     fun mergeDeck(
@@ -56,6 +58,7 @@ internal object AutomixGridMerge {
         offlinePositionMs: Double?,
         offlineBeatOffsetMs: Double?,
         offlineDownbeatOffsetMs: Double?,
+        offlineMeter: Int? = null,
     ): DeckGrid? {
         val liveValid = live != null &&
             live.confidence >= liveBeatMinConfidence &&
@@ -131,6 +134,16 @@ internal object AutomixGridMerge {
         val downbeatFromLive = liveDownbeatValid && (useLiveBeat || !offlineValid)
         val downbeatFromOffline = !downbeatFromLive && offlineDownbeatValid
 
+        // Metre belongs to the source that owns the phase. A live tracker that
+        // was not confident enough to select one leaves the previous 4/4
+        // assumption; an offline analyzer that published 3 or 6 now drives the
+        // phrase grid and the phase-lock bar length instead of a hard-coded 4.
+        val meter = if (useLiveBeat) {
+            live!!.meter.takeIf { it in 3..6 } ?: 4
+        } else {
+            offlineMeter?.takeIf { it in 3..6 } ?: 4
+        }
+
         return DeckGrid(
             bpm = bpm,
             beatPositionMs = if (useLiveBeat) live!!.phaseElapsedMs else offlinePositionMs!!,
@@ -146,6 +159,7 @@ internal object AutomixGridMerge {
                 else -> 0.0
             },
             live = useLiveBeat,
+            meter = meter,
         )
     }
 

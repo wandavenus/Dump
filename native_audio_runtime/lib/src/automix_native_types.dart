@@ -122,6 +122,9 @@ class NativeAutomixAnalysis {
     this.endBpmConfidence,
     this.startBeatOffsetMs,
     this.endBeatOffsetMs,
+    this.meter,
+    this.sectionCueMs,
+    this.sectionCueConfidence = 0,
     this.energyQuarters = const <double>[],
   });
 
@@ -156,6 +159,15 @@ class NativeAutomixAnalysis {
   final double? endBpmConfidence;
   final double? startBeatOffsetMs;
   final double? endBeatOffsetMs;
+
+  /// Selected bar length in beats (3, 4 or 6); null when not identifiable.
+  final int? meter;
+
+  /// Strongest track-level section boundary in this window (ms from the
+  /// window start), and its 0..1 confidence. Null/0 when the arrangement had
+  /// no clear change point.
+  final double? sectionCueMs;
+  final double sectionCueConfidence;
 
   /// Median RMS dBFS of each quarter of the analyzed window, in time order.
   /// Empty when any slot was not finite (an incomplete profile is unusable).

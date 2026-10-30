@@ -200,6 +200,10 @@ class Media3PlaybackService : MediaSessionService() {
     private val automixBpmBySongId = mutableMapOf<Int, Float>()
     private val automixBeatOffsetMsBySongId = mutableMapOf<Int, Long>()
     private val automixDownbeatOffsetMsBySongId = mutableMapOf<Int, Long>()
+    // Beats per bar (3, 4 or 6) that owns the published downbeat phase. Absent
+    // entries mean the legacy 4/4 assumption; only explicitly parsed values
+    // from Dart are stored so a payload without a metre cannot flip a deck.
+    private val automixMeterBySongId = mutableMapOf<Int, Int>()
     private val automixDropCueMsBySongId = mutableMapOf<Int, Long>()
     // Per-transition shaping, keyed by the INCOMING song id: its fade length,
     // the transfer curve, and the level match with the outgoing deck.
@@ -633,6 +637,10 @@ class Media3PlaybackService : MediaSessionService() {
                 p.currentMediaItem?.mediaId?.toIntOrNull()?.let {
                     automixDownbeatOffsetMsBySongId[it]
                 }
+            },
+            getAutoMixMeterForPlayer = { p ->
+                p.currentMediaItem?.mediaId?.toIntOrNull()
+                    ?.let { automixMeterBySongId[it] } ?: 4
             },
             getMediaPlaybackSpeedForPlayer = { p ->
                 val slot = playerSlotOf(p)
@@ -2458,6 +2466,7 @@ class Media3PlaybackService : MediaSessionService() {
         automixBpmBySongId.clear()
         automixBeatOffsetMsBySongId.clear()
         automixDownbeatOffsetMsBySongId.clear()
+        automixMeterBySongId.clear()
         automixDropCueMsBySongId.clear()
         automixFadeSecondsBySongId.clear()
         automixTransitionStartMsBySongId.clear()
@@ -2476,6 +2485,10 @@ class Media3PlaybackService : MediaSessionService() {
                 parsed.bpm?.let { automixBpmBySongId[id] = it }
                 parsed.beatOffsetMs?.let { automixBeatOffsetMsBySongId[id] = it }
                 parsed.downbeatOffsetMs?.let { automixDownbeatOffsetMsBySongId[id] = it }
+                // Only store a metre the payload actually published; a missing
+                // field keeps the legacy 4/4 default instead of recording a
+                // parser default as if the analyzer had measured it.
+                if (target.containsKey("meter")) automixMeterBySongId[id] = parsed.meter
                 parsed.dropCueMs?.let { automixDropCueMsBySongId[id] = it }
                 parsed.fadeSeconds?.let { automixFadeSecondsBySongId[id] = it }
                 parsed.transitionStartMs?.let { automixTransitionStartMsBySongId[id] = it }

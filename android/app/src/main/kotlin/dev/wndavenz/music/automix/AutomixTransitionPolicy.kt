@@ -108,11 +108,12 @@ internal object AutomixTransitionPolicy {
 
     /**
      * Snap a requested fade start back onto the largest musical boundary that
-     * stays within [PHRASE_SNAP_MAX_BEATS] beats: the 64-, 32-, 16- and
-     * 4-beat grids (phase-referenced to the analyzed phrase phase) first, then
-     * the single-beat grid with the legacy one-beat tolerance. Snapping only
-     * ever moves the start earlier — the same direction the beat-level snap
-     * already used — so the fade never eats into the configured overlap.
+     * stays within [PHRASE_SNAP_MAX_BEATS] beats: the four-bar, two-bar and
+     * one-bar grids at the analyzed [meter] (16/8/4 beats at 4/4, 12/6/3 at
+     * 3/4, 24/12/6 at 6/8, phase-referenced to the analyzed downbeat) first,
+     * then the single-beat grid with the legacy one-beat tolerance. Snapping
+     * only ever moves the start earlier — the same direction the beat-level
+     * snap already used — so the fade never eats into the configured overlap.
      * Returns [idealStartMs] unchanged when no phase is reliable.
      */
     fun phraseAlignedStartMs(
@@ -120,6 +121,7 @@ internal object AutomixTransitionPolicy {
         beatMs: Double,
         beatOffsetMs: Double?,
         downbeatOffsetMs: Double?,
+        meter: Int = 4,
     ): Long {
         if (!beatMs.isFinite() || beatMs <= 0.0) return idealStartMs
         val ideal = idealStartMs.coerceAtLeast(0L).toDouble()
@@ -137,7 +139,12 @@ internal object AutomixTransitionPolicy {
 
         val downbeat = downbeatOffsetMs?.takeIf { it.isFinite() }
         if (downbeat != null) {
-            for (beats in PHRASE_BEATS) {
+            // A four-bar phrase at the detected metre, then two bars, one bar,
+            // and one beat. For 4/4 this is 16/8/4/1; a 3/4 track uses
+            // 12/6/3/1 and a 6/8 track 24/12/6/1, so the boundary is musical
+            // instead of a four-beat grid imposed on a three-beat bar.
+            val barBeats = meter.takeIf { it in 3..6 } ?: 4
+            for (beats in intArrayOf(barBeats * 4, barBeats * 2, barBeats)) {
                 snap(beatMs * beats, downbeat, maxShift)?.let { return it }
             }
         }
@@ -147,8 +154,6 @@ internal object AutomixTransitionPolicy {
         }
         return idealStartMs
     }
-
-    private val PHRASE_BEATS = intArrayOf(64, 32, 16, 4)
 
     /**
      * Bound the executed fade when phrase snapping moved the start earlier.
@@ -211,6 +216,7 @@ internal data class ParsedAutomixTransitionTarget(
     val bpm: Float?,
     val beatOffsetMs: Long?,
     val downbeatOffsetMs: Long?,
+    val meter: Int,
     val dropCueMs: Long?,
     val fadeSeconds: Float?,
     val transitionStartMs: Long?,
@@ -253,6 +259,8 @@ internal data class ParsedAutomixTransitionTarget(
                 bpm = bpm,
                 beatOffsetMs = nonNegativeMillis("beatOffsetMs"),
                 downbeatOffsetMs = nonNegativeMillis("downbeatOffsetMs"),
+                meter = (target["meter"] as? Number)?.toInt()
+                    ?.takeIf { it in 3..6 } ?: 4,
                 dropCueMs = nonNegativeMillis("dropCueMs"),
                 fadeSeconds = AutomixTransitionPolicy.fadeSeconds(strategy, requestedFade),
                 transitionStartMs = transitionStartMs,

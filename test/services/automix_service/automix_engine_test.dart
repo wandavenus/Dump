@@ -75,8 +75,9 @@ void main() {
   group('AutoMix analysis window sizing', () {
     test('short multi-window tracks use disjoint bounded halves', () {
       for (final duration in <double>[120.1, 121, 180, 239.9]) {
-        final window =
-            AutomixService.analysisWindowSecondsForDuration(duration);
+        final window = AutomixService.analysisWindowSecondsForDuration(
+          duration,
+        );
         expect(window, lessThanOrEqualTo(120));
         expect(window * 2, lessThanOrEqualTo(duration));
       }
@@ -117,8 +118,20 @@ void main() {
         introTempoStability: 0.78,
         outroTempoStability: 0.71,
         chordProgression: const <AutomixChordEvent>[
-          AutomixChordEvent(startMs: 0, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.92),
-          AutomixChordEvent(startMs: 16000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.84),
+          AutomixChordEvent(
+            startMs: 0,
+            rootPitchClass: 0,
+            root: 'C',
+            quality: 'maj',
+            confidence: 0.92,
+          ),
+          AutomixChordEvent(
+            startMs: 16000,
+            rootPitchClass: 7,
+            root: 'G',
+            quality: 'maj',
+            confidence: 0.84,
+          ),
         ],
       );
       final restored = AutomixTrackFeatures.fromMap(feature.toMap());
@@ -211,7 +224,6 @@ void main() {
       expect(segment.vocalConfidence, 0);
     });
 
-
     test('forwards vocal and structural confidence with safe defaults', () {
       final segment = automixSegmentFeaturesFromAnalysisMap(
         <String, dynamic>{
@@ -250,6 +262,82 @@ void main() {
       expect(segment.structureConfidence, 0.88);
       expect(segment.vocalLikelihood, 0.72);
       expect(segment.vocalConfidence, 0.93);
+    });
+
+    test('parses metre and the track-level section cue', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'bpm': 120.0,
+          'bpmConfidence': 0.9,
+          'downbeatOffsetMs': 137.0,
+          'meter': 3,
+          'sectionCueMs': 30000.0,
+          'sectionCueConfidence': 0.82,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(segment.meter, 3);
+      expect(segment.sectionCueMs, 30000);
+      expect(segment.sectionCueConfidence, 0.82);
+
+      // A missing or out-of-contract metre is the legacy 4/4 assumption, never
+      // a silently accepted 2- or 7-beat bar.
+      for (final raw in <Object?>[null, 2, 7, 4.5, double.nan]) {
+        final fallback = automixSegmentFeaturesFromAnalysisMap(
+          <String, dynamic>{'bpm': 120.0, 'bpmConfidence': 0.9, 'meter': raw},
+          fallbackStartSeconds: 0,
+          fallbackSeconds: 120,
+        );
+        expect(fallback.meter, 4, reason: 'meter=$raw');
+      }
+    });
+
+    test('merge keeps per-edge metre and absolutises the section cue', () {
+      final head = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'segmentStartSeconds': 0.0,
+          'segmentSeconds': 118.0,
+          'bpm': 120.0,
+          'bpmConfidence': 0.9,
+          'downbeatOffsetMs': 100.0,
+          'meter': 4,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      final tail = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'segmentStartSeconds': 122.0,
+          'segmentSeconds': 118.0,
+          'bpm': 120.0,
+          'bpmConfidence': 0.9,
+          'endBpm': 120.0,
+          'endBpmConfidence': 0.9,
+          'tailBpmConfidence': 0.9,
+          'downbeatOffsetMs': 200.0,
+          'meter': 3,
+          'sectionCueMs': 30000.0,
+          'sectionCueConfidence': 0.82,
+        },
+        fallbackStartSeconds: 122,
+        fallbackSeconds: 118,
+      );
+      final merged = automixMergeSegments(
+        songId: 9,
+        segments: <AutomixSegmentFeatures>[head, tail],
+      );
+      expect(merged.meter, 4);
+      expect(merged.tailMeter, 3);
+      expect(merged.tailSectionCueMs, 152000);
+      expect(merged.tailSectionCueConfidence, 0.82);
+
+      // The new fields must survive the SharedPreferences round trip.
+      final restored = AutomixTrackFeatures.fromMap(merged.toMap());
+      expect(restored.meter, 4);
+      expect(restored.tailMeter, 3);
+      expect(restored.tailSectionCueMs, 152000);
+      expect(restored.tailSectionCueConfidence, 0.82);
     });
 
     test('parses and rejects time-stamped chord estimates safely', () {
@@ -572,8 +660,14 @@ void main() {
         outroTempoStability: 0.42,
       );
 
-      expect(automixTempoCurveAllowsPair(stableOutgoing, stableIncoming), isTrue);
-      expect(automixTempoCurveAllowsPair(unstableOutgoing, stableIncoming), isFalse);
+      expect(
+        automixTempoCurveAllowsPair(stableOutgoing, stableIncoming),
+        isTrue,
+      );
+      expect(
+        automixTempoCurveAllowsPair(unstableOutgoing, stableIncoming),
+        isFalse,
+      );
       expect(automixTempoStabilityAllowsPull(null), isTrue);
       expect(automixTempoStabilityAllowsPull(0.649), isFalse);
     });
@@ -743,47 +837,50 @@ void main() {
       }
     });
 
-    test('high-confidence vocal clash prefers the low-confidence alternative', () {
-      final tracks = [
-        _f(
-          1,
-          bpm: 120,
-          camelot: 8,
-          minor: true,
-          vocalLikelihood: 0.9,
-          vocalConfidence: 0.8,
-        ),
-        _f(
-          2,
-          bpm: 120,
-          camelot: 8,
-          minor: true,
-          vocalLikelihood: 0.9,
-          vocalConfidence: 0.8,
-        ),
-        _f(
-          3,
-          bpm: 120,
-          camelot: 8,
-          minor: true,
-          vocalLikelihood: 0.9,
-          vocalConfidence: 0.1,
-        ),
-      ];
-      const settings = AutomixSettings(profile: AutomixProfile.dj);
-      final native = AutomixEngine.planSet(
-        tracks: tracks,
-        settings: settings,
-        startIndex: 0,
-      );
-      final reference = DartAutomixEngineReference.planSet(
-        tracks: tracks,
-        settings: settings,
-        startIndex: 0,
-      );
-      expect(native.order, [0, 2, 1]);
-      expect(native.order, reference.order);
-    });
+    test(
+      'high-confidence vocal clash prefers the low-confidence alternative',
+      () {
+        final tracks = [
+          _f(
+            1,
+            bpm: 120,
+            camelot: 8,
+            minor: true,
+            vocalLikelihood: 0.9,
+            vocalConfidence: 0.8,
+          ),
+          _f(
+            2,
+            bpm: 120,
+            camelot: 8,
+            minor: true,
+            vocalLikelihood: 0.9,
+            vocalConfidence: 0.8,
+          ),
+          _f(
+            3,
+            bpm: 120,
+            camelot: 8,
+            minor: true,
+            vocalLikelihood: 0.9,
+            vocalConfidence: 0.1,
+          ),
+        ];
+        const settings = AutomixSettings(profile: AutomixProfile.dj);
+        final native = AutomixEngine.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 0,
+        );
+        final reference = DartAutomixEngineReference.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 0,
+        );
+        expect(native.order, [0, 2, 1]);
+        expect(native.order, reference.order);
+      },
+    );
 
     test('empty list yields empty plan', () {
       final plan = AutomixEngine.planSet(
@@ -898,7 +995,15 @@ void main() {
       // Track A's head sits at 100 BPM, but its tail (where the fade happens)
       // is 128 BPM. The naturally compatible incoming track heads at 128.
       final tracks = [
-        _f(1, bpm: 100, tailBpm: 128, tailBpmConfidence: 0.95, camelot: 8, minor: true, rms: -12),
+        _f(
+          1,
+          bpm: 100,
+          tailBpm: 128,
+          tailBpmConfidence: 0.95,
+          camelot: 8,
+          minor: true,
+          rms: -12,
+        ),
         _f(2, bpm: 128, camelot: 8, minor: true, rms: -12),
         _f(3, bpm: 100, camelot: 8, minor: true, rms: -12),
       ];
@@ -1109,7 +1214,10 @@ void main() {
       // arc onto the measured p20..p80 range, so the loud pair lands near the
       // middle instead of chaining ascending energies (0..6).
       const rms = [-26.0, -25.0, -24.0, -22.0, -20.0, -4.0, -3.0];
-      final tracks = [for (var i = 0; i < 7; i++) _f(i + 1, bpm: 120, camelot: 8, minor: true, rms: rms[i])];
+      final tracks = [
+        for (var i = 0; i < 7; i++)
+          _f(i + 1, bpm: 120, camelot: 8, minor: true, rms: rms[i]),
+      ];
       const settings = AutomixSettings(profile: AutomixProfile.dj);
       final native = AutomixEngine.planSet(
         tracks: tracks,
@@ -1156,56 +1264,59 @@ void main() {
       expect(native.order, reference.order);
     });
 
-    test('keeps native/reference parity when mix-seam features are present', () {
-      final tracks = [
-        for (var i = 0; i < 30; i++)
-          _f(
-            i + 1,
-            bpm: 78 + (i * 13 % 70).toDouble(),
-            tailBpm: i % 3 == 0 ? null : 90 + (i * 7 % 60).toDouble(),
-            introEnergy: i % 4 == 0 ? null : (i % 10) / 10,
-            outroEnergy: i % 5 == 0 ? null : ((i + 3) % 10) / 10,
-            camelot: (i * 5 % 12) + 1,
-            minor: i.isOdd,
-            rms: -24 + (i % 12).toDouble(),
-            bpmConf: (i % 10) / 10,
-            keyConf: (i % 8) / 8,
-            structureRegion: i % 3 == 0 ? 0 : (i % 5) + 1,
-            structureConfidence: i % 4 == 0 ? 0 : 0.6 + (i % 3) * 0.1,
-            tailStructureRegion: i % 5 == 0 ? 0 : (i % 5) + 1,
-            tailStructureConfidence: 0.7,
-          ),
-      ];
-      for (final profile in AutomixProfile.values) {
-        final settings = AutomixSettings(
-          profile: profile,
-          bpmTolerancePercent: 7.5,
-          crossfadeBeats: 24,
-          harmonicFilter: profile == AutomixProfile.harmonic,
-        );
-        final reference = DartAutomixEngineReference.planSet(
-          tracks: tracks,
-          settings: settings,
-          startIndex: 5,
-        );
-        final native = AutomixEngine.planSet(
-          tracks: tracks,
-          settings: settings,
-          startIndex: 5,
-        );
-        expect(native.order, reference.order, reason: 'profile $profile');
-        expect(
-          native.crossfadeSeconds,
-          closeTo(reference.crossfadeSeconds, 1e-10),
-          reason: 'profile $profile crossfade',
-        );
-        expect(
-          native.averageCost,
-          closeTo(reference.averageCost, 1e-10),
-          reason: 'profile $profile average cost',
-        );
-      }
-    });
+    test(
+      'keeps native/reference parity when mix-seam features are present',
+      () {
+        final tracks = [
+          for (var i = 0; i < 30; i++)
+            _f(
+              i + 1,
+              bpm: 78 + (i * 13 % 70).toDouble(),
+              tailBpm: i % 3 == 0 ? null : 90 + (i * 7 % 60).toDouble(),
+              introEnergy: i % 4 == 0 ? null : (i % 10) / 10,
+              outroEnergy: i % 5 == 0 ? null : ((i + 3) % 10) / 10,
+              camelot: (i * 5 % 12) + 1,
+              minor: i.isOdd,
+              rms: -24 + (i % 12).toDouble(),
+              bpmConf: (i % 10) / 10,
+              keyConf: (i % 8) / 8,
+              structureRegion: i % 3 == 0 ? 0 : (i % 5) + 1,
+              structureConfidence: i % 4 == 0 ? 0 : 0.6 + (i % 3) * 0.1,
+              tailStructureRegion: i % 5 == 0 ? 0 : (i % 5) + 1,
+              tailStructureConfidence: 0.7,
+            ),
+        ];
+        for (final profile in AutomixProfile.values) {
+          final settings = AutomixSettings(
+            profile: profile,
+            bpmTolerancePercent: 7.5,
+            crossfadeBeats: 24,
+            harmonicFilter: profile == AutomixProfile.harmonic,
+          );
+          final reference = DartAutomixEngineReference.planSet(
+            tracks: tracks,
+            settings: settings,
+            startIndex: 5,
+          );
+          final native = AutomixEngine.planSet(
+            tracks: tracks,
+            settings: settings,
+            startIndex: 5,
+          );
+          expect(native.order, reference.order, reason: 'profile $profile');
+          expect(
+            native.crossfadeSeconds,
+            closeTo(reference.crossfadeSeconds, 1e-10),
+            reason: 'profile $profile crossfade',
+          );
+          expect(
+            native.averageCost,
+            closeTo(reference.averageCost, 1e-10),
+            reason: 'profile $profile average cost',
+          );
+        }
+      },
+    );
   });
 
   group('crossfade derivation', () {
@@ -1311,13 +1422,7 @@ void main() {
       final merged = automixMergeSegments(
         songId: 2,
         segments: [
-          seg(
-            0,
-            bpm: 60,
-            conf: 0.5,
-            beatOffsetMs: 210,
-            downbeatOffsetMs: 830,
-          ),
+          seg(0, bpm: 60, conf: 0.5, beatOffsetMs: 210, downbeatOffsetMs: 830),
           seg(240, bpm: 120, conf: 0.9),
         ],
       );
@@ -1333,13 +1438,7 @@ void main() {
       final merged = automixMergeSegments(
         songId: 3,
         segments: [
-          seg(
-            0,
-            bpm: 240,
-            conf: 0.5,
-            beatOffsetMs: 210,
-            downbeatOffsetMs: 830,
-          ),
+          seg(0, bpm: 240, conf: 0.5, beatOffsetMs: 210, downbeatOffsetMs: 830),
           seg(240, bpm: 120, conf: 0.9),
         ],
       );
@@ -1533,9 +1632,7 @@ void main() {
     test('keeps the exit pulse unknown when the tail window failed', () {
       final merged = automixMergeSegments(
         songId: 9,
-        segments: [
-          seg(0, bpm: 120, conf: 0.9, startBpm: 120, endBpm: 118),
-        ],
+        segments: [seg(0, bpm: 120, conf: 0.9, startBpm: 120, endBpm: 118)],
         tailSegmentAnalyzed: false,
       );
       expect(merged.startBpm, closeTo(120, 1));
@@ -1556,33 +1653,32 @@ void main() {
       expect(merged.outroSlope, closeTo(-6.0, 1e-9));
     });
 
-    test('leaves slopes null when the profile is incomplete or the tail failed',
-        () {
-      final noProfile = automixMergeSegments(
-        songId: 11,
-        segments: [seg(0, bpm: 120, conf: 0.9)],
-      );
-      expect(noProfile.introSlope, isNull);
-      expect(noProfile.outroSlope, isNull);
+    test(
+      'leaves slopes null when the profile is incomplete or the tail failed',
+      () {
+        final noProfile = automixMergeSegments(
+          songId: 11,
+          segments: [seg(0, bpm: 120, conf: 0.9)],
+        );
+        expect(noProfile.introSlope, isNull);
+        expect(noProfile.outroSlope, isNull);
 
-      final missingTail = automixMergeSegments(
-        songId: 12,
-        segments: [
-          seg(0, bpm: 120, conf: 0.9, quarters: const [-24, -18, -12, -6]),
-        ],
-        tailSegmentAnalyzed: false,
-      );
-      expect(missingTail.introSlope, closeTo(6.0, 1e-9));
-      expect(missingTail.outroSlope, isNull);
-    });
+        final missingTail = automixMergeSegments(
+          songId: 12,
+          segments: [
+            seg(0, bpm: 120, conf: 0.9, quarters: const [-24, -18, -12, -6]),
+          ],
+          tailSegmentAnalyzed: false,
+        );
+        expect(missingTail.introSlope, closeTo(6.0, 1e-9));
+        expect(missingTail.outroSlope, isNull);
+      },
+    );
 
     test('does not substitute general BPM confidence for tail confidence', () {
       final missingTailConfidence = automixMergeSegments(
         songId: 6,
-        segments: [
-          seg(0, bpm: 120, conf: 0.95),
-          seg(240, bpm: 120, conf: 0.9),
-        ],
+        segments: [seg(0, bpm: 120, conf: 0.95), seg(240, bpm: 120, conf: 0.9)],
       );
       expect(missingTailConfidence.tailBpm, 120);
       expect(missingTailConfidence.tailBpmConfidence, 0);
@@ -1597,39 +1693,41 @@ void main() {
       expect(explicitTailConfidence.tailBpmConfidence, 0.65);
     });
 
-    test('does not promote a middle/head exit grid when the tail has no BPM',
-        () {
-      final merged = automixMergeSegments(
-        songId: 19,
-        segments: [
-          seg(
-            0,
-            bpm: 120,
-            conf: 0.95,
-            endBpm: 121,
-            endBpmConfidence: 0.9,
-            endQuarterPhaseMs: 40,
-          ),
-          seg(
-            120,
-            bpm: 124,
-            conf: 0.9,
-            endBpm: 126,
-            endBpmConfidence: 0.9,
-            endQuarterPhaseMs: 80,
-          ),
-          // Tail window decoded, but it has no usable tempo estimate.
-          seg(240, conf: 0.9, rms: -18),
-        ],
-      );
+    test(
+      'does not promote a middle/head exit grid when the tail has no BPM',
+      () {
+        final merged = automixMergeSegments(
+          songId: 19,
+          segments: [
+            seg(
+              0,
+              bpm: 120,
+              conf: 0.95,
+              endBpm: 121,
+              endBpmConfidence: 0.9,
+              endQuarterPhaseMs: 40,
+            ),
+            seg(
+              120,
+              bpm: 124,
+              conf: 0.9,
+              endBpm: 126,
+              endBpmConfidence: 0.9,
+              endQuarterPhaseMs: 80,
+            ),
+            // Tail window decoded, but it has no usable tempo estimate.
+            seg(240, conf: 0.9, rms: -18),
+          ],
+        );
 
-      expect(merged.endBpm, isNull);
-      expect(merged.endBpmConfidence, 0);
-      expect(merged.tailBpm, isNull);
-      expect(merged.tailBpmConfidence, 0);
-      expect(merged.tailBeatOffsetMs, isNull);
-      expect(merged.tailDownbeatOffsetMs, isNull);
-    });
+        expect(merged.endBpm, isNull);
+        expect(merged.endBpmConfidence, 0);
+        expect(merged.tailBpm, isNull);
+        expect(merged.tailBpmConfidence, 0);
+        expect(merged.tailBeatOffsetMs, isNull);
+        expect(merged.tailDownbeatOffsetMs, isNull);
+      },
+    );
 
     test('keeps alternate BPM from the highest-confidence tempo anchor', () {
       final merged = automixMergeSegments(
@@ -1643,26 +1741,23 @@ void main() {
       expect(merged.alternateBpm, closeTo(160, 0.1));
     });
 
-    test(
-      'preserves source duration when the tail analysis window is missing',
-      () {
-        final merged = automixMergeSegments(
-          songId: 5,
-          segments: [seg(0, bpm: 120, rms: -12)],
-          sourceDurationSeconds: 360,
-          tailSegmentAnalyzed: false,
-        );
+    test('preserves source duration when the tail analysis window is missing', () {
+      final merged = automixMergeSegments(
+        songId: 5,
+        segments: [seg(0, bpm: 120, rms: -12)],
+        sourceDurationSeconds: 360,
+        tailSegmentAnalyzed: false,
+      );
 
-        // Only the 120-second head window succeeded, but the source is 6 minutes.
-        expect(merged.durationSeconds, 360);
-        expect(merged.analyzedFraction, closeTo(1 / 3, 0.001));
-        expect(merged.tailAnalyzed, isFalse);
-        expect(merged.tailBpm, isNull);
-        expect(merged.tailBeatOffsetMs, isNull);
-        expect(merged.tailBreakdownCueMs, isNull);
-        expect(merged.outroEnergy, isNull);
-      },
-    );
+      // Only the 120-second head window succeeded, but the source is 6 minutes.
+      expect(merged.durationSeconds, 360);
+      expect(merged.analyzedFraction, closeTo(1 / 3, 0.001));
+      expect(merged.tailAnalyzed, isFalse);
+      expect(merged.tailBpm, isNull);
+      expect(merged.tailBeatOffsetMs, isNull);
+      expect(merged.tailBreakdownCueMs, isNull);
+      expect(merged.outroEnergy, isNull);
+    });
 
     test('structure markers describe the first and last window', () {
       final merged = automixMergeSegments(
@@ -1674,103 +1769,167 @@ void main() {
       expect(merged.analyzedFraction, closeTo(1.0, 0.001));
     });
 
-    test('retains confidence and absolute structure/vocal cues across windows', () {
-      final merged = automixMergeSegments(
-        songId: 3,
-        segments: [
-          seg(
-            0,
-            dropCueMs: 28000,
-            dropConfidence: 0.74,
-            structureRegion: 3,
-            structureConfidence: 0.82,
-            vocalLikelihood: 0.8,
-            vocalConfidence: 0.9,
-          ),
-          seg(
-            240,
-            breakdownCueMs: 114000,
-            breakdownConfidence: 0.88,
-            structureRegion: 4,
-            structureConfidence: 0.76,
-            vocalLikelihood: 0.4,
-            vocalConfidence: 0.5,
-          ),
-        ],
-      );
-      expect(merged.dropCueMs, 28000);
-      expect(merged.dropConfidence, 0.74);
-      expect(merged.tailBreakdownCueMs, 354000);
-      expect(merged.tailBreakdownConfidence, 0.88);
-      expect(merged.structureRegion, 3);
-      expect(merged.structureConfidence, 0.82);
-      expect(merged.tailStructureRegion, 4);
-      expect(merged.tailStructureConfidence, 0.76);
-      expect(merged.vocalLikelihood, closeTo((0.8 * 0.9 + 0.4 * 0.5) / 1.4, 1e-9));
-      expect(merged.vocalConfidence, closeTo(0.7, 1e-9));
-      expect(merged.durationSeconds, 360);
-    });
+    test(
+      'retains confidence and absolute structure/vocal cues across windows',
+      () {
+        final merged = automixMergeSegments(
+          songId: 3,
+          segments: [
+            seg(
+              0,
+              dropCueMs: 28000,
+              dropConfidence: 0.74,
+              structureRegion: 3,
+              structureConfidence: 0.82,
+              vocalLikelihood: 0.8,
+              vocalConfidence: 0.9,
+            ),
+            seg(
+              240,
+              breakdownCueMs: 114000,
+              breakdownConfidence: 0.88,
+              structureRegion: 4,
+              structureConfidence: 0.76,
+              vocalLikelihood: 0.4,
+              vocalConfidence: 0.5,
+            ),
+          ],
+        );
+        expect(merged.dropCueMs, 28000);
+        expect(merged.dropConfidence, 0.74);
+        expect(merged.tailBreakdownCueMs, 354000);
+        expect(merged.tailBreakdownConfidence, 0.88);
+        expect(merged.structureRegion, 3);
+        expect(merged.structureConfidence, 0.82);
+        expect(merged.tailStructureRegion, 4);
+        expect(merged.tailStructureConfidence, 0.76);
+        expect(
+          merged.vocalLikelihood,
+          closeTo((0.8 * 0.9 + 0.4 * 0.5) / 1.4, 1e-9),
+        );
+        expect(merged.vocalConfidence, closeTo(0.7, 1e-9));
+        expect(merged.durationSeconds, 360);
+      },
+    );
   });
 
   group('chord progression compatibility', () {
-    test('merges adjacent chord windows and resolves overlapping estimates', () {
-      final merged = automixMergeChordProgressions([
-        AutomixSegmentFeatures(
-          startSeconds: 0,
-          seconds: 120,
-          chordProgression: const <AutomixChordEvent>[
-            AutomixChordEvent(startMs: 0, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.70),
-            AutomixChordEvent(startMs: 1000, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.80),
-            AutomixChordEvent(startMs: 2000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.88),
-          ],
-        ),
-        AutomixSegmentFeatures(
-          startSeconds: 120,
-          seconds: 120,
-          chordProgression: const <AutomixChordEvent>[
-            AutomixChordEvent(startMs: 1000, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.95),
-            AutomixChordEvent(startMs: 2000, rootPitchClass: 7, root: 'G', quality: 'maj', confidence: 0.72),
-            AutomixChordEvent(startMs: 3000, rootPitchClass: 9, root: 'A', quality: 'min', confidence: 0.91),
-          ],
-        ),
-      ]);
-
-      expect(merged.map((chord) => chord.label), ['Cmaj', 'Gmaj', 'Amin']);
-      expect(merged.first.startMs, 0);
-      expect(merged.first.confidence, 0.95);
-    });
-
-
-    test('recognizes compatible fifths and penalizes confident semitone clashes', () {
-      AutomixTrackFeatures track(
-        int id, int pc, String quality, double confidence, double timeMs,
-        {double duration = 180}
-      ) => AutomixTrackFeatures(
-        songId: id,
-        durationSeconds: duration,
-        chordProgression: <AutomixChordEvent>[
-          AutomixChordEvent(
-            startMs: timeMs,
-            rootPitchClass: pc,
-            root: const <String>['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][pc],
-            quality: quality,
-            confidence: confidence,
+    test(
+      'merges adjacent chord windows and resolves overlapping estimates',
+      () {
+        final merged = automixMergeChordProgressions([
+          AutomixSegmentFeatures(
+            startSeconds: 0,
+            seconds: 120,
+            chordProgression: const <AutomixChordEvent>[
+              AutomixChordEvent(
+                startMs: 0,
+                rootPitchClass: 0,
+                root: 'C',
+                quality: 'maj',
+                confidence: 0.70,
+              ),
+              AutomixChordEvent(
+                startMs: 1000,
+                rootPitchClass: 0,
+                root: 'C',
+                quality: 'maj',
+                confidence: 0.80,
+              ),
+              AutomixChordEvent(
+                startMs: 2000,
+                rootPitchClass: 7,
+                root: 'G',
+                quality: 'maj',
+                confidence: 0.88,
+              ),
+            ],
           ),
-        ],
-      );
+          AutomixSegmentFeatures(
+            startSeconds: 120,
+            seconds: 120,
+            chordProgression: const <AutomixChordEvent>[
+              AutomixChordEvent(
+                startMs: 1000,
+                rootPitchClass: 0,
+                root: 'C',
+                quality: 'maj',
+                confidence: 0.95,
+              ),
+              AutomixChordEvent(
+                startMs: 2000,
+                rootPitchClass: 7,
+                root: 'G',
+                quality: 'maj',
+                confidence: 0.72,
+              ),
+              AutomixChordEvent(
+                startMs: 3000,
+                rootPitchClass: 9,
+                root: 'A',
+                quality: 'min',
+                confidence: 0.91,
+              ),
+            ],
+          ),
+        ]);
 
-      final outgoing = track(1, 0, 'maj', 0.95, 170000);
-      final fifth = track(2, 7, 'maj', 0.95, 1000, duration: 120);
-      final semitone = track(3, 1, 'maj', 0.95, 1000, duration: 120);
-      expect(automixChordProgressionCost(outgoing, fifth), lessThan(0.3));
-      expect(automixChordProgressionCost(outgoing, semitone), greaterThan(0.62));
-    });
+        expect(merged.map((chord) => chord.label), ['Cmaj', 'Gmaj', 'Amin']);
+        expect(merged.first.startMs, 0);
+        expect(merged.first.confidence, 0.95);
+      },
+    );
+
+    test(
+      'recognizes compatible fifths and penalizes confident semitone clashes',
+      () {
+        AutomixTrackFeatures track(
+          int id,
+          int pc,
+          String quality,
+          double confidence,
+          double timeMs, {
+          double duration = 180,
+        }) => AutomixTrackFeatures(
+          songId: id,
+          durationSeconds: duration,
+          chordProgression: <AutomixChordEvent>[
+            AutomixChordEvent(
+              startMs: timeMs,
+              rootPitchClass: pc,
+              root: const <String>[
+                'C',
+                'C#',
+                'D',
+                'D#',
+                'E',
+                'F',
+                'F#',
+                'G',
+                'G#',
+                'A',
+                'A#',
+                'B',
+              ][pc],
+              quality: quality,
+              confidence: confidence,
+            ),
+          ],
+        );
+
+        final outgoing = track(1, 0, 'maj', 0.95, 170000);
+        final fifth = track(2, 7, 'maj', 0.95, 1000, duration: 120);
+        final semitone = track(3, 1, 'maj', 0.95, 1000, duration: 120);
+        expect(automixChordProgressionCost(outgoing, fifth), lessThan(0.3));
+        expect(
+          automixChordProgressionCost(outgoing, semitone),
+          greaterThan(0.62),
+        );
+      },
+    );
 
     test('returns neutral absence when either chord grid is missing', () {
-      expect(
-        automixChordProgressionCost(_f(1), _f(2)),
-        isNull,
-      );
+      expect(automixChordProgressionCost(_f(1), _f(2)), isNull);
     });
   });
 
@@ -1802,10 +1961,14 @@ void main() {
       double tailStructureConfidence = 0,
       double vocalLikelihood = 0,
       double vocalConfidence = 0,
+      double? tailSectionCueMs,
+      double tailSectionCueConfidence = 0,
       List<AutomixChordEvent> chords = const <AutomixChordEvent>[],
     }) => AutomixTrackFeatures(
       songId: id,
       bpm: bpm ?? tailBpm,
+      tailSectionCueMs: tailSectionCueMs,
+      tailSectionCueConfidence: tailSectionCueConfidence,
       bpmConfidence: bpmConfidence,
       beatOffsetMs: beatOffsetMs,
       tailBpm: tailBpm,
@@ -1833,22 +1996,20 @@ void main() {
       chordProgression: chords,
     );
 
-    test('falls back to head BPM for fade duration when tail confidence is low', () {
-      final cue = automixTransitionCue(
-        outgoing: track(
-          1,
-          bpm: 100,
-          tailBpm: 128,
-          tailBpmConfidence: 0.1,
-        ),
-        incoming: track(2, bpm: 100),
-        settings: const AutomixSettings(),
-      );
+    test(
+      'falls back to head BPM for fade duration when tail confidence is low',
+      () {
+        final cue = automixTransitionCue(
+          outgoing: track(1, bpm: 100, tailBpm: 128, tailBpmConfidence: 0.1),
+          incoming: track(2, bpm: 100),
+          settings: const AutomixSettings(),
+        );
 
-      // Default is 16 beats: 16 * 60 / 100 = 9.6 seconds. The rejected
-      // 128 BPM tail estimate must not shorten it to 7.5 seconds.
-      expect(cue.fadeSeconds, closeTo(9.6, 1e-9));
-    });
+        // Default is 16 beats: 16 * 60 / 100 = 9.6 seconds. The rejected
+        // 128 BPM tail estimate must not shorten it to 7.5 seconds.
+        expect(cue.fadeSeconds, closeTo(9.6, 1e-9));
+      },
+    );
 
     test('density scaling keeps the fade on a half-beat grid', () {
       final cue = automixTransitionCue(
@@ -1870,14 +2031,26 @@ void main() {
           tailBpm: 120,
           durationSeconds: 180,
           chords: const <AutomixChordEvent>[
-            AutomixChordEvent(startMs: 170000, rootPitchClass: 0, root: 'C', quality: 'maj', confidence: 0.95),
+            AutomixChordEvent(
+              startMs: 170000,
+              rootPitchClass: 0,
+              root: 'C',
+              quality: 'maj',
+              confidence: 0.95,
+            ),
           ],
         ),
         incoming: track(
           2,
           tailBpm: 120,
           chords: const <AutomixChordEvent>[
-            AutomixChordEvent(startMs: 0, rootPitchClass: 1, root: 'C#', quality: 'maj', confidence: 0.95),
+            AutomixChordEvent(
+              startMs: 0,
+              rootPitchClass: 1,
+              root: 'C#',
+              quality: 'maj',
+              confidence: 0.95,
+            ),
           ],
         ),
         settings: const AutomixSettings(),
@@ -1930,6 +2103,88 @@ void main() {
       expect(cue.transitionStartMs, 195000.0);
       expect(cue.fadeSeconds, inInclusiveRange(1.5, 12.0));
       expect(cue.fadeSeconds, lessThan(45.0));
+    });
+
+    test('confident section boundary moves the early handover to the section start', () {
+      // The outgoing track's final section starts 40 s before EOF. The fade
+      // must start there (a real change point) instead of at the generic
+      // neutral 45 s lead.
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          durationSeconds: 240,
+          tailSectionCueMs: 200000,
+          tailSectionCueConfidence: 0.82,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          dropCueMs: 32000,
+          dropConfidence: 0.9,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.transitionStartMs, 200000.0);
+    });
+
+    test('section cue outside the early-handover window is ignored', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          durationSeconds: 240,
+          // 90 s before EOF: too early for the supported 30-65 s lead.
+          tailSectionCueMs: 150000,
+          tailSectionCueConfidence: 0.9,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          dropCueMs: 32000,
+          dropConfidence: 0.9,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.transitionStartMs, 195000.0);
+    });
+
+    test('low-confidence section cue never moves the handover', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          tailBpmConfidence: 0.9,
+          tailBeatOffsetMs: 125.0,
+          durationSeconds: 240,
+          tailSectionCueMs: 200000,
+          tailSectionCueConfidence: 0.2,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          bpmConfidence: 0.9,
+          beatOffsetMs: 300.0,
+          dropCueMs: 32000,
+          dropConfidence: 0.9,
+          durationSeconds: 210,
+        ),
+        settings: const AutomixSettings(),
+      );
+
+      expect(cue.transitionStartMs, 195000.0);
     });
 
     test('early exit lead blends dense tail and sparse intro density', () {
@@ -1989,29 +2244,32 @@ void main() {
       expect(cue.fadeSeconds, closeTo(8.0, 1e-9));
     });
 
-    test('uncertain incoming drop keeps the conventional near-end transition', () {
-      final cue = automixTransitionCue(
-        outgoing: track(
-          1,
-          tailBpm: 120,
-          tailBpmConfidence: 0.9,
-          tailBeatOffsetMs: 125.0,
-          durationSeconds: 240,
-        ),
-        incoming: track(
-          2,
-          tailBpm: 120,
-          bpmConfidence: 0.9,
-          beatOffsetMs: 300.0,
-          dropCueMs: 32000,
-          dropConfidence: 0.2,
-          durationSeconds: 210,
-        ),
-        settings: const AutomixSettings(),
-      );
+    test(
+      'uncertain incoming drop keeps the conventional near-end transition',
+      () {
+        final cue = automixTransitionCue(
+          outgoing: track(
+            1,
+            tailBpm: 120,
+            tailBpmConfidence: 0.9,
+            tailBeatOffsetMs: 125.0,
+            durationSeconds: 240,
+          ),
+          incoming: track(
+            2,
+            tailBpm: 120,
+            bpmConfidence: 0.9,
+            beatOffsetMs: 300.0,
+            dropCueMs: 32000,
+            dropConfidence: 0.2,
+            durationSeconds: 210,
+          ),
+          settings: const AutomixSettings(),
+        );
 
-      expect(cue.transitionStartMs, isNull);
-    });
+        expect(cue.transitionStartMs, isNull);
+      },
+    );
 
     test('tempo-mismatched tracks do not use early drop handover', () {
       final cue = automixTransitionCue(
@@ -2037,37 +2295,40 @@ void main() {
       expect(cue.transitionStartMs, isNull);
     });
 
-    test('structure cues require reliable tail confidence and select alignment', () {
-      final aligned = automixTransitionCue(
-        outgoing: track(
-          1,
-          tailBpm: 120,
-          durationSeconds: 180,
-          tailBreakdownCueMs: 174000,
-          tailBreakdownConfidence: 0.9,
-          tailStructureRegion: 4,
-          tailStructureConfidence: 0.8,
-        ),
-        incoming: track(2, tailBpm: 120),
-        settings: const AutomixSettings(),
-      );
-      expect(aligned.strategy, AutomixTransitionStrategy.structureAligned);
-      expect(aligned.fadeSeconds, 6.0);
+    test(
+      'structure cues require reliable tail confidence and select alignment',
+      () {
+        final aligned = automixTransitionCue(
+          outgoing: track(
+            1,
+            tailBpm: 120,
+            durationSeconds: 180,
+            tailBreakdownCueMs: 174000,
+            tailBreakdownConfidence: 0.9,
+            tailStructureRegion: 4,
+            tailStructureConfidence: 0.8,
+          ),
+          incoming: track(2, tailBpm: 120),
+          settings: const AutomixSettings(),
+        );
+        expect(aligned.strategy, AutomixTransitionStrategy.structureAligned);
+        expect(aligned.fadeSeconds, 6.0);
 
-      final untrusted = automixTransitionCue(
-        outgoing: track(
-          3,
-          tailBpm: 120,
-          durationSeconds: 180,
-          tailBreakdownCueMs: 174000,
-          tailBreakdownConfidence: 0.1,
-        ),
-        incoming: track(4, tailBpm: 120),
-        settings: const AutomixSettings(),
-      );
-      expect(untrusted.strategy, AutomixTransitionStrategy.crossfade);
-      expect(untrusted.fadeSeconds, 8.0);
-    });
+        final untrusted = automixTransitionCue(
+          outgoing: track(
+            3,
+            tailBpm: 120,
+            durationSeconds: 180,
+            tailBreakdownCueMs: 174000,
+            tailBreakdownConfidence: 0.1,
+          ),
+          incoming: track(4, tailBpm: 120),
+          settings: const AutomixSettings(),
+        );
+        expect(untrusted.strategy, AutomixTransitionStrategy.crossfade);
+        expect(untrusted.fadeSeconds, 8.0);
+      },
+    );
 
     test('vocal conflict and spectral measurements drive EQ targets', () {
       final clash = automixTransitionCue(
@@ -2119,13 +2380,7 @@ void main() {
 
     test('prefers paired overlap-section RMS over integrated LUFS', () {
       final cue = automixTransitionCue(
-        outgoing: track(
-          1,
-          tailBpm: 120,
-          lufs: -8,
-          outroRmsDb: -22,
-          rmsDb: -8,
-        ),
+        outgoing: track(1, tailBpm: 120, lufs: -8, outroRmsDb: -22, rmsDb: -8),
         incoming: track(
           2,
           tailBpm: 120,
@@ -2376,60 +2631,39 @@ void main() {
   group('automixEarlyHandoverLeadSeconds', () {
     test('neutral metadata keeps the historical 45 second lead', () {
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: null,
-          introEnergy: null,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: null, introEnergy: null),
         45.0,
       );
     });
 
     test('outgoing density maps continuously into the 35-60 second window', () {
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: 0.20,
-          introEnergy: null,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: 0.20, introEnergy: null),
         35.0,
       );
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: 0.6125,
-          introEnergy: null,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: 0.6125, introEnergy: null),
         closeTo(52.5, 1e-9),
       );
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: 0.90,
-          introEnergy: null,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: 0.90, introEnergy: null),
         60.0,
       );
     });
 
     test('a sparse incoming intro pulls the handover later', () {
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: null,
-          introEnergy: 0.35,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: null, introEnergy: 0.35),
         35.0,
       );
       // Dense tail (weight 2) plus sparse intro (weight 1): (120 + 35) / 3.
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: 0.90,
-          introEnergy: 0.35,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: 0.90, introEnergy: 0.35),
         closeTo(51.6666667, 1e-6),
       );
       // A dense intro leaves the outgoing density signal untouched.
       expect(
-        automixEarlyHandoverLeadSeconds(
-          outroEnergy: 0.90,
-          introEnergy: 0.80,
-        ),
+        automixEarlyHandoverLeadSeconds(outroEnergy: 0.90, introEnergy: 0.80),
         60.0,
       );
     });
@@ -2477,32 +2711,35 @@ void main() {
   });
 
   group('bounded planning window', () {
-    test('one-shot start rotates from selection and leaves overflow ordered', () {
-      final queue = List<int>.generate(320, (index) => index + 1);
-      final rotated = automixRotateQueueFrom<int>(queue, 12);
-      expect(rotated.first, 13);
-      expect(rotated, [...queue.skip(12), ...queue.take(12)]);
+    test(
+      'one-shot start rotates from selection and leaves overflow ordered',
+      () {
+        final queue = List<int>.generate(320, (index) => index + 1);
+        final rotated = automixRotateQueueFrom<int>(queue, 12);
+        expect(rotated.first, 13);
+        expect(rotated, [...queue.skip(12), ...queue.take(12)]);
 
-      // A horizon of 250 means the selected track plus up to 250 successors.
-      const horizon = 250;
-      final window = automixPlanWindow<int>(rotated, 0, horizon);
-      expect(window, rotated.take(horizon + 1));
+        // A horizon of 250 means the selected track plus up to 250 successors.
+        const horizon = 250;
+        final window = automixPlanWindow<int>(rotated, 0, horizon);
+        expect(window, rotated.take(horizon + 1));
 
-      // Model a valid planner result: the first item stays pinned, while the
-      // remaining window is reordered; the overflow remains in source order.
-      final plannedWindow = <int>[
-        window.first,
-        ...window.skip(1).toList().reversed,
-      ];
-      final sequenced = <int>[
-        ...plannedWindow,
-        ...rotated.skip(window.length),
-      ];
-      expect(sequenced.length, queue.length);
-      expect(sequenced.first, 13);
-      expect(sequenced.toSet(), queue.toSet());
-      expect(sequenced.skip(window.length), rotated.skip(window.length));
-    });
+        // Model a valid planner result: the first item stays pinned, while the
+        // remaining window is reordered; the overflow remains in source order.
+        final plannedWindow = <int>[
+          window.first,
+          ...window.skip(1).toList().reversed,
+        ];
+        final sequenced = <int>[
+          ...plannedWindow,
+          ...rotated.skip(window.length),
+        ];
+        expect(sequenced.length, queue.length);
+        expect(sequenced.first, 13);
+        expect(sequenced.toSet(), queue.toSet());
+        expect(sequenced.skip(window.length), rotated.skip(window.length));
+      },
+    );
 
     test('window is the start track plus the bounded upcoming tail', () {
       expect(automixPlanWindow<int>([1, 2, 3, 4, 5], 1, 2), [2, 3, 4]);
@@ -2668,12 +2905,14 @@ void main() {
     });
   });
 
-
   group('queue snapshot validation', () {
     test('requires the exact same ordered queue, not just matching IDs', () {
       expect(automixQueueSnapshotMatches([10, 20, 30], [10, 20, 30]), isTrue);
       expect(automixQueueSnapshotMatches([10, 20, 30], [20, 10, 30]), isFalse);
-      expect(automixQueueSnapshotMatches([10, 20, 30], [10, 20, 30, 40]), isFalse);
+      expect(
+        automixQueueSnapshotMatches([10, 20, 30], [10, 20, 30, 40]),
+        isFalse,
+      );
       expect(automixQueueSnapshotMatches([10, 20, 30], [10, 30]), isFalse);
     });
   });
@@ -2681,15 +2920,55 @@ void main() {
   group('shuffle-aware upcoming tracks', () {
     const queue = <String>['A', 'B', 'C', 'D'];
     test('uses Media3 next index under shuffle', () {
-      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: 3), ['D']);
+      expect(
+        automixUpcomingTracks(
+          queue,
+          1,
+          shuffleEnabled: true,
+          nextTrackIndex: 3,
+        ),
+        ['D'],
+      );
     });
     test('does not guess when native shuffle state is unknown or invalid', () {
-      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: null), isEmpty);
-      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: -1), isEmpty);
-      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: true, nextTrackIndex: 1), isEmpty);
+      expect(
+        automixUpcomingTracks(
+          queue,
+          1,
+          shuffleEnabled: true,
+          nextTrackIndex: null,
+        ),
+        isEmpty,
+      );
+      expect(
+        automixUpcomingTracks(
+          queue,
+          1,
+          shuffleEnabled: true,
+          nextTrackIndex: -1,
+        ),
+        isEmpty,
+      );
+      expect(
+        automixUpcomingTracks(
+          queue,
+          1,
+          shuffleEnabled: true,
+          nextTrackIndex: 1,
+        ),
+        isEmpty,
+      );
     });
     test('preserves full linear tail with shuffle disabled', () {
-      expect(automixUpcomingTracks(queue, 1, shuffleEnabled: false, nextTrackIndex: 3), ['C', 'D']);
+      expect(
+        automixUpcomingTracks(
+          queue,
+          1,
+          shuffleEnabled: false,
+          nextTrackIndex: 3,
+        ),
+        ['C', 'D'],
+      );
     });
   });
 }

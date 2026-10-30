@@ -1,4 +1,7 @@
 #include "automix_native.h"
+#ifdef AUTOMIX_DEBUG_PHRASE
+#include <stdio.h>
+#endif
 
 #include <float.h>
 #ifdef AUTOMIX_DEBUG_METRICAL
@@ -1156,6 +1159,306 @@ static double estimate_onset_rate(const float* odf, int32_t count, double fps) {
   return (double)peaks * fps / count;
 }
 
+// Confident phrase grid: [phase_ms] is the start of an [meter]-beat bar that
+// begins a four-bar phrase. The grid is evaluated in fractional milliseconds,
+// never on a rounded integer frame period: at 120 BPM a 22-frame rounding
+// stretches a 16-beat phrase from 8.00 s to 8.17 s, which drifts more than an
+// eighth note across a four-bar loop and either hides a real accent or invents
+// a phase from window-edge truncation (regression: 120 BPM four-bar loop
+// published a spurious 6.2 s phase).
+typedef struct {
+  double phase_ms;
+  int32_t meter;
+  int32_t meter_confident;
+  int32_t valid;
+} NarPhraseEstimate;
+
+#define AUTOMIX_MAX_BEATS 512
+
+// Track-level section novelty is measured on 2 s chroma blocks: a section
+// boundary is a change point at that scale, not the per-frame chord change
+// used for bar evidence. 128 blocks cover a 256 s window, well past the
+// bounded 120 s analysis window this analyzer is called with.
+#define AUTOMIX_MAX_SECTION_BLOCKS 128
+#define AUTOMIX_SECTION_BLOCK_SECONDS 2.0
+
+// Score of the strongest 2 s-block chroma change relative to the rest of the
+// window. A section boundary is only published when one change point clearly
+// dominates the surrounding log of small changes: a steady arrangement has no
+// boundary, a verse→chorus transition has exactly one.
+static double estimate_section_boundary_ms(const float* novelty,
+                                           int32_t count,
+                                           double block_ms,
+                                           double* confidence) {
+  *confidence = 0.0;
+  if (novelty == NULL || count < 8 || !isfinite(block_ms) ||
+      block_ms <= 0.0) {
+    return NAN;
+  }
+  float sorted[AUTOMIX_MAX_SECTION_BLOCKS];
+  const int32_t usable = count < AUTOMIX_MAX_SECTION_BLOCKS
+      ? count
+      : AUTOMIX_MAX_SECTION_BLOCKS;
+  for (int32_t i = 0; i < usable; ++i) sorted[i] = novelty[i];
+  for (int32_t i = 1; i < usable; ++i) {
+    const float value = sorted[i];
+    int32_t j = i - 1;
+    while (j >= 0 && sorted[j] > value) {
+      sorted[j + 1] = sorted[j];
+      --j;
+    }
+    sorted[j + 1] = value;
+  }
+  const double median = (double)sorted[usable / 2];
+  double deviation_sum = 0.0;
+  for (int32_t i = 0; i < usable; ++i) {
+    deviation_sum += fabs((double)novelty[i] - median);
+  }
+  const double scale = fmax(1e-4, deviation_sum / (double)usable);
+
+  // Do not accept a boundary in the first or last two blocks: a window edge
+  // truncates the block mean, so an "edge change" is an analysis artefact.
+  int32_t best_index = -1;
+  double best = -1.0;
+  for (int32_t i = 2; i < usable - 2; ++i) {
+    const double value = (double)novelty[i];
+    if (value > best) {
+      best = value;
+      best_index = i;
+    }
+  }
+  if (best_index < 0 || best <= median * 2.0) return NAN;
+  double second = 0.0;
+  for (int32_t i = 2; i < usable - 2; ++i) {
+    if (i >= best_index - 2 && i <= best_index + 2) continue;
+    const double value = (double)novelty[i];
+    if (value > second) second = value;
+  }
+  const double z = (best - median) / scale;
+  const double separation = best > 1e-9 ? fmin(1.0, (best - second) / best) : 0.0;
+  if (z < 3.0 || separation < 0.20) return NAN;
+  *confidence = fmin(1.0, fmax(0.0,
+      fmin(1.0, (z - 2.5) / 3.0) * fmin(1.0, separation / 0.35)));
+  // Entry i compares block i with block i + 1, so it sits at the *end* of
+  // block i. The cue marks the first frame of the new section, i.e. one block
+  // later than the entry index.
+  return (double)(best_index + 1) * block_ms;
+}
+
+static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
+                                              const float* chroma_novelty,
+                                              int32_t frame_count,
+                                              double working_rate, double fps,
+                                              double beat_ms,
+                                              double beat_phase_ms) {
+  NarPhraseEstimate result = {NAN, 4, 0, 0};
+  const double window_ms =
+      (double)frame_count * HOP_SIZE * 1000.0 / working_rate;
+  const double offset_ms =
+      (double)ODF_TIMESTAMP_OFFSET_SAMPLES * 1000.0 / working_rate;
+  int32_t beat_count = (int32_t)floor(window_ms / beat_ms);
+  if (beat_count > AUTOMIX_MAX_BEATS) beat_count = AUTOMIX_MAX_BEATS;
+  if (beat_count < 8) return result;
+
+  // One evidence value per beat, on the fractional beat grid. Using the whole
+  // window (not a modulo phrase) lets metre be decided independently of the
+  // phrase phase: a 4/4 loop with an accent every fourth beat must not be able
+  // to masquerade as a 3/4 loop whose accents happen to fall every four beats.
+  double beat_power[AUTOMIX_MAX_BEATS] = {0.0};
+  double beat_novelty[AUTOMIX_MAX_BEATS] = {0.0};
+  double power_max = 0.0;
+  double novelty_max = 0.0;
+  const double half_beat_ms = beat_ms * 0.5;
+  for (int32_t beat = 0; beat < beat_count; ++beat) {
+    double time_ms = fmod(beat_phase_ms + (double)beat * beat_ms, beat_ms);
+    if (time_ms < 0.0) time_ms += beat_ms;
+    time_ms += (double)beat * beat_ms;
+    if (time_ms >= window_ms) break;
+    // Score the whole beat interval by its mean frame power, not by one
+    // spectral-flux frame. A transient's flux is spread across about four
+    // frames and its single-frame height depends on where the onset falls
+    // inside the Hann window; integrating flux still let identical bars differ
+    // by >80 % from frame alignment alone (measured at 128 BPM). Mean power in
+    // [t - beat/2, t + beat/2] is the energy the listener actually hears on
+    // that beat and is alignment-insensitive.
+    int32_t lo = (int32_t)llround(
+        (time_ms - half_beat_ms - offset_ms) * fps / 1000.0);
+    int32_t hi = (int32_t)llround(
+        (time_ms + half_beat_ms - offset_ms) * fps / 1000.0);
+    if (lo < 0) lo = 0;
+    if (hi >= frame_count) hi = frame_count - 1;
+    if (lo > hi) break;
+    double power = 0.0;
+    double novelty = 0.0;
+    for (int32_t index = lo; index <= hi; ++index) {
+      power += pow(10.0, (double)rms_frames[index] / 10.0);
+      novelty += (double)chroma_novelty[index];
+    }
+    beat_power[beat] = power / (double)(hi - lo + 1);
+    beat_novelty[beat] = novelty / (double)(hi - lo + 1);
+    if (beat_power[beat] > power_max) power_max = beat_power[beat];
+    if (beat_novelty[beat] > novelty_max) novelty_max = beat_novelty[beat];
+  }
+
+  // Metre is a hypothesis, not a constant: 4/4 dominates the target library,
+  // but 3/4 and 6/8 material exists and a hard-wired four-beat bar makes the
+  // published downbeat drift by one beat per bar on those tracks. Score each
+  // metre by how strongly the beat accents line up with one bar position; the
+  // winner needs a clear margin, otherwise 4/4 (the prior) is retained.
+  static const int32_t kMeters[] = {4, 3, 6};
+  int32_t meter = 4;
+  double meter_score = 0.0;
+  for (size_t meter_index = 0;
+       meter_index < sizeof(kMeters) / sizeof(kMeters[0]); ++meter_index) {
+    const int32_t candidate_meter = kMeters[meter_index];
+    if (beat_count < candidate_meter * 4) continue;
+    double position_sum[6] = {0.0};
+    int32_t position_count[6] = {0};
+    for (int32_t beat = 0; beat < beat_count; ++beat) {
+      const int32_t position = beat % candidate_meter;
+      const double power =
+          power_max > 1e-12 ? beat_power[beat] / power_max : 0.0;
+      const double novelty =
+          novelty_max > 1e-12 ? beat_novelty[beat] / novelty_max : 0.0;
+      position_sum[position] += power + 0.5 * novelty;
+      position_count[position]++;
+    }
+    double best = -1.0;
+    double second = -1.0;
+    for (int32_t position = 0; position < candidate_meter; ++position) {
+      if (position_count[position] <= 0) continue;
+      const double value = position_sum[position] / position_count[position];
+      if (value > best) {
+        second = best;
+        best = value;
+      } else if (value > second) {
+        second = value;
+      }
+    }
+    if (second < 0.0) second = 0.0;
+    // Contrast is measured against the actual bar length. An accent every
+    // fourth beat therefore maximises the 4-beat contrast and only partially
+    // fills 3- or 6-beat positions, so the right metre wins on evidence.
+    const double prior = candidate_meter == 4 ? 1.0 : 0.88;
+    const double score = (best - second) * prior;
+    if (score > meter_score + 1e-6) {
+      meter_score = score;
+      meter = candidate_meter;
+    }
+  }
+  // A bar accent needs at least a fourth of the strongest beat interval and a
+  // stable position across at least four bars; a flat loop keeps 4/4 as the
+  // default but publishes no metre confidence.
+  if (meter_score >= 0.12) {
+    result.meter = meter;
+    result.meter_confident = 1;
+  }
+
+  const int32_t phrase_beats = meter * 4;
+  if (beat_count < phrase_beats * 3) return result;
+  double phase_power[24] = {0.0};
+  double phase_novelty[24] = {0.0};
+  int32_t phase_counts[24] = {0};
+  for (int32_t beat = 0; beat < beat_count; ++beat) {
+    const int32_t position = beat % phrase_beats;
+    phase_power[position] += beat_power[beat];
+    phase_novelty[position] += beat_novelty[beat];
+    phase_counts[position]++;
+  }
+  for (int32_t position = 0; position < phrase_beats; ++position) {
+    if (phase_counts[position] <= 0) continue;
+    phase_power[position] /= phase_counts[position];
+    phase_novelty[position] /= phase_counts[position];
+  }
+  // Only accept novelty as bar evidence when it repeats at the phrase period,
+  // not at the bar period. A loop whose harmony changes on every bar is as
+  // ambiguous as a flat loop and must keep the phrase unknown.
+  int32_t best_novelty_beat = -1;
+  double best_novelty_score = -1.0;
+  for (int32_t position = 0; position < phrase_beats; ++position) {
+    if (phase_counts[position] < 3) continue;
+    if (phase_novelty[position] > best_novelty_score) {
+      best_novelty_score = phase_novelty[position];
+      best_novelty_beat = position;
+    }
+  }
+  double other_bar_novelty_max = 0.0;
+  if (best_novelty_beat >= 0) {
+    for (int32_t delta = meter; delta < phrase_beats; delta += meter) {
+      const int32_t other = (best_novelty_beat + delta) % phrase_beats;
+      if (phase_counts[other] < 3) continue;
+      if (phase_novelty[other] > other_bar_novelty_max) {
+        other_bar_novelty_max = phase_novelty[other];
+      }
+    }
+  }
+  const double novelty_contrast = best_novelty_score > 1e-9
+      ? (best_novelty_score - other_bar_novelty_max) / best_novelty_score
+      : 0.0;
+  const double novelty_weight = novelty_contrast >= 0.25 ? 1.25 : 0.0;
+  double combined[24] = {0.0};
+  for (int32_t position = 0; position < phrase_beats; ++position) {
+    if (phase_counts[position] < 3) continue;
+    const double power_term =
+        power_max > 1e-12 ? phase_power[position] / power_max : 0.0;
+    const double novelty_term =
+        novelty_max > 1e-12 ? phase_novelty[position] / novelty_max : 0.0;
+    combined[position] = power_term + novelty_weight * novelty_term;
+  }
+
+  int32_t best_phase_beat = -1;
+  double best_score = -1.0;
+  double second_score = -1.0;
+  for (int32_t position = 0; position < phrase_beats; ++position) {
+    if (phase_counts[position] < 3) continue;
+    const double score = combined[position];
+    if (score > best_score) {
+      second_score = best_score;
+      best_score = score;
+      best_phase_beat = position;
+    } else if (score > second_score) {
+      second_score = score;
+    }
+  }
+
+  // If repeated bars have no distinct phrase accent, phrase phase is
+  // genuinely ambiguous. A win over the runner-up is not enough on its own:
+  // when every bar carries the same accent the bar positions are musically
+  // equivalent and frame-alignment noise alone can make one look >10 %
+  // stronger (regression: a four-bar loop published a spurious 5.8 s phase).
+  // A phrase start is only credible when it also beats the *other bar
+  // positions* by a clear margin, i.e. when the accent itself has
+  // phrase-period, not bar-period, repetition.
+  int32_t bar_conflict = 0;
+  if (best_phase_beat >= 0) {
+    for (int32_t delta = meter; delta < phrase_beats; delta += meter) {
+      const int32_t other = (best_phase_beat + delta) % phrase_beats;
+      if (phase_counts[other] < 3) continue;
+      if (combined[other] >= best_score * 0.90) bar_conflict = 1;
+    }
+  }
+  const int32_t significant =
+      best_phase_beat >= 0 && best_score > 1e-8 && !bar_conflict &&
+      (second_score <= 1e-8 || best_score >= second_score * 1.12);
+#ifdef AUTOMIX_DEBUG_PHRASE
+  fprintf(stderr,
+          "meter=%d meter_score=%.3f best=%d score=%.3f second=%.3f "
+          "conflict=%d sig=%d\n",
+          meter, meter_score, best_phase_beat, best_score, second_score,
+          bar_conflict, significant);
+#endif
+  if (!significant) return result;
+  const double phrase_ms = beat_ms * (double)phrase_beats;
+  double phase = fmod(beat_phase_ms + (double)best_phase_beat * beat_ms,
+                      phrase_ms);
+  if (phase < 0.0) phase += phrase_ms;
+  result.phase_ms = phase;
+  result.meter = meter;
+  result.meter_confident = 1;
+  result.valid = 1;
+  return result;
+}
+
 static int32_t analyze_impl(const float* mono, double center_ratio,
                             int32_t sample_count, int32_t sample_rate,
                             double* output, int32_t output_count) {
@@ -1203,6 +1506,22 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   float* chroma_novelty = (float*)calloc((size_t)frame_count, sizeof(float));
   double previous_chroma[12] = {0.0};
   int has_previous_chroma = 0;
+  // Track-level section novelty on 2 s chroma blocks (see
+  // estimate_section_boundary_ms). Only the block means are kept, so the extra
+  // memory is a few hundred bytes regardless of window length.
+  float* section_novelty =
+      (float*)calloc(AUTOMIX_MAX_SECTION_BLOCKS, sizeof(float));
+  // Section blocks follow the working sample rate, which equals the input
+  // sample rate here; the frame loop below re-derives it for the STFT.
+  const double section_fps = (double)sample_rate / HOP_SIZE;
+  int32_t section_block_frames = (int32_t)llround(
+      section_fps * AUTOMIX_SECTION_BLOCK_SECONDS);
+  if (section_block_frames < 1) section_block_frames = 1;
+  double section_block_sum[12] = {0.0};
+  double section_previous_block[12] = {0.0};
+  int32_t section_block_frames_seen = 0;
+  int32_t section_block_count = 0;
+  int has_previous_section_block = 0;
   // rms_values packs only non-silent frames for a robust median. The
   // frame-aligned timeline preserves silent windows and is used for cue timing.
   float* rms_values = (float*)malloc((size_t)frame_count * sizeof(float));
@@ -1223,7 +1542,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   int32_t* bit_reverse = (int32_t*)malloc(FFT_SIZE * sizeof(int32_t));
   if (hann == NULL || real == NULL || imaginary == NULL ||
       previous_log_magnitude == NULL || odf == NULL || phase_odf == NULL ||
-      chroma_novelty == NULL || rms_values == NULL ||
+      chroma_novelty == NULL || section_novelty == NULL || rms_values == NULL ||
       rms_frame_values == NULL || centroid_values == NULL ||
       vocal_band_ratio_values == NULL ||
       vocal_band_concentration_values == NULL ||
@@ -1232,7 +1551,8 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       twiddle_real == NULL || twiddle_imaginary == NULL ||
       frame_magnitudes == NULL || bit_reverse == NULL) {
     free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-    free(odf); free(phase_odf); free(chroma_novelty); free(rms_values);
+    free(odf); free(phase_odf); free(chroma_novelty);
+    free(section_novelty); free(rms_values);
     free(rms_frame_values); free(centroid_values);
     free(vocal_band_ratio_values); free(vocal_band_concentration_values);
     free(vocal_band_flatness_values); free(cpp_values); free(cepstrum_real);
@@ -1346,11 +1666,37 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
           novelty += share - previous_chroma[note];
         }
         previous_chroma[note] = share;
+        section_block_sum[note] += share;
       }
       has_previous_chroma = 1;
       // Half the L1 increase: a chroma redistributing from one class to
       // another then reads as one unit of change, not two.
       chroma_novelty[frame] = (float)(0.5 * novelty);
+    }
+    // Section-scale novelty: compare this 2 s block's mean chroma with the
+    // previous block's. Blocks advance on the frame clock rather than on
+    // chroma availability so a silent bar cannot shift the time axis.
+    ++section_block_frames_seen;
+    if (section_block_frames_seen >= section_block_frames) {
+      double block_mean[12];
+      for (int note = 0; note < 12; ++note) {
+        block_mean[note] = section_block_sum[note] /
+            (double)section_block_frames_seen;
+        section_block_sum[note] = 0.0;
+      }
+      if (has_previous_section_block &&
+          section_block_count < AUTOMIX_MAX_SECTION_BLOCKS) {
+        double distance = 0.0;
+        for (int note = 0; note < 12; ++note) {
+          distance += fabs(block_mean[note] - section_previous_block[note]);
+        }
+        section_novelty[section_block_count++] = (float)(0.5 * distance);
+      }
+      for (int note = 0; note < 12; ++note) {
+        section_previous_block[note] = block_mean[note];
+      }
+      has_previous_section_block = 1;
+      section_block_frames_seen = 0;
     }
     // The cepstrum needs a second FFT; every other frame is enough for a
     // stable median and keeps the extra offline cost bounded.
@@ -1486,160 +1832,39 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     }
   }
 
-  // 1. Phrase-start phase (16-beat / four-bar loop) in milliseconds.
-  // A bar downbeat alone cannot identify a phrase boundary. Evaluate all 16
-  // beat positions as possible phrase starts and publish a phase only when
-  // one position has a clear repeated onset accent; otherwise leave it unknown
-  // so playback falls back to beat-level locking.
-  //
-  // The grid is evaluated in fractional milliseconds, never on a rounded
-  // integer frame period: at 120 BPM a 22-frame rounding stretches the 16-beat
-  // phrase from 8.00 s to 8.17 s, which drifts more than an eighth note across
-  // a four-bar loop and either hides a real accent or invents a phase from
-  // window-edge truncation (regression: 120 BPM four-bar loop published a
-  // spurious 6.2 s phase).
+  // 1. Phrase-start phase and metre.
+  // A bar downbeat alone cannot identify a phrase boundary. Evaluate every
+  // beat position of each plausible metre as a phrase start and publish a
+  // phase only when one position has a clear repeated accent; otherwise leave
+  // it unknown so playback falls back to beat-level locking. Metre is
+  // published separately so a 3/4 or 6/8 track is not forced onto a four-beat
+  // bar that drifts by one beat every bar.
   output[11] = NAN;
+  output[32] = NAN;
   if (tempo.valid && tempo.confidence >= 0.45 && isfinite(output[3])) {
     const double beat_ms = beat_period_ms(tempo.bpm);
-    const double phrase_ms = beat_ms * 16.0;
-    const double window_ms = (double)frame_count * HOP_SIZE * 1000.0 /
-        working_rate;
-    const double phase_ms = output[3];
-    // Three full phrases are the minimum that can distinguish a repeated
-    // accent from a single window-edge coincidence.
-    if (beat_ms >= 30.0 && isfinite(phrase_ms) && phrase_ms > 0.0 &&
-        window_ms >= phrase_ms * 3.0) {
-      double phase_scores[16] = {0.0};
-      double novelty_scores[16] = {0.0};
-      int32_t phase_counts[16] = {0};
-      const double offset_ms =
-          (double)ODF_TIMESTAMP_OFFSET_SAMPLES * 1000.0 / working_rate;
-      for (int32_t beat = 0; beat < 16; ++beat) {
-        double phase = fmod(phase_ms + (double)beat * beat_ms, phrase_ms);
-        if (phase < 0.0) phase += phrase_ms;
-        for (double time_ms = phase; time_ms < window_ms; time_ms += phrase_ms) {
-          // Score the whole beat interval by its mean frame power, not by one
-          // spectral-flux frame. A transient's flux is spread across about
-          // four frames and its single-frame height depends on where the onset
-          // falls inside the Hann window; integrating flux still let identical
-          // bars differ by >80 % from frame alignment alone (measured at
-          // 128 BPM). Mean power in [t - beat/2, t + beat/2] is the energy the
-          // listener actually hears on that beat and is alignment-insensitive;
-          // adjacent intervals stay disjoint.
-          const double half_beat_ms = beat_ms * 0.5;
-          int32_t lo = (int32_t)llround(
-              (time_ms - half_beat_ms - offset_ms) * fps / 1000.0);
-          int32_t hi = (int32_t)llround(
-              (time_ms + half_beat_ms - offset_ms) * fps / 1000.0);
-          if (lo < 0) lo = 0;
-          if (hi >= frame_count) hi = frame_count - 1;
-          if (lo > hi) break;
-          double power = 0.0;
-          double novelty = 0.0;
-          for (int32_t index = lo; index <= hi; ++index) {
-            power += pow(10.0, rms_frame_values[index] / 10.0);
-            novelty += (double)chroma_novelty[index];
-          }
-          phase_scores[beat] += power / (double)(hi - lo + 1);
-          novelty_scores[beat] += novelty / (double)(hi - lo + 1);
-          phase_counts[beat]++;
-        }
-      }
+    if (beat_ms >= 30.0) {
+      const NarPhraseEstimate phrase = estimate_phrase_grid(
+          rms_frame_values, chroma_novelty, frame_count, working_rate, fps,
+          beat_ms, output[3]);
+      if (phrase.meter_confident) output[32] = (double)phrase.meter;
+      if (phrase.valid) output[11] = phrase.phase_ms;
+    }
+  }
 
-      // Normalise the two independent evidence streams before combining them:
-      // energy accent (how loud this bar position is) and chroma novelty (how
-      // much the harmony changes there). Neither dominates by absolute scale.
-      double power_max = 0.0;
-      double novelty_max = 0.0;
-      for (int32_t beat = 0; beat < 16; ++beat) {
-        if (phase_counts[beat] < 3) continue;
-        const double power = phase_scores[beat] / phase_counts[beat];
-        const double novelty = novelty_scores[beat] / phase_counts[beat];
-        if (power > power_max) power_max = power;
-        if (novelty > novelty_max) novelty_max = novelty;
-      }
-      // Only accept novelty as bar evidence when it has 16-beat, not 4-beat,
-      // periodicity. A loop whose harmony changes on every bar is as ambiguous
-      // as a flat loop and must keep the phrase phase unknown.
-      int32_t best_novelty_beat = -1;
-      double best_novelty_score = -1.0;
-      for (int32_t beat = 0; beat < 16; ++beat) {
-        if (phase_counts[beat] < 3) continue;
-        const double novelty = novelty_scores[beat] / phase_counts[beat];
-        if (novelty > best_novelty_score) {
-          best_novelty_score = novelty;
-          best_novelty_beat = beat;
-        }
-      }
-      double other_bar_novelty_max = 0.0;
-      if (best_novelty_beat >= 0) {
-        for (int32_t delta = 4; delta < 16; delta += 4) {
-          const int32_t other = (best_novelty_beat + delta) % 16;
-          if (phase_counts[other] < 3) continue;
-          const double novelty =
-              novelty_scores[other] / (double)phase_counts[other];
-          if (novelty > other_bar_novelty_max) {
-            other_bar_novelty_max = novelty;
-          }
-        }
-      }
-      const double novelty_contrast = best_novelty_score > 1e-9
-          ? (best_novelty_score - other_bar_novelty_max) / best_novelty_score
-          : 0.0;
-      const double novelty_weight = novelty_contrast >= 0.25 ? 1.25 : 0.0;
-      double combined[16] = {0.0};
-      for (int32_t beat = 0; beat < 16; ++beat) {
-        if (phase_counts[beat] < 3) continue;
-        const double power = phase_scores[beat] / phase_counts[beat];
-        const double novelty = novelty_scores[beat] / phase_counts[beat];
-        const double power_term =
-            power_max > 1e-12 ? power / power_max : 0.0;
-        const double novelty_term =
-            novelty_max > 1e-12 ? novelty / novelty_max : 0.0;
-        combined[beat] = power_term + novelty_weight * novelty_term;
-      }
-
-      int32_t best_phase_beat = -1;
-      double best_score = -1.0;
-      double second_score = -1.0;
-      for (int32_t beat = 0; beat < 16; ++beat) {
-        if (phase_counts[beat] < 3) continue;
-        const double score = combined[beat];
-        if (score > best_score) {
-          second_score = best_score;
-          best_score = score;
-          best_phase_beat = beat;
-        } else if (score > second_score) {
-          second_score = score;
-        }
-      }
-
-      // If repeated bars have no distinct phrase accent, phrase phase is
-      // genuinely ambiguous. A win over the runner-up is not enough on its
-      // own: when every bar carries the same accent, the four bar positions
-      // are musically equivalent and frame-alignment noise alone can make one
-      // of them look >10 % stronger (regression: a four-bar loop published a
-      // spurious 5.8 s phase). A phrase start is only credible when it also
-      // beats the *other three bar positions* by a clear margin, i.e. when the
-      // accent itself has 16-beat, not 4-beat, periodicity.
-      int32_t bar_conflict = 0;
-      if (best_phase_beat >= 0) {
-        for (int32_t delta = 4; delta < 16; delta += 4) {
-          const int32_t other = (best_phase_beat + delta) % 16;
-          if (phase_counts[other] < 3) continue;
-          const double other_score = combined[other];
-          if (other_score >= best_score * 0.90) bar_conflict = 1;
-        }
-      }
-      const int32_t significant =
-          best_phase_beat >= 0 && best_score > 1e-8 && !bar_conflict &&
-          (second_score <= 1e-8 || best_score >= second_score * 1.12);
-      if (significant) {
-        double phase = fmod(phase_ms + (double)best_phase_beat * beat_ms,
-                            phrase_ms);
-        if (phase < 0.0) phase += phrase_ms;
-        output[11] = phase;
-      }
+  // 1b. Track-level section boundary from the 2 s chroma change curve. This is
+  // the "structure is track-level" signal: one real change point (verse to
+  // chorus, breakdown entry) instead of a per-window loudness label.
+  output[33] = NAN;
+  output[34] = 0.0;
+  if (section_block_count >= 8) {
+    double section_confidence = 0.0;
+    const double section_ms = estimate_section_boundary_ms(
+        section_novelty, section_block_count,
+        AUTOMIX_SECTION_BLOCK_SECONDS * 1000.0, &section_confidence);
+    if (isfinite(section_ms) && section_confidence > 0.0) {
+      output[33] = section_ms;
+      output[34] = section_confidence;
     }
   }
 
@@ -1854,7 +2079,8 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   }
 
   free(hann); free(real); free(imaginary); free(previous_log_magnitude);
-  free(odf); free(phase_odf); free(chroma_novelty); free(rms_values);
+  free(odf); free(phase_odf); free(chroma_novelty);
+  free(section_novelty); free(rms_values);
   free(rms_frame_values); free(centroid_values);
   free(vocal_band_ratio_values); free(vocal_band_concentration_values);
   free(vocal_band_flatness_values); free(cpp_values); free(cepstrum_real);
@@ -2168,6 +2394,55 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_analyze_chords(
     output[rows_written * 4 + 2] = (double)best_quality;
     output[rows_written * 4 + 3] = fmin(1.0, fmax(0.0, confidence));
     rows_written++;
+  }
+
+  // Chord hangover across a low-confidence frame. The two-second analysis
+  // window straddles a chord change for one row, and the classifier correctly
+  // refuses to name either chord there. That gap used to make the *previous*
+  // chord look like the current one already several seconds before the
+  // boundary, which is exactly the moment a transition cue samples. A short
+  // decayed hangover keeps the harmonic timeline continuous without pretending
+  // a new chord was detected: at most one missing row, and confidence decays
+  // with the gap so a real change still wins once the next row is confident.
+  {
+    int32_t last_root = -1;
+    int32_t last_quality = -1;
+    double last_time_ms = -1e9;
+    double last_confidence = 0.0;
+    for (int32_t row = 0; row < rows_written; ++row) {
+      const double time_ms = output[row * 4];
+      const int32_t root = (int32_t)llround(output[row * 4 + 1]);
+      const int32_t quality = (int32_t)llround(output[row * 4 + 2]);
+      const double confidence = output[row * 4 + 3];
+      if (root >= 0 && confidence > 0.0) {
+        last_root = root;
+        last_quality = quality;
+        last_time_ms = time_ms;
+        last_confidence = confidence;
+        continue;
+      }
+      if (last_root < 0 || !isfinite(time_ms) ||
+          time_ms - last_time_ms > 1500.0) {
+        continue;
+      }
+      // Only bridge a gap *between* two confident chords. Trailing silence or
+      // an unanalysable ending must stay unknown instead of inheriting the last
+      // chord indefinitely.
+      int32_t has_next_chord = 0;
+      for (int32_t next = row + 1; next < rows_written; ++next) {
+        const double next_time = output[next * 4];
+        if (!isfinite(next_time) || next_time - time_ms > 1500.0) break;
+        if (output[next * 4 + 3] > 0.0 && output[next * 4 + 1] >= 0.0) {
+          has_next_chord = 1;
+          break;
+        }
+      }
+      if (!has_next_chord) continue;
+      const double decay = fmax(0.0, 1.0 - (time_ms - last_time_ms) / 1500.0);
+      output[row * 4 + 1] = (double)last_root;
+      output[row * 4 + 2] = (double)last_quality;
+      output[row * 4 + 3] = fmin(1.0, last_confidence * decay);
+    }
   }
 
   free(selected_roots);

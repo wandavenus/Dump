@@ -1,5 +1,8 @@
 #include "automix_live_tracker.h"
 #include <float.h>
+#ifdef AUTOMIX_DEBUG_METER
+#include <stdio.h>
+#endif
 #include <math.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -34,6 +37,14 @@ typedef struct {
   int32_t frames_since_estimate;
   float onset_history[LIVE_HISTORY_FRAMES];
   float level_history[LIVE_HISTORY_FRAMES];
+  // Per-frame band levels. Bar phase needs the *sustained* low-band level (a
+  // kick accent), not the clamped onset flux: a loud and a very loud kick both
+  // saturate the onset history at 24, which erased exactly the accent that
+  // identifies a downbeat on otherwise flat material. The mid/high bands are
+  // kept for the timbre-change term.
+  float low_history[LIVE_HISTORY_FRAMES];
+  float mid_history[LIVE_HISTORY_FRAMES];
+  float high_history[LIVE_HISTORY_FRAMES];
   double bpm;
   // Beat phase captured at the most recent autocorrelation estimate.
   // phase_elapsed_ms is re-projected at every PCM callback using this value.
@@ -45,6 +56,9 @@ typedef struct {
   double downbeat_at_estimate_ms;
   double downbeat_elapsed_ms;
   double downbeat_confidence;
+  // Beats per bar selected by the live bar-accent hypotheses (3, 4 or 6).
+  // Zero when the bar length was not identifiable.
+  int32_t meter;
   // Coarse section cue: recent frame-level RMS compared with the window
   // before it. Positive values mean the track is building up.
   double activity_trend;
@@ -70,7 +84,8 @@ static atomic_flag g_publish_lock = ATOMIC_FLAG_INIT;
 
 static void publish_state_locked(
     int32_t slot, double bpm, double phase, double confidence,
-    double downbeat_phase, double downbeat_confidence, double trend) {
+    double downbeat_phase, double downbeat_confidence, double trend,
+    double meter) {
   // Use one sequentially-consistent order for the sequence and all payload
   // fields. This prevents weakly ordered ARM64 CPUs from making a payload
   // store visible before the odd version, or a payload load escape the read
@@ -88,6 +103,7 @@ static void publish_state_locked(
   atomic_store_explicit(&g_published[slot][4], downbeat_confidence,
                         memory_order_seq_cst);
   atomic_store_explicit(&g_published[slot][5], trend, memory_order_seq_cst);
+  atomic_store_explicit(&g_published[slot][6], meter, memory_order_seq_cst);
   atomic_store_explicit(&g_published_version[slot], version + 2u,
                         memory_order_seq_cst);
 }
@@ -98,7 +114,7 @@ static void clear_published_state(int32_t slot) {
   // doing so could let readers accept a mixed tuple as a consistent snapshot.
   while (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
   }
-  publish_state_locked(slot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  publish_state_locked(slot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
   atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
@@ -149,7 +165,8 @@ static void publish_state(int32_t slot, const NarLiveTracker* tracker) {
   }
   publish_state_locked(slot, tracker->bpm, tracker->phase_elapsed_ms,
                        tracker->confidence, tracker->downbeat_elapsed_ms,
-                       tracker->downbeat_confidence, tracker->activity_trend);
+                       tracker->downbeat_confidence, tracker->activity_trend,
+                       (double)tracker->meter);
   atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
@@ -159,7 +176,7 @@ static void clear_published_state_audio(int32_t slot) {
   if (atomic_flag_test_and_set_explicit(&g_publish_lock, memory_order_acquire)) {
     return;
   }
-  publish_state_locked(slot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  publish_state_locked(slot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
   atomic_flag_clear_explicit(&g_publish_lock, memory_order_release);
 }
 
@@ -178,6 +195,82 @@ static float level_age(const NarLiveTracker* tracker, int32_t age) {
   int32_t index = tracker->history_write - 1 - age;
   while (index < 0) index += LIVE_HISTORY_FRAMES;
   return tracker->level_history[index];
+}
+
+static float band_level_age(const NarLiveTracker* tracker, const float* band,
+                            int32_t age) {
+  int32_t index = tracker->history_write - 1 - age;
+  while (index < 0) index += LIVE_HISTORY_FRAMES;
+  return band[index];
+}
+
+static double onset_peak(const NarLiveTracker* tracker, double age,
+                         int32_t count);
+
+// One pulse-grid hypothesis. Coverage asks how much of the measured onset
+// energy lands on the grid; fill asks how many grid slots actually carry an
+// onset. Together they resolve the metrical level that autocorrelation cannot:
+// a click train is equally periodic at P, P/2 and 2P, but at 2P only half of the
+// slots are filled, and at P/2 only a fraction of the onsets land on the grid.
+typedef struct {
+  double period_frames;
+  double phase_frames;
+  double coverage;
+  double fill;
+  double score;
+} LiveMetricalGrid;
+
+static LiveMetricalGrid evaluate_live_grid(const NarLiveTracker* tracker,
+                                           int32_t count, double period,
+                                           double total_onset_energy) {
+  LiveMetricalGrid grid = {0.0, 0.0, 0.0, 0.0, 0.0};
+  if (!isfinite(period) || period < 3.0 || (double)count < period * 2.0 ||
+      total_onset_energy <= 1e-9) {
+    return grid;
+  }
+  double max_onset = 0.0;
+  for (int32_t age = 0; age < count; ++age) {
+    const double value = (double)history_age(tracker, age);
+    if (value > max_onset) max_onset = value;
+  }
+  if (max_onset <= 1e-6) return grid;
+  const double fill_floor = 0.35 * max_onset;
+  const int32_t phase_limit = (int32_t)ceil(period);
+  double best_sum = -1.0;
+  int32_t best_phase = 0;
+  int32_t best_filled = 0;
+  int32_t best_slots = 0;
+  for (int32_t phase = 0; phase < phase_limit; ++phase) {
+    double sum = 0.0;
+    int32_t filled = 0;
+    int32_t slots = 0;
+    for (double age = (double)phase; age < (double)count; age += period) {
+      const double peak = onset_peak(tracker, age, count);
+      sum += peak;
+      if (peak >= fill_floor) ++filled;
+      ++slots;
+    }
+    if (sum > best_sum ||
+        (fabs(sum - best_sum) <= 1e-9 && slots > 0 &&
+         (double)filled / (double)slots >
+             (best_slots > 0 ? (double)best_filled / (double)best_slots : 0.0))) {
+      best_sum = sum;
+      best_phase = phase;
+      best_filled = filled;
+      best_slots = slots;
+    }
+  }
+  if (best_slots <= 0) return grid;
+  grid.period_frames = period;
+  grid.phase_frames = (double)best_phase;
+  grid.coverage = fmin(1.0, fmax(0.0, best_sum / total_onset_energy));
+  grid.fill = fmin(1.0, fmax(0.0,
+      (double)best_filled / (double)best_slots));
+  // Coverage is what rejects a grid that only catches every second or third
+  // onset; fill rejects a grid whose slots are mostly empty. Neither alone is
+  // enough for both half-time and double-time errors.
+  grid.score = 0.58 * grid.coverage + 0.42 * grid.fill;
+  return grid;
 }
 
 // Fractional-frame onset lookup used by sub-frame phase refinement. Linear
@@ -240,45 +333,6 @@ static double normalized_correlation(
   }
   const double denominator = sqrt(energy_a * energy_b);
   return denominator > 1e-12 ? numerator / denominator : 0.0;
-}
-
-// Sparse onset trains can make the two-beat autocorrelation lag outscore the
-// one-beat lag: the integer lag grid and the finite-window normalization both
-// favor the longer lag when clicks alternate between frame phases. Measure the
-// typical spacing of strong onsets near half the winning period; a real pulse
-// at the winning period (e.g. a 70-75 BPM track) has no onsets at that spacing.
-static double onset_interval_near_half_period(
-    const NarLiveTracker* tracker, int32_t count, double period) {
-  if (count < 8 || !isfinite(period) || period < 4.0) return 0.0;
-  const double half = 0.5 * period;
-  const double low = 0.75 * half;
-  const double high = 1.25 * half;
-  double max_onset = 0.0;
-  for (int32_t age = 0; age < count; ++age) {
-    const double value = history_age(tracker, age);
-    if (value > max_onset) max_onset = value;
-  }
-  if (max_onset < 1e-3) return 0.0;
-  const double threshold = 0.5 * max_onset;
-  int32_t previous = -1;
-  int32_t intervals = 0;
-  double interval_sum = 0.0;
-  for (int32_t age = count - 2; age >= 1; --age) {
-    const double value = history_age(tracker, age);
-    if (value < threshold) continue;
-    if (value <= history_age(tracker, age - 1) ||
-        value < history_age(tracker, age + 1)) continue;
-    if (previous >= 0) {
-      const int32_t interval = previous - age;
-      if ((double)interval >= low && (double)interval <= high) {
-        interval_sum += (double)interval;
-        ++intervals;
-      }
-    }
-    previous = age;
-  }
-  if (intervals < 3) return 0.0;
-  return interval_sum / (double)intervals;
 }
 
 static void estimate_live_beat(int32_t slot) {
@@ -371,48 +425,81 @@ static void estimate_live_beat(int32_t slot) {
     refined_lag = (double)best_lag;
   }
   double candidate_bpm = 60.0 * frames_per_second / refined_lag;
-  // A sparse onset train can win at twice its true beat lag, especially at
-  // startup before a prior exists. If strong onsets repeat near half that lag
-  // and the half-lag correlation is substantial, the winning peak is the
-  // half-tempo octave: restore the faster pulse before the prior locks it in.
-  const double half_onset_interval =
-      onset_interval_near_half_period(tracker, count, refined_lag);
-  if (half_onset_interval > 0.0 && candidate_bpm * 2.0 <= LIVE_MAX_BPM) {
-    const int32_t half_lag = (int32_t)llround(0.5 * refined_lag);
-    double half_score = 0.0;
-    for (int32_t lag = half_lag - 1; lag <= half_lag + 1; ++lag) {
-      if (lag >= min_lag && lag <= max_lag && lag < count / 2 &&
-          scores[lag] > half_score) {
-        half_score = scores[lag];
-      }
+  // Metrical-level arbitration. Autocorrelation is equally strong at P, P/2
+  // and 2P (and at 3P for a sparse onset train), so the raw peak cannot say
+  // which level is the beat. Test every plausible level around the ACF peak
+  // against the onset grid itself: the true beat keeps nearly all onset energy
+  // *and* fills its slots, while a slower level only catches every second or
+  // third onset and a faster level leaves half its slots empty. Replacing the
+  // old one-directional "maybe double" rescue with this symmetric test fixes
+  // both half-time and 2:1 / 3:1 errors without a tempo prior.
+  double total_onset_energy = 0.0;
+  for (int32_t age = 0; age < count; ++age) {
+    total_onset_energy += onset_peak(tracker, (double)age, count);
+  }
+  static const double kLevelRatios[] = {
+      1.0, 0.5, 2.0, 2.0 / 3.0, 3.0 / 2.0, 1.0 / 3.0, 3.0};
+  LiveMetricalGrid best_grid_hypothesis = {0.0, 0.0, 0.0, 0.0, -1.0};
+  LiveMetricalGrid second_grid_hypothesis = {0.0, 0.0, 0.0, 0.0, -1.0};
+  for (size_t ratio_index = 0;
+       ratio_index < sizeof(kLevelRatios) / sizeof(kLevelRatios[0]);
+       ++ratio_index) {
+    const double period = refined_lag * kLevelRatios[ratio_index];
+    if (!isfinite(period) || period < (double)min_lag ||
+        period > (double)max_lag || period >= (double)count * 0.5) {
+      continue;
     }
-    const double interval_error =
-        fabs(log(half_onset_interval / (0.5 * refined_lag)));
-    if (half_score >= 0.5 * best_score && interval_error <= 0.12) {
-      candidate_bpm *= 2.0;
+    const double bpm = 60.0 * frames_per_second / period;
+    if (bpm < LIVE_MIN_BPM || bpm > LIVE_MAX_BPM) continue;
+    const LiveMetricalGrid grid = evaluate_live_grid(
+        tracker, count, period, total_onset_energy);
+    if (grid.score <= 0.0) continue;
+    if (grid.score > best_grid_hypothesis.score) {
+      second_grid_hypothesis = best_grid_hypothesis;
+      best_grid_hypothesis = grid;
+    } else if (grid.score > second_grid_hypothesis.score) {
+      second_grid_hypothesis = grid;
     }
   }
+  const double metrical_margin =
+      best_grid_hypothesis.score > 1e-9 &&
+              second_grid_hypothesis.score >= 0.0
+          ? fmin(1.0, (best_grid_hypothesis.score -
+                       second_grid_hypothesis.score) /
+                          best_grid_hypothesis.score)
+          : 0.0;
+  if (best_grid_hypothesis.score > 0.0) {
+    candidate_bpm =
+        60.0 * frames_per_second / best_grid_hypothesis.period_frames;
+  }
+  // Keep a bounded prior for continuous material, but never let it pull the
+  // estimate back to a wrong metrical level: a confident grid hypothesis is
+  // allowed to replace the old tempo outright when the level changes.
   if (tracker->bpm >= LIVE_MIN_BPM && tracker->bpm <= LIVE_MAX_BPM &&
       tracker->confidence >= 0.20) {
-    const double octave_candidates[] = {
-        candidate_bpm, candidate_bpm * 2.0, candidate_bpm * 0.5};
-    double closest = candidate_bpm;
-    double closest_error = fabs(log(candidate_bpm / tracker->bpm));
-    for (int i = 1; i < 3; ++i) {
-      const double candidate = octave_candidates[i];
-      if (candidate < LIVE_MIN_BPM || candidate > LIVE_MAX_BPM) continue;
-      const double error = fabs(log(candidate / tracker->bpm));
-      if (error < closest_error && error <= 0.20) {
-        closest = candidate;
-        closest_error = error;
-      }
+    const double ratio = candidate_bpm / tracker->bpm;
+    const double octave_error = fabs(log(ratio));
+    const double octave_fold_error =
+        fmin(fabs(log(ratio)), fmin(fabs(log(ratio * 2.0)),
+                                    fabs(log(ratio * 0.5))));
+    if (octave_fold_error > 0.20 && metrical_margin >= 0.12) {
+      // A different metrical family won on grid evidence; switch instead of
+      // averaging two incompatible pulses.
+      tracker->bpm = candidate_bpm;
+    } else {
+      // Same family: follow the candidate, but do not smooth across an octave
+      // boundary (that would land between the two levels).
+      const double weight = octave_error > 0.20 ? 1.0 : 0.30;
+      tracker->bpm =
+          (1.0 - weight) * tracker->bpm + weight * candidate_bpm;
     }
-    candidate_bpm = closest;
-    tracker->bpm = 0.70 * tracker->bpm + 0.30 * candidate_bpm;
   } else {
     tracker->bpm = candidate_bpm;
   }
-
+  if (!isfinite(tracker->bpm) || tracker->bpm < LIVE_MIN_BPM ||
+      tracker->bpm > LIVE_MAX_BPM) {
+    tracker->bpm = candidate_bpm;
+  }
   // Beat-phase selection: score every candidate grid phase by the total onset
   // energy it aligns across the whole history window. The grid advances by the
   // fractional beat period so non-integer tempos do not drift against the
@@ -483,60 +570,244 @@ static void estimate_live_beat(int32_t slot) {
     }
   }
   tracker->confidence *= sub_multiple_penalty;
+  // Confidence must express "I know which metrical level this is", not merely
+  // "there is a pulse". A clear grid hypothesis keeps full confidence; an
+  // ambiguous one is capped so downstream trust gates cannot accept a 3:1
+  // reading at 1.000 the way the old correlation-only confidence could.
+  tracker->confidence *= 0.55 + 0.45 * metrical_margin;
   if (count < 450) tracker->confidence *= (double)(count - LIVE_MIN_FRAMES) / 150.0;
   tracker->confidence = clamp01(tracker->confidence);
 
-  // Downbeat phase: the pulse train repeats every phase_lag frames. Score the
-  // four beat positions of a 4/4 bar by how much onset energy each position
-  // carries across the whole history window, with a ±1 frame peak so an accent
-  // that lands between frames still counts, and treat the strongest position
-  // as the bar start. An accented on-beat kick then identifies the downbeat.
+  // Downbeat phase and metre. The old bar scan was hard-wired to four beats and
+  // scored positions by clamped onset flux, which saturates at 24: a normal and
+  // an accented kick both hit the cap, so flat material published zero bar
+  // confidence even when every fourth beat was accented. Score positions from
+  // the sustained low-band level (a real kick accent) plus a timbre-change
+  // term (a fill or texture entry marks a bar line more reliably than loudness),
+  // and evaluate 3, 4 and 6 beat bars. The strongest bar position and metre
+  // win only with a clear margin; otherwise no downbeat is published.
   const double frames_to_ms =
       (double)tracker->frame_samples * 1000.0 / tracker->sample_rate;
-  const double bar_period_ms = phase_lag * 4.0 * frames_to_ms;
-  double bar_scores[4] = {0.0, 0.0, 0.0, 0.0};
-  for (int32_t position = 0; position < 4; ++position) {
-    double sum = 0.0;
-    int32_t pulse_count = 0;
+  tracker->meter = 0;
+  tracker->downbeat_confidence = 0.0;
+  int32_t pulse_count = 0;
+  for (double age = best_phase_fractional; age < (double)count;
+       age += phase_lag) {
+    ++pulse_count;
+  }
+  if (pulse_count >= 8 && pulse_count <= 128) {
+    double accent[128] = {0.0};
+    double novelty[128] = {0.0};
+    // Low-band *share* at each pulse. A real accented downbeat is usually also
+    // low-heavy, while the frame-grid aliasing that fakes a bar on flat
+    // material scales every band by the same factor and leaves the share
+    // unchanged. This is the corroboration the metre decision needs.
+    double low_share[128] = {0.0};
+    double max_accent = 0.0;
+    double max_novelty = 0.0;
     int32_t pulse = 0;
     for (double age = best_phase_fractional; age < (double)count;
          age += phase_lag, ++pulse) {
-      if (pulse % 4 != position) continue;
-      sum += onset_peak(tracker, age, count);
-      pulse_count++;
+      if (pulse >= 128) break;
+      const int32_t frame_age = (int32_t)llround(age);
+      const int32_t previous_age = (int32_t)llround(age + phase_lag);
+      double low = band_level_age(tracker, tracker->low_history, frame_age);
+      // A kick accent can land between frame centres; take the local peak so a
+      // one-frame offset does not erase it.
+      for (int32_t delta = -1; delta <= 1; ++delta) {
+        const int32_t neighbour = frame_age + delta;
+        if (neighbour < 0 || neighbour >= count) continue;
+        const double value =
+            band_level_age(tracker, tracker->low_history, neighbour);
+        if (value > low) low = value;
+      }
+      const double mid = band_level_age(tracker, tracker->mid_history, frame_age);
+      const double high = band_level_age(tracker, tracker->high_history, frame_age);
+      const double previous_low =
+          band_level_age(tracker, tracker->low_history, previous_age);
+      const double previous_mid =
+          band_level_age(tracker, tracker->mid_history, previous_age);
+      const double previous_high =
+          band_level_age(tracker, tracker->high_history, previous_age);
+      const double total = low + mid + high;
+      const double previous_total = previous_low + previous_mid + previous_high;
+      double change = 0.0;
+      if (total > 1e-9 && previous_total > 1e-9) {
+        change = fabs(low / total - previous_low / previous_total) +
+                 fabs(mid / total - previous_mid / previous_total) +
+                 fabs(high / total - previous_high / previous_total);
+      }
+      // Absolute low-band level is the kick accent: a one-pole lowpass keeps
+      // the sustained 100 Hz body but only a fraction of an 800 Hz click, and
+      // taking the local peak removes the grid-to-frame offset. (Band *share*
+      // was tried and rejected: a 1 ms click is broadband, so every click looks
+      // low-dominant regardless of its pitch.)
+      accent[pulse] = low;
+      novelty[pulse] = change;
+      low_share[pulse] = total > 1e-9 ? low / total : 0.0;
+      if (accent[pulse] > max_accent) max_accent = accent[pulse];
+      if (change > max_novelty) max_novelty = change;
     }
-    bar_scores[position] = pulse_count > 0 ? sum / (double)pulse_count : 0.0;
-  }
-  int32_t best_bar = 0;
-  double best_bar_score = -1.0;
-  double second_bar_score = 0.0;
-  for (int32_t position = 0; position < 4; ++position) {
-    if (bar_scores[position] > best_bar_score) {
-      second_bar_score = best_bar_score;
-      best_bar_score = bar_scores[position];
-      best_bar = position;
-    } else if (bar_scores[position] > second_bar_score) {
-      second_bar_score = bar_scores[position];
+    const int32_t usable_pulses = pulse < 128 ? pulse : 128;
+    // Normalise both evidence streams before combining them so neither an
+    // absolute level nor an absolute spectral distance dominates.
+    double evidence[128] = {0.0};
+    for (int32_t i = 0; i < usable_pulses; ++i) {
+      const double accent_term = max_accent > 1e-12 ? accent[i] / max_accent : 0.0;
+      const double novelty_term =
+          max_novelty > 1e-12 ? novelty[i] / max_novelty : 0.0;
+      evidence[i] = 0.80 * accent_term + 0.35 * novelty_term;
+    }
+    static const int32_t kLiveMeters[] = {4, 3, 6};
+    int32_t best_meter = 0;
+    int32_t best_position = 0;
+    double best_meter_contrast = 0.0;
+    int best_meter_corroborated = 0;
+    for (size_t meter_index = 0;
+         meter_index < sizeof(kLiveMeters) / sizeof(kLiveMeters[0]);
+         ++meter_index) {
+      const int32_t meter = kLiveMeters[meter_index];
+      // Two bars are enough to show a repeated accent; a full four-bar phrase
+      // is only needed for phrase *phase*, not for bar length. Ten pulses at
+      // 100 BPM are a common six-second history and must still identify the bar.
+      if (usable_pulses < meter * 2) continue;
+      double position_sum[6] = {0.0};
+      int32_t position_count[6] = {0};
+      for (int32_t i = 0; i < usable_pulses; ++i) {
+        const int32_t position = i % meter;
+        position_sum[position] += evidence[i];
+        position_count[position]++;
+      }
+      double best = -1.0;
+      double second = -1.0;
+      int32_t best_index = 0;
+      for (int32_t position = 0; position < meter; ++position) {
+        if (position_count[position] <= 0) continue;
+        const double value = position_sum[position] / position_count[position];
+        if (value > best) {
+          second = best;
+          best = value;
+          best_index = position;
+        } else if (value > second) {
+          second = value;
+        }
+      }
+      if (second < 0.0) second = 0.0;
+      // Low-band share of the winning position versus the rest. A frame-grid
+      // alias scales all bands equally, so it cannot produce this evidence.
+      double share_win = 0.0;
+      double share_other = 0.0;
+      int32_t share_win_count = 0;
+      int32_t share_other_count = 0;
+      for (int32_t i = 0; i < usable_pulses; ++i) {
+        if (i % meter == best_index) {
+          share_win += low_share[i];
+          ++share_win_count;
+        } else {
+          share_other += low_share[i];
+          ++share_other_count;
+        }
+      }
+      const double win_share = share_win_count > 0
+          ? share_win / (double)share_win_count : 0.0;
+      const double other_share = share_other_count > 0
+          ? share_other / (double)share_other_count : 0.0;
+      const int corroborated = other_share > 1e-6 &&
+          (win_share - other_share) / other_share >= 0.03;
+      const double prior = meter == 4 ? 1.0 : 0.88;
+      double contrast = (best - second) * prior;
+      // The winning bar position must also win in two independent windows of
+      // exactly two bars, one at the newest and one at the oldest end of the
+      // history. On truly flat material the only bar-to-bar differences are
+      // frame-grid aliasing, which drifts over time; requiring both ends to
+      // agree removes those false positives without weakening a real repeated
+      // accent. A hypothesis that wins only one end is not a metre.
+      const int32_t bar = meter * 2;
+      int32_t consistent_halves = 0;
+      if (usable_pulses >= bar) {
+        for (int32_t part = 0; part < 2; ++part) {
+          const int32_t begin = part == 0 ? 0 : usable_pulses - bar;
+          const int32_t end = part == 0 ? bar : usable_pulses;
+          double part_sum[6] = {0.0};
+          int32_t part_count[6] = {0};
+          for (int32_t i = begin; i < end; ++i) {
+            // Each half is indexed relative to its own newest pulse, so the
+            // same musical bar phase maps to different local indices. The
+            // expected local winner is the global winner rotated by the
+            // half's offset; comparing raw indices would reject every metre
+            // whenever the halves contain a non-integer number of bars.
+            const int32_t position = (i - begin) % meter;
+            part_sum[position] += evidence[i];
+            part_count[position]++;
+          }
+          double part_best = -1.0;
+          int32_t part_best_index = -1;
+          for (int32_t position = 0; position < meter; ++position) {
+            if (part_count[position] <= 0) continue;
+            const double value = part_sum[position] / part_count[position];
+            if (value > part_best) {
+              part_best = value;
+              part_best_index = position;
+            }
+          }
+          const int32_t expected = ((best_index - begin) % meter + meter) % meter;
+          if (part_best_index == expected) ++consistent_halves;
+#ifdef AUTOMIX_DEBUG_METER
+          fprintf(stderr,
+                  "  part=%d begin=%d end=%d winner=%d expected=%d "
+                  "partbest=%.4f\n",
+                  part, begin, end, part_best_index, expected, part_best);
+#endif
+        }
+        if (consistent_halves < 2) contrast = 0.0;
+      } else {
+        contrast = 0.0;
+      }
+      if (contrast > best_meter_contrast + 1e-6) {
+        best_meter_contrast = contrast;
+        best_meter = meter;
+        best_position = best_index;
+        best_meter_corroborated = corroborated;
+      }
+#ifdef AUTOMIX_DEBUG_METER
+      fprintf(stderr,
+              "meter=%d pulses=%d best=%.4f second=%.4f contrast=%.4f "
+              "halves=%d win=%d\n",
+              meter, usable_pulses, best, second, contrast,
+              consistent_halves, best_index);
+#endif
+    }
+    // A bar line needs a real accent margin; an unaccented loop stays unknown
+    // instead of inventing a downbeat every four beats. A very large accent
+    // margin is accepted on its own; a moderate one must be corroborated by a
+    // low-band share increase at the winning position, which is exactly what
+    // separates a real kick downbeat from the frame-grid aliasing of a flat
+    // pulse train (measured at 0.19-0.22 contrast on synthetic flat clicks).
+    const int strong_accent = best_meter_contrast >= 0.45;
+    const int corroborated_accent =
+        best_meter_contrast >= 0.18 && best_meter_corroborated;
+    if (best_meter > 0 && (strong_accent || corroborated_accent)) {
+      tracker->meter = best_meter;
+      const double bar_period_ms =
+          phase_lag * (double)best_meter * frames_to_ms;
+      // best_position is the pulse index modulo the metre, counted back from
+      // the newest pulse, so the most recent downbeat is that many pulses back.
+      tracker->downbeat_at_estimate_ms =
+          (best_phase_fractional + (double)best_position * phase_lag) *
+          frames_to_ms;
+      double downbeat_elapsed =
+          fmod(tracker->downbeat_at_estimate_ms, bar_period_ms);
+      if (!isfinite(downbeat_elapsed) || downbeat_elapsed < 0.0) {
+        downbeat_elapsed = 0.0;
+      }
+      tracker->downbeat_elapsed_ms = downbeat_elapsed;
+      tracker->downbeat_confidence =
+          tracker->confidence * clamp01(best_meter_contrast * 2.5);
+    } else {
+      tracker->downbeat_at_estimate_ms = 0.0;
+      tracker->downbeat_elapsed_ms = 0.0;
     }
   }
-  if (second_bar_score < 0.0) second_bar_score = 0.0;
-  // best_bar is the pulse index modulo 4 that carries the accent, counted
-  // back from the newest beat pulse, so the most recent downbeat is exactly
-  // that many pulses before the newest beat pulse.
-  const int32_t downbeat_pulses_back = best_bar;
-  tracker->downbeat_at_estimate_ms =
-      (best_phase_fractional + (double)downbeat_pulses_back * phase_lag) *
-      frames_to_ms;
-  double downbeat_elapsed =
-      fmod(tracker->downbeat_at_estimate_ms, bar_period_ms);
-  if (!isfinite(downbeat_elapsed) || downbeat_elapsed < 0.0) {
-    downbeat_elapsed = 0.0;
-  }
-  tracker->downbeat_elapsed_ms = downbeat_elapsed;
-  const double bar_margin = best_bar_score > 1e-9
-      ? clamp01((best_bar_score - second_bar_score) / best_bar_score)
-      : 0.0;
-  tracker->downbeat_confidence = tracker->confidence * clamp01(bar_margin * 2.0);
   publish_state(slot, tracker);
 }
 
@@ -634,6 +905,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     const float onset = (float)fmin(24.0, fmax(0.0, flux - 1.5));
     tracker->onset_history[tracker->history_write] = onset;
     tracker->level_history[tracker->history_write] = (float)full_rms;
+    tracker->low_history[tracker->history_write] = (float)low_rms;
+    tracker->mid_history[tracker->history_write] = (float)mid_rms;
+    tracker->high_history[tracker->history_write] = (float)high_rms;
     tracker->history_write = (tracker->history_write + 1) % LIVE_HISTORY_FRAMES;
     if (tracker->history_count < LIVE_HISTORY_FRAMES) tracker->history_count++;
     tracker->samples_in_frame = 0;
@@ -659,10 +933,12 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_process(
     const double elapsed_ms = (double)unestimated_samples * 1000.0 /
         tracker->sample_rate;
     const double beat_period_ms = 60000.0 / tracker->bpm;
+    const int32_t bar_beats = tracker->meter >= 3 ? tracker->meter : 4;
     tracker->phase_elapsed_ms = fmod(
         tracker->phase_at_estimate_ms + elapsed_ms, beat_period_ms);
     tracker->downbeat_elapsed_ms = fmod(
-        tracker->downbeat_at_estimate_ms + elapsed_ms, beat_period_ms * 4.0);
+        tracker->downbeat_at_estimate_ms + elapsed_ms,
+        beat_period_ms * (double)bar_beats);
     if (!isfinite(tracker->phase_elapsed_ms) || tracker->phase_elapsed_ms < 0.0 ||
         !isfinite(tracker->downbeat_elapsed_ms) ||
         tracker->downbeat_elapsed_ms < 0.0) {
@@ -708,6 +984,8 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_get(
         &g_published[stream_slot][4], memory_order_relaxed);
     const double trend = atomic_load_explicit(&g_published[stream_slot][5],
                                               memory_order_relaxed);
+    const double meter = atomic_load_explicit(&g_published[stream_slot][6],
+                                              memory_order_relaxed);
     const uint32_t after = atomic_load_explicit(
         &g_published_version[stream_slot], memory_order_acquire);
     if (before == after) {
@@ -717,6 +995,7 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_live_tracker_get(
       output[3] = downbeat;
       output[4] = downbeat_confidence;
       output[5] = trend;
+      output[6] = meter;
       return 1;
     }
   }

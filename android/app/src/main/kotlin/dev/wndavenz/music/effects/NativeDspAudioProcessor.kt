@@ -68,10 +68,12 @@ import java.nio.ByteBuffer
 /**
  * Confidence-gated beat estimate from one deck's decoded PCM stream.
  *
- * [downbeatElapsedMs]/[downbeatConfidence] describe the 4/4 bar grid: elapsed
- * time since the latest estimated downbeat and how much better that bar
- * position scored than the runner-up. [activityTrend] compares the most recent
- * history window's frame RMS with the window before it (positive = building).
+ * [downbeatElapsedMs]/[downbeatConfidence] describe the bar grid: elapsed time
+ * since the latest estimated downbeat and how much better that bar position
+ * scored than the runner-up. [meter] is the selected bar length in beats
+ * (3, 4 or 6; 0 when the bar length was not identifiable). [activityTrend]
+ * compares the most recent history window's frame RMS with the window before
+ * it (positive = building).
  */
 data class AutomixLiveBeatState(
     val bpm: Float,
@@ -80,6 +82,7 @@ data class AutomixLiveBeatState(
     val downbeatElapsedMs: Double = 0.0,
     val downbeatConfidence: Float = 0f,
     val activityTrend: Float = 0f,
+    val meter: Int = 0,
 )
 
 @UnstableApi
@@ -150,6 +153,9 @@ class NativeDspAudioProcessor(
                 val downbeatMs = if (values.size >= 4) values[3] else 0.0
                 val downbeatConfidence = if (values.size >= 5) values[4] else 0.0
                 val activityTrend = if (values.size >= 6) values[5] else 0.0
+                val rawMeter = if (values.size >= 7) values[6] else 0.0
+                val meter = rawMeter.takeIf { it.isFinite() && it in 3.0..6.0 }
+                    ?.toInt() ?: 0
                 if (!bpm.isFinite() || bpm !in 50.0..250.0 ||
                     !phaseMs.isFinite() || phaseMs < 0.0 ||
                     !confidence.isFinite() || confidence !in 0.0..1.0 ||
@@ -165,6 +171,7 @@ class NativeDspAudioProcessor(
                     downbeatElapsedMs = downbeatMs,
                     downbeatConfidence = downbeatConfidence.toFloat(),
                     activityTrend = activityTrend.toFloat(),
+                    meter = meter,
                 )
             } catch (_: LinkageError) {
                 null

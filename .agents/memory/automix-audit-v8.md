@@ -67,22 +67,30 @@ Audit ditindaklanjuti tanpa AI/ML. Ringkasan status per temuan:
 | ID | Status | Perubahan |
 |---|---|---|
 | AM8-01 | **Fixed** | `estimate_tempo` mengganti prior-first dengan uji hipotesis metrikal: kandidat `{P/2, P, 2P, ⅔P, 3⁄2P}` + peak comb, diskor dari comb, onset-grid coverage, grid fill, aksen on/off-beat, dan phase coherence; prior 120 BPM hanya tie-break 15%. Runner-up dipublikasikan sebagai `alternateBpm` (AM8-14). |
-| AM8-02 | **Partial** | `AutomixGridMerge` tidak lagi memilih live hanya karena confidence lebih tinggi: saat tempo beda >4% log, grid offline selalu menang; phase live hanya dipakai bila phase-nya setuju (≤0.25 beat). Live confidence diberi cap 0.55 (½) / 0.30 (⅓) saat ada peak sub-multiple kuat, dan flux live kini low/mid/high-weighted. Estimator live masih ACF terpisah (belum dipakai bersama dengan offline) dan rescue masih satu arah. |
-| AM8-03 | **Partial (offline)** | Grid frasa offline menambah bukti chroma novelty per frame; novelty hanya dipakai bila punya periodisitas 16-beat (contrast ≥0.25). Downbeat live tetap berbasis aksen sehingga four-on-floor live masih 0.000; karena merge kini memilih offline, dampaknya berkurang. |
+| AM8-02 | **Fixed (v1.5.58)** | Estimator live memakai uji hipotesis grid yang sama dengan offline: level `1, ½, 2, ⅔, 3⁄2, ⅓, 3` diuji coverage+fill, rescue kini simetris (90/135/160/174/180 semua benar; sweep 70–200 dalam 0.2 BPM), dan confidence diskalakan oleh margin antar-hipotesis. `AutomixGridMerge` tetap memilih offline saat beda >4% log. |
+| AM8-03 | **Fixed (v1.5.58)** | Downbeat live memakai aksen low-band **plus** timbre-change; meter harus menang di dua jendela 2-bar dan didukung kenaikan low-band share. Flat 13/13 tempo → meter 0 / dbc 0.000; meter-3 120 BPM → dbc 0.77. Offline tetap memakai chroma novelty. |
 | AM8-04 | **Fixed** | ODF phase dipisah per band (30–150 Hz bobot 1.0, 150–1500 Hz 0.55, 1500–8000 Hz 0.15); beat phase memakai `phase_odf`, tempo/frase tetap memakai ODF penuh. |
 | AM8-05 | **Fixed** | Key: gate entropi + minimal 3 kelas, pencarian tuning ±50 sen (5 sen step), confidence = bukti absolut × margin × flatness × penalti relatif mayor/minor; gate pitch shift dinaikkan 0.55→0.70; hard reject harmoni di cue dihapus (harmoni hanya di planner). |
 | AM8-06 | **Fixed** | Koefisien energi Dart + C dinormalisasi ke 1.0 (0.22/0.40/0.18/0.10, momentum cap 0.10); clamp tinggal guard. |
-| AM8-07 | **Open** | Belum ada hipotesis meter 3/6; bar live tetap 4 beat, frasa 16 beat. |
-| AM8-08 | **Partial** | Kualitas 7th hanya diterima bila ada energi nyata di partial ke-7; gate keras `keyCost`/`chordCost` di cue dihapus. Gap confidence di titik pergantian chord belum diperbaiki. |
+| AM8-07 | **Fixed (v1.5.58)** | Meter 3/4/6 diuji di analyzer (output index 32) dan live tracker; nilainya diteruskan JNI → Dart → payload target native (outgoing = exit window, incoming = head window). Grid frasa = `meter × 4`, snap fade memakai bar sesuai meter, phrase lock hanya bila kedua deck sama meter. |
+| AM8-08 | **Fixed** | Kualitas 7th hanya diterima bila ada energi nyata di partial ke-7; gate keras `keyCost`/`chordCost` di cue dihapus; baris chord ber-confidence rendah di tengah perubahan diisi hangover ber-decay (bukan gap 0.00). |
 | AM8-09 | **Fixed** | `AutomixTransitionPolicy.boundedFadeLeadMs` membatasi fade hasil phrase snap ke `plannedFade + ½ beat` dan tidak melewati EOF; dipakai `CrossfadeController` pada jalur non-early. |
 | AM8-10 | **Fixed** | Density scaling mengalikan jumlah beat (bukan detik), lalu kuantisasi ½ beat; fade dihitung ulang setelah cap 1.5–12 s (kecuali structureAligned yang memang terikat boundary). |
-| AM8-11 | **Partial** | Cooldown artis diturunkan menjadi tie-breaker 0.04/0.02; `variety` tetap sebagai mekanisme utama agar parity Dart/native tidak berubah. |
-| AM8-12 | **Partial** | File 241–300 s menambah satu jendela tengah bila gap >30 s. Struktur masih label per-window, belum segmentasi track. |
+| AM8-11 | **Fixed (v1.5.58)** | `variety` dihapus dari Dart dan planner native; artist cooldown satu-satunya mekanisme (base 0.09/0.03, back 1..4). Bobot 0.15 dibagi ke tempo/key/energi dengan proporsi lama. Lookahead kini tidak membaca slot plan yang belum ditulis (dulu index OOB → segfault). |
+| AM8-12 | **Fixed (v1.5.58)** | File 241–300 s menambah jendela tengah bila gap >30 s; analyzer mempublikasikan boundary seksi track-level dari blok chroma 2 s (index 33/34). Boundary dengan conf ≥0.50 dan lead 30–65 s dipakai sebagai titik early handover; boundary palsu tidak muncul pada aransemen datar (diuji). |
 | AM8-13 | **Open (sengaja)** | L1 headroom tidak diubah: perlu pengukuran loudness seam pada audio nyata sebelum melepas proteksi clipping. |
 | AM8-14 | **Fixed** | `alternateBpm` = runner-up hipotesis metrikal, bukan tebakan <90/>140. |
 | AM8-15 | **Fixed** | Vocal menjadi sub-cost berbobot 0.10 di dalam denominator yang sama. |
 
-Cache analysis dinaikkan ke **schema v19** karena tempo/grid/key/chord dapat berbeda dari v18.
+Cache analysis sekarang **schema v20**: entri v19 belum punya meter/boundary seksi, jadi dianalisis ulang.
+
+**Tindak lanjut 2026-10-29 (dirilis 2026-10-30, v1.5.58):** AM8-02/03/07/08/11/12 selesai. Regresi native baru:
+`test_live_tracker_resolves_third_and_double_tempo` (90/135/160/174/180),
+`test_live_tracker_reports_meter_and_rejects_flat_bars` (flat 120 → meter 0/dbc <0.30; waltz 120 → meter 3/dbc ≥0.30),
+`test_analyzer_metre_and_section_boundary` (meter 3 + boundary 30 s, steady → tanpa boundary, frasa 12-beat dari perubahan chord).
+Dart: parse/persist `meter`/`tailMeter`/`tailSectionCueMs`, payload target `meter`, dan tes cue early-handover berbasis boundary seksi.
+Verifikasi sesi: native C suite exit 0; `flutter test` AutoMix 115 lulus; `dart analyze` bersih pada layanan/test AutoMix.
+Kotlin belum bisa dijalankan di sandbox (Gradle gagal membuat `gradle-api-9.8.2.jar`), `ffmpeg` tidak ada — keduanya tetap untuk CI.
 
 Verifikasi: native C suite (`automix_native_c_test.c`) **exit 0**, termasuk sweep metrikal 60–200 BPM,
 beat phase dengan off-beat hat, key noise/detune, dan phrase phase dari perubahan harmoni. `dart analyze` pada
@@ -92,3 +100,10 @@ syncopated 14/27 benar, hanya 12/27 dengan conf ≥0.20 (level ambigu ditahan, b
 sinyal ritmis. Setelah cache sandbox dibersihkan, `flutter test --no-pub test/services/automix_service/`
 menjalankan **131 test, semuanya lulus** (`ENOSPC` sebelumnya murni disk penuh, bukan kegagalan test).
 Kotlin/Gradle tetap tidak tersedia dan `ffmpeg` tidak ada, jadi suite Kotlin dan audio nyata tetap untuk CI.
+
+**Penutupan 2026-10-30:** chord hangover (AM8-08) ditambahkan di `nar_automix_analyze_chords` — baris yang
+jendelanya melintasi pergantian akor diisi akor sebelumnya dengan confidence meluruh (1 − gap/1500 ms), hanya
+jika ada akor yakin dalam 1500 ms berikutnya; trailing silence tetap `-1`. Regresi baru
+`test_chord_hangover_bridges_one_gap_and_not_trailing_silence`. Verifikasi akhir: native C suite exit 0,
+`flutter test test/services/automix_service` **137 lulus**, `dart test` native bridge **4 lulus**,
+`dart analyze` pada layanan/test AutoMix + paket native bersih. Kotlin belum terverifikasi (tanpa Android SDK).

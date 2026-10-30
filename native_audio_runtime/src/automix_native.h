@@ -12,7 +12,7 @@ extern "C" {
 
 #define NAR_AUTOMIX_FEATURE_COUNT 27
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 32
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 35
 
 // Structural region classification labels.
 enum NarAutomixStructureRegion {
@@ -88,6 +88,12 @@ enum NarAutomixFeatureIndex {
 // 15: Breakdown confidence (0..1)
 // 16: Structure region (enum NarAutomixStructureRegion 0..5)
 // 17: Structure confidence (0..1)
+// ...
+// 32: Selected metre in beats per bar (3, 4 or 6; NaN when not confident)
+// 33: Section-boundary cue ms from the window start (NaN when not confident)
+//     — the strongest 2 s-block chroma change point, i.e. a real section
+//     boundary rather than a per-frame chord change
+// 34: Section-boundary confidence (0..1)
 // 18: Vocal likelihood (0..1)
 // 19: Vocal confidence (0..1)
 // 20: Tail BPM confidence (0..1); confidence of this analyzed window's tempo estimate
@@ -104,6 +110,8 @@ enum NarAutomixFeatureIndex {
 //      the start-quarter beat period (NaN if phase is unavailable)
 // 31: End-quarter beat phase, relative to the window start and folded to
 //      the end-quarter beat period (NaN if phase is unavailable)
+// 32: Bar metre in beats per bar (3, 4 or 6; NaN when no confident phrase
+//      hypothesis selected one)
 // The quarter profile is a coarse energy trend (rising/falling intro and
 // outro). Consumers derive per-seam slopes from adjacent quarters; silence
 // floors at -120 dBFS, so the values stay finite whenever analysis succeeds.

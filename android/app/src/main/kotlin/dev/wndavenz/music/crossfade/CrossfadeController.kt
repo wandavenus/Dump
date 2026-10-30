@@ -99,6 +99,7 @@ class CrossfadeController(
     private val getAutoMixLiveBeatStateForPlayer: (ExoPlayer) -> AutomixLiveBeatState? = { null },
     private val getAutoMixBeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
     private val getAutoMixDownbeatOffsetMsForPlayer: (ExoPlayer) -> Long? = { null },
+    private val getAutoMixMeterForPlayer: (ExoPlayer) -> Int = { 4 },
     private val getMediaPlaybackSpeedForPlayer: (ExoPlayer) -> Float = { it.playbackParameters.speed },
     private val monotonicClockMs: () -> Long = { SystemClock.uptimeMillis() },
     private val setAutoMixBassGain: (ExoPlayer, Float) -> Unit = { _, _ -> },
@@ -289,6 +290,7 @@ class CrossfadeController(
                 beatMs = beatMs,
                 beatOffsetMs = beatOffset,
                 downbeatOffsetMs = downbeatOffset,
+                meter = getAutoMixMeterForPlayer(p),
             ).coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
         } else {
             idealStart
@@ -1075,6 +1077,7 @@ class CrossfadeController(
                                 getAutoMixBeatOffsetMsForPlayer(oldPlayer)?.toDouble(),
                             offlineDownbeatOffsetMs =
                                 getAutoMixDownbeatOffsetMsForPlayer(oldPlayer)?.toDouble(),
+                            offlineMeter = getAutoMixMeterForPlayer(oldPlayer),
                         )
                         val newGrid = AutomixGridMerge.mergeDeck(
                             live = getAutoMixLiveBeatStateForPlayer(newPlayer),
@@ -1086,6 +1089,7 @@ class CrossfadeController(
                                 getAutoMixBeatOffsetMsForPlayer(newPlayer)?.toDouble(),
                             offlineDownbeatOffsetMs =
                                 getAutoMixDownbeatOffsetMsForPlayer(newPlayer)?.toDouble(),
+                            offlineMeter = getAutoMixMeterForPlayer(newPlayer),
                         )
                         if (oldGrid != null && newGrid != null &&
                             AutomixTransitionPolicy.isBeatMatchedPair(
@@ -1114,8 +1118,16 @@ class CrossfadeController(
                             // confident downbeat grid — live downbeats included.
                             // Fall back to the beat-level correction whenever
                             // either grid is absent.
+                            // Phrase lock only means something when both decks
+                            // agree on the bar length; a 3/4 deck against a 4/4
+                            // deck has no common four-bar boundary, so fall back
+                            // to the beat-level correction instead of imposing
+                            // one of the two metres.
                             val phraseFactor =
-                                if (oldDownbeatPosition != null && newDownbeatPosition != null) {
+                                if (oldDownbeatPosition != null &&
+                                    newDownbeatPosition != null &&
+                                    oldGrid.meter == newGrid.meter
+                                ) {
                                     AutomixPhaseLock.phraseFactorFor(
                                         outgoingPositionMs = oldDownbeatPosition,
                                         outgoingDownbeatOffsetMs = oldGrid.downbeatOffsetMs,
@@ -1124,7 +1136,7 @@ class CrossfadeController(
                                         incomingDownbeatOffsetMs = newGrid.downbeatOffsetMs,
                                         incomingBpm = newGrid.bpm,
                                         remainingMs = remainingMediaMs,
-                                        beatsPerPhrase = 16,
+                                        beatsPerPhrase = oldGrid.meter * 4,
                                     )
                                 } else {
                                     null
