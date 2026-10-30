@@ -10,6 +10,7 @@ description: Full main.dart init sequence, app_state.dart lifecycle, and navigat
 ```
 runZonedGuarded {
   1. WidgetsFlutterBinding.ensureInitialized()
+     + SentryFlutter.init() using compile-time SENTRY_DSN
      + edge-to-edge UI, transparent bars
 
   2. Future.wait (parallel warm-up):
@@ -27,8 +28,9 @@ runZonedGuarded {
      ← first 4 items: Recently Played, Albums, Artists (3s shared timeout)
 
   4. Error hooks:
-     FlutterError.onError → LogService
-     PlatformDispatcher.instance.onError → LogService
+     FlutterError.onError → Sentry.captureException + LogService
+     PlatformDispatcher.instance.onError → Sentry.captureException + LogService
+     runZonedGuarded callback → Sentry.captureException + LogService
 
   5. OpenFileService.registerHandler()   ← Android intent handling
 
@@ -96,3 +98,14 @@ Static field: `_appTheme` (immutable `ThemeData`).
 ## Scroll-driven Floating Pill Dock
 
 The root `NotificationListener<ScrollNotification>` in `lib/bottom_nav_bar/bottom_nav/state.dart` forwards vertical root-viewport deltas to `FloatingPillTransitionController`. The shared progress drives both `FloatingPillNavBar` geometry and the collapsed `UnifiedMorphPlayer`; it is disabled while full-player progress is active and reset when the mini-player exits.
+
+
+## Sentry Observability
+
+- Dependency: sentry_flutter ^10.2.0 (Dart 3.12+; app constraint is Dart >=3.13.5 and Android minSdk is 29).
+- DSN is compiled from --dart-define=SENTRY_DSN=...; empty DSN disables event delivery and Sentry initialization failures fail open.
+- Environment is production in release mode and development otherwise.
+- PII collection is disabled; performance tracing is not enabled. Native crash handling is enabled for Android Java/Kotlin/C/C++.
+- Custom Flutter, PlatformDispatcher, and root-zone handlers explicitly forward exceptions to Sentry as they replace/augment the app's existing LogService hooks.
+- Build handoff: Dump's trigger-public-builder.yml reads vars.SENTRY_DSN from the production environment and forwards the DSN to the Noisegraph build-apk.yml dispatch payload. Never pass SENTRY_AUTH_TOKEN to the app or dispatch payload.
+- The APK build uses --obfuscate --split-debug-info; upload the generated Dart debug symbols separately to Sentry for readable obfuscated Dart stack traces.

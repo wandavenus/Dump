@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.63',
+    date: '30 Oktober 2026',
+    changes: [
+      'Integrasi Sentry Flutter untuk menangkap error Flutter/Dart dan crash native Android (Java/Kotlin/C/C++); DSN dibaca dari --dart-define, pengumpulan PII dan performance tracing tidak diaktifkan.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.62',
     date: '30 Oktober 2026',
     changes: [

@@ -4,6 +4,18 @@ Future<void> main() async {
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      // Sentry is optional at runtime: a missing DSN or SDK initialization
+      // failure must never block the music player from starting.
+      try {
+        await SentryFlutter.init((options) {
+          options.dsn = const String.fromEnvironment('SENTRY_DSN');
+          options.environment = kReleaseMode ? 'production' : 'development';
+          options.sendDefaultPii = false;
+          options.enableNativeCrashHandling = true;
+        });
+      } catch (error, stack) {
+        debugPrint('[Sentry] Initialization failed: $error\n$stack');
+      }
       if (!kIsWeb) {
         unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
         SystemChrome.setSystemUIOverlayStyle(
@@ -102,6 +114,9 @@ Future<void> main() async {
         // the in-app ring buffer; hiding framework errors made release
         // failures impossible to diagnose.
         FlutterError.presentError(details);
+        unawaited(
+          Sentry.captureException(details.exception, stackTrace: details.stack),
+        );
         LogService.error(
           'Flutter',
           details.exceptionAsString(),
@@ -116,6 +131,7 @@ Future<void> main() async {
             library: 'PlatformDispatcher',
           ),
         );
+        unawaited(Sentry.captureException(error, stackTrace: stack));
         LogService.error(
           'Dart',
           error.toString(),
@@ -146,6 +162,7 @@ Future<void> main() async {
       }
     },
     (Object error, StackTrace stack) {
+      unawaited(Sentry.captureException(error, stackTrace: stack));
       if (LogService.isInitialized) {
         LogService.error(
           'Zone',
