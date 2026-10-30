@@ -282,6 +282,44 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, automixChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "analyzeAll" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        val segmentSeconds =
+                            call.argument<Number>("segmentSeconds")?.toDouble() ?: 120.0
+                        val veryLongFileSeconds =
+                            call.argument<Number>("veryLongFileSeconds")?.toDouble() ?: 300.0
+                        if (path.isBlank()) {
+                            result.error("invalid_args", "path required", null)
+                        } else {
+                            submitBackground(
+                                automixScanExecutor,
+                                onRejected = {
+                                    postToFlutter {
+                                        result.error("scan_busy", "Automix analysis queue is busy", null)
+                                    }
+                                },
+                            ) {
+                                try {
+                                    val map = AutomixAnalysis.analyzeAll(
+                                        path,
+                                        segmentSeconds,
+                                        veryLongFileSeconds,
+                                    )
+                                    postToFlutter {
+                                        if (map["success"] == true) {
+                                            result.success(map)
+                                        } else {
+                                            result.error("analysis_failed", "Could not decode audio", null)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    postToFlutter {
+                                        result.error("analysis_error", e.message, null)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     "analyze" -> {
                         val path = call.argument<String>("path") ?: ""
                         // AutoMix analyzes head/middle/tail windows of a file,

@@ -174,3 +174,13 @@ Dm7 0,22 / Am7 0,54; varian inversi: Am7 0,75 / Dm7 0,51 / Em7 0,25 — ini kete
 yang sudah ada, bukan kesalahan bass-root. Regresi baru
 `test_chord_full_band_mix_keeps_harmonic_root` (12 root stabil + conf ≥0,40, dua varian); native C suite
 exit 0. Sisa §J: E (L1, butuh Kotlin/CI), F (streaming decode), G (SSM).
+
+**Single-pass streaming decode 2026-10-30 (F/D10, v1.5.62):** channel `analyzeAll` pada
+`AutomixAnalysisBridge.kt` men-decode file sekali dari sample 0; `onFormat` merencanakan window (head +
+middle, termasuk window tengah 241–300 s), buffer head/middle ditangkap saat stream lewat dan dianalisis
+begitu penuh, tail disimpan di ring buffer berukuran satu window dan di-unwrap pada EOF aktual (durasi
+container basi tidak bisa menyembunyikan akhir lagu). Peak memory = satu window + ring, bukan PCM sefile.
+Dart `_analyzeSegments` memanggil satu kali; fallback per-window lama hanya untuk `MissingPluginException`
+(bridge native lama). **Kotlin belum dikompilasi/diuji** karena Android SDK/Gradle tidak tersedia; klaim
+percepatan scan belum diukur. Dart analyze + AutoMix 137 test lulus; native C suite tidak berubah. Sisa §J:
+E (L1, butuh Kotlin/CI), G (SSM), dan validasi wall-clock F di perangkat.

@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.62',
+    date: '30 Oktober 2026',
+    changes: [
+      'AutoMix: analisis trek Android kini memakai satu sesi decode streaming — head dan middle ditangkap saat audio lewat, tail disimpan di ring buffer, jadi satu trek tidak lagi membuka decoder 2–4 kali; jalur per-window lama tetap menjadi fallback untuk bridge native lama.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.61',
     date: '30 Oktober 2026',
     changes: [
