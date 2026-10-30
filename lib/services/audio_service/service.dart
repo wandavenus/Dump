@@ -612,9 +612,11 @@ class AudioService {
       MediaStoreService.cancelMetadataPrescanner();
 
       // Kirim playlist ke engine aktif.
-      await PlaybackManager.setQueue(immutable, index);
-      await _ReplayGainApplicator.apply(selectedSong);
-      if (autoplay) await PlaybackManager.play();
+      await SentryObservability.trace('audio.queue_load', () async {
+        await PlaybackManager.setQueue(immutable, index);
+        await _ReplayGainApplicator.apply(selectedSong);
+        if (autoplay) await PlaybackManager.play();
+      });
 
       _previousSong = selectedSong;
       LogService.log(
