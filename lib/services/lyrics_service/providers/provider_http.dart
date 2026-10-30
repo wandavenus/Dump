@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../services/log_service.dart';
 import '../../sentry_observability.dart';
