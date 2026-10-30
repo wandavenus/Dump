@@ -5,6 +5,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SentryFlutter.reportFullyDisplayed();
+    });
   }
 
   @override
@@ -54,6 +57,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           builder: (_, _) {
             final locale = LanguageManager.instance.locale;
             return MaterialApp(
+              navigatorObservers: [SentryNavigatorObserver()],
               scrollBehavior: MyScrollBehavior(),
               theme: AppThemes.light,
               darkTheme: AppThemes.dark,
