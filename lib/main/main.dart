@@ -14,6 +14,20 @@ Future<void> main() async {
           options.environment = kReleaseMode ? 'production' : 'development';
           options.sendDefaultPii = false;
           options.enableNativeCrashHandling = true;
+          options.anrEnabled = true;
+          options.enableTombstone = true;
+          options.tracesSampleRate = kReleaseMode ? 0.15 : 1.0;
+          options.enableAutoPerformanceTracing = true;
+          options.enableFramesTracking = true;
+          options.enableUserInteractionTracing = true;
+          options.enableTimeToFullDisplayTracing = true;
+          options.enableExceptionTypeIdentification = true;
+          options.captureFailedRequests = true;
+          options.replay.sessionSampleRate = kReleaseMode ? 0.05 : 0.0;
+          options.replay.onErrorSampleRate = 1.0;
+          options.privacy.maskAllText = true;
+          options.privacy.maskAllImages = true;
+          options.privacy.maskAssetImages = true;
         });
       } on Object catch (error, stack) {
         debugPrint('[Sentry] Initialization failed: $error\n$stack');
@@ -158,7 +172,7 @@ Future<void> main() async {
       AudioFocusService.initialize();
       SleepTimerService.initialize();
       unawaited(AudioService.syncFromNative());
-      runApp(const MyApp());
+      runApp(SentryWidget(child: const MyApp()));
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         unawaited(OpenFileService.checkInitialUri());
       }
