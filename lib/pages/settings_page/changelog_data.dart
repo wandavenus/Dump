@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.61',
+    date: '30 Oktober 2026',
+    changes: [
+      'AutoMix: pemilihan tempo offline memakai ODF pita ketukan (low + 0,55×mid) dengan fallback envelope lebar; ODF full-band membaca hi-hat/ghost note sebagai ketukan, sehingga tiga lagu nyata yang semula 200/175,5/142 BPM kini terbaca 101/117/142 BPM (pembanding aubio 109,5/119,4/140,7).',
+      'AutoMix: gate frasa turun ke keyakinan 0,35 (sama dengan grid Dart) dan bar 2 ketukan butuh margin 0,20, sehingga waltz 3/4 tetap terdeteksi dan lagu 4/4 tidak salah dilabeli meter 2.',
+      'AutoMix: house four-on-the-floor datar kini mendapat downbeat bar dari perubahan akor per bar (fase 7 ms dari bar sebenarnya pada 120/124 BPM) meski tidak ada kontras aksen; meter tetap tidak dipublikasikan bila bukti aksen lemah.',
+      'AutoMix: deteksi batas section men-de-trend novelty chroma terhadap laju perubahan akor lokal, sehingga progresi akor tiap bar tidak lagi menutupi batas verse→chorus 32 detik (kini 32000 ms, confidence 1,00).',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.60',
     date: '30 Oktober 2026',
     changes: [
