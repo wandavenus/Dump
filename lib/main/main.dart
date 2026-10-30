@@ -8,12 +8,14 @@ Future<void> main() async {
       // failure must never block the music player from starting.
       try {
         await SentryFlutter.init((options) {
+          // DSN is intentionally injected at compile time by the release workflow.
+          // ignore: do_not_use_environment
           options.dsn = const String.fromEnvironment('SENTRY_DSN');
           options.environment = kReleaseMode ? 'production' : 'development';
           options.sendDefaultPii = false;
           options.enableNativeCrashHandling = true;
         });
-      } catch (error, stack) {
+      } on Object catch (error, stack) {
         debugPrint('[Sentry] Initialization failed: $error\n$stack');
       }
       if (!kIsWeb) {
