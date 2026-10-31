@@ -68,6 +68,12 @@ static void test_analyzer_edge_features(void) {
   assert(isfinite(output[35]) && isfinite(output[36]));
   assert(output[35] - output[36] > 15.0);
   assert(isfinite(output[37]) && isfinite(output[38]));
+  // A 0.5-peak 440 Hz sine at 22.05 kHz has a BS.1770 K-weighted
+  // short-term loudness of approximately -9.7585 LUFS. This pins the RLB
+  // high-pass numerator normalization: leaving {1, -2, 1} unnormalized
+  // biases both edge values upward by about 0.094 dB at this sample rate.
+  assert(fabs(output[37] - (-9.7585)) < 0.02);
+  assert(fabs(output[38] - (-29.7585)) < 0.02);
   assert(output[37] - output[38] > 15.0);
   assert(isfinite(output[39]) && output[39] >= 0.0);
   assert(isfinite(output[40]) && output[40] >= 0.0);
