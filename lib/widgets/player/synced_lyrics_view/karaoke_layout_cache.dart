@@ -47,6 +47,43 @@ class KaraokeLayoutCache {
       LinkedHashMap<int, _KaraokeLayoutEntry>();
   bool _disposed = false;
 
+  /// Returns whether a matching layout is already prepared.
+  ///
+  /// This lets the widget render a lightweight Text fallback for one frame
+  /// instead of performing a cold TextPainter layout from CustomPainter.paint.
+  bool contains({
+    required int lineIndex,
+    required String text,
+    required List<String> wordTexts,
+    required double maxWidth,
+    required double fontSize,
+    required double textScaleFactor,
+    required TextAlign textAlign,
+    required TextDirection textDirection,
+    required Color activeColor,
+    required Color dimColor,
+  }) {
+    if (_disposed) return false;
+    final existing = _entries[lineIndex];
+    if (existing == null ||
+        !existing.matches(
+          text: text,
+          wordTexts: wordTexts,
+          maxWidth: maxWidth,
+          fontSize: fontSize,
+          textScaleFactor: textScaleFactor,
+          textAlign: textAlign,
+          textDirection: textDirection,
+          activeColor: activeColor,
+          dimColor: dimColor,
+        )) {
+      return false;
+    }
+    _entries.remove(lineIndex);
+    _entries[lineIndex] = existing;
+    return true;
+  }
+
   /// Returns an existing layout when the line and its typography are
   /// unchanged; otherwise creates and caches a new layout.
   KaraokeLineLayout obtain({
