@@ -47,19 +47,44 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
     }
     _karaokePrewarmEnabled = true;
 
-    if (widget.isVisible) {
-      _warmKaraokeLine(_currentIndex);
-    }
     _scheduleKaraokePrewarm();
   }
 
-  void _warmKaraokeLine(int index) {
+  bool _isKaraokeLinePrepared(int index) {
     final configuration = _karaokeLayoutConfiguration;
     if (configuration == null ||
         index < 0 ||
         index >= widget.lyrics.length ||
         index >= _wordTextTimelines.length) {
-      return;
+      return false;
+    }
+
+    final text = widget.lyrics[index].text;
+    final direction = LyricsTextDirection.resolve(text);
+    return _karaokeLayoutCache.contains(
+      lineIndex: index,
+      text: text,
+      wordTexts: _wordTextTimelines[index],
+      maxWidth: configuration.width,
+      fontSize: configuration.fontSize,
+      textScaleFactor: configuration.textScaleFactor,
+      textAlign: direction == TextDirection.rtl
+          ? TextAlign.right
+          : configuration.textAlign,
+      textDirection: direction,
+      activeColor: configuration.activeColor,
+      dimColor: configuration.dimColor,
+    );
+  }
+
+  bool _warmKaraokeLine(int index) {
+    if (_isKaraokeLinePrepared(index)) return false;
+    final configuration = _karaokeLayoutConfiguration;
+    if (configuration == null ||
+        index < 0 ||
+        index >= widget.lyrics.length ||
+        index >= _wordTextTimelines.length) {
+      return false;
     }
 
     final text = widget.lyrics[index].text;
@@ -78,6 +103,7 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
       activeColor: configuration.activeColor,
       dimColor: configuration.dimColor,
     );
+    return true;
   }
 
   void _scheduleKaraokePrewarm() {
@@ -89,8 +115,7 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
     _karaokePrewarmAnchorIndex = _currentIndex;
     _karaokePrewarmVisibility = widget.isVisible;
 
-    final indices = <int>[];
-    if (!widget.isVisible) indices.add(_currentIndex);
+    final indices = <int>[_currentIndex];
     for (var offset = 1; offset <= 8; offset++) {
       indices.add(_currentIndex + offset);
     }
@@ -110,11 +135,15 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
         SchedulerBinding.instance.scheduleTask<void>(
           () {
             if (!mounted || generation != _karaokePrewarmGeneration) return;
-            _warmKaraokeLine(validIndices[cursor]);
+            final index = validIndices[cursor];
+            final prepared = _warmKaraokeLine(index);
+            if (prepared && widget.isVisible && index == _currentIndex) {
+              _refresh();
+            }
             final next = cursor + 1;
             if (next < validIndices.length) scheduleAt(next);
           },
-          Priority.idle,
+          cursor == 0 && widget.isVisible ? Priority.animation : Priority.idle,
           debugLabel: 'lyrics-karaoke-layout-prewarm',
         ),
       );
