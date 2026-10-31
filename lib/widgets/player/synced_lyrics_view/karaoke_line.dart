@@ -1,8 +1,7 @@
 part of '../synced_lyrics_view.dart';
 
-// ── Opsi B: StatefulWidget agar painter tidak dibuang saat AnimatedBuilder
-//    rebuild — cache layout (_basePainter, _wordRects) tetap hidup selama
-//    props yang mempengaruhi layout tidak berubah. ───────────────────────────
+// StatefulWidget keeps the painter delegate stable across AnimatedBuilder
+// rebuilds. TextPainter and word geometry are owned by the shared view cache.
 
 class _UnifiedKaraokeLine extends StatefulWidget {
   final String text;
