@@ -1,11 +1,11 @@
 ---
-name: AutoMix Fase 2 decision contract (v1.5.64)
+name: AutoMix Fase 2 decision contract (v1.5.65)
 description: Kontrak BPM/ambang bersama C-Dart-Kotlin, cue metre x4, fade berbasis bar, cooldown artis penuh, cache schema v22.
 ---
 
 # AutoMix Fase 2 decision contract (v1.5.64)
 
-**Tanggal:** 2026-10-31 · **Versi:** 1.5.64 · **Basis audit:** `automix_algorithm_audit_v9.md` (AM9-H03/M01/M08/M13/M18).
+**Tanggal:** 2026-10-31 · **Versi:** 1.5.65 · **Basis audit:** `automix_algorithm_audit_v9.md` (AM9-H03/M01/M08/M13/M18).
 
 ## Perubahan
 

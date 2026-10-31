@@ -20,11 +20,18 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
-    version: '1.5.64',
+    version: '1.5.65',
     date: '31 Oktober 2026',
     changes: [
       'AutoMix: kontrak tempo 50–220 BPM dan ambang keyakinan sekarang satu sumber di header C lalu dicerminkan di Dart/Kotlin; analyzer dan live tracker tidak lagi memakai rentang berbeda, dan cache analisis naik ke schema v22 agar metadata lama dianalisis ulang.',
       'AutoMix: cue drop/breakdown snap ke frasa metre x4 (bukan 16 ketukan tetap), cooldown artis ikut dihitung penuh di path/average cost, dan durasi short/quick/long ditentukan dalam bar outgoing (½ bar, 1 bar, minimal 2 bar) lalu di-clamp 1,5–12 detik.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.64',
+    date: '31 Oktober 2026',
+    changes: [
+      'Lyrics: cache layout teks dan geometri kata karaoke secara terbatas, lalu prewarm baris aktif dan baris terdekat saat idle agar perpindahan baris tidak melakukan cold layout.',
     ],
   ),
   _ChangelogEntry(

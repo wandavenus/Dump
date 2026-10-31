@@ -1,15 +1,11 @@
 part of '../synced_lyrics_view.dart';
 
-class _KaraokeWordBox {
-  final Rect rect;
-  final TextDirection direction;
-
-  const _KaraokeWordBox(this.rect, this.direction);
-}
-
 class _KaraokeLinePainter extends CustomPainter {
   final String text;
+  final int lineIndex;
   final List<_TimelineWord> timeline;
+  final List<String> wordTexts;
+  final KaraokeLayoutCache layoutCache;
   final _KaraokeLineController controller;
   final Color activeColor;
   final Color dimColor;
@@ -18,22 +14,17 @@ class _KaraokeLinePainter extends CustomPainter {
   final double textScaleFactor;
   final TextDirection textDirection;
 
-  TextPainter? _basePainter;
-  TextPainter? _highlightPainter;
-  List<List<_KaraokeWordBox>> _wordRects = const [];
-  double _lastWidth = -1;
-
   // Cached paint state for the active word's soft glow.
   final Paint _glowLayerPaint = Paint();
   ui.ImageFilter? _wordGlowFilter;
   double _wordGlowSigma = -1;
 
-  // ── Opsi B: Flag untuk skip _cacheWordPixels saat hanya warna berubah ───
-  bool _wordRectsPrecomputed = false;
-
   _KaraokeLinePainter({
     required this.text,
+    required this.lineIndex,
     required this.timeline,
+    required this.wordTexts,
+    required this.layoutCache,
     required this.controller,
     required this.activeColor,
     required this.dimColor,
@@ -43,21 +34,27 @@ class _KaraokeLinePainter extends CustomPainter {
     required this.textDirection,
   }) : super(repaint: controller);
 
-  // ── Opsi B: Salin word rects dari painter lama saat hanya warna berubah ─
-  void inheritLayoutCache(_KaraokeLinePainter old) {
-    _wordRects = old._wordRects;
-    _lastWidth = old._lastWidth;
-    _wordRectsPrecomputed = true;
-  }
-
   @override
   void paint(Canvas canvas, Size size) {
-    _ensureLayout(size.width);
-    final base = _basePainter;
-    final highlight = _highlightPainter;
-    if (base == null || highlight == null) return;
+    if (size.width <= 0) return;
+    final layout = layoutCache.obtain(
+      lineIndex: lineIndex,
+      text: text,
+      wordTexts: wordTexts,
+      maxWidth: size.width,
+      fontSize: fontSize,
+      textScaleFactor: textScaleFactor,
+      textAlign: textAlign,
+      textDirection: textDirection,
+      activeColor: activeColor,
+      dimColor: dimColor,
+      touch: false,
+    );
+    final base = layout.basePainter;
+    final highlight = layout.highlightPainter;
+    final wordRects = layout.wordBoxes;
 
-    if (timeline.isEmpty || _wordRects.length != timeline.length) {
+    if (timeline.isEmpty || wordRects.length != timeline.length) {
       base.paint(canvas, Offset.zero);
       return;
     }
@@ -87,7 +84,7 @@ class _KaraokeLinePainter extends CustomPainter {
               fontSize: fontSize * textScaleFactor,
             );
 
-      final boxes = _orderedWordBoxes(_wordRects[index]);
+      final boxes = _orderedWordBoxes(wordRects[index]);
       if (boxes.isEmpty) continue;
       hasWordBoxes = true;
 
@@ -194,12 +191,12 @@ class _KaraokeLinePainter extends CustomPainter {
     }
   }
 
-  List<_KaraokeWordBox> _orderedWordBoxes(List<_KaraokeWordBox> boxes) {
+  List<KaraokeWordBox> _orderedWordBoxes(List<KaraokeWordBox> boxes) {
     if (boxes.length <= 1 ||
         !boxes.every((box) => box.direction == boxes.first.direction)) {
       return boxes;
     }
-    return List<_KaraokeWordBox>.of(boxes)..sort((a, b) {
+    return List<KaraokeWordBox>.of(boxes)..sort((a, b) {
       final horizontal = a.rect.left.compareTo(b.rect.left);
       return boxes.first.direction == TextDirection.rtl
           ? -horizontal
@@ -312,83 +309,13 @@ class _KaraokeLinePainter extends CustomPainter {
     return t * t * (3 - 2 * t);
   }
 
-  void _ensureLayout(double width) {
-    if (_basePainter != null && _lastWidth == width) return;
-
-    // ── Opsi B: deteksi apakah lebar berubah sebelum _lastWidth diupdate ─
-    final bool widthChanged = _lastWidth != width;
-    _lastWidth = width;
-
-    // Dispose painter lama sebelum membuat yang baru agar tidak bocor
-    // memory native Paragraph (wajib sejak Flutter 3.x).
-    _basePainter?.dispose();
-    _highlightPainter?.dispose();
-
-    final style = TextStyle(
-      fontSize: fontSize,
-      fontWeight: FontWeight.bold,
-      color: dimColor,
-      height: 1.4,
-    );
-    _basePainter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textAlign: textAlign,
-      textDirection: textDirection,
-      textScaler: TextScaler.linear(textScaleFactor),
-    )..layout(maxWidth: width);
-
-    _highlightPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: style.copyWith(color: activeColor),
-      ),
-      textAlign: textAlign,
-      textDirection: textDirection,
-      textScaler: TextScaler.linear(textScaleFactor),
-    )..layout(maxWidth: width);
-
-    // ── Opsi B: skip _cacheWordPixels jika word rects sudah diwarisi dan
-    //    lebar widget tidak berubah — getBoxesForSelection tidak perlu jalan.
-    if (_wordRectsPrecomputed && !widthChanged) {
-      _wordRectsPrecomputed = false;
-    } else {
-      _wordRectsPrecomputed = false;
-      _cacheWordPixels();
-    }
-  }
-
-  void _cacheWordPixels() {
-    if (timeline.isEmpty || text.isEmpty) {
-      _wordRects = const [];
-      return;
-    }
-    final painter = _basePainter!;
-    final rectsList = <List<_KaraokeWordBox>>[];
-    var searchFrom = 0;
-
-    for (final word in timeline) {
-      final index = text.indexOf(word.text, searchFrom);
-      if (index < 0) {
-        rectsList.add(const []);
-        continue;
-      }
-      searchFrom = index + word.text.length;
-      final boxes = painter.getBoxesForSelection(
-        TextSelection(baseOffset: index, extentOffset: searchFrom),
-      );
-      rectsList.add(
-        boxes
-            .map((b) => _KaraokeWordBox(b.toRect(), b.direction))
-            .toList(growable: false),
-      );
-    }
-    _wordRects = List<List<_KaraokeWordBox>>.unmodifiable(rectsList);
-  }
-
   @override
   bool shouldRepaint(covariant _KaraokeLinePainter oldDelegate) {
     return oldDelegate.text != text ||
+        oldDelegate.lineIndex != lineIndex ||
         oldDelegate.timeline != timeline ||
+        oldDelegate.wordTexts != wordTexts ||
+        oldDelegate.layoutCache != layoutCache ||
         oldDelegate.activeColor != activeColor ||
         oldDelegate.dimColor != dimColor ||
         oldDelegate.fontSize != fontSize ||

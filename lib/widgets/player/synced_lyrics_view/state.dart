@@ -19,6 +19,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   // ── Format-agnostic karaoke renderer state ───────────────────────────────
   List<List<_TimelineWord>> _wordTimelines = const [];
+  List<List<String>> _wordTextTimelines = const [];
+  final KaraokeLayoutCache _karaokeLayoutCache = KaraokeLayoutCache();
+  _KaraokeLayoutConfiguration? _karaokeLayoutConfiguration;
+  int _karaokePrewarmGeneration = 0;
+  int _karaokePrewarmAnchorIndex = -1;
+  bool? _karaokePrewarmVisibility;
+  bool? _karaokePrewarmEnabled;
   final _KaraokeLineController _karaokeController = _KaraokeLineController();
 
   // ── Manual-scroll suppression ──────────────────────────────────────────────
@@ -186,6 +193,11 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       widget.dragHandle?._attach(this);
     }
     if (old.lyrics != widget.lyrics || old.rawLrc != widget.rawLrc) {
+      _karaokePrewarmGeneration++;
+      _karaokeLayoutCache.clear();
+      _karaokeLayoutConfiguration = null;
+      _karaokePrewarmAnchorIndex = -1;
+      _karaokePrewarmVisibility = null;
       _rebuildWordTimelines();
 
       final currentPos = _interpolatedPosition;
@@ -212,6 +224,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _lineTransitionController.dispose();
     _blurVisibility.dispose();
     _blurVisibilityController.dispose();
+    _karaokePrewarmGeneration++;
+    _karaokeLayoutCache.dispose();
     _karaokeController.dispose();
     _scrollResumeTimer?.cancel();
     super.dispose();
