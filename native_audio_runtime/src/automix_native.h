@@ -14,6 +14,21 @@ extern "C" {
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
 #define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 41
 
+// Decision contract shared by the analyzer, planner and the Dart/Kotlin
+// consumers. These are interim hand-tuned gates, not calibrated
+// probabilities (audit AM9-M08); keep the mirrors in
+// lib/services/automix_service/contract.dart and AutomixContract.kt in sync.
+#define NAR_AUTOMIX_BPM_MIN 50.0
+#define NAR_AUTOMIX_BPM_MAX 220.0
+#define NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN 0.35
+#define NAR_AUTOMIX_KEY_CONFIDENCE_MIN 0.55
+#define NAR_AUTOMIX_STRUCTURE_CONFIDENCE_MIN 0.65
+#define NAR_AUTOMIX_DROP_CONFIDENCE_MIN 0.55
+#define NAR_AUTOMIX_VOCAL_CONFIDENCE_MIN 0.45
+#define NAR_AUTOMIX_VOCAL_LIKELIHOOD_MIN 0.55
+#define NAR_AUTOMIX_FADE_MIN_SECONDS 1.5
+#define NAR_AUTOMIX_FADE_MAX_SECONDS 12.0
+
 // Structural region classification labels.
 enum NarAutomixStructureRegion {
   NAR_AUTOMIX_STRUCTURE_UNKNOWN = 0,
@@ -81,7 +96,7 @@ enum NarAutomixFeatureIndex {
 //  8: Spectral centroid Hz (active frame median)
 //  9: Onset rate (onsets/sec)
 // 10: Analyzed duration in seconds
-// 11: Confident 16-beat phrase-start offset ms (NaN when unknown)
+// 11: Confident metre x4 phrase-start offset ms (NaN when unknown)
 // 12: Drop cue ms (NaN when unknown)
 // 13: Breakdown cue ms (NaN when unknown)
 // 14: Drop confidence (0..1)

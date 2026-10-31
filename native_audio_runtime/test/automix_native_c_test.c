@@ -1173,6 +1173,31 @@ static void test_analyzer_phrase_phase_fractional_grid(void) {
   free(pcm);
 }
 
+static void test_analyzer_bpm_contract_range(void) {
+  // The analyzer must cover the same 50-220 BPM contract as the planner and
+  // both playback consumers. 50 BPM used to be outside the autocorrelation
+  // lag range (60 BPM floor) and 220 BPM above the old 200 BPM ceiling.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 30;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double bpms[] = {49.0, 50.0, 220.0, 221.0};
+  for (size_t i = 0; i < sizeof(bpms) / sizeof(bpms[0]); ++i) {
+    render_click_train(pcm, count, sample_rate, bpms[i], 31.0);
+    assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                               NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+    assert(isfinite(output[0]));
+    assert(output[0] >= NAR_AUTOMIX_BPM_MIN);
+    assert(output[0] <= NAR_AUTOMIX_BPM_MAX);
+    if (bpms[i] >= NAR_AUTOMIX_BPM_MIN &&
+        bpms[i] <= NAR_AUTOMIX_BPM_MAX) {
+      assert(fabs(output[0] - bpms[i]) < bpms[i] * 0.02);
+    }
+  }
+  free(pcm);
+}
+
 static void test_analyzer_tempo_subframe(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 32;
@@ -3182,6 +3207,54 @@ static void test_analyzer_phrase_phase_from_harmonic_change(void) {
   free(pcm);
 }
 
+static void test_analyzer_cue_snaps_to_measured_meter(void) {
+  // A 3/4 track with a 12-beat phrase grid (6 s at 120 BPM) starting at 0.5 s.
+  // The energy lift starts around 18.1 s, inside the 0.8-beat snap tolerance
+  // of the 18.5 s phrase boundary. The old hard-coded 16-beat grid put its
+  // nearest boundary at 16.5 s, so it could not snap this cue; metre x4 must.
+  const int32_t sample_rate = 22050;
+  const int32_t count = sample_rate * 60;
+  const double phrase_ms = 6000.0;
+  const double phase_ms = 500.0;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  const double pi = 3.14159265358979323846;
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double amplitude = 0.08;
+    if (t >= 18.0) {
+      amplitude = t >= 18.5 ? 0.28 : 0.08 + 0.20 * (t - 18.0) / 0.5;
+    }
+    double local = t - phase_ms / 1000.0;
+    if (local < 0.0) local += phrase_ms / 1000.0 * 4.0;
+    const int chord = ((int)floor(local / (phrase_ms / 1000.0))) % 2;
+    const double root = chord ? 174.6141 : 220.0;
+    const double third = chord ? 220.0 : 261.6256;
+    const double fifth = chord ? 261.6256 : 329.6276;
+    double value = amplitude * (sin(2.0 * pi * root * t) +
+                                sin(2.0 * pi * third * t) +
+                                sin(2.0 * pi * fifth * t));
+    const double beat = fmod(local, 0.5);
+    if (beat < 0.09) {
+      const int bar_position = ((int)floor(local / 0.5)) % 3;
+      const double accent = bar_position == 0 ? 1.60 : 0.15;
+      value += amplitude * accent * exp(-beat * 35.0) *
+          sin(2.0 * pi * 55.0 * beat);
+    }
+    pcm[i] = (float)value;
+  }
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  assert(fabs(output[0] / 120.0 - 1.0) < 0.02);
+  assert(output[32] == 3.0);
+  assert(isfinite(output[11]));
+  assert(fabs(output[11] - phase_ms) < 25.0);
+  assert(isfinite(output[12]));
+  assert(fabs(output[12] - 18500.0) < 80.0);
+  free(pcm);
+}
+
 static void test_analyzer_metre_and_section_boundary(void) {
   // 60 s at 120 BPM with an accented first beat of every three, and a chord
   // change from Am to F exactly at 30 s. Two independent features must be
@@ -3284,6 +3357,7 @@ int main(void) {
   test_live_tracker_resolves_third_and_double_tempo();
   test_live_tracker_reports_meter_and_rejects_flat_bars();
   test_analyzer_metre_and_section_boundary();
+  test_analyzer_cue_snaps_to_measured_meter();
   test_analyzer_section_boundary_survives_chord_progression();
   test_analyzer_backbeat_keeps_beat_level();
   test_analyzer_sparse_intro_keeps_chorus_tempo();
@@ -3328,6 +3402,7 @@ int main(void) {
   test_chord_hangover_bridges_one_gap_and_not_trailing_silence();
   test_analyzer_hpcp_key_detection();
   test_analyzer_tempo_curve();
+  test_analyzer_bpm_contract_range();
   test_analyzer_tempo_subframe();
   test_analyzer_beat_phase_timestamp();
   test_analyzer_phrase_phase_fractional_grid();

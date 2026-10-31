@@ -23,8 +23,6 @@ internal object AutomixTempoFollow {
     const val MAX_CORRECTION = 0.02f
     const val RAMP_FRACTION = 0.25f
 
-    private const val MIN_BPM = 50f
-    private const val MAX_BPM = 250f
     private const val STRETCH_MIN = 0.92
     private const val STRETCH_MAX = 1.08
     // Matches the controller's apply epsilon: smaller corrections would be
@@ -97,7 +95,8 @@ internal object AutomixTempoFollow {
         inRange(bpm) && confidence.isFinite() && confidence >= MIN_CONFIDENCE
 
     private fun inRange(bpm: Float?): Boolean =
-        bpm != null && bpm.isFinite() && bpm in MIN_BPM..MAX_BPM
+        bpm != null && bpm.isFinite() &&
+            bpm in AutomixContract.BPM_MIN..AutomixContract.BPM_MAX
 
     /** Keeps the octave candidate closest to 1.0 (same ratio, half/double pulse). */
     private fun foldOctave(ratio: Double): Double? {

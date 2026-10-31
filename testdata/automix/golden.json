@@ -5,8 +5,8 @@
     "click-090-4-4-C": {
       "analysis": {
         "bpm": 89.99428616488643,
-        "bpmConfidence": 0.8400019132196265,
-        "alternateBpm": 179.94259534885262,
+        "bpmConfidence": 0.8474463501669482,
+        "alternateBpm": 179.9875716557629,
         "beatOffsetMs": 659.3025927175379,
         "tonicPitchClass": 0,
         "isMinor": false,
@@ -24,12 +24,12 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.8400019132196265,
+        "tailBpmConfidence": 0.8474463501669482,
         "startBpm": 89.99449529027588,
         "endBpm": 90.01532074780906,
         "tempoStability": 0.9979718933866468,
-        "startBpmConfidence": 0.8127616151034087,
-        "endBpmConfidence": 0.8501946535250977,
+        "startBpmConfidence": 0.8243905928835911,
+        "endBpmConfidence": 0.855921376856874,
         "startBeatOffsetMs": 660.2158088452608,
         "endBeatOffsetMs": 2.593564581585838,
         "meter": 4,
@@ -37,8 +37,8 @@
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -28.17217445373535,
         "outroEdgeRmsDb": -28.166316986083984,
-        "introEdgeLufs": -26.11082413403867,
-        "outroEdgeLufs": -26.130657820135813,
+        "introEdgeLufs": -26.204896075035478,
+        "outroEdgeLufs": -26.22472976113266,
         "introEdgeOnsetRate": 2.999981859520124,
         "outroEdgeOnsetRate": 2.999981859520124,
         "energyQuarters": [
@@ -48,15 +48,15 @@
           -28.16425323486328
         ]
       },
-      "elapsedMs": 96,
-      "rssBytes": 207351808
+      "elapsedMs": 103,
+      "rssBytes": 216907776
     },
     "click-100-4-4-Am": {
       "analysis": {
-        "bpm": 99.98938023053132,
-        "bpmConfidence": 0.8708324424351599,
-        "alternateBpm": 199.99879063467523,
-        "beatOffsetMs": 591.3217914042995,
+        "bpm": 100.00127076745781,
+        "bpmConfidence": 0.8719683701671024,
+        "alternateBpm": 200.02859591748248,
+        "beatOffsetMs": 593.4095458805999,
         "tonicPitchClass": 9,
         "isMinor": true,
         "keyConfidence": 0.9346579905547474,
@@ -73,21 +73,21 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.8708324424351599,
-        "startBpm": 100.0793568449249,
-        "endBpm": 99.92673058523829,
-        "tempoStability": 0.9878740245548038,
-        "startBpmConfidence": 0.8560246399101183,
-        "endBpmConfidence": 0.8768650609110171,
-        "startBeatOffsetMs": 597.1284437553489,
-        "endBeatOffsetMs": 565.3839684655459,
+        "tailBpmConfidence": 0.8719683701671024,
+        "startBpm": 100.08712120471235,
+        "endBpm": 99.93562349169422,
+        "tempoStability": 0.9861898074997901,
+        "startBpmConfidence": 0.8573473882066965,
+        "endBpmConfidence": 0.8772793860178854,
+        "startBeatOffsetMs": 597.7580318927273,
+        "endBeatOffsetMs": 568.6752122884882,
         "meter": 4,
         "sectionCueMs": null,
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -27.93329620361328,
         "outroEdgeRmsDb": -27.93442153930664,
-        "introEdgeLufs": -25.45323126813291,
-        "outroEdgeLufs": -25.446742135950423,
+        "introEdgeLufs": -25.547303209129705,
+        "outroEdgeLufs": -25.540814076947118,
         "introEdgeOnsetRate": 3.333313177244582,
         "outroEdgeOnsetRate": 3.333313177244582,
         "energyQuarters": [
@@ -97,15 +97,15 @@
           -27.935287475585938
         ]
       },
-      "elapsedMs": 137,
-      "rssBytes": 218492928
+      "elapsedMs": 145,
+      "rssBytes": 227586048
     },
     "click-120-4-4-F": {
       "analysis": {
-        "bpm": 119.99882389074838,
-        "bpmConfidence": 0.7466370745422288,
-        "alternateBpm": 59.981067200557405,
-        "beatOffsetMs": 493.8531566119082,
+        "bpm": 120.0093611708461,
+        "bpmConfidence": 0.7839752849905266,
+        "alternateBpm": 59.98991608749683,
+        "beatOffsetMs": 495.7479109234368,
         "tonicPitchClass": 5,
         "isMinor": false,
         "keyConfidence": 0.913646863251294,
@@ -113,7 +113,7 @@
         "centroidHz": 588.8160400390625,
         "onsetRate": 3.763300235910031,
         "analyzedSeconds": 45.0,
-        "downbeatOffsetMs": 1993.8678581216416,
+        "downbeatOffsetMs": 1995.6309054154317,
         "dropCueMs": null,
         "breakdownCueMs": null,
         "dropConfidence": 0.0,
@@ -122,21 +122,21 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.7466370745422288,
-        "startBpm": 119.98927787066172,
-        "endBpm": 120.04029679791773,
-        "tempoStability": 0.9909261380870463,
-        "startBpmConfidence": 0.7419839530210826,
-        "endBpmConfidence": 0.7446516897711342,
-        "startBeatOffsetMs": 494.94867677031647,
-        "endBeatOffsetMs": 9.446773740639628,
+        "tailBpmConfidence": 0.7839752849905266,
+        "startBpm": 119.98872800030449,
+        "endBpm": 120.06944491502773,
+        "tempoStability": 0.9916664692583301,
+        "startBpmConfidence": 0.7813074941174678,
+        "endBpmConfidence": 0.7798565031467733,
+        "startBeatOffsetMs": 494.92478371496463,
+        "endBeatOffsetMs": 18.486085285810987,
         "meter": 4,
         "sectionCueMs": null,
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -27.824535369873047,
         "outroEdgeRmsDb": -27.83736801147461,
-        "introEdgeLufs": -25.06245544981901,
-        "outroEdgeLufs": -25.073974408810084,
+        "introEdgeLufs": -25.156527390815587,
+        "outroEdgeLufs": -25.168046349807046,
         "introEdgeOnsetRate": 3.866643285603715,
         "outroEdgeOnsetRate": 3.66664449496904,
         "energyQuarters": [
@@ -146,13 +146,13 @@
           -27.84037971496582
         ]
       },
-      "elapsedMs": 100,
-      "rssBytes": 222408704
+      "elapsedMs": 105,
+      "rssBytes": 231505920
     },
     "click-128-4-4-Gm": {
       "analysis": {
         "bpm": 128.02449055647403,
-        "bpmConfidence": 0.8641841127034608,
+        "bpmConfidence": 0.8665469329159441,
         "alternateBpm": 64.11282819693358,
         "beatOffsetMs": 467.34330362606664,
         "tonicPitchClass": 7,
@@ -171,12 +171,12 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.8641841127034608,
+        "tailBpmConfidence": 0.8665469329159441,
         "startBpm": 128.03383397191286,
         "endBpm": 127.97714161516379,
         "tempoStability": 0.9932480444739993,
-        "startBpmConfidence": 0.8465707962315133,
-        "endBpmConfidence": 0.8689231440874359,
+        "startBpmConfidence": 0.8493213989648745,
+        "endBpmConfidence": 0.8739457411714437,
         "startBeatOffsetMs": 463.6342676515189,
         "endBeatOffsetMs": 459.305030700156,
         "meter": 4,
@@ -184,8 +184,8 @@
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -28.387880325317383,
         "outroEdgeRmsDb": -28.389530181884766,
-        "introEdgeLufs": -25.443705255147464,
-        "outroEdgeLufs": -25.441056315994743,
+        "introEdgeLufs": -25.537777196144237,
+        "outroEdgeLufs": -25.535128256991552,
         "introEdgeOnsetRate": 3.9999758126934983,
         "outroEdgeOnsetRate": 3.9999758126934983,
         "energyQuarters": [
@@ -195,15 +195,15 @@
           -28.393474578857422
         ]
       },
-      "elapsedMs": 127,
-      "rssBytes": 226426880
+      "elapsedMs": 134,
+      "rssBytes": 236081152
     },
     "click-140-4-4-D": {
       "analysis": {
-        "bpm": 140.01569910770135,
-        "bpmConfidence": 0.77458759540342,
+        "bpm": 139.9918930391505,
+        "bpmConfidence": 0.7816864322581687,
         "alternateBpm": 69.99902589252633,
-        "beatOffsetMs": 424.71174353761467,
+        "beatOffsetMs": 421.41223251065793,
         "tonicPitchClass": 2,
         "isMinor": false,
         "keyConfidence": 0.8999030652888023,
@@ -220,21 +220,21 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.77458759540342,
-        "startBpm": 140.03643108715713,
-        "endBpm": 140.04268424914608,
-        "tempoStability": 0.9938443299170278,
-        "startBpmConfidence": 0.7655766835606237,
-        "endBpmConfidence": 0.7747126796331854,
-        "startBeatOffsetMs": 424.3344038440182,
-        "endBeatOffsetMs": 9.051915347834665,
+        "tailBpmConfidence": 0.7816864322581687,
+        "startBpm": 140.01135017759876,
+        "endBpm": 140.09614743119823,
+        "tempoStability": 0.9904499250420682,
+        "startBpmConfidence": 0.7754486973801493,
+        "endBpmConfidence": 0.781027308714936,
+        "startBeatOffsetMs": 423.3895116571641,
+        "endBeatOffsetMs": 23.90011533002587,
         "meter": 4,
         "sectionCueMs": null,
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -28.3994083404541,
         "outroEdgeRmsDb": -28.399667739868164,
-        "introEdgeLufs": -25.307033659109468,
-        "outroEdgeLufs": -25.25014780316016,
+        "introEdgeLufs": -25.40110560010608,
+        "outroEdgeLufs": -25.34421974415704,
         "introEdgeOnsetRate": 4.199974603328173,
         "outroEdgeOnsetRate": 3.9999758126934983,
         "energyQuarters": [
@@ -244,15 +244,15 @@
           -28.403894424438477
         ]
       },
-      "elapsedMs": 84,
-      "rssBytes": 230924288
+      "elapsedMs": 88,
+      "rssBytes": 240054272
     },
     "click-174-4-4-Em": {
       "analysis": {
-        "bpm": 174.04363730263512,
-        "bpmConfidence": 0.8650239931062036,
+        "bpm": 174.04458724346534,
+        "bpmConfidence": 0.856734601339806,
         "alternateBpm": 87.03464042945716,
-        "beatOffsetMs": 1.1575061666055149,
+        "beatOffsetMs": 1.369671618068537,
         "tonicPitchClass": 4,
         "isMinor": true,
         "keyConfidence": 0.9519468896373822,
@@ -269,21 +269,21 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.8650239931062036,
-        "startBpm": 173.9367160916421,
-        "endBpm": 174.0280691154586,
-        "tempoStability": 0.9857779404293925,
-        "startBpmConfidence": 0.8505787528793815,
-        "endBpmConfidence": 0.8720138583892822,
-        "startBeatOffsetMs": 337.42657494092896,
-        "endBeatOffsetMs": 2.6830041293809472,
+        "tailBpmConfidence": 0.856734601339806,
+        "startBpm": 173.9364791805786,
+        "endBpm": 174.03256891694204,
+        "tempoStability": 0.9857070786440487,
+        "startBpmConfidence": 0.8465962851209815,
+        "endBpmConfidence": 0.8636347052716058,
+        "startBeatOffsetMs": 337.4206021895289,
+        "endBeatOffsetMs": 3.7035690659562306,
         "meter": 4,
         "sectionCueMs": null,
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -28.345420837402344,
         "outroEdgeRmsDb": -28.34445571899414,
-        "introEdgeLufs": -24.719443177059578,
-        "outroEdgeLufs": -24.66897865133931,
+        "introEdgeLufs": -24.81351511805656,
+        "outroEdgeLufs": -24.763050592336093,
         "introEdgeOnsetRate": 4.666638448142415,
         "outroEdgeOnsetRate": 4.199974603328173,
         "energyQuarters": [
@@ -293,15 +293,15 @@
           -28.345945358276367
         ]
       },
-      "elapsedMs": 83,
-      "rssBytes": 234897408
+      "elapsedMs": 87,
+      "rssBytes": 244027392
     },
     "click-120-3-4-C": {
       "analysis": {
-        "bpm": 119.9785884753634,
-        "bpmConfidence": 0.7448626859734296,
-        "alternateBpm": 60.09265988372093,
-        "beatOffsetMs": 491.70885563140746,
+        "bpm": 120.01657761001329,
+        "bpmConfidence": 0.7781790714822576,
+        "alternateBpm": 60.03108647870994,
+        "beatOffsetMs": 498.4567496160983,
         "tonicPitchClass": 0,
         "isMinor": false,
         "keyConfidence": 0.8392081827080142,
@@ -309,7 +309,7 @@
         "centroidHz": 444.7144775390625,
         "onsetRate": 3.4070114561789038,
         "analyzedSeconds": 45.0,
-        "downbeatOffsetMs": 5992.690392312225,
+        "downbeatOffsetMs": 5997.697047440875,
         "dropCueMs": null,
         "breakdownCueMs": null,
         "dropConfidence": 0.0,
@@ -318,21 +318,21 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.7448626859734296,
-        "startBpm": 120.05585273696786,
-        "endBpm": 120.00986145360832,
-        "tempoStability": 0.9881469308356294,
-        "startBpmConfidence": 0.7392540332829896,
-        "endBpmConfidence": 0.7509192505601268,
-        "startBeatOffsetMs": 498.4372659449089,
-        "endBeatOffsetMs": 0.4533269736600687,
+        "tailBpmConfidence": 0.7781790714822576,
+        "startBpm": 120.04521340675738,
+        "endBpm": 120.032316175514,
+        "tempoStability": 0.9882131528723749,
+        "startBpmConfidence": 0.7722807019930173,
+        "endBpmConfidence": 0.7784081874701306,
+        "startBeatOffsetMs": 497.72230004361427,
+        "endBeatOffsetMs": 7.44230654658395,
         "meter": 3,
         "sectionCueMs": null,
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -28.08500099182129,
         "outroEdgeRmsDb": -28.085735321044922,
-        "introEdgeLufs": -25.232236140403693,
-        "outroEdgeLufs": -25.22958319990069,
+        "introEdgeLufs": -25.326308081400427,
+        "outroEdgeLufs": -25.32365514089742,
         "introEdgeOnsetRate": 3.333313177244582,
         "outroEdgeOnsetRate": 3.399979440789474,
         "energyQuarters": [
@@ -342,15 +342,15 @@
           -28.08789825439453
         ]
       },
-      "elapsedMs": 83,
-      "rssBytes": 238870528
+      "elapsedMs": 87,
+      "rssBytes": 248000512
     },
     "click-120-6-8-Am": {
       "analysis": {
-        "bpm": 119.97577799929267,
-        "bpmConfidence": 0.7568617674568674,
-        "alternateBpm": 60.09265988372093,
-        "beatOffsetMs": 490.48841440104604,
+        "bpm": 120.00955842872713,
+        "bpmConfidence": 0.7959130425436935,
+        "alternateBpm": 60.03121958226161,
+        "beatOffsetMs": 495.3374812568417,
         "tonicPitchClass": 9,
         "isMinor": true,
         "keyConfidence": 0.9312958781966226,
@@ -367,21 +367,21 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.7568617674568674,
-        "startBpm": 120.02592640443861,
-        "endBpm": 120.06925850711121,
-        "tempoStability": 0.9859096172499118,
-        "startBpmConfidence": 0.7496797367981456,
-        "endBpmConfidence": 0.7610780368348751,
-        "startBeatOffsetMs": 495.7218922412223,
-        "endBeatOffsetMs": 18.17445660370845,
+        "tailBpmConfidence": 0.7959130425436935,
+        "startBpm": 119.98819161760981,
+        "endBpm": 120.06456312349724,
+        "tempoStability": 0.9935716474342943,
+        "startBpmConfidence": 0.7907918547140238,
+        "endBpmConfidence": 0.7997347588903183,
+        "startBeatOffsetMs": 494.1141053580214,
+        "endBeatOffsetMs": 16.719727873191914,
         "meter": 6,
         "sectionCueMs": null,
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -27.819883346557617,
         "outroEdgeRmsDb": -27.82334327697754,
-        "introEdgeLufs": -25.204315276016686,
-        "outroEdgeLufs": -25.18839412685574,
+        "introEdgeLufs": -25.298387217013392,
+        "outroEdgeLufs": -25.282466067852585,
         "introEdgeOnsetRate": 3.9999758126934983,
         "outroEdgeOnsetRate": 3.9999758126934983,
         "energyQuarters": [
@@ -391,8 +391,8 @@
           -27.824478149414062
         ]
       },
-      "elapsedMs": 86,
-      "rssBytes": 219029504
+      "elapsedMs": 87,
+      "rssBytes": 228143104
     },
     "tone-C-major": {
       "analysis": {
@@ -429,8 +429,8 @@
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -14.71146011352539,
         "outroEdgeRmsDb": -14.711526870727539,
-        "introEdgeLufs": -15.46691189644799,
-        "outroEdgeLufs": -15.467728014110039,
+        "introEdgeLufs": -15.560983837444896,
+        "outroEdgeLufs": -15.56179995510689,
         "introEdgeOnsetRate": 0.5333301083591331,
         "outroEdgeOnsetRate": 0.4666638448142415,
         "energyQuarters": [
@@ -440,13 +440,13 @@
           -14.713846206665039
         ]
       },
-      "elapsedMs": 63,
-      "rssBytes": 217714688
+      "elapsedMs": 64,
+      "rssBytes": 226828288
     },
     "tone-A-minor": {
       "analysis": {
-        "bpm": 119.98516727774586,
-        "bpmConfidence": 0.12832533169860305,
+        "bpm": 90.00694605840489,
+        "bpmConfidence": 0.1054113306831395,
         "alternateBpm": 179.94320160167166,
         "beatOffsetMs": null,
         "tonicPitchClass": 9,
@@ -465,7 +465,7 @@
         "structureConfidence": 0.75,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.12832533169860305,
+        "tailBpmConfidence": 0.1054113306831395,
         "startBpm": null,
         "endBpm": null,
         "tempoStability": null,
@@ -478,8 +478,8 @@
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -14.704970359802246,
         "outroEdgeRmsDb": -14.702247619628906,
-        "introEdgeLufs": -15.128216484116406,
-        "outroEdgeLufs": -15.128846823051399,
+        "introEdgeLufs": -15.222288425113305,
+        "outroEdgeLufs": -15.222918764048218,
         "introEdgeOnsetRate": 0.4666638448142415,
         "outroEdgeOnsetRate": 0.4666638448142415,
         "energyQuarters": [
@@ -489,15 +489,15 @@
           -14.701478958129883
         ]
       },
-      "elapsedMs": 74,
-      "rssBytes": 216391680
+      "elapsedMs": 76,
+      "rssBytes": 225443840
     },
     "noise-30s": {
       "analysis": {
-        "bpm": 198.76802884615384,
-        "bpmConfidence": 0.3394430903795649,
-        "alternateBpm": 98.73242395170575,
-        "beatOffsetMs": 190.79766288445012,
+        "bpm": 200.11820375981347,
+        "bpmConfidence": 0.33211282885266563,
+        "alternateBpm": 98.9583644665563,
+        "beatOffsetMs": null,
         "tonicPitchClass": null,
         "isMinor": false,
         "keyConfidence": 0.0,
@@ -514,7 +514,7 @@
         "structureConfidence": 0.5,
         "vocalLikelihood": 0.0,
         "vocalConfidence": 0.0,
-        "tailBpmConfidence": 0.3394430903795649,
+        "tailBpmConfidence": 0.33211282885266563,
         "startBpm": null,
         "endBpm": null,
         "tempoStability": null,
@@ -527,8 +527,8 @@
         "sectionCueConfidence": 0.0,
         "introEdgeRmsDb": -21.232685089111328,
         "outroEdgeRmsDb": -21.25033950805664,
-        "introEdgeLufs": -18.301304003515714,
-        "outroEdgeLufs": -18.318701405420708,
+        "introEdgeLufs": -18.395375944512455,
+        "outroEdgeLufs": -18.41277334641741,
         "introEdgeOnsetRate": 0.33333131772445823,
         "outroEdgeOnsetRate": 10.999933484907121,
         "energyQuarters": [
@@ -538,8 +538,8 @@
           -21.241943359375
         ]
       },
-      "elapsedMs": 149,
-      "rssBytes": 216391680
+      "elapsedMs": 171,
+      "rssBytes": 225513472
     },
     "silence-5s": {
       "analysis": {
@@ -587,8 +587,8 @@
           -120.0
         ]
       },
-      "elapsedMs": 28,
-      "rssBytes": 216453120
+      "elapsedMs": 25,
+      "rssBytes": 225505280
     }
   }
 }

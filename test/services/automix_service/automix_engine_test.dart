@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:musicplayer/services/automix_service.dart';
 
@@ -80,6 +82,56 @@ AutomixTrackFeatures _f(
 }
 
 void main() {
+  group('AutoMix decision contract', () {
+    test('native header and Dart mirror agree', () {
+      final header = File(
+        'native_audio_runtime/src/automix_native.h',
+      ).readAsStringSync();
+      double define(String name) {
+        final match = RegExp(
+          '#define $name ([0-9.]+)',
+        ).firstMatch(header);
+        expect(match, isNotNull, reason: name);
+        return double.parse(match!.group(1)!);
+      }
+
+      expect(AutomixContract.bpmMin, define('NAR_AUTOMIX_BPM_MIN'));
+      expect(AutomixContract.bpmMax, define('NAR_AUTOMIX_BPM_MAX'));
+      expect(
+        AutomixContract.tempoConfidenceMin,
+        define('NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN'),
+      );
+      expect(
+        AutomixContract.keyConfidenceMin,
+        define('NAR_AUTOMIX_KEY_CONFIDENCE_MIN'),
+      );
+      expect(
+        AutomixContract.structureConfidenceMin,
+        define('NAR_AUTOMIX_STRUCTURE_CONFIDENCE_MIN'),
+      );
+      expect(
+        AutomixContract.dropConfidenceMin,
+        define('NAR_AUTOMIX_DROP_CONFIDENCE_MIN'),
+      );
+      expect(
+        AutomixContract.vocalConfidenceMin,
+        define('NAR_AUTOMIX_VOCAL_CONFIDENCE_MIN'),
+      );
+      expect(
+        AutomixContract.vocalLikelihoodMin,
+        define('NAR_AUTOMIX_VOCAL_LIKELIHOOD_MIN'),
+      );
+      expect(
+        AutomixContract.fadeMinSeconds,
+        define('NAR_AUTOMIX_FADE_MIN_SECONDS'),
+      );
+      expect(
+        AutomixContract.fadeMaxSeconds,
+        define('NAR_AUTOMIX_FADE_MAX_SECONDS'),
+      );
+    });
+  });
+
   group('AutoMix analysis window sizing', () {
     test('short multi-window tracks use disjoint bounded halves', () {
       for (final duration in <double>[120.1, 121, 180, 239.9]) {
@@ -1303,6 +1355,10 @@ void main() {
 
       expect(native.order, [0, 1, 3, 2]);
       expect(native.order, reference.order);
+      // The path and average cost include the same full artist cooldown in
+      // both implementations, not only the transition term.
+      expect(native.averageCost, closeTo(reference.averageCost, 1e-10));
+      expect(native.averageCost, greaterThan(0));
     });
 
     test(
@@ -2045,6 +2101,7 @@ void main() {
       double tailBpmConfidence = 0,
       double? tailBeatOffsetMs,
       double? beatOffsetMs,
+      int tailMeter = 4,
       double? dropCueMs,
       double dropConfidence = 0,
       double bpmConfidence = 0.9,
@@ -2073,6 +2130,7 @@ void main() {
       beatOffsetMs: beatOffsetMs,
       tailBpm: tailBpm,
       tailBpmConfidence: tailBpmConfidence,
+      tailMeter: tailMeter,
       tailBeatOffsetMs: tailBeatOffsetMs,
       dropCueMs: dropCueMs,
       dropConfidence: dropConfidence,
@@ -2170,9 +2228,9 @@ void main() {
         incoming: track(2, lufs: -16, tailBpm: 120),
         settings: const AutomixSettings(),
       );
-      // Dense outro selects a quick handover rather than a generic 8 s fade.
+      // Dense outro selects a quick handover: one 4/4 bar at 120 BPM.
       expect(cue.strategy, AutomixTransitionStrategy.quickHandover);
-      expect(cue.fadeSeconds, lessThanOrEqualTo(3.0));
+      expect(cue.fadeSeconds, closeTo(2.0, 1e-9));
       expect(cue.curveGamma, greaterThanOrEqualTo(1.35));
       expect(cue.outgoingTrim, closeTo(0.6309, 0.001)); // 4 dB
       expect(cue.incomingTrim, 1.0);
@@ -2623,12 +2681,97 @@ void main() {
           settings: const AutomixSettings(),
         );
 
-        // A confident mismatch is classified and bounded as a short handover.
+        // A confident mismatch is a short handover: half a 4/4 bar at 120 BPM
+        // is 1 s, raised to the 1.5 s musical floor.
         expect(cue.strategy, AutomixTransitionStrategy.shortHandover);
-        expect(cue.fadeSeconds, 4.0);
+        expect(cue.fadeSeconds, 1.5);
         expect(cue.curveGamma, greaterThanOrEqualTo(1.20));
       },
     );
+
+    test('sizes short, quick and long transitions in outgoing bars', () {
+      // 60 BPM keeps every half-beat quantisation exact, and a two-beat base
+      // fade leaves the strategy itself to choose the duration. A 2-beat bar
+      // is the compound 6/8 pulse produced by the analyzer.
+      const cases = <int, List<double>>{
+        2: [1.5, 2.0, 4.0], // half bar -> floor, one bar, two bars
+        3: [1.5, 3.0, 6.0],
+        4: [2.0, 4.0, 8.0],
+        6: [3.0, 6.0, 12.0],
+      };
+      for (final entry in cases.entries) {
+        final meter = entry.key;
+        final short = automixTransitionCue(
+          outgoing: track(
+            1,
+            tailBpm: 60,
+            tailBpmConfidence: 0.9,
+            tailMeter: meter,
+          ),
+          incoming: track(2, tailBpm: 90, bpmConfidence: 0.9),
+          settings: const AutomixSettings(crossfadeBeats: 2),
+        );
+        expect(
+          short.strategy,
+          AutomixTransitionStrategy.shortHandover,
+          reason: 'meter $meter',
+        );
+        expect(short.fadeSeconds, closeTo(entry.value[0], 1e-9));
+
+        final quick = automixTransitionCue(
+          outgoing: track(1, tailBpm: 60, tailMeter: meter, outro: 0.9),
+          incoming: track(2, tailBpm: 60),
+          settings: const AutomixSettings(crossfadeBeats: 2),
+        );
+        expect(
+          quick.strategy,
+          AutomixTransitionStrategy.quickHandover,
+          reason: 'meter $meter',
+        );
+        expect(quick.fadeSeconds, closeTo(entry.value[1], 1e-9));
+
+        final long = automixTransitionCue(
+          outgoing: track(1, tailBpm: 60, tailMeter: meter, outro: 0.2),
+          incoming: track(2, tailBpm: 60),
+          settings: const AutomixSettings(crossfadeBeats: 2),
+        );
+        expect(
+          long.strategy,
+          AutomixTransitionStrategy.longBlend,
+          reason: 'meter $meter',
+        );
+        expect(long.fadeSeconds, closeTo(entry.value[2], 1e-9));
+      }
+    });
+
+    test('clamps extreme bar lengths to the 1.5-12 s envelope', () {
+      final fast = automixTransitionCue(
+        outgoing: track(1, tailBpm: 220, tailMeter: 4, outro: 0.9),
+        incoming: track(2, tailBpm: 220),
+        settings: const AutomixSettings(crossfadeBeats: 2),
+      );
+      // One 4/4 bar at 220 BPM is 1.09 s; both quick and short clamp up.
+      expect(fast.fadeSeconds, 1.5);
+      final fastShort = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 220,
+          tailBpmConfidence: 0.9,
+          tailMeter: 4,
+        ),
+        incoming: track(2, tailBpm: 110, bpmConfidence: 0.9),
+        settings: const AutomixSettings(crossfadeBeats: 2),
+      );
+      expect(fastShort.fadeSeconds, 1.5);
+
+      final slow = automixTransitionCue(
+        outgoing: track(1, tailBpm: 50, tailMeter: 6, outro: 0.2),
+        incoming: track(2, tailBpm: 50),
+        settings: const AutomixSettings(crossfadeBeats: 2),
+      );
+      // Two 6/8 bars at 50 BPM are 14.4 s, capped at the 12 s envelope.
+      expect(slow.fadeSeconds, 12.0);
+    });
 
     test(
       'keeps tempo mismatches neutral when either estimate is uncertain',

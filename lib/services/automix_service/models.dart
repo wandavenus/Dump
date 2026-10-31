@@ -180,7 +180,7 @@ class AutomixSegmentFeatures {
   /// Dominant-beat phase relative to this analysis window (ms).
   final double? beatOffsetMs;
 
-  /// Estimated 16-beat phrase-start phase relative to this window (ms).
+  /// Estimated metre x4 phrase-start phase relative to this window (ms).
   /// It stays null unless repeated onset accents distinguish one phrase phase.
   final double? downbeatOffsetMs;
 
@@ -483,10 +483,10 @@ class AutomixTrackFeatures {
   /// This is a heuristic onset-grid phase, not a guaranteed musical downbeat.
   final double? beatOffsetMs;
 
-  /// Estimated intro 16-beat phrase phase in milliseconds from the file start.
+  /// Estimated intro metre x4 phrase phase in milliseconds from the file start.
   final double? downbeatOffsetMs;
 
-  /// Estimated outro 16-beat phrase phase in milliseconds from the file start.
+  /// Estimated outro metre x4 phrase phase in milliseconds from the file start.
   final double? tailDownbeatOffsetMs;
 
   /// Beats per bar of the head (intro) analysis window, and of the exit

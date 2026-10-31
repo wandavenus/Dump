@@ -319,7 +319,8 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
       feature(rows, a, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
   const int use_tail_bpm =
       isfinite(tail_bpm_a) && tail_bpm_a > 0.0 &&
-      isfinite(tail_confidence_a) && tail_confidence_a >= 0.35 &&
+      isfinite(tail_confidence_a) &&
+      tail_confidence_a >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
       tail_confidence_a <= 1.0;
   // Use the measured local intro BPM only when its own confidence satisfies
   // the same threshold as phase-grid publication. Otherwise fall back to the
@@ -331,7 +332,8 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   const int use_start_bpm =
       isfinite(local_start_bpm_b) && local_start_bpm_b > 0.0 &&
       isfinite(local_start_confidence_b) &&
-      local_start_confidence_b >= 0.35 && local_start_confidence_b <= 1.0;
+      local_start_confidence_b >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+      local_start_confidence_b <= 1.0;
   const double bpm_b = use_start_bpm
       ? local_start_bpm_b
       : feature(rows, b, NAR_AUTOMIX_BPM);
@@ -364,7 +366,8 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
            outro_stability_weight +
        (isfinite(confidence_b) ? confidence_b : 0.0) *
            intro_stability_weight) * 0.5);
-  const double tempo = confidence_blend(measured_tempo, tempo_confidence, 0.35);
+  const double tempo = confidence_blend(
+      measured_tempo, tempo_confidence, NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN);
 
   const int32_t num_a = key_field(keys, a, 0);
   const int32_t mode_a = key_field(keys, a, 1);
@@ -377,7 +380,9 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
       ((isfinite(key_conf_a) ? key_conf_a : 0.0) +
        (isfinite(key_conf_b) ? key_conf_b : 0.0)) * 0.5);
   double key = confidence_blend(measured_key, key_confidence, 0.5);
-  if (harmonic_filter && key_confidence >= 0.55 && measured_key >= 0.6) {
+  if (harmonic_filter &&
+      key_confidence >= NAR_AUTOMIX_KEY_CONFIDENCE_MIN &&
+      measured_key >= 0.6) {
     key = fmax(key, 0.9);
   }
 
@@ -421,7 +426,8 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   double structure = 0.0;
   if (isfinite(tail_region_raw) && isfinite(head_region_raw) &&
       isfinite(tail_region_confidence) && isfinite(head_region_confidence) &&
-      tail_region_confidence >= 0.5 && head_region_confidence >= 0.5) {
+      tail_region_confidence >= NAR_AUTOMIX_STRUCTURE_CONFIDENCE_MIN &&
+      head_region_confidence >= NAR_AUTOMIX_STRUCTURE_CONFIDENCE_MIN) {
     const int32_t tail_region = (int32_t)lround(tail_region_raw);
     const int32_t head_region = (int32_t)lround(head_region_raw);
     if (tail_region >= NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY &&
@@ -450,8 +456,10 @@ static double transition_cost(int32_t a, int32_t b, int32_t step_index,
   double vocal_cost = 0.0;
   if (isfinite(vocal_a) && isfinite(vocal_b) &&
       isfinite(conf_a) && isfinite(conf_b) &&
-      conf_a >= 0.35 && conf_b >= 0.35 &&
-      vocal_a > 0.5 && vocal_b > 0.5) {
+      conf_a >= NAR_AUTOMIX_VOCAL_CONFIDENCE_MIN &&
+      conf_b >= NAR_AUTOMIX_VOCAL_CONFIDENCE_MIN &&
+      vocal_a >= NAR_AUTOMIX_VOCAL_LIKELIHOOD_MIN &&
+      vocal_b >= NAR_AUTOMIX_VOCAL_LIKELIHOOD_MIN) {
     const double effective_a = (vocal_a - 0.5) * conf_a;
     const double effective_b = (vocal_b - 0.5) * conf_b;
     vocal_cost = fmin(1.0, fmax(0.0, effective_a * effective_b * 4.0));
@@ -499,14 +507,16 @@ static double candidate_seam_tempo(const double* rows, int32_t index) {
   const double start_confidence =
       feature(rows, index, NAR_AUTOMIX_START_BPM_CONFIDENCE);
   if (isfinite(start) && start > 0.0 && isfinite(start_confidence) &&
-      start_confidence >= 0.35 && start_confidence <= 1.0) {
+      start_confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+      start_confidence <= 1.0) {
     return start;
   }
   const double end = feature(rows, index, NAR_AUTOMIX_TAIL_BPM);
   const double end_confidence =
       feature(rows, index, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
   if (isfinite(end) && end > 0.0 && isfinite(end_confidence) &&
-      end_confidence >= 0.35 && end_confidence <= 1.0) {
+      end_confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+      end_confidence <= 1.0) {
     return end;
   }
   return NAN;
@@ -533,7 +543,8 @@ static void candidate_pool(int32_t current, const TempoSlot* slots,
   const double tail_confidence =
       feature(rows, current, NAR_AUTOMIX_TAIL_BPM_CONFIDENCE);
   const double exit_bpm = isfinite(tail_bpm) && tail_bpm > 0.0 &&
-          isfinite(tail_confidence) && tail_confidence >= 0.35
+          isfinite(tail_confidence) &&
+          tail_confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN
       ? tail_bpm : bpm;
   const double alternate = feature(rows, current, NAR_AUTOMIX_ALTERNATE_BPM);
   if (isfinite(exit_bpm) && exit_bpm > 0.0) {
@@ -766,9 +777,12 @@ static double path_cost(const int32_t* plan, int32_t count,
   double sum = 0.0;
   for (int32_t i = 0; i + 1 < count; ++i) {
     sum += transition_cost(
-        plan[i], plan[i + 1], i + 1, count, song_ids, artist_groups, rows,
-        keys, energies, arc, profile, tolerance, avoid_artist_repeat,
-        harmonic_filter);
+               plan[i], plan[i + 1], i + 1, count, song_ids, artist_groups,
+               rows, keys, energies, arc, profile, tolerance,
+               avoid_artist_repeat, harmonic_filter) +
+        artist_cooldown_cost(plan, i + 1, i + 1, artist_groups,
+                             artist_groups[plan[i + 1]],
+                             avoid_artist_repeat);
   }
   return sum;
 }
@@ -787,9 +801,9 @@ static double link_cost(const int32_t* plan, int32_t from, int32_t to,
              plan[from], plan[to], to, count, song_ids, artist_groups, rows,
              keys, energies, arc, profile, tolerance, avoid_artist_repeat,
              harmonic_filter) +
-      0.05 * artist_cooldown_cost(plan, to, to, artist_groups,
-                                  artist_groups[plan[to]],
-                                  avoid_artist_repeat);
+      artist_cooldown_cost(plan, to, to, artist_groups,
+                           artist_groups[plan[to]],
+                           avoid_artist_repeat);
 }
 
 // Sum of the path links (p-1, p) for p in [first_link, last_link]. Used by
@@ -866,12 +880,16 @@ static double crossfade_seconds(const int32_t* plan, int32_t count,
   }
   if (tempo_count == 0) {
     free(tempos);
-    return fmin(12.0, fmax(1.5, crossfade_beats * 60.0 / 110.0));
+    return fmin(NAR_AUTOMIX_FADE_MAX_SECONDS,
+                fmax(NAR_AUTOMIX_FADE_MIN_SECONDS,
+                     crossfade_beats * 60.0 / 110.0));
   }
   qsort(tempos, (size_t)tempo_count, sizeof(double), compare_double);
   const double median = tempos[tempo_count / 2];
   free(tempos);
-  return fmin(12.0, fmax(1.5, crossfade_beats * 60.0 / median));
+  return fmin(NAR_AUTOMIX_FADE_MAX_SECONDS,
+              fmax(NAR_AUTOMIX_FADE_MIN_SECONDS,
+                   crossfade_beats * 60.0 / median));
 }
 
 int32_t nar_automix_plan_set(

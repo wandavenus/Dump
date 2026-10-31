@@ -14,8 +14,8 @@
 #define FFT_SIZE 2048
 #define FFT_BINS (FFT_SIZE / 2)
 #define HOP_SIZE 512
-#define BPM_MIN 60.0
-#define BPM_MAX 200.0
+#define BPM_MIN NAR_AUTOMIX_BPM_MIN
+#define BPM_MAX NAR_AUTOMIX_BPM_MAX
 #define CHROMA_MIN_FREQ 55.0
 #define CHROMA_MAX_FREQ 5000.0
 // Onset bands for the beat/bar phase grid. A broadband log-flux onset
@@ -1072,7 +1072,8 @@ static TempoEstimate estimate_tempo(const float* odf, int32_t count,
   for (int32_t index = 0; index < 4; ++index) {
     const TempoEstimate local = estimate_tempo_window(
         odf + (size_t)index * (size_t)quarter, quarter, working_rate, fps);
-    if (!local.valid || !isfinite(local.bpm) || local.confidence < 0.35) {
+    if (!local.valid || !isfinite(local.bpm) ||
+        local.confidence < NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN) {
       continue;
     }
     bpms[votes] = local.bpm;
@@ -2072,7 +2073,10 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
           beat_odf + (size_t)index * (size_t)quarter;
       const TempoEstimate local = estimate_tempo(
           quarter_beat_odf, quarter, sample_rate, fps);
-      if (!local.valid || local.confidence < 0.35) continue;
+      if (!local.valid ||
+          local.confidence < NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN) {
+        continue;
+      }
       error_sum += folded_tempo_error(local.bpm, tempo.bpm);
       error_count++;
 
@@ -2150,7 +2154,9 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // strict for a bar/metre hypothesis that is scored on its own evidence. The
   // Dart grid publishes at 0.35, and a waltz measured 0.44 after the beat-band
   // tempo change while its metre evidence was unchanged.
-  if (tempo.valid && tempo.confidence >= 0.35 && isfinite(output[3])) {
+  if (tempo.valid &&
+      tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+      isfinite(output[3])) {
     const double beat_ms = beat_period_ms(tempo.bpm);
     if (beat_ms >= 30.0) {
       const NarPhraseEstimate phrase = estimate_phrase_grid(
@@ -2267,19 +2273,34 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       }
     }
 
+    // The cue grid must use the same metre x4 phrase length as the published
+    // phrase phase and the live/offline phrase grids. Hard-coding 16 beats
+    // shifted a 3/4 cue by up to four beats and a 6/8 cue by up to eight.
+    int32_t phrase_meter = 4;
+    if (isfinite(output[32])) {
+      const int32_t measured_meter = (int32_t)llround(output[32]);
+      if (measured_meter == 2 || measured_meter == 3 ||
+          measured_meter == 4 || measured_meter == 6) {
+        phrase_meter = measured_meter;
+      }
+    }
+    const double cue_phrase_beats = (double)(phrase_meter * 4);
+
     double raw_drop_ms = NAN;
     double raw_breakdown_ms = NAN;
     if (best_drop_idx >= 0) {
       raw_drop_ms = best_drop_idx * (double)HOP_SIZE * 1000.0 / working_rate;
       const double conf = fmin(1.0, fmax(0.2, best_drop_score / 12.0));
       output[14] = conf;
-      if (tempo.valid && tempo.confidence >= 0.35 && isfinite(output[3])) {
+      if (tempo.valid &&
+          tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+          isfinite(output[3])) {
         const double beat_ms = 60000.0 / tempo.bpm;
         const double beat_offset = output[3];
         const double phrase_offset = output[11];
         double snapped = raw_drop_ms;
         if (isfinite(phrase_offset)) {
-          const double phrase_ms = beat_ms * 16.0;
+          const double phrase_ms = beat_ms * cue_phrase_beats;
           const double p_step = round((raw_drop_ms - phrase_offset) / phrase_ms);
           const double p_snap = phrase_offset + p_step * phrase_ms;
           if (fabs(p_snap - raw_drop_ms) <= fmin(600.0, beat_ms * 0.8)) {
@@ -2303,13 +2324,15 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
           best_breakdown_idx * (double)HOP_SIZE * 1000.0 / working_rate;
       const double conf = fmin(1.0, fmax(0.2, best_breakdown_score / 12.0));
       output[15] = conf;
-      if (tempo.valid && tempo.confidence >= 0.35 && isfinite(output[3])) {
+      if (tempo.valid &&
+          tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+          isfinite(output[3])) {
         const double beat_ms = 60000.0 / tempo.bpm;
         const double beat_offset = output[3];
         const double phrase_offset = output[11];
         double snapped = raw_breakdown_ms;
         if (isfinite(phrase_offset)) {
-          const double phrase_ms = beat_ms * 16.0;
+          const double phrase_ms = beat_ms * cue_phrase_beats;
           const double p_step = round((raw_breakdown_ms - phrase_offset) / phrase_ms);
           const double p_snap = phrase_offset + p_step * phrase_ms;
           if (fabs(p_snap - raw_breakdown_ms) <= fmin(600.0, beat_ms * 0.8)) {

@@ -7,6 +7,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.wndavenz.music.automix.AutomixBassSwap
+import dev.wndavenz.music.automix.AutomixContract
 import dev.wndavenz.music.automix.AutomixGainEnvelope
 import dev.wndavenz.music.automix.AutomixGridMerge
 import dev.wndavenz.music.automix.AutomixPhaseLock
@@ -269,14 +270,16 @@ class CrossfadeController(
         // BPM + phase are an offline onset-grid estimate, not a guaranteed
         // musical downbeat. If either is uncertain, retain time-based crossfade.
         val beatMs = if (isAutomixTransitionEnabled()) {
-            getAutoMixBpmForPlayer(p)?.takeIf { it.isFinite() && it in 50f..250f }
+            getAutoMixBpmForPlayer(p)?.takeIf {
+                it.isFinite() && it in AutomixContract.BPM_MIN..AutomixContract.BPM_MAX
+            }
                 ?.let { 60_000.0 / it }
         } else null
         val beatOffset = if (beatMs != null) {
             getAutoMixBeatOffsetMsForPlayer(p)?.toDouble()
         } else null
-        // The analyzed phrase phase (16-beat grid) upgrades the fade start
-        // from single-beat to bar/phrase boundaries when it is available.
+        // The analyzed phrase phase uses the outgoing metre x4 grid; it
+        // upgrades the fade start from single-beat to bar/phrase boundaries.
         val downbeatOffset = if (beatMs != null) {
             getAutoMixDownbeatOffsetMsForPlayer(p)?.toDouble()
         } else null
@@ -692,7 +695,9 @@ class CrossfadeController(
         // The swap is placed on the outgoing deck's analyzed beat grid. A
         // missing offset only disables snapping; the swap still runs.
         val outgoingBeatMs = getAutoMixBpmForPlayer(current)
-            ?.takeIf { it.isFinite() && it in 50f..250f }
+            ?.takeIf {
+                it.isFinite() && it in AutomixContract.BPM_MIN..AutomixContract.BPM_MAX
+            }
             ?.let { 60_000.0 / it }
         val outgoingBeatOffsetMs = if (outgoingBeatMs != null) {
             getAutoMixBeatOffsetMsForPlayer(current)?.toDouble()

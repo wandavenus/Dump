@@ -340,9 +340,9 @@ class AutomixService {
     final bpm = features.bpm;
     if (bpm == null ||
         !bpm.isFinite ||
-        bpm < 50 ||
-        bpm > 220 ||
-        features.bpmConfidence < 0.35) {
+        bpm < AutomixContract.bpmMin ||
+        bpm > AutomixContract.bpmMax ||
+        features.bpmConfidence < AutomixContract.tempoConfidenceMin) {
       return null;
     }
     return bpm;
@@ -350,7 +350,10 @@ class AutomixService {
 
   /// Practical tempo range for deck synchronization (BPM).
   static bool _tempoInRange(double? bpm) =>
-      bpm != null && bpm.isFinite && bpm >= 50 && bpm <= 220;
+      bpm != null &&
+      bpm.isFinite &&
+      bpm >= AutomixContract.bpmMin &&
+      bpm <= AutomixContract.bpmMax;
 
   /// Test-only entry point for the pure target builder.
   @visibleForTesting
@@ -380,7 +383,7 @@ class AutomixService {
     final exitConfidence = automixExitBpmConfidence(current);
     final reference =
         _tempoInRange(exitBpm) &&
-            exitConfidence >= 0.35 &&
+            exitConfidence >= AutomixContract.tempoConfidenceMin &&
             automixTempoStabilityAllowsPull(current.outroTempoStability)
         ? exitBpm
         : null;
@@ -420,7 +423,9 @@ class AutomixService {
           : (useLocalIntroGrid
                 ? features.startBpmConfidence
                 : features.bpmConfidence);
-      final confidentBpm = confidence >= 0.35 && _tempoInRange(bpm)
+      final confidentBpm =
+          confidence >= AutomixContract.tempoConfidenceMin &&
+          _tempoInRange(bpm)
           ? bpm
           : null;
 
@@ -455,13 +460,13 @@ class AutomixService {
         // estimate is strong and the phase is finite/non-negative, otherwise
         // native deliberately keeps the ordinary time-based fade.
         if (gridBpm != null &&
-            confidence >= 0.35 &&
+            confidence >= AutomixContract.tempoConfidenceMin &&
             beatOffsetMs != null &&
             beatOffsetMs.isFinite &&
             beatOffsetMs >= 0)
           'beatOffsetMs': beatOffsetMs,
         if (gridBpm != null &&
-            confidence >= 0.35 &&
+            confidence >= AutomixContract.tempoConfidenceMin &&
             downbeatOffsetMs != null &&
             downbeatOffsetMs.isFinite &&
             downbeatOffsetMs >= 0)
@@ -470,7 +475,7 @@ class AutomixService {
             features.dropCueMs!.isFinite &&
             features.dropCueMs! >= 8000 &&
             features.dropCueMs! <= 90000 &&
-            features.dropConfidence >= 0.55)
+            features.dropConfidence >= AutomixContract.dropConfidenceMin)
           'dropCueMs': features.dropCueMs,
         'multiplier': isOutgoing ? 1.0 : match.$2,
       };
@@ -1118,7 +1123,7 @@ class AutomixService {
   // v21: seam-edge RMS/LUFS/onset and edge-based intro/outro energy. v20 stores
   //     window medians in introRmsDb/outroRmsDb; keeping those would make seam
   //     decisions from unrelated material.
-  static const int _analysisSchemaVersion = 21;
+  static const int _analysisSchemaVersion = 22;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};

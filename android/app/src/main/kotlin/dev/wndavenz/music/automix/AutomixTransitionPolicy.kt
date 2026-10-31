@@ -66,14 +66,16 @@ internal object AutomixTransitionPolicy {
     fun isBeatMatchedPair(outgoingBpm: Float?, incomingBpm: Float?): Boolean {
         if (outgoingBpm == null || incomingBpm == null ||
             !outgoingBpm.isFinite() || !incomingBpm.isFinite() ||
-            outgoingBpm !in 50f..220f || incomingBpm !in 50f..220f
+            outgoingBpm !in AutomixContract.BPM_MIN..AutomixContract.BPM_MAX ||
+            incomingBpm !in AutomixContract.BPM_MIN..AutomixContract.BPM_MAX
         ) return false
         val ratio = outgoingBpm / incomingBpm
         return ratio in 0.92f..1.08f
     }
 
     fun hasTransitionCue(fadeSeconds: Float?): Boolean =
-        fadeSeconds != null && fadeSeconds.isFinite() && fadeSeconds in 1.5f..12f
+        fadeSeconds != null && fadeSeconds.isFinite() &&
+            fadeSeconds in AutomixContract.FADE_MIN_SECONDS..AutomixContract.FADE_MAX_SECONDS
 
     /** Invalid speed metadata must never create a zero/negative/infinite time scale. */
     fun normalizedPlaybackSpeed(speed: Float): Float =
@@ -113,7 +115,7 @@ internal object AutomixTransitionPolicy {
      * wrongly.
      */
     internal fun isSupportedMeter(meter: Int): Boolean =
-        meter == 2 || meter == 3 || meter == 4 || meter == 6
+        meter in AutomixContract.SUPPORTED_METERS
 
     /**
      * Snap a requested fade start back onto the largest musical boundary that
@@ -193,15 +195,17 @@ internal object AutomixTransitionPolicy {
     fun shouldSamplePhaseLock(nowMs: Long, lastSampleMs: Long, intervalMs: Long): Boolean =
         intervalMs > 0L && nowMs >= lastSampleMs && nowMs - lastSampleMs >= intervalMs
 
+    /**
+     * Dart owns the musical duration (bars at the outgoing metre); this layer
+     * only rejects an invalid payload and applies the safety envelope. Keeping
+     * strategy-second caps here would undo the bar-aligned cue at 3/4 or 6/8.
+     */
     fun fadeSeconds(strategyCode: Int, requestedSeconds: Float?): Float? {
         val requested = requestedSeconds?.takeIf { it.isFinite() } ?: return null
-        val adjusted = when (strategyCode) {
-            SHORT_HANDOVER -> minOf(requested, 4f)
-            LONG_BLEND -> maxOf(requested, 6f)
-            QUICK_HANDOVER -> minOf(requested, 3f)
-            else -> requested // Standard and structure-aligned use the cue duration.
-        }
-        return adjusted.coerceIn(1.5f, 12f)
+        return requested.coerceIn(
+            AutomixContract.FADE_MIN_SECONDS,
+            AutomixContract.FADE_MAX_SECONDS,
+        )
     }
 
     fun curveGamma(strategyCode: Int, requestedGamma: Float?): Float? {
@@ -243,7 +247,10 @@ internal data class ParsedAutomixTransitionTarget(
             val multiplier = (target["multiplier"] as? Number)?.toFloat()
                 ?.takeIf { it.isFinite() }?.coerceIn(0.92f, 1.08f) ?: 1f
             val bpm = (target["bpm"] as? Number)?.toFloat()
-                ?.takeIf { it.isFinite() && it in 50f..220f }
+                ?.takeIf {
+                    it.isFinite() &&
+                        it in AutomixContract.BPM_MIN..AutomixContract.BPM_MAX
+                }
 
             fun nonNegativeMillis(key: String): Long? =
                 (target[key] as? Number)?.toDouble()

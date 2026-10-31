@@ -1,4 +1,5 @@
 #include "automix_live_tracker.h"
+#include "automix_native.h"
 #include <float.h>
 #ifdef AUTOMIX_DEBUG_METER
 #include <stdio.h>
@@ -11,8 +12,8 @@
 #define LIVE_HISTORY_FRAMES 600
 #define LIVE_MIN_FRAMES 200
 #define LIVE_UPDATE_FRAMES 25
-#define LIVE_MIN_BPM 60.0
-#define LIVE_MAX_BPM 200.0
+#define LIVE_MIN_BPM NAR_AUTOMIX_BPM_MIN
+#define LIVE_MAX_BPM NAR_AUTOMIX_BPM_MAX
 
 typedef struct {
   int32_t sample_rate;
@@ -398,11 +399,15 @@ static void estimate_live_beat(int32_t slot) {
 
   double second_score = -DBL_MAX;
   for (int32_t lag = min_lag; lag <= max_lag && lag < count / 2; ++lag) {
-    // Half/double-time correlation peaks are expected and should not alone
-    // lower confidence in an otherwise stable pulse train.
+    // Half/double-time and 3:1 correlation peaks are expected and should not
+    // alone lower confidence in an otherwise stable pulse train. The 3:1 case
+    // matters after the BPM floor moved to 50: at 150 BPM the 3P lag (50 BPM)
+    // is now inside the search range and used to collapse uniqueness.
     if (abs(lag - best_lag) <= 2 ||
         abs(2 * lag - best_lag) <= 4 ||
-        abs(lag - 2 * best_lag) <= 4) continue;
+        abs(lag - 2 * best_lag) <= 4 ||
+        abs(3 * lag - best_lag) <= 6 ||
+        abs(lag - 3 * best_lag) <= 6) continue;
     if (scores[lag] > second_score) second_score = scores[lag];
   }
   if (second_score == -DBL_MAX) second_score = 0.0;

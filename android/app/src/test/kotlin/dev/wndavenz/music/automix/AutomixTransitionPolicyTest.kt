@@ -135,23 +135,40 @@ class AutomixTransitionPolicyTest {
     }
 
     @Test
-    fun `short handover caps duration and raises curve`() {
-        assertEquals(4f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.SHORT_HANDOVER, 8f)!!, 0.001f)
+    fun `short handover leaves bar duration to Dart and raises curve`() {
+        // Dart already expressed the half-bar duration at the outgoing metre;
+        // a second strategy cap here would undo a 3/4 or 6/8 bar.
+        assertEquals(8f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.SHORT_HANDOVER, 8f)!!, 0.001f)
         assertEquals(1.20f, AutomixTransitionPolicy.curveGamma(AutomixTransitionPolicy.SHORT_HANDOVER, 0.8f)!!, 0.001f)
         assertEquals(2f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.SHORT_HANDOVER, 2f)!!, 0.001f)
     }
 
     @Test
-    fun `long blend extends duration and keeps curve gentle`() {
-        assertEquals(6f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.LONG_BLEND, 4f)!!, 0.001f)
+    fun `long blend leaves bar duration to Dart and keeps curve gentle`() {
+        assertEquals(4f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.LONG_BLEND, 4f)!!, 0.001f)
         assertEquals(0.95f, AutomixTransitionPolicy.curveGamma(AutomixTransitionPolicy.LONG_BLEND, 1.3f)!!, 0.001f)
         assertEquals(8f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.LONG_BLEND, 8f)!!, 0.001f)
     }
 
     @Test
-    fun `quick handover caps duration and raises curve`() {
-        assertEquals(3f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.QUICK_HANDOVER, 8f)!!, 0.001f)
+    fun `quick handover leaves bar duration to Dart and raises curve`() {
+        assertEquals(8f, AutomixTransitionPolicy.fadeSeconds(AutomixTransitionPolicy.QUICK_HANDOVER, 8f)!!, 0.001f)
         assertEquals(1.35f, AutomixTransitionPolicy.curveGamma(AutomixTransitionPolicy.QUICK_HANDOVER, 0.8f)!!, 0.001f)
+    }
+
+    @Test
+    fun `decision contract mirrors the native header`() {
+        assertEquals(50f, AutomixContract.BPM_MIN, 0f)
+        assertEquals(220f, AutomixContract.BPM_MAX, 0f)
+        assertEquals(0.35f, AutomixContract.TEMPO_CONFIDENCE_MIN, 0f)
+        assertEquals(0.55f, AutomixContract.KEY_CONFIDENCE_MIN, 0f)
+        assertEquals(0.65f, AutomixContract.STRUCTURE_CONFIDENCE_MIN, 0f)
+        assertEquals(0.55f, AutomixContract.DROP_CONFIDENCE_MIN, 0f)
+        assertEquals(0.45f, AutomixContract.VOCAL_CONFIDENCE_MIN, 0f)
+        assertEquals(0.55f, AutomixContract.VOCAL_LIKELIHOOD_MIN, 0f)
+        assertEquals(1.5f, AutomixContract.FADE_MIN_SECONDS, 0f)
+        assertEquals(12f, AutomixContract.FADE_MAX_SECONDS, 0f)
+        assertEquals(setOf(2, 3, 4, 6), AutomixContract.SUPPORTED_METERS)
     }
 
     @Test

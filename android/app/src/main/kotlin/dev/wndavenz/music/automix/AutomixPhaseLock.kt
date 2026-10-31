@@ -61,10 +61,10 @@ object AutomixPhaseLock {
     ): Float? {
         if (!outgoingPositionMs.isFinite() || !outgoingDownbeatOffsetMs.isFinite() ||
             outgoingDownbeatOffsetMs < 0.0 || !outgoingBpm.isFinite() ||
-            outgoingBpm !in MIN_BPM..MAX_BPM ||
+            outgoingBpm !in AutomixContract.BPM_MIN.toDouble()..AutomixContract.BPM_MAX.toDouble() ||
             !incomingPositionMs.isFinite() || !incomingDownbeatOffsetMs.isFinite() ||
             incomingDownbeatOffsetMs < 0.0 || !incomingBpm.isFinite() ||
-            incomingBpm !in MIN_BPM..MAX_BPM ||
+            incomingBpm !in AutomixContract.BPM_MIN.toDouble()..AutomixContract.BPM_MAX.toDouble() ||
             !remainingMs.isFinite() || !maxNudge.isFinite() ||
             beatsPerPhrase !in 1..64
         ) {
@@ -106,9 +106,11 @@ object AutomixPhaseLock {
         maxNudge: Float = MAX_NUDGE,
     ): Float? {
         if (!outgoingPositionMs.isFinite() || !outgoingPhaseOffsetMs.isFinite() ||
-            !outgoingBpm.isFinite() || outgoingBpm !in MIN_BPM..MAX_BPM ||
+            !outgoingBpm.isFinite() ||
+            outgoingBpm !in AutomixContract.BPM_MIN.toDouble()..AutomixContract.BPM_MAX.toDouble() ||
             !incomingPositionMs.isFinite() || !incomingPhaseOffsetMs.isFinite() ||
-            !incomingBpm.isFinite() || incomingBpm !in MIN_BPM..MAX_BPM ||
+            !incomingBpm.isFinite() ||
+            incomingBpm !in AutomixContract.BPM_MIN.toDouble()..AutomixContract.BPM_MAX.toDouble() ||
             !remainingMs.isFinite() || !maxNudge.isFinite()
         ) {
             return null
@@ -133,6 +135,5 @@ object AutomixPhaseLock {
         }
     }
 
-    private const val MIN_BPM = 50.0
-    private const val MAX_BPM = 250.0
+
 }
