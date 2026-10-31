@@ -41,6 +41,41 @@ void main() {
     expect(first.wordBoxes.every((boxes) => boxes.isNotEmpty), isTrue);
   });
 
+  test('contains only reports a matching prepared layout', () {
+    prepare(index: 0);
+
+    expect(
+      cache.contains(
+        lineIndex: 0,
+        text: 'hello world',
+        wordTexts: const ['hello', 'world'],
+        maxWidth: 280,
+        fontSize: 28,
+        textScaleFactor: 1,
+        textAlign: TextAlign.left,
+        textDirection: TextDirection.ltr,
+        activeColor: Colors.white,
+        dimColor: Colors.white54,
+      ),
+      isTrue,
+    );
+    expect(
+      cache.contains(
+        lineIndex: 0,
+        text: 'hello world',
+        wordTexts: const ['hello', 'world'],
+        maxWidth: 240,
+        fontSize: 28,
+        textScaleFactor: 1,
+        textAlign: TextAlign.left,
+        textDirection: TextDirection.ltr,
+        activeColor: Colors.white,
+        dimColor: Colors.white54,
+      ),
+      isFalse,
+    );
+  });
+
   test('rebuilds a line layout when its measured width changes', () {
     final first = prepare(index: 0);
     final second = prepare(index: 0, width: 240);
