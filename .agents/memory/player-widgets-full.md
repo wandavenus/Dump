@@ -31,6 +31,7 @@ Auto-scrolling lyrics display synchronized with audio position.
 - Drag updates from the active list use the real scroll position; programmatic
   auto-follow must not be treated as a genuine user swipe
 - State: pre-computes karaoke values (no per-frame allocation); `Listenable.merge` replaces 3 nested `ValueListenableBuilder`s
+- Karaoke geometry: `KaraokeLayoutCache` retains `TextPainter` + per-word boxes in a bounded 16-entry LRU; current line is prepared before paint, nearby lines are progressively prepared via `Priority.idle`; invalidate on lyrics, viewport width, font, scale, alignment, direction, or color changes; state owns and disposes all cached painters.
 - KaraokeMode: connected to renderer + toggle UI
 
 ## PlayerProgressSection (`lib/widgets/player/player_progress_section.dart`)
