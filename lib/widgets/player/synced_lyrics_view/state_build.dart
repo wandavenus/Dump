@@ -100,7 +100,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                               color: isActive ? active : Colors.white,
                               height: 1.4,
                             ),
-                            child: isActive && karaokeOn
+                            child: karaokeReady
                                 ? _UnifiedKaraokeLine(
                                     key: ValueKey(_currentIndex),
                                     text: widget.lyrics[index].text,
