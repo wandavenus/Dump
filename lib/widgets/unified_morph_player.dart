@@ -1247,12 +1247,12 @@ class _ArtworkShadowPainter extends CustomPainter {
     // Paint only the halo outside the cover silhouette. Keeping the artwork
     // area as a hole prevents the shadow from becoming a dark backing panel.
     final ambientOffset = const Offset(0.0, 5.0);
-    final ambientOuter = artworkRect.inflate(32.0).shift(ambientOffset);
+    final ambientOuter = artworkRect.inflate(30.0).shift(ambientOffset);
     final ambientInner = artworkRect.inflate(1.0).shift(ambientOffset);
     final ambientRing = _ringPath(
       outerRect: ambientOuter,
       innerRect: ambientInner,
-      outerRadius: artworkRadius + 32.0,
+      outerRadius: artworkRadius + 30.0,
       innerRadius: artworkRadius + 1.0,
     );
     canvas.drawPath(
