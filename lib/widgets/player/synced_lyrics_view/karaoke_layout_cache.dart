@@ -86,6 +86,9 @@ class KaraokeLayoutCache {
 
   /// Returns an existing layout when the line and its typography are
   /// unchanged; otherwise creates and caches a new layout.
+  ///
+  /// Set [touch] to false for hot paint-path lookups that should not mutate
+  /// the LRU order on every frame. Widget/prewarm lookups keep the default.
   KaraokeLineLayout obtain({
     required int lineIndex,
     required String text,
