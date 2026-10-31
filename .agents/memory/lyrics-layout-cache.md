@@ -14,7 +14,7 @@ description: Cached TextPainter geometry and incremental prewarming for synchron
 ## Prewarming
 - `state_karaoke.dart` captures the geometry configuration from the actual list viewport width.
 - While hidden, the current line and neighborhood are queued at idle priority.
-- While visible, the current and next two lines use `Priority.animation` so continuous playback tickers cannot starve the immediate transition cache; the remaining neighborhood uses one-line `Priority.idle` tasks.
+- While visible, the current and immediate next line use `Priority.animation` so continuous playback tickers cannot starve the immediate transition cache; the remaining neighborhood uses one-line `Priority.idle` tasks.
 - A generation token invalidates queued work when the lyric payload, geometry configuration, visibility, or active-line anchor changes. Repeated builds with the same anchor do not restart the task chain.
 - Cache capacity 16 is larger than the 11-line prewarm window, so nearby entries can remain warm across normal sequential line changes.
 
