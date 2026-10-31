@@ -48,6 +48,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {
               final isActive = index == _currentIndex;
+              final karaokeReady =
+                  isActive && karaokeOn && _isKaraokeLinePrepared(index);
               final lineDirection = LyricsTextDirection.resolve(
                 widget.lyrics[index].text,
               );
