@@ -906,103 +906,103 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                           children: [
                                         artworkWithFade,
                                         // Keep the status-bar shadow attached to the
-                                        // artwork itself, not the blurred background.
-                                        if (isArtworkBlurStyle)
-                                          Positioned(
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            height: safeTop.clamp(24.0, 64.0),
-                                            child: IgnorePointer(
-                                              child: Opacity(
-                                                opacity: bgAlpha,
-                                                child: const DecoratedBox(
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      begin:
-                                                          Alignment.topCenter,
-                                                      end: Alignment
-                                                          .bottomCenter,
-                                                      colors: [
-                                                        Color.fromARGB(
-                                                          75,
-                                                          0,
-                                                          0,
-                                                          0,
+                                            // artwork itself, not the blurred background.
+                                            if (isArtworkBlurStyle)
+                                              Positioned(
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: safeTop.clamp(24.0, 64.0),
+                                                child: IgnorePointer(
+                                                  child: Opacity(
+                                                    opacity: bgAlpha,
+                                                    child: const DecoratedBox(
+                                                      decoration: BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin:
+                                                              Alignment.topCenter,
+                                                          end: Alignment
+                                                              .bottomCenter,
+                                                          colors: [
+                                                            Color.fromARGB(
+                                                              75,
+                                                              0,
+                                                              0,
+                                                              0,
+                                                            ),
+                                                            Color.fromARGB(
+                                                              60,
+                                                              0,
+                                                              0,
+                                                              0,
+                                                            ),
+                                                            Color.fromARGB(
+                                                              39,
+                                                              0,
+                                                              0,
+                                                              0,
+                                                            ),
+                                                            Color.fromARGB(
+                                                              24,
+                                                              0,
+                                                              0,
+                                                              0,
+                                                            ),
+                                                            Color.fromARGB(
+                                                              10,
+                                                              0,
+                                                              0,
+                                                              0,
+                                                            ),
+                                                            Color.fromARGB(
+                                                              0,
+                                                              0,
+                                                              0,
+                                                              0,
+                                                            ),
+                                                          ],
+                                                          stops: [
+                                                            0.0,
+                                                            0.18,
+                                                            0.36,
+                                                            0.56,
+                                                            0.78,
+                                                            1.0,
+                                                          ],
                                                         ),
-                                                        Color.fromARGB(
-                                                          60,
-                                                          0,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        Color.fromARGB(
-                                                          39,
-                                                          0,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        Color.fromARGB(
-                                                          24,
-                                                          0,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        Color.fromARGB(
-                                                          10,
-                                                          0,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                        Color.fromARGB(
-                                                          0,
-                                                          0,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                      ],
-                                                      stops: [
-                                                        0.0,
-                                                        0.18,
-                                                        0.36,
-                                                        0.56,
-                                                        0.78,
-                                                        1.0,
-                                                      ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ),
-                                        // Draw the shared hairline above the artwork
-                                        // and its status-bar gradient so the edge stays
-                                        // crisp throughout the morph animation.
-                                        if (hairlineOpacity > 0.0)
-                                          Positioned.fill(
-                                            child: IgnorePointer(
-                                              child: Opacity(
-                                                opacity: hairlineOpacity,
-                                                child: DecoratedBox(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          finalRadius,
+                                            // Draw the shared hairline above the artwork
+                                            // and its status-bar gradient so the edge stays
+                                            // crisp throughout the morph animation.
+                                            if (hairlineOpacity > 0.0)
+                                              Positioned.fill(
+                                                child: IgnorePointer(
+                                                  child: Opacity(
+                                                    opacity: hairlineOpacity,
+                                                    child: DecoratedBox(
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              finalRadius,
+                                                            ),
+                                                        border: Border.all(
+                                                          color: hairlineColor,
+                                                          width:
+                                                              kArtworkHairlineWidth,
+                                                          strokeAlign: BorderSide
+                                                              .strokeAlignInside,
                                                         ),
-                                                    border: Border.all(
-                                                      color: hairlineColor,
-                                                      width:
-                                                          kArtworkHairlineWidth,
-                                                      strokeAlign: BorderSide
-                                                          .strokeAlignInside,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
                                               ),
+                                              ],
                                             ),
-                                          ),
-                                          ],
-                                        ),
                                       ),
                                     ),
                                   ],
