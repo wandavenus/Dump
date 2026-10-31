@@ -17,7 +17,7 @@ Eliminate cold `TextPainter.layout()` and `getBoxesForSelection()` work from nor
 1. Write tests for identical-key reuse, key changes, LRU capacity/eviction, and disposal; run them only if verification policy permits.
 2. Implement the standalone bounded cache and make the tests target real cache behavior.
 3. Integrate the cache with the karaoke painter and keep the existing paint algorithm/animations unchanged.
-4. Add visibility-aware prewarming: prepare the current line and next two lines at `Priority.animation` when visible (otherwise `Priority.idle`), then prepare the remaining neighborhood at `Priority.idle`; gate the karaoke painter on cache readiness and use plain `Text` until a cold active line is ready.
+4. Add visibility-aware prewarming: prepare the current line and immediate next line at `Priority.animation` when visible (otherwise `Priority.idle`), then prepare the remaining neighborhood at `Priority.idle`; gate the karaoke painter on cache readiness and use plain `Text` until a cold active line is ready.
 5. Add version/changelog/memory updates and format the changed Dart files.
 6. Review the complete diff and run `flutter analyze` only. No APK build.
 
