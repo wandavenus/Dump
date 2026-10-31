@@ -97,6 +97,7 @@ class KaraokeLayoutCache {
     required TextDirection textDirection,
     required Color activeColor,
     required Color dimColor,
+    bool touch = true,
   }) {
     if (_disposed) {
       throw StateError('KaraokeLayoutCache has been disposed');
@@ -118,8 +119,10 @@ class KaraokeLayoutCache {
           activeColor: activeColor,
           dimColor: dimColor,
         )) {
-      _entries.remove(lineIndex);
-      _entries[lineIndex] = existing;
+      if (touch) {
+        _entries.remove(lineIndex);
+        _entries[lineIndex] = existing;
+      }
       return existing.layout;
     }
 
