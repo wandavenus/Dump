@@ -48,6 +48,7 @@ class _KaraokeLinePainter extends CustomPainter {
       textDirection: textDirection,
       activeColor: activeColor,
       dimColor: dimColor,
+      touch: false,
     );
     final base = layout.basePainter;
     final highlight = layout.highlightPainter;
