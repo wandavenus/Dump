@@ -1244,9 +1244,11 @@ static void design_kweighting(NarBiquad* shelf, NarBiquad* high_pass,
       tan(PI * high_pass_f0 / (double)sample_rate);
   const double high_pass_a0 =
       1.0 + high_pass_k / high_pass_q + high_pass_k * high_pass_k;
-  high_pass->b0 = 1.0;
-  high_pass->b1 = -2.0;
-  high_pass->b2 = 1.0;
+  // The biquad recurrence uses a0-normalized coefficients. The feedback
+  // terms above are normalized, so the feed-forward numerator must be too.
+  high_pass->b0 = 1.0 / high_pass_a0;
+  high_pass->b1 = -2.0 / high_pass_a0;
+  high_pass->b2 = 1.0 / high_pass_a0;
   high_pass->a1 = 2.0 * (high_pass_k * high_pass_k - 1.0) / high_pass_a0;
   high_pass->a2 =
       (1.0 - high_pass_k / high_pass_q + high_pass_k * high_pass_k) /
