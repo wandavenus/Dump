@@ -24,7 +24,7 @@ class _BrowseSection extends StatelessWidget {
                 ),
               ),
               const Icon(
-                CupertinoIcons.chevron_right,
+                CupertinoIcons.chevron_forward,
                 color: Color.fromARGB(255, 186, 186, 186),
               ),
             ],
