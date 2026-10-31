@@ -12,9 +12,9 @@ typedef _KaraokeLayoutConfiguration = ({
 extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
   /// Captures the geometry-affecting configuration and schedules prewarming.
   ///
-  /// The current line is prepared synchronously only while visible. While the
-  /// overlay is hidden, the same work is queued at idle priority so the initial
-  /// lyric-open frame can reuse the prepared layout.
+  /// Current and nearby lines are prepared outside the widget paint path.
+  /// The visible current line gets animation priority; neighboring lines use
+  /// idle priority so they do not compete with active frames.
   void _prepareKaraokeLayouts(double width) {
     if (!width.isFinite || width <= 0) return;
 
