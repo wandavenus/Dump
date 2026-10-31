@@ -66,7 +66,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 20,
+            'version': 21,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -87,6 +87,12 @@ void main() {
               'dur': 240.0,
               'ie': 0.4,
               'oe': 0.2,
+              'irms': -18.0,
+              'orms': -24.0,
+              'iel': -17.5,
+              'oel': -23.5,
+              'ieo': 1.6,
+              'oeo': 0.7,
               'af': 1.0,
               'ta': true,
               'dconf': 0.7,
@@ -126,6 +132,12 @@ void main() {
         expect(features.durationSeconds, 240.0);
         expect(features.introEnergy, 0.4);
         expect(features.outroEnergy, 0.2);
+        expect(features.introRmsDb, -18.0);
+        expect(features.outroRmsDb, -24.0);
+        expect(features.introEdgeLufs, -17.5);
+        expect(features.outroEdgeLufs, -23.5);
+        expect(features.introEdgeOnsetRate, 1.6);
+        expect(features.outroEdgeOnsetRate, 0.7);
         expect(features.analyzedFraction, 1.0);
         expect(features.dropConfidence, 0.7);
         expect(features.tailBreakdownConfidence, 0.9);
@@ -244,7 +256,7 @@ void main() {
         await prefs.setString(
           'automix_45',
           jsonEncode(<String, dynamic>{
-            'version': 20,
+            'version': 21,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 45,

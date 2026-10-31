@@ -82,7 +82,7 @@ Audit ditindaklanjuti tanpa AI/ML. Ringkasan status per temuan:
 | AM8-14 | **Fixed** | `alternateBpm` = runner-up hipotesis metrikal, bukan tebakan <90/>140. |
 | AM8-15 | **Fixed** | Vocal menjadi sub-cost berbobot 0.10 di dalam denominator yang sama. |
 
-Cache analysis sekarang **schema v20**: entri v19 belum punya meter/boundary seksi, jadi dianalisis ulang.
+Cache analysis sekarang **schema v21** (2026-10-31): entri v20 masih menyimpan median window di `introRmsDb`/`outroRmsDb`, bukan statistik edge 15 s, jadi dianalisis ulang. Lihat `automix-seam-edge-v21.md`.
 
 **Tindak lanjut 2026-10-29 (dirilis 2026-10-30, v1.5.58):** AM8-02/03/07/08/11/12 selesai. Regresi native baru:
 `test_live_tracker_resolves_third_and_double_tempo` (90/135/160/174/180),

@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "description": "AutoMix analyzer regression corpus. Synthetic cases are generated deterministically by tools/automix_bench.dart; add real labeled tracks with kind=file and a PCM16/float32 WAV path.",
+  "cases": [
+    {
+      "id": "click-090-4-4-C",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 90,
+      "meter": 4,
+      "tonic": 0,
+      "minor": false,
+      "seed": 11,
+      "expect": {"bpm": 90, "tonic": 0, "minor": false, "meter": 4}
+    },
+    {
+      "id": "click-100-4-4-Am",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 100,
+      "meter": 4,
+      "tonic": 9,
+      "minor": true,
+      "seed": 12,
+      "expect": {"bpm": 100, "tonic": 9, "minor": true, "meter": 4}
+    },
+    {
+      "id": "click-120-4-4-F",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 120,
+      "meter": 4,
+      "tonic": 5,
+      "minor": false,
+      "seed": 13,
+      "expect": {"bpm": 120, "tonic": 5, "minor": false, "meter": 4}
+    },
+    {
+      "id": "click-128-4-4-Gm",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 128,
+      "meter": 4,
+      "tonic": 7,
+      "minor": true,
+      "seed": 14,
+      "expect": {"bpm": 128, "tonic": 7, "minor": true, "meter": 4}
+    },
+    {
+      "id": "click-140-4-4-D",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 140,
+      "meter": 4,
+      "tonic": 2,
+      "minor": false,
+      "seed": 15,
+      "expect": {"bpm": 140, "tonic": 2, "minor": false, "meter": 4}
+    },
+    {
+      "id": "click-174-4-4-Em",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 174,
+      "meter": 4,
+      "tonic": 4,
+      "minor": true,
+      "seed": 16,
+      "expect": {"bpm": 174, "tonic": 4, "minor": true, "meter": 4}
+    },
+    {
+      "id": "click-120-3-4-C",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 120,
+      "meter": 3,
+      "tonic": 0,
+      "minor": false,
+      "seed": 17,
+      "expect": {"bpm": 120, "tonic": 0, "minor": false, "meter": 3}
+    },
+    {
+      "id": "click-120-6-8-Am",
+      "kind": "click",
+      "seconds": 45,
+      "bpm": 120,
+      "meter": 6,
+      "tonic": 9,
+      "minor": true,
+      "seed": 18,
+      "expect": {"bpm": 120, "tonic": 9, "minor": true, "meter": 6}
+    },
+    {
+      "id": "tone-C-major",
+      "kind": "tone",
+      "seconds": 30,
+      "tonic": 0,
+      "minor": false,
+      "seed": 21,
+      "expect": {"tonic": 0, "minor": false}
+    },
+    {
+      "id": "tone-A-minor",
+      "kind": "tone",
+      "seconds": 30,
+      "tonic": 9,
+      "minor": true,
+      "seed": 22,
+      "expect": {"tonic": 9, "minor": true}
+    },
+    {
+      "id": "noise-30s",
+      "kind": "noise",
+      "seconds": 30,
+      "seed": 23
+    },
+    {
+      "id": "silence-5s",
+      "kind": "silence",
+      "seconds": 5,
+      "seed": 24
+    }
+  ]
+}

@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.63',
+    date: '31 Oktober 2026',
+    changes: [
+      'AutoMix: analyzer kini mengukur 15 detik pertama dan terakhir secara terpisah — median RMS, LUFS K-weighted (BS.1770), dan onset rate — sehingga outro pelan tidak lagi tersembunyi di median window 120 detik; fade, trim level, EQ, bass swap, dan early handover memakai fitur seam ini.',
+      'AutoMix: label struktur seam dinormalisasi terhadap window lagu, bukan ambang dB absolut, agar master modern tidak hampir selalu STABLE_HIGH; atenuasi mid saat benturan vokal sekarang kontinu mengikuti kekuatan bukti, bukan nilai tetap 0,78.',
+      'AutoMix: menambah harness benchmark `tools/automix_bench.dart`, korpus sintetis 12 kasus berlabel, dan golden JSON; baseline 8/8 BPM dalam 2%, 8/8 metre, dan 10/10 key, dengan waktu analisis ~93 ms per trek sintetis.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.62',
     date: '30 Oktober 2026',
     changes: [

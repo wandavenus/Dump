@@ -48,6 +48,32 @@ static void assert_analysis_confidence_contract(
   }
 }
 
+static void test_analyzer_edge_features(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t seconds = 30;
+  const int32_t count = sample_rate * seconds;
+  const int32_t half = count / 2;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  for (int32_t i = 0; i < count; ++i) {
+    const double amplitude = i < half ? 0.5 : 0.05;
+    pcm[i] = (float)(amplitude * sin(2.0 * 3.14159265358979323846 * 440.0 *
+                                     (double)i / sample_rate));
+  }
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  // The first/last 15 s are the seam material: the quiet tail must be
+  // reflected even though the whole-window RMS is a single median.
+  assert(isfinite(output[35]) && isfinite(output[36]));
+  assert(output[35] - output[36] > 15.0);
+  assert(isfinite(output[37]) && isfinite(output[38]));
+  assert(output[37] - output[38] > 15.0);
+  assert(isfinite(output[39]) && output[39] >= 0.0);
+  assert(isfinite(output[40]) && output[40] >= 0.0);
+  free(pcm);
+}
+
 static void test_analyzer_rms(void) {
   const int32_t sample_rate = 22050;
   const int32_t count = sample_rate * 2;
@@ -1755,7 +1781,7 @@ static void test_ffi_contract_and_bounds(void) {
   float pcm[44100] = {0};
   double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
 
-  // Undersized buffer must return 0; 23 is one value short of the ABI.
+  // Undersized buffer must return 0.
   assert(nar_automix_analyze(pcm, count, sample_rate, output, 23) == 0);
   // Null inputs must return 0
   assert(nar_automix_analyze(NULL, count, sample_rate, output,
@@ -3275,6 +3301,7 @@ int main(void) {
   test_tone_processor_various_frame_counts();
   test_crossfade_equal_power_envelope();
   test_ffi_contract_and_bounds();
+  test_analyzer_edge_features();
   test_analyzer_rms();
   test_analyzer_vocal_center_channel();
   test_analyzer_structural_cues();

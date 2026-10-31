@@ -6,7 +6,7 @@ import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
 // Must match NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in src/automix_native.h.
-const int _analysisOutputCount = 35;
+const int _analysisOutputCount = 41;
 const int _featureCount = 27;
 
 /// Bar lengths the native metre hypotheses can publish: 2 (compound 6/8 at a
@@ -142,6 +142,12 @@ class NativeAutomix {
       for (var i = 0; i < pcm.length; i++) {
         samples[i] = pcm[i];
       }
+      // Pre-fill the appended slots with NaN so an older native library that
+      // only writes the legacy prefix cannot turn uninitialised/zero memory
+      // into a fake 0 dBFS edge.
+      for (var i = 0; i < _analysisOutputCount; i++) {
+        output[i] = double.nan;
+      }
       final status = bindings.nar_automix_analyze(
         samples,
         pcm.length,
@@ -188,6 +194,12 @@ class NativeAutomix {
         meter: _supportedMeter(output[32]),
         sectionCueMs: nullable(33),
         sectionCueConfidence: output[34].isFinite ? output[34] : 0,
+        introEdgeRmsDb: nullable(35),
+        outroEdgeRmsDb: nullable(36),
+        introEdgeLufs: nullable(37),
+        outroEdgeLufs: nullable(38),
+        introEdgeOnsetRate: nullable(39),
+        outroEdgeOnsetRate: nullable(40),
         energyQuarters: quarters.every((value) => value.isFinite)
             ? quarters
             : const <double>[],

@@ -323,21 +323,39 @@ List<AutomixChordEvent> automixMergeChordProgressions(
   return List<AutomixChordEvent>.unmodifiable(merged);
 }
 
-/// Edge-local section label derived from the two quarters nearest the mix
-/// seam. The native label is computed from a whole 120 s window, which can
-/// average a quiet intro with a loud drop; this directional label keeps the
-/// head and tail independent for the transition planner.
+/// Edge-local section label derived from the 15 s seam window and the two
+/// quarters nearest the mix seam. The native label is computed from a whole
+/// 120 s window, which can average a quiet intro with a loud drop; this
+/// directional label keeps the head and tail independent for the transition
+/// planner. Segments without edge slots fall back to the quarter profile.
 ({int region, double confidence})? _automixEdgeStructure(
   AutomixSegmentFeatures segment, {
   required bool head,
 }) {
   final quarters = segment.energyQuarters;
-  if (quarters.length != 4) return null;
-  final first = head ? quarters[0] : quarters[2];
-  final second = head ? quarters[1] : quarters[3];
-  if (!first.isFinite || !second.isFinite) return null;
-  final meanDb = (first + second) / 2.0;
-  final slope = second - first;
+  // The edge 15 s is the material the fade actually overlaps. Normalise it
+  // against this window's own median instead of the absolute dB thresholds
+  // that made almost every modern master STABLE_HIGH. The quarter profile is
+  // still needed for the slope, and remains the fallback for old cache entries
+  // or a native library that predates the edge slots.
+  final edgeDb = head ? segment.introEdgeRmsDb : segment.outroEdgeRmsDb;
+  final hasEdge =
+      edgeDb != null &&
+      edgeDb.isFinite &&
+      segment.rmsDb != null &&
+      segment.rmsDb!.isFinite;
+  if (!hasEdge && quarters.length != 4) return null;
+  final first = quarters.length == 4
+      ? (head ? quarters[0] : quarters[2])
+      : null;
+  final second = quarters.length == 4
+      ? (head ? quarters[1] : quarters[3])
+      : null;
+  if (first != null && (!first.isFinite || !second!.isFinite)) return null;
+  final meanDb = first != null && second != null
+      ? (first + second) / 2.0
+      : null;
+  final slope = first != null && second != null ? second - first : 0.0;
 
   final cue = head ? segment.dropCueMs : segment.breakdownCueMs;
   final cueConfidence = head
@@ -356,7 +374,30 @@ List<AutomixChordEvent> automixMergeChordProgressions(
     );
   }
 
-  if (meanDb < -32.0) {
+  if (hasEdge) {
+    final relativeDb = edgeDb - segment.rmsDb!;
+    // A silent or near-silent edge is low activity regardless of the window
+    // median; a normal fade-out is captured by the negative slope below.
+    if (relativeDb <= -16.0 || edgeDb <= -45.0) {
+      return (region: 1, confidence: 0.70);
+    }
+    if (slope > 1.5 && relativeDb < -4.0) {
+      return (region: 2, confidence: automixClamp01(0.55 + slope / 12.0));
+    }
+    if (slope < -1.5 && relativeDb < -2.0) {
+      return (region: 4, confidence: automixClamp01(0.55 - slope / 12.0));
+    }
+    if (relativeDb >= -6.0 && slope.abs() <= 1.5) {
+      return (region: 5, confidence: 0.70);
+    }
+    if (relativeDb >= -12.0 && slope >= -1.5) {
+      return (region: 5, confidence: 0.55);
+    }
+    return (region: 1, confidence: 0.50);
+  }
+
+  // Legacy path for segment objects without edge slots (tests/old caches).
+  if (meanDb! < -32.0) {
     return (region: 1, confidence: 0.70);
   }
   if (slope > 1.5 && meanDb < -18.0) {
@@ -538,23 +579,39 @@ AutomixTrackFeatures automixMergeSegments({
   final centroidHz = weightedMean((s) => s.centroidHz);
   final onsetRate = weightedMean((s) => s.onsetRate);
 
+  final firstSegment = segments.isEmpty ? null : segments.first;
+  final lastSegment = segments.isEmpty ? null : segments.last;
+
   // ── Coarse structure: first/last window relative to this track's peak ─────
+  // The window medians still define the set-level peak, so the 0..1 scale is
+  // comparable with older analyses. The edge values, however, are what decide
+  // the seam: a quiet final 15 s is no longer masked by a loud 120 s median.
   final segmentEnergy = <double?>[
     for (final s in segments)
       s.rmsDb == null ? null : automixClamp01((s.rmsDb! + 30.0) / 24.0),
   ];
   final present = segmentEnergy.whereType<double>().toList(growable: false);
+  double? edgeEnergy(double? edgeRmsDb) =>
+      edgeRmsDb == null || !edgeRmsDb.isFinite
+      ? null
+      : automixClamp01((edgeRmsDb + 30.0) / 24.0);
+  final headEdgeRmsDb = firstSegment?.introEdgeRmsDb ?? firstSegment?.rmsDb;
+  final tailEdgeRmsDb = tailSegmentAnalyzed
+      ? (lastSegment?.outroEdgeRmsDb ?? lastSegment?.rmsDb)
+      : null;
   double? introEnergy;
   double? outroEnergy;
   if (present.length >= 2) {
     final peak = present.reduce(math.max);
     if (peak > 0.05) {
-      introEnergy = segmentEnergy.first == null
+      final headEnergy = edgeEnergy(headEdgeRmsDb);
+      final tailEnergy = edgeEnergy(tailEdgeRmsDb);
+      introEnergy = headEnergy == null
           ? null
-          : automixClamp01(segmentEnergy.first! / peak);
-      outroEnergy = !tailSegmentAnalyzed || segmentEnergy.last == null
+          : automixClamp01(headEnergy / peak);
+      outroEnergy = !tailSegmentAnalyzed || tailEnergy == null
           ? null
-          : automixClamp01(segmentEnergy.last! / peak);
+          : automixClamp01(tailEnergy / peak);
     }
   }
 
@@ -620,8 +677,6 @@ AutomixTrackFeatures automixMergeSegments({
   final fileSeconds = hasSourceDuration
       ? math.max(sourceDurationSeconds, inferredFileSeconds).toDouble()
       : inferredFileSeconds;
-  final firstSegment = segments.isEmpty ? null : segments.first;
-  final lastSegment = segments.isEmpty ? null : segments.last;
   final headStructure = firstSegment == null
       ? null
       : _automixEdgeStructure(firstSegment, head: true);
@@ -813,10 +868,16 @@ AutomixTrackFeatures automixMergeSegments({
     outroTempoStability: outroTempoStability,
     introSlope: introSlope,
     outroSlope: outroSlope,
-    introRmsDb: firstSegment?.rmsDb,
-    outroRmsDb: tailSegmentAnalyzed ? lastSegment?.rmsDb : null,
+    introRmsDb: headEdgeRmsDb,
+    outroRmsDb: tailEdgeRmsDb,
     introEnergy: introEnergy,
     outroEnergy: outroEnergy,
+    introEdgeLufs: firstSegment?.introEdgeLufs,
+    outroEdgeLufs: tailSegmentAnalyzed ? lastSegment?.outroEdgeLufs : null,
+    introEdgeOnsetRate: firstSegment?.introEdgeOnsetRate,
+    outroEdgeOnsetRate: tailSegmentAnalyzed
+        ? lastSegment?.outroEdgeOnsetRate
+        : null,
     analyzedFraction: fileSeconds <= 0
         ? 0
         : automixClamp01(analyzedSeconds / fileSeconds),
@@ -1353,17 +1414,41 @@ AutomixTransitionCue automixTransitionCue({
       incoming.vocalConfidence >= 0.45 &&
       outgoing.vocalLikelihood >= 0.55 &&
       incoming.vocalLikelihood >= 0.55;
+  // Attenuate the overlap mid band in proportion to how strongly both edges
+  // agree that a vocal is present, instead of applying a fixed -2.2 dB shelf to
+  // every borderline match. The 0.55/0.45 entry point is the old confidence
+  // gate; a strong match (likelihood 0.75+, confidence 0.65+) reaches the old
+  // 0.78 target.
+  final vocalClashStrength = confidentVocalClash
+      ? automixClamp01(
+          math.min(
+            (math.min(outgoing.vocalLikelihood, incoming.vocalLikelihood) -
+                    0.55) /
+                0.20,
+            (math.min(outgoing.vocalConfidence, incoming.vocalConfidence) -
+                    0.45) /
+                0.20,
+          ),
+        )
+      : 0.0;
+  final vocalMidGain = 1.0 - 0.22 * vocalClashStrength;
+  // Edge onset density, not the whole-track average, decides whether two busy
+  // sections will actually overlap.
+  final outgoingOnset =
+      outgoing.outroEdgeOnsetRate ?? outgoing.onsetRate ?? 0.0;
+  final incomingOnset =
+      incoming.introEdgeOnsetRate ?? incoming.onsetRate ?? 0.0;
   final outgoingBusy =
-      (outgoing.outroEnergy ?? 0.5) >= 0.75 && (outgoing.onsetRate ?? 0) >= 2.5;
+      (outgoing.outroEnergy ?? 0.5) >= 0.75 && outgoingOnset >= 2.5;
   final incomingBusy =
-      (incoming.introEnergy ?? 0.5) >= 0.75 && (incoming.onsetRate ?? 0) >= 2.5;
+      (incoming.introEnergy ?? 0.5) >= 0.75 && incomingOnset >= 2.5;
   final outgoingBassGain = outgoingBusy ? 0.88 : 1.0;
   final incomingBassGain = incomingBusy ? 0.90 : 1.0;
   final outgoingMidGain = confidentVocalClash
-      ? 0.78
+      ? vocalMidGain
       : (strategy == AutomixTransitionStrategy.quickHandover ? 0.92 : 1.0);
   final incomingMidGain = confidentVocalClash
-      ? 0.78
+      ? vocalMidGain
       : (incoming.structureRegion == 4 && incoming.structureConfidence >= 0.70
             ? 0.90
             : 1.0);
@@ -1383,17 +1468,20 @@ AutomixTransitionCue automixTransitionCue({
             .clamp(0.82, 1.0)
             .toDouble();
 
-  // Level-match only comparable measurements. Section RMS is dBFS while
-  // ReplayGain loudness is integrated LUFS; comparing one to the other can
-  // mistake a quiet outro for a loud full track (or vice versa).
-  // Prefer the actual overlap sections, then fall back to a pair of integrated
-  // loudness values, then a pair of whole-track RMS values. Missing or mixed
-  // metrics deliberately disable trimming rather than inventing a delta.
+  // Level-match only comparable measurements. The edge LUFS pair is the
+  // correct overlap measurement; edge RMS is the fallback when the K-weighted
+  // estimator has too little material. Integrated replay-gain LUFS and
+  // whole-track RMS are last resorts. Mixing a section RMS with integrated LUFS
+  // would mistake a quiet outro for a loud full track (or vice versa), so each
+  // pair stays within one metric family.
   var outgoingTrim = 1.0;
   var incomingTrim = 1.0;
   double? outLevelDb;
   double? inLevelDb;
-  if (outgoing.outroRmsDb != null && incoming.introRmsDb != null) {
+  if (outgoing.outroEdgeLufs != null && incoming.introEdgeLufs != null) {
+    outLevelDb = outgoing.outroEdgeLufs;
+    inLevelDb = incoming.introEdgeLufs;
+  } else if (outgoing.outroRmsDb != null && incoming.introRmsDb != null) {
     outLevelDb = outgoing.outroRmsDb;
     inLevelDb = incoming.introRmsDb;
   } else if (outgoing.loudnessLufs != null && incoming.loudnessLufs != null) {

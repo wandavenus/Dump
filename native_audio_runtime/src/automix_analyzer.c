@@ -52,6 +52,11 @@
 // stays inside one hop. RMS-derived structural cues keep the frame-start
 // timestamp: their "after" window begins there, so no flux lead applies.
 #define ODF_TIMESTAMP_OFFSET_SAMPLES ((FFT_SIZE + HOP_SIZE) / 2)
+// The shortest fades are 1.5 s and the longest 12 s, so a 15 s edge window
+// always contains the material the seam decisions actually hear. Edge stats
+// are measured on the same frames as the rest of the analyzer; LUFS uses the
+// raw samples with the ITU-R BS.1770 K-weighting filters.
+#define AUTOMIX_EDGE_SECONDS 15.0
 #define LN10 2.30258509299404568402
 #define PI 3.14159265358979323846
 
@@ -1204,6 +1209,134 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
   return phase;
 }
 
+typedef struct {
+  double b0;
+  double b1;
+  double b2;
+  double a1;
+  double a2;
+} NarBiquad;
+
+// ITU-R BS.1770 K-weighting: a high shelf followed by the RLB high-pass. The
+// coefficients are re-derived for the actual sample rate instead of being
+// copied from a 48 kHz table, so the analyzer's 22.05/24 kHz decimation does
+// not shift the perceptual weighting.
+static void design_kweighting(NarBiquad* shelf, NarBiquad* high_pass,
+                              int32_t sample_rate) {
+  if (shelf == NULL || high_pass == NULL || sample_rate <= 0) return;
+
+  const double shelf_f0 = 1681.974450955533;
+  const double shelf_gain_db = 3.999843853973347;
+  const double shelf_q = 0.7071752369554196;
+  const double shelf_k = tan(PI * shelf_f0 / (double)sample_rate);
+  const double vh = pow(10.0, shelf_gain_db / 20.0);
+  const double vb = pow(vh, 0.4996667741545416);
+  const double shelf_a0 = 1.0 + shelf_k / shelf_q + shelf_k * shelf_k;
+  shelf->b0 = (vh + vb * shelf_k / shelf_q + shelf_k * shelf_k) / shelf_a0;
+  shelf->b1 = 2.0 * (shelf_k * shelf_k - vh) / shelf_a0;
+  shelf->b2 = (vh - vb * shelf_k / shelf_q + shelf_k * shelf_k) / shelf_a0;
+  shelf->a1 = 2.0 * (shelf_k * shelf_k - 1.0) / shelf_a0;
+  shelf->a2 = (1.0 - shelf_k / shelf_q + shelf_k * shelf_k) / shelf_a0;
+
+  const double high_pass_f0 = 38.13547087602444;
+  const double high_pass_q = 0.5003270373238773;
+  const double high_pass_k =
+      tan(PI * high_pass_f0 / (double)sample_rate);
+  const double high_pass_a0 =
+      1.0 + high_pass_k / high_pass_q + high_pass_k * high_pass_k;
+  high_pass->b0 = 1.0;
+  high_pass->b1 = -2.0;
+  high_pass->b2 = 1.0;
+  high_pass->a1 = 2.0 * (high_pass_k * high_pass_k - 1.0) / high_pass_a0;
+  high_pass->a2 =
+      (1.0 - high_pass_k / high_pass_q + high_pass_k * high_pass_k) /
+      high_pass_a0;
+}
+
+static double biquad_process(const NarBiquad* filter, double input,
+                             double* z1, double* z2) {
+  const double output = filter->b0 * input + *z1;
+  *z1 = filter->b1 * input - filter->a1 * output + *z2;
+  *z2 = filter->b2 * input - filter->a2 * output;
+  return output;
+}
+
+// Mono short-term loudness over a bounded edge. BS.1770 defines 400 ms blocks
+// with 100 ms hops and a -70 LUFS absolute gate; the optional -10 LU relative
+// gate is applied after the first pass. Mono uses a channel weight of 1.0,
+// matching the analyzer's single-channel feature pipeline. Returns NAN when
+// there is not enough material or no block survives gating.
+static double estimate_edge_lufs(const float* samples, int32_t count,
+                                 int32_t sample_rate) {
+  if (samples == NULL || count <= 0 || sample_rate <= 0) return NAN;
+  const int32_t block = (int32_t)llround(0.400 * sample_rate);
+  const int32_t hop = (int32_t)llround(0.100 * sample_rate);
+  if (block < 1 || hop < 1 || count < block) return NAN;
+
+  NarBiquad shelf = {0.0, 0.0, 0.0, 0.0, 0.0};
+  NarBiquad high_pass = {0.0, 0.0, 0.0, 0.0, 0.0};
+  design_kweighting(&shelf, &high_pass, sample_rate);
+
+  double* ring = (double*)calloc((size_t)block, sizeof(double));
+  if (ring == NULL) return NAN;
+  double blocks[512];
+  int32_t block_count = 0;
+  double running = 0.0;
+  double shelf_z1 = 0.0, shelf_z2 = 0.0;
+  double high_pass_z1 = 0.0, high_pass_z2 = 0.0;
+  int32_t ring_position = 0;
+  int32_t seen = 0;
+  for (int32_t i = 0; i < count; ++i) {
+    const double input = isfinite(samples[i]) ? (double)samples[i] : 0.0;
+    const double weighted = biquad_process(
+        &high_pass,
+        biquad_process(&shelf, input, &shelf_z1, &shelf_z2),
+        &high_pass_z1, &high_pass_z2);
+    const double square = weighted * weighted;
+    const double old = ring[ring_position];
+    ring[ring_position] = square;
+    running += square - old;
+    ring_position++;
+    if (ring_position == block) ring_position = 0;
+    ++seen;
+    if (seen >= block && ((seen - block) % hop) == 0 &&
+        block_count < (int32_t)(sizeof(blocks) / sizeof(blocks[0]))) {
+      blocks[block_count++] = running / (double)block;
+    }
+  }
+  free(ring);
+  if (block_count == 0) return NAN;
+
+  double sum = 0.0;
+  int32_t kept = 0;
+  for (int32_t i = 0; i < block_count; ++i) {
+    const double loudness =
+        -0.691 + 10.0 * log10(fmax(blocks[i], 1e-20));
+    if (loudness > -70.0) {
+      sum += blocks[i];
+      ++kept;
+    }
+  }
+  if (kept == 0 || sum <= 0.0) return NAN;
+  const double absolute_mean = sum / (double)kept;
+  const double relative_gate =
+      -0.691 + 10.0 * log10(absolute_mean) - 10.0;
+  double gated_sum = 0.0;
+  int32_t gated = 0;
+  for (int32_t i = 0; i < block_count; ++i) {
+    const double loudness =
+        -0.691 + 10.0 * log10(fmax(blocks[i], 1e-20));
+    if (loudness > -70.0 && loudness > relative_gate) {
+      gated_sum += blocks[i];
+      ++gated;
+    }
+  }
+  if (gated == 0 || gated_sum <= 0.0) {
+    return -0.691 + 10.0 * log10(absolute_mean);
+  }
+  return -0.691 + 10.0 * log10(gated_sum / (double)gated);
+}
+
 static double estimate_onset_rate(const float* odf, int32_t count, double fps) {
   if (count < 4 || fps <= 0.0) return 0.0;
   double mean = 0.0;
@@ -2040,6 +2173,34 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       output[33] = section_ms;
       output[34] = section_confidence;
     }
+  }
+
+  // 1c. Seam-edge statistics over the last/first 15 s. The window-level RMS
+  // median describes up to two minutes of material; it cannot tell a quiet
+  // outro from a loud one when both windows have similar medians. These slots
+  // are measured only on the material the fade actually overlaps.
+  const int32_t edge_frames = (int32_t)fmin(
+      (double)frame_count,
+      fmax(1.0, round(AUTOMIX_EDGE_SECONDS * fps)));
+  if (edge_frames > 0) {
+    const int32_t tail_frame_start = frame_count - edge_frames;
+    const float head_edge_rms =
+        median_float(rms_frame_values, edge_frames);
+    const float tail_edge_rms =
+        median_float(rms_frame_values + tail_frame_start, edge_frames);
+    output[35] = isfinite(head_edge_rms) ? head_edge_rms : NAN;
+    output[36] = isfinite(tail_edge_rms) ? tail_edge_rms : NAN;
+    output[39] = estimate_onset_rate(odf, edge_frames, fps);
+    output[40] = estimate_onset_rate(
+        odf + tail_frame_start, edge_frames, fps);
+  }
+  const int32_t edge_samples = (int32_t)fmin(
+      (double)sample_count,
+      fmax(1.0, round(AUTOMIX_EDGE_SECONDS * (double)working_rate)));
+  if (edge_samples > 0) {
+    output[37] = estimate_edge_lufs(mono, edge_samples, sample_rate);
+    output[38] = estimate_edge_lufs(
+        mono + sample_count - edge_samples, edge_samples, sample_rate);
   }
 
   // 2. Conservative structural cues.

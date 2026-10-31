@@ -522,6 +522,14 @@ object AutomixAnalysis {
             "rmsDb" to optional(7),
             "centroidHz" to optional(8),
             "onsetRate" to analysis[9],
+            // Seam-edge stats appended to the ABI. Optional reads keep an older
+            // native library from invalidating otherwise usable analysis.
+            "introEdgeRmsDb" to optional(35),
+            "outroEdgeRmsDb" to optional(36),
+            "introEdgeLufs" to optional(37),
+            "outroEdgeLufs" to optional(38),
+            "introEdgeOnsetRate" to optional(39),
+            "outroEdgeOnsetRate" to optional(40),
             "analyzedSeconds" to analysis[10],
             // Structural phase hints are window-relative; Dart adds the window
             // start when building the file-level intro/outro grid.

@@ -34,6 +34,10 @@ AutomixTrackFeatures _f(
   double? outroEnergy,
   double? introSlope,
   double? outroSlope,
+  double? introEdgeLufs,
+  double? outroEdgeLufs,
+  double? introEdgeOnsetRate,
+  double? outroEdgeOnsetRate,
 }) {
   return AutomixTrackFeatures(
     songId: id,
@@ -68,6 +72,10 @@ AutomixTrackFeatures _f(
     outroEnergy: outroEnergy,
     introSlope: introSlope,
     outroSlope: outroSlope,
+    introEdgeLufs: introEdgeLufs,
+    outroEdgeLufs: outroEdgeLufs,
+    introEdgeOnsetRate: introEdgeOnsetRate,
+    outroEdgeOnsetRate: outroEdgeOnsetRate,
   );
 }
 
@@ -110,6 +118,12 @@ void main() {
         durationSeconds: 180.0,
         introSlope: 5.0,
         outroSlope: -4.0,
+        introRmsDb: -18.0,
+        outroRmsDb: -24.0,
+        introEdgeLufs: -17.5,
+        outroEdgeLufs: -23.5,
+        introEdgeOnsetRate: 1.6,
+        outroEdgeOnsetRate: 0.7,
         startBpm: 122.0,
         startBpmConfidence: 0.81,
         endBpm: 126.0,
@@ -152,6 +166,12 @@ void main() {
       expect(restored.durationSeconds, 180.0);
       expect(restored.introSlope, 5.0);
       expect(restored.outroSlope, -4.0);
+      expect(restored.introRmsDb, -18.0);
+      expect(restored.outroRmsDb, -24.0);
+      expect(restored.introEdgeLufs, -17.5);
+      expect(restored.outroEdgeLufs, -23.5);
+      expect(restored.introEdgeOnsetRate, 1.6);
+      expect(restored.outroEdgeOnsetRate, 0.7);
       expect(restored.startBpm, 122.0);
       expect(restored.startBpmConfidence, 0.81);
       expect(restored.endBpm, 126.0);
@@ -169,6 +189,8 @@ void main() {
       expect(legacy.dropCueMs, isNull);
       expect(legacy.tailBreakdownCueMs, isNull);
       expect(legacy.durationSeconds, 0.0);
+      expect(legacy.introEdgeLufs, isNull);
+      expect(legacy.outroEdgeLufs, isNull);
       expect(legacy.chordProgression, isEmpty);
     });
   });
@@ -248,6 +270,12 @@ void main() {
           'rmsDb': -11.0,
           'centroidHz': 2600.0,
           'onsetRate': 3.2,
+          'introEdgeRmsDb': -18.0,
+          'outroEdgeRmsDb': -24.0,
+          'introEdgeLufs': -17.5,
+          'outroEdgeLufs': -23.5,
+          'introEdgeOnsetRate': 1.6,
+          'outroEdgeOnsetRate': 0.7,
         },
         fallbackStartSeconds: 0,
         fallbackSeconds: 120,
@@ -262,6 +290,12 @@ void main() {
       expect(segment.structureConfidence, 0.88);
       expect(segment.vocalLikelihood, 0.72);
       expect(segment.vocalConfidence, 0.93);
+      expect(segment.introEdgeRmsDb, -18);
+      expect(segment.outroEdgeRmsDb, -24);
+      expect(segment.introEdgeLufs, -17.5);
+      expect(segment.outroEdgeLufs, -23.5);
+      expect(segment.introEdgeOnsetRate, 1.6);
+      expect(segment.outroEdgeOnsetRate, 0.7);
     });
 
     test('parses metre and the track-level section cue', () {
@@ -1375,6 +1409,12 @@ void main() {
       double? endQuarterPhaseMs,
       double? tempoStability,
       List<double> quarters = const <double>[],
+      double? introEdgeRmsDb,
+      double? outroEdgeRmsDb,
+      double? introEdgeLufs,
+      double? outroEdgeLufs,
+      double? introEdgeOnsetRate,
+      double? outroEdgeOnsetRate,
     }) => AutomixSegmentFeatures(
       startSeconds: start,
       seconds: 120,
@@ -1400,6 +1440,12 @@ void main() {
       endBeatOffsetMs: endQuarterPhaseMs,
       tempoStability: tempoStability,
       energyQuarters: quarters,
+      introEdgeRmsDb: introEdgeRmsDb,
+      outroEdgeRmsDb: outroEdgeRmsDb,
+      introEdgeLufs: introEdgeLufs,
+      outroEdgeLufs: outroEdgeLufs,
+      introEdgeOnsetRate: introEdgeOnsetRate,
+      outroEdgeOnsetRate: outroEdgeOnsetRate,
       camelotNumber: 8,
       camelotMinor: true,
       keyConfidence: 0.8,
@@ -1818,6 +1864,51 @@ void main() {
         expect(merged.durationSeconds, 360);
       },
     );
+    test('merge uses edge RMS, LUFS and onset instead of window medians', () {
+      final merged = automixMergeSegments(
+        songId: 9,
+        segments: [
+          seg(
+            0,
+            bpm: 120,
+            rms: -12,
+            introEdgeRmsDb: -18,
+            outroEdgeRmsDb: -12,
+            introEdgeLufs: -17.5,
+            outroEdgeLufs: -12.5,
+            introEdgeOnsetRate: 0.4,
+            outroEdgeOnsetRate: 3.2,
+            quarters: const [-12, -12, -12, -12],
+          ),
+          seg(
+            240,
+            bpm: 120,
+            rms: -12,
+            introEdgeRmsDb: -12,
+            outroEdgeRmsDb: -30,
+            introEdgeLufs: -12.5,
+            outroEdgeLufs: -29.5,
+            introEdgeOnsetRate: 3.2,
+            outroEdgeOnsetRate: 0.4,
+            quarters: const [-12, -12, -12, -14],
+          ),
+        ],
+      );
+
+      // The window medians are both -12 dB, so the old implementation would
+      // publish intro/outro energy 1.0 and a STABLE_HIGH tail. The edge
+      // measurements expose the quiet, sparse final 15 s.
+      expect(merged.introRmsDb, -18);
+      expect(merged.outroRmsDb, -30);
+      expect(merged.introEdgeLufs, -17.5);
+      expect(merged.outroEdgeLufs, -29.5);
+      expect(merged.introEdgeOnsetRate, 0.4);
+      expect(merged.outroEdgeOnsetRate, 0.4);
+      expect(merged.introEnergy, closeTo(0.6667, 0.001));
+      expect(merged.outroEnergy, 0.0);
+      expect(merged.tailStructureRegion, 1);
+      expect(merged.outroSlope, -2);
+    });
   });
 
   group('chord progression compatibility', () {
@@ -1960,6 +2051,8 @@ void main() {
       double? rmsDb,
       double? introRmsDb,
       double? outroRmsDb,
+      double? introEdgeLufs,
+      double? outroEdgeLufs,
       double? centroidHz,
       double? onsetRate,
       int structureRegion = 0,
@@ -1987,6 +2080,8 @@ void main() {
       rmsDb: rmsDb,
       introRmsDb: introRmsDb,
       outroRmsDb: outroRmsDb,
+      introEdgeLufs: introEdgeLufs,
+      outroEdgeLufs: outroEdgeLufs,
       centroidHz: centroidHz,
       onsetRate: onsetRate,
       outroEnergy: outro,
@@ -2400,6 +2495,50 @@ void main() {
       // Section levels differ by 4 dB; integrated LUFS is intentionally ignored.
       expect(cue.outgoingTrim, 1.0);
       expect(cue.incomingTrim, closeTo(0.6309, 0.001));
+    });
+
+    test('prefers edge LUFS over integrated loudness and edge RMS', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          lufs: -8,
+          outroRmsDb: -10,
+          outroEdgeLufs: -20,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          lufs: -8,
+          introRmsDb: -10,
+          introEdgeLufs: -14,
+        ),
+        settings: const AutomixSettings(),
+      );
+      // Integrated LUFS and edge RMS both say the decks are equal; only the
+      // edge LUFS pair sees the 6 dB quieter outgoing overlap.
+      expect(cue.outgoingTrim, 1.0);
+      expect(cue.incomingTrim, closeTo(0.5012, 0.001));
+    });
+
+    test('partial vocal evidence attenuates the mid band continuously', () {
+      final cue = automixTransitionCue(
+        outgoing: track(
+          1,
+          tailBpm: 120,
+          vocalLikelihood: 0.65,
+          vocalConfidence: 0.55,
+        ),
+        incoming: track(
+          2,
+          tailBpm: 120,
+          vocalLikelihood: 0.65,
+          vocalConfidence: 0.55,
+        ),
+        settings: const AutomixSettings(),
+      );
+      expect(cue.outgoingMidOverlapGain, closeTo(0.89, 1e-9));
+      expect(cue.incomingMidOverlapGain, closeTo(0.89, 1e-9));
     });
 
     test('does not compare a section RMS value against integrated LUFS', () {

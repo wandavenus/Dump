@@ -1115,7 +1115,10 @@ class AutomixService {
   //     new features, and the live/offline grid merge changed. v19 entries carry
   //     neither metre nor section cue, so they must be re-analysed rather than
   //     silently reverting a 3/4 track to a four-beat bar.
-  static const int _analysisSchemaVersion = 20;
+  // v21: seam-edge RMS/LUFS/onset and edge-based intro/outro energy. v20 stores
+  //     window medians in introRmsDb/outroRmsDb; keeping those would make seam
+  //     decisions from unrelated material.
+  static const int _analysisSchemaVersion = 21;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1299,6 +1302,10 @@ class AutomixService {
     outroRmsDb: features.outroRmsDb,
     introEnergy: features.introEnergy,
     outroEnergy: features.outroEnergy,
+    introEdgeLufs: features.introEdgeLufs,
+    outroEdgeLufs: features.outroEdgeLufs,
+    introEdgeOnsetRate: features.introEdgeOnsetRate,
+    outroEdgeOnsetRate: features.outroEdgeOnsetRate,
     analyzedFraction: features.analyzedFraction,
     tailAnalyzed: features.tailAnalyzed,
     chordProgression: features.chordProgression,

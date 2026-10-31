@@ -47,6 +47,15 @@ void main() {
         expect(quarter, lessThanOrEqualTo(0));
         expect(quarter, greaterThanOrEqualTo(-120));
       }
+      // Seam-edge slots are appended to the same ABI. A 2 s clip is shorter
+      // than the 15 s edge, so head and tail both cover the whole clip.
+      expect(result.introEdgeRmsDb, closeTo(-9.03, 1.0));
+      expect(result.outroEdgeRmsDb, closeTo(-9.03, 1.0));
+      expect(result.introEdgeLufs, isNotNull);
+      expect(result.outroEdgeLufs, isNotNull);
+      expect(result.introEdgeLufs!, closeTo(result.outroEdgeLufs!, 0.1));
+      expect(result.introEdgeOnsetRate, 0);
+      expect(result.outroEdgeOnsetRate, 0);
     });
 
     test('rejects too-short input', () {

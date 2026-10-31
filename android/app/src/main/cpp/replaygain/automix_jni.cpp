@@ -16,6 +16,9 @@ static jdoubleArray analyze_pcm(JNIEnv* env, jfloatArray pcm,
   if (samples == nullptr) return nullptr;
 
   double values[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  // Fill appended slots with NaN so a mismatched older native library that
+  // only writes the legacy prefix cannot publish uninitialised edge values.
+  for (int i = 0; i < NAR_AUTOMIX_ANALYSIS_VALUE_COUNT; ++i) values[i] = NAN;
   const int32_t status = nar_automix_analyze_centered(
       reinterpret_cast<const float*>(samples), count, sample_rate, center_ratio,
       values, NAR_AUTOMIX_ANALYSIS_VALUE_COUNT);

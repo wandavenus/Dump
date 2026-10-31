@@ -125,6 +125,12 @@ class NativeAutomixAnalysis {
     this.meter,
     this.sectionCueMs,
     this.sectionCueConfidence = 0,
+    this.introEdgeRmsDb,
+    this.outroEdgeRmsDb,
+    this.introEdgeLufs,
+    this.outroEdgeLufs,
+    this.introEdgeOnsetRate,
+    this.outroEdgeOnsetRate,
     this.energyQuarters = const <double>[],
   });
 
@@ -169,6 +175,17 @@ class NativeAutomixAnalysis {
   /// no clear change point.
   final double? sectionCueMs;
   final double sectionCueConfidence;
+
+  /// Seam-edge measurements over the first/last 15 s of this window.
+  /// [introEdgeRmsDb]/[outroEdgeRmsDb] are frame medians; the LUFS variants
+  /// are BS.1770 K-weighted short-term loudness and stay null when there is not
+  /// enough material or no block survives gating.
+  final double? introEdgeRmsDb;
+  final double? outroEdgeRmsDb;
+  final double? introEdgeLufs;
+  final double? outroEdgeLufs;
+  final double? introEdgeOnsetRate;
+  final double? outroEdgeOnsetRate;
 
   /// Median RMS dBFS of each quarter of the analyzed window, in time order.
   /// Empty when any slot was not finite (an incomplete profile is unusable).

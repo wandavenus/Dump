@@ -158,6 +158,12 @@ class AutomixSegmentFeatures {
     this.rmsDb,
     this.centroidHz,
     this.onsetRate,
+    this.introEdgeRmsDb,
+    this.outroEdgeRmsDb,
+    this.introEdgeLufs,
+    this.outroEdgeLufs,
+    this.introEdgeOnsetRate,
+    this.outroEdgeOnsetRate,
     this.chordProgression = const <AutomixChordEvent>[],
   });
 
@@ -234,6 +240,16 @@ class AutomixSegmentFeatures {
   final double? rmsDb;
   final double? centroidHz;
   final double? onsetRate;
+
+  /// Measurements over the first/last 15 s of this window. These are the
+  /// features that belong to the fade seam; [rmsDb] is a window median and can
+  /// describe up to two minutes of unrelated material.
+  final double? introEdgeRmsDb;
+  final double? outroEdgeRmsDb;
+  final double? introEdgeLufs;
+  final double? outroEdgeLufs;
+  final double? introEdgeOnsetRate;
+  final double? outroEdgeOnsetRate;
 
   /// Native chord estimates on the absolute source timeline, confidence-gated.
   final List<AutomixChordEvent> chordProgression;
@@ -376,6 +392,12 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     rmsDb: finiteValue('rmsDb'),
     centroidHz: finiteValue('centroidHz'),
     onsetRate: finiteValue('onsetRate'),
+    introEdgeRmsDb: finiteValue('introEdgeRmsDb'),
+    outroEdgeRmsDb: finiteValue('outroEdgeRmsDb'),
+    introEdgeLufs: finiteValue('introEdgeLufs'),
+    outroEdgeLufs: finiteValue('outroEdgeLufs'),
+    introEdgeOnsetRate: finiteValue('introEdgeOnsetRate'),
+    outroEdgeOnsetRate: finiteValue('outroEdgeOnsetRate'),
     chordProgression: automixChordEventsFromValue(map['chordProgression']),
   );
 }
@@ -431,6 +453,10 @@ class AutomixTrackFeatures {
     this.outroRmsDb,
     this.introEnergy,
     this.outroEnergy,
+    this.introEdgeLufs,
+    this.outroEdgeLufs,
+    this.introEdgeOnsetRate,
+    this.outroEdgeOnsetRate,
     this.analyzedFraction = 0,
     this.tailAnalyzed = false,
     this.chordProgression = const <AutomixChordEvent>[],
@@ -546,13 +572,25 @@ class AutomixTrackFeatures {
   final double? introSlope;
   final double? outroSlope;
 
-  /// 0..1 energy of the first/last analyzed window relative to the loudest
-  /// window of the same track — the coarse "structure" signal used to pick the
-  /// fade length and curve.
+  /// Edge RMS dBFS of the first/last 15 s of the track. Unlike the old window
+  /// medians this is measured on the material the fade actually overlaps, so a
+  /// quiet outro inside an otherwise loud window is no longer hidden.
   final double? introRmsDb;
   final double? outroRmsDb;
+
+  /// 0..1 edge energy relative to the loudest analyzed window of this track.
+  /// This is the planner's coarse structure signal; [introRmsDb]/[outroRmsDb]
+  /// carry the raw edge level used for level matching.
   final double? introEnergy;
   final double? outroEnergy;
+
+  /// K-weighted edge loudness (LUFS) and onset density. The LUFS values are
+  /// preferred for seam level matching; onset density distinguishes a busy
+  /// outro from a quiet one at the same RMS.
+  final double? introEdgeLufs;
+  final double? outroEdgeLufs;
+  final double? introEdgeOnsetRate;
+  final double? outroEdgeOnsetRate;
 
   /// Share of the file that was actually analyzed (1.0 = whole file).
   final double analyzedFraction;
@@ -616,6 +654,10 @@ class AutomixTrackFeatures {
     if (outroRmsDb != null) 'orms': outroRmsDb,
     if (introEnergy != null) 'ie': introEnergy,
     if (outroEnergy != null) 'oe': outroEnergy,
+    if (introEdgeLufs != null) 'iel': introEdgeLufs,
+    if (outroEdgeLufs != null) 'oel': outroEdgeLufs,
+    if (introEdgeOnsetRate != null) 'ieo': introEdgeOnsetRate,
+    if (outroEdgeOnsetRate != null) 'oeo': outroEdgeOnsetRate,
     if (analyzedFraction > 0) 'af': analyzedFraction,
     'ta': tailAnalyzed,
     if (chordProgression.isNotEmpty)
@@ -674,6 +716,10 @@ class AutomixTrackFeatures {
       outroRmsDb: (map['orms'] as num?)?.toDouble(),
       introEnergy: (map['ie'] as num?)?.toDouble(),
       outroEnergy: (map['oe'] as num?)?.toDouble(),
+      introEdgeLufs: (map['iel'] as num?)?.toDouble(),
+      outroEdgeLufs: (map['oel'] as num?)?.toDouble(),
+      introEdgeOnsetRate: (map['ieo'] as num?)?.toDouble(),
+      outroEdgeOnsetRate: (map['oeo'] as num?)?.toDouble(),
       analyzedFraction: (map['af'] as num?)?.toDouble() ?? 0,
       tailAnalyzed: map['ta'] as bool? ?? false,
       chordProgression: automixChordEventsFromValue(map['chords']),
