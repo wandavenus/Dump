@@ -1,5 +1,6 @@
-// SEMENTARA — dipakai untuk membuktikan tampilan acuan ponsel tidak berubah,
-// dengan cara membandingkan hasil render terhadap revisi sebelum perubahan.
+// Golden references cover components whose appearance must remain unchanged.
+// Radio Page section typography has a dedicated regression test because its
+// 20px semibold redesign intentionally differs from the historical screenshot.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -55,7 +56,6 @@ Future<void> _pump(WidgetTester tester, Size size, Widget child) async {
         builder: (context) => Scaffold(
           body: MediaQuery(
             // Kompensasi font test yang lebih lebar dari font aplikasi.
-            // Dipakai sama persis di kedua revisi, jadi perbandingan tetap sah.
             data: MediaQuery.of(
               context,
             ).copyWith(textScaler: const TextScaler.linear(0.8)),
@@ -78,7 +78,6 @@ void main() {
   });
 
   final cases = <String, Widget>{
-    'radio_page': const RadioPageContent(),
     'browse_banner': BrowseBannerCarousel(songs: _songs),
     'song_list_row': SongListRow(song: _songs[0], index: 0, playlist: _songs),
     'page_chrome': const Column(
@@ -90,7 +89,8 @@ void main() {
     ),
   };
 
-  // Ukuran acuan ponsel: di sini tampilan HARUS identik dengan revisi lama.
+  // These components have no intentional visual redesign and retain exact
+  // screenshot comparisons at the reference phone size.
   for (final entry in cases.entries) {
     testWidgets('golden acuan 393x852 ${entry.key}', (tester) async {
       await _pump(tester, const Size(393, 852), entry.value);
@@ -100,4 +100,27 @@ void main() {
       );
     });
   }
+
+  testWidgets(
+    'Radio Page section titles use the updated 20px semibold style',
+    (tester) async {
+      await _pump(tester, const Size(393, 852), const RadioPageContent());
+
+      for (final title in const ['Favorites', 'My Playlists']) {
+        final finder = find.text(title);
+        expect(finder, findsOneWidget, reason: 'Expected the "$title" heading');
+        final text = tester.widget<Text>(finder);
+        expect(
+          text.style?.fontSize,
+          20,
+          reason: '"$title" should use the updated 20px size',
+        );
+        expect(
+          text.style?.fontWeight,
+          FontWeight.w600,
+          reason: '"$title" should use semibold weight',
+        );
+      }
+    },
+  );
 }
