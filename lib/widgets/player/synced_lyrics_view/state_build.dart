@@ -41,111 +41,120 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               _prepareKaraokeLayouts(
                 constraints.maxWidth - resolvedPadding.horizontal,
               );
+
               return ScrollablePositionedList.builder(
-            itemScrollController: _itemScrollController,
-            scrollOffsetController: widget.offsetController,
-            padding: resolvedPadding,
-            itemCount: widget.lyrics.length,
-            itemBuilder: (context, index) {
-              final isActive = index == _currentIndex;
-              final karaokeReady =
-                  isActive && karaokeOn && _isKaraokeLinePrepared(index);
-              final lineDirection = LyricsTextDirection.resolve(
-                widget.lyrics[index].text,
-              );
-              final lineAlign = lineDirection == TextDirection.rtl
-                  ? TextAlign.right
-                  : align;
+                itemScrollController: _itemScrollController,
+                scrollOffsetController: widget.offsetController,
+                padding: resolvedPadding,
+                itemCount: widget.lyrics.length,
+                itemBuilder: (context, index) {
+                  final isActive = index == _currentIndex;
+                  final lineDirection = LyricsTextDirection.resolve(
+                    widget.lyrics[index].text,
+                  );
+                  final lineAlign = lineDirection == TextDirection.rtl
+                      ? TextAlign.right
+                      : align;
+                  final karaokeReady = isActive &&
+                      karaokeOn &&
+                      _isKaraokeLinePrepared(index);
 
-              final distance = (index - _currentIndex).abs();
-              final targetBlur = lyricFocusBlurSigma(distance);
-              final scrollDistance = ((_currentIndex - _previousIndex) * 16.0)
-                  .clamp(-96.0, 96.0)
-                  .toDouble();
+                  final distance = (index - _currentIndex).abs();
+                  final targetBlur = lyricFocusBlurSigma(distance);
+                  final scrollDistance =
+                      ((_currentIndex - _previousIndex) * 16.0)
+                          .clamp(-96.0, 96.0)
+                          .toDouble();
 
-              // Keep the staggered motion local to each visible row. Listening
-              // above caused the entire ScrollablePositionedList subtree to
-              // rebuild on every animation tick.
-              return AnimatedBuilder(
-                animation: _lineTransitionController,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    final targetPos = widget.lyrics[index].timestamp;
-                    _pendingSeekPos = targetPos;
-                    _anchorPos = targetPos;
-                    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-                    _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
-                    _karaokeController.updatePosition(targetPos);
-                    unawaited(AudioService.seek(targetPos));
-                  },
-                  child: AnimatedOpacity(
-                    opacity: isActive ? 1.0 : 0.48,
-                    duration: motionDuration,
-                    curve: Curves.easeInOutCubic,
-                    child: AnimatedScale(
-                      scale: isActive ? 1.0 : 0.96,
-                      duration: motionDuration,
-                      curve: Curves.easeInOutCubic,
-                      child: _AnimatedLyricBlur(
-                        sigma: targetBlur,
+                  // Keep the staggered motion local to each visible row.
+                  // Listening above rebuilt the entire list on every tick.
+                  return AnimatedBuilder(
+                    animation: _lineTransitionController,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        final targetPos = widget.lyrics[index].timestamp;
+                        _pendingSeekPos = targetPos;
+                        _anchorPos = targetPos;
+                        _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+                        _maybeUpdateCurrentLine(
+                          targetPos,
+                          allowBinarySearch: true,
+                        );
+                        _karaokeController.updatePosition(targetPos);
+                        unawaited(AudioService.seek(targetPos));
+                      },
+                      child: AnimatedOpacity(
+                        opacity: isActive ? 1.0 : 0.48,
                         duration: motionDuration,
-                        visibility: _blurVisibility,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: lineSpacing),
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                            style: TextStyle(
-                              fontSize: fs,
-                              fontWeight: FontWeight.bold,
-                              color: isActive ? active : Colors.white,
-                              height: 1.4,
+                        curve: Curves.easeInOutCubic,
+                        child: AnimatedScale(
+                          scale: isActive ? 1.0 : 0.96,
+                          duration: motionDuration,
+                          curve: Curves.easeInOutCubic,
+                          child: _AnimatedLyricBlur(
+                            sigma: targetBlur,
+                            duration: motionDuration,
+                            visibility: _blurVisibility,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: lineSpacing,
+                              ),
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOut,
+                                style: TextStyle(
+                                  fontSize: fs,
+                                  fontWeight: FontWeight.bold,
+                                  color: isActive ? active : Colors.white,
+                                  height: 1.4,
+                                ),
+                                child: karaokeReady
+                                    ? _UnifiedKaraokeLine(
+                                        key: ValueKey(_currentIndex),
+                                        text: widget.lyrics[index].text,
+                                        lineIndex: index,
+                                        timeline: _wordTimelines[index],
+                                        wordTexts: _wordTextTimelines[index],
+                                        layoutCache: _karaokeLayoutCache,
+                                        controller: _karaokeController,
+                                        activeColor: active,
+                                        dimColor: dim,
+                                        fontSize: fs,
+                                        textAlign: lineAlign,
+                                        textScaleFactor:
+                                            MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(1.0),
+                                        textDirection: lineDirection,
+                                      )
+                                    : Text(
+                                        widget.lyrics[index].text,
+                                        textAlign: lineAlign,
+                                        textDirection: lineDirection,
+                                      ),
+                              ),
                             ),
-                            child: karaokeReady
-                                ? _UnifiedKaraokeLine(
-                                    key: ValueKey(_currentIndex),
-                                    text: widget.lyrics[index].text,
-                                    lineIndex: index,
-                                    timeline: _wordTimelines[index],
-                                    wordTexts: _wordTextTimelines[index],
-                                    layoutCache: _karaokeLayoutCache,
-                                    controller: _karaokeController,
-                                    activeColor: active,
-                                    dimColor: dim,
-                                    fontSize: fs,
-                                    textAlign: lineAlign,
-                                    textScaleFactor: MediaQuery.textScalerOf(
-                                      context,
-                                    ).scale(1.0),
-                                    textDirection: lineDirection,
-                                  )
-                                : Text(
-                                    widget.lyrics[index].text,
-                                    textAlign: lineAlign,
-                                    textDirection: lineDirection,
-                                  ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                builder: (context, child) {
-                  final lineOffset = motionDisabled
-                      ? 0.0
-                      : lyricStaggeredRowOffset(
-                          animationProgress: _lineTransitionController.value,
-                          distance: scrollDistance,
-                          rowsAfterFocus: index - _currentIndex,
-                        );
-                  return Transform.translate(
-                    offset: Offset(0, lineOffset),
-                    child: child,
+                    builder: (context, child) {
+                      final lineOffset = motionDisabled
+                          ? 0.0
+                          : lyricStaggeredRowOffset(
+                              animationProgress:
+                                  _lineTransitionController.value,
+                              distance: scrollDistance,
+                              rowsAfterFocus: index - _currentIndex,
+                            );
+                      return Transform.translate(
+                        offset: Offset(0, lineOffset),
+                        child: child,
+                      );
+                    },
                   );
                 },
-              );
-              },
               );
             },
           );
