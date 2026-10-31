@@ -95,7 +95,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                 style: TextStyle(
                   color: c.primaryLabel,
                   fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -373,7 +373,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
                   style: TextStyle(
                     color: c.primaryLabel,
                     fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
