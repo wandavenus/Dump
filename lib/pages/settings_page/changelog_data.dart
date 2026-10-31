@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.64',
+    date: '31 Oktober 2026',
+    changes: [
+      'Lyrics: cache layout teks dan geometri kata karaoke secara terbatas, lalu prewarm baris aktif dan baris terdekat saat idle agar perpindahan baris tidak melakukan cold layout.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.63',
     date: '31 Oktober 2026',
     changes: [

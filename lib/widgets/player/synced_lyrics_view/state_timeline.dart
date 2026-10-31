@@ -26,6 +26,13 @@ extension _SyncedLyricsViewTimelineState on _SyncedLyricsViewState {
         lineEnd,
       );
     }, growable: false);
+    _wordTextTimelines = _wordTimelines
+        .map(
+          (line) => List<String>.unmodifiable(
+            line.map((word) => word.text),
+          ),
+        )
+        .toList(growable: false);
   }
 
   List<_TimelineWord> _timelineFromElrc(
