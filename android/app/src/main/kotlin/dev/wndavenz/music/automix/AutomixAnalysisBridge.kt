@@ -551,6 +551,15 @@ object AutomixAnalysis {
             "sectionCueConfidence" to (analysis.getOrNull(34)
                 ?.takeIf { it.isFinite() && it in 0.0..1.0 } ?: 0.0),
             "dropCueMs" to optional(12),
+            // Extra drop candidates from the same window. Merging all windows
+            // and picking the earliest usable cue opens early handover to
+            // tracks whose first drop lands after 90 s.
+            "dropCueMs2" to optional(41),
+            "dropCueMs3" to optional(43),
+            "dropConfidence2" to (analysis.getOrNull(42)
+                ?.takeIf { it.isFinite() && it in 0.0..1.0 } ?: 0.0),
+            "dropConfidence3" to (analysis.getOrNull(44)
+                ?.takeIf { it.isFinite() && it in 0.0..1.0 } ?: 0.0),
             "breakdownCueMs" to optional(13),
             "dropConfidence" to analysis[14],
             "breakdownConfidence" to analysis[15],

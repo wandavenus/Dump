@@ -17,6 +17,11 @@ enum {
   NAR_PLAN_MAX_REVERSE_EVALS = 1800,
   NAR_PLAN_MAX_BREACH = 6,
   NAR_PLAN_POLISH_MIN_TRACKS = 12,
+  // Receding-horizon beam: keep the eight cheapest first steps and score two
+  // follow-up steps for each. This is not a full-set optimum; it stays bounded
+  // at O(n * width * pool^2) and is deterministic.
+  NAR_PLAN_BEAM_WIDTH = 8,
+  NAR_PLAN_BEAM_DEPTH = 2,
   // A repeated artist inside this many recent positions is discouraged by the
   // greedy pick. This is the single artist-spread mechanism: the old variety
   // sub-cost inside transition_cost was removed, so the cooldown also covers
@@ -698,8 +703,8 @@ static int32_t pick_next(int32_t current, int32_t step_index,
                          double tolerance, int32_t avoid_artist_repeat,
                          int32_t harmonic_filter, double median_bpm,
                          uint8_t* candidates, ScoredCandidate* scored,
-                         uint8_t* next_candidates, const int32_t* plan,
-                         int32_t plan_count) {
+                         uint8_t* next_candidates, uint8_t* third_candidates,
+                         const int32_t* plan, int32_t plan_count) {
   candidate_pool(current, slots, total_steps, played, -1, song_ids, rows,
                  keys, energies, profile, median_bpm, candidates);
   int32_t scored_count = 0;
@@ -739,7 +744,9 @@ static int32_t pick_next(int32_t current, int32_t step_index,
 
   int32_t best = scored[0].index;
   double best_score = INFINITY;
-  const int32_t limit = scored_count < 3 ? scored_count : 3;
+  const int32_t limit = scored_count < NAR_PLAN_BEAM_WIDTH
+      ? scored_count
+      : NAR_PLAN_BEAM_WIDTH;
   for (int32_t k = 0; k < limit; ++k) {
     const int32_t candidate = scored[k].index;
     double score = scored[k].cost;
@@ -751,12 +758,32 @@ static int32_t pick_next(int32_t current, int32_t step_index,
       if (!next_candidates[next] || played[next] || next == current) continue;
       // plan_count + 1 because the candidate will occupy one more slot than
       // the path built so far when `next` actually follows it.
-      const double cost = transition_cost(
+      double cost = transition_cost(
           candidate, next, step_index + 1, total_steps, song_ids,
           artist_groups, rows, keys, energies, arc, profile, tolerance,
           avoid_artist_repeat, harmonic_filter) +
           artist_cooldown_cost(plan, plan_count + 1, plan_count, artist_groups,
                                artist_groups[next], avoid_artist_repeat);
+      if (NAR_PLAN_BEAM_DEPTH >= 2) {
+        double min_after = INFINITY;
+        candidate_pool(next, slots, total_steps, played, next, song_ids, rows,
+                       keys, energies, profile, median_bpm, third_candidates);
+        for (int32_t after = 0; after < total_steps; ++after) {
+          if (!third_candidates[after] || played[after] ||
+              after == current || after == candidate) {
+            continue;
+          }
+          const double after_cost = transition_cost(
+              next, after, step_index + 2, total_steps, song_ids,
+              artist_groups, rows, keys, energies, arc, profile, tolerance,
+              avoid_artist_repeat, harmonic_filter) +
+              artist_cooldown_cost(plan, plan_count + 2, plan_count,
+                                   artist_groups, artist_groups[after],
+                                   avoid_artist_repeat);
+          if (after_cost < min_after) min_after = after_cost;
+        }
+        if (isfinite(min_after)) cost += 0.35 * min_after;
+      }
       if (cost < min_next) min_next = cost;
     }
     if (isfinite(min_next)) score += 0.35 * min_next;
@@ -927,12 +954,15 @@ int32_t nar_automix_plan_set(
   uint8_t* candidates = (uint8_t*)calloc((size_t)track_count, sizeof(uint8_t));
   uint8_t* next_candidates =
       (uint8_t*)calloc((size_t)track_count, sizeof(uint8_t));
+  uint8_t* third_candidates =
+      (uint8_t*)calloc((size_t)track_count, sizeof(uint8_t));
   ScoredCandidate* scored =
       (ScoredCandidate*)malloc((size_t)track_count * sizeof(ScoredCandidate));
   if (energies == NULL || slots == NULL || played == NULL ||
-      candidates == NULL || next_candidates == NULL || scored == NULL) {
+      candidates == NULL || next_candidates == NULL ||
+      third_candidates == NULL || scored == NULL) {
     free(energies); free(slots); free(played); free(candidates);
-    free(next_candidates); free(scored);
+    free(next_candidates); free(third_candidates); free(scored);
     return 0;
   }
 
@@ -942,7 +972,7 @@ int32_t nar_automix_plan_set(
   double* known_tempos = (double*)malloc((size_t)track_count * sizeof(double));
   if (known_tempos == NULL) {
     free(energies); free(slots); free(played); free(candidates);
-    free(next_candidates); free(scored);
+    free(next_candidates); free(third_candidates); free(scored);
     return 0;
   }
   int32_t known_count = 0;
@@ -973,7 +1003,7 @@ int32_t nar_automix_plan_set(
         current, plan_count, track_count, played, slots, song_ids,
         artist_groups, features, keys, energies, &arc, profile, bpm_tolerance,
         avoid_artist_repeat, harmonic_filter, median_bpm, candidates, scored,
-        next_candidates, output_order, plan_count);
+        next_candidates, third_candidates, output_order, plan_count);
     if (next < 0 || next >= track_count || played[next]) {
       next = -1;
       for (int32_t i = 0; i < track_count; ++i) {
@@ -990,7 +1020,7 @@ int32_t nar_automix_plan_set(
   }
   if (plan_count != track_count) {
     free(energies); free(slots); free(played); free(candidates);
-    free(next_candidates); free(scored);
+    free(next_candidates); free(third_candidates); free(scored);
     return 0;
   }
 
@@ -1118,6 +1148,6 @@ int32_t nar_automix_plan_set(
       harmonic_filter) / (track_count - 1);
 
   free(energies); free(slots); free(played); free(candidates);
-  free(next_candidates); free(scored);
+  free(next_candidates); free(third_candidates); free(scored);
   return 1;
 }

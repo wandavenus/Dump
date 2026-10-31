@@ -6,7 +6,7 @@ import '../native_audio_runtime_bindings_generated.dart' as bindings;
 import 'automix_native_types.dart';
 
 // Must match NAR_AUTOMIX_ANALYSIS_VALUE_COUNT in src/automix_native.h.
-const int _analysisOutputCount = 41;
+const int _analysisOutputCount = 45;
 const int _featureCount = 27;
 
 /// Bar lengths the native metre hypotheses can publish: 2 (compound 6/8 at a
@@ -176,8 +176,12 @@ class NativeAutomix {
         analyzedSeconds: output[10],
         downbeatOffsetMs: nullable(11),
         dropCueMs: nullable(12),
+        dropCueMs2: nullable(41),
+        dropCueMs3: nullable(43),
         breakdownCueMs: nullable(13),
         dropConfidence: output[14],
+        dropConfidence2: output[42].isFinite ? output[42] : 0,
+        dropConfidence3: output[44].isFinite ? output[44] : 0,
         breakdownConfidence: output[15],
         structureRegion: output[16].toInt(),
         structureConfidence: output[17],

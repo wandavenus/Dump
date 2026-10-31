@@ -1210,6 +1210,84 @@ static double estimate_beat_phase_ms(const float* odf, int32_t count,
   return phase;
 }
 
+// Ellis-style dynamic-programming beat tracker over the beat-band ODF. A
+// single period cannot follow live drums or a ritardando, so each beat may
+// land within ±35 % of the nominal period and pays a log-ratio transition
+// penalty. The returned frame indices are the actual beat timeline; the
+// phrase estimator and beat phase consume them instead of assuming a rigid
+// grid. Gated by the caller's tempo confidence, so fixed-tempo EDM keeps the
+// existing autocorrelation result.
+static int32_t track_beats_dp(const float* odf, int32_t count, double fps,
+                              double bpm, int32_t* beats, int32_t capacity) {
+  if (odf == NULL || beats == NULL || count < 8 || capacity <= 0 ||
+      !isfinite(fps) || fps <= 0.0 || !isfinite(bpm) || bpm <= 0.0) {
+    return 0;
+  }
+  const double period = fps * 60.0 / bpm;
+  if (!isfinite(period) || period < 2.0 || (double)count < period * 4.0) {
+    return 0;
+  }
+  int32_t tau_min = (int32_t)floor(period * 0.65);
+  int32_t tau_max = (int32_t)ceil(period * 1.35);
+  if (tau_min < 1) tau_min = 1;
+  if (tau_max < tau_min) tau_max = tau_min;
+
+  double peak = 0.0;
+  for (int32_t i = 0; i < count; ++i) {
+    if (isfinite(odf[i]) && odf[i] > peak) peak = (double)odf[i];
+  }
+  if (peak <= 1e-12) return 0;
+
+  double* score = (double*)malloc((size_t)count * sizeof(double));
+  int32_t* previous = (int32_t*)malloc((size_t)count * sizeof(int32_t));
+  if (score == NULL || previous == NULL) {
+    free(score);
+    free(previous);
+    return 0;
+  }
+  for (int32_t t = 0; t < count; ++t) {
+    const double onset = fmax(0.0, (double)odf[t] / peak);
+    double best = onset;
+    int32_t best_prev = -1;
+    for (int32_t tau = tau_min; tau <= tau_max; ++tau) {
+      const int32_t prev = t - tau;
+      if (prev < 0) continue;
+      const double ratio = (double)tau / period;
+      const double penalty = 1.2 * log(ratio) * log(ratio);
+      const double candidate = score[prev] + onset - penalty;
+      if (candidate > best) {
+        best = candidate;
+        best_prev = prev;
+      }
+    }
+    score[t] = best;
+    previous[t] = best_prev;
+  }
+
+  int32_t end = -1;
+  double end_score = -DBL_MAX;
+  const int32_t tail_start = (int32_t)fmax(0.0, (double)count - period);
+  for (int32_t t = tail_start; t < count; ++t) {
+    if (score[t] > end_score) {
+      end_score = score[t];
+      end = t;
+    }
+  }
+  int32_t length = 0;
+  while (end >= 0 && length < capacity) {
+    beats[length++] = end;
+    end = previous[end];
+  }
+  for (int32_t left = 0, right = length - 1; left < right; ++left, --right) {
+    const int32_t value = beats[left];
+    beats[left] = beats[right];
+    beats[right] = value;
+  }
+  free(score);
+  free(previous);
+  return length >= 8 ? length : 0;
+}
+
 typedef struct {
   double b0;
   double b1;
@@ -1488,13 +1566,17 @@ static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
                                               int32_t frame_count,
                                               double working_rate, double fps,
                                               double beat_ms,
-                                              double beat_phase_ms) {
+                                              double beat_phase_ms,
+                                              const int32_t* beat_indices,
+                                              int32_t beat_index_count) {
   NarPhraseEstimate result = {NAN, 4, 0, 0};
   const double window_ms =
       (double)frame_count * HOP_SIZE * 1000.0 / working_rate;
   const double offset_ms =
       (double)ODF_TIMESTAMP_OFFSET_SAMPLES * 1000.0 / working_rate;
-  int32_t beat_count = (int32_t)floor(window_ms / beat_ms);
+  int32_t beat_count = beat_indices != NULL
+      ? beat_index_count
+      : (int32_t)floor(window_ms / beat_ms);
   if (beat_count > AUTOMIX_MAX_BEATS) beat_count = AUTOMIX_MAX_BEATS;
   if (beat_count < 8) return result;
 
@@ -1508,9 +1590,16 @@ static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
   double novelty_max = 0.0;
   const double half_beat_ms = beat_ms * 0.5;
   for (int32_t beat = 0; beat < beat_count; ++beat) {
-    double time_ms = fmod(beat_phase_ms + (double)beat * beat_ms, beat_ms);
-    if (time_ms < 0.0) time_ms += beat_ms;
-    time_ms += (double)beat * beat_ms;
+    double time_ms;
+    if (beat_indices != NULL) {
+      time_ms = (double)beat_indices[beat] * (double)HOP_SIZE * 1000.0 /
+                    working_rate +
+                offset_ms;
+    } else {
+      time_ms = fmod(beat_phase_ms + (double)beat * beat_ms, beat_ms);
+      if (time_ms < 0.0) time_ms += beat_ms;
+      time_ms += (double)beat * beat_ms;
+    }
     if (time_ms >= window_ms) break;
     // Score the whole beat interval by its mean frame power, not by one
     // spectral-flux frame. A transient's flux is spread across about four
@@ -1633,8 +1722,11 @@ static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
     const double contrast = best > 1e-9 ? (best - second) / best : 0.0;
     if (best_position >= 0 && best >= 0.35 && contrast >= 0.30) {
       const double bar_ms = beat_ms * 4.0;
-      double phase = fmod(beat_phase_ms + (double)best_position * beat_ms,
-                          bar_ms);
+      const double boundary_ms = beat_indices != NULL
+          ? (double)beat_indices[best_position] * (double)HOP_SIZE *
+                    1000.0 / working_rate + offset_ms
+          : beat_phase_ms + (double)best_position * beat_ms;
+      double phase = fmod(boundary_ms, bar_ms);
       if (phase < 0.0) phase += bar_ms;
       result.phase_ms = phase;
       result.valid = 1;
@@ -1736,14 +1828,78 @@ static NarPhraseEstimate estimate_phrase_grid(const float* rms_frames,
 #endif
   if (!significant) return result;
   const double phrase_ms = beat_ms * (double)phrase_beats;
-  double phase = fmod(beat_phase_ms + (double)best_phase_beat * beat_ms,
-                      phrase_ms);
+  const double boundary_ms = beat_indices != NULL
+      ? (double)beat_indices[best_phase_beat] * (double)HOP_SIZE * 1000.0 /
+                working_rate + offset_ms
+      : beat_phase_ms + (double)best_phase_beat * beat_ms;
+  double phase = fmod(boundary_ms, phrase_ms);
   if (phase < 0.0) phase += phrase_ms;
   result.phase_ms = phase;
   result.meter = meter;
   result.meter_confident = 1;
   result.valid = 1;
   return result;
+}
+
+// Snap a structural cue to the same metre x4 phrase grid used by the published
+// phrase phase. The fallback is the single-beat grid when no phrase phase was
+// measured; an unreliable grid leaves the raw onset untouched.
+static double snap_cue_to_phrase_grid(double raw_ms, double beat_ms,
+                                      double beat_offset_ms,
+                                      double phrase_offset_ms,
+                                      double phrase_beats) {
+  if (!isfinite(raw_ms) || !isfinite(beat_ms) || beat_ms <= 0.0) {
+    return raw_ms;
+  }
+  if (isfinite(phrase_offset_ms)) {
+    const double phrase_ms = beat_ms * phrase_beats;
+    if (phrase_ms > 0.0) {
+      const double step = round((raw_ms - phrase_offset_ms) / phrase_ms);
+      const double snapped = phrase_offset_ms + step * phrase_ms;
+      if (fabs(snapped - raw_ms) <= fmin(600.0, beat_ms * 0.8)) {
+        return fmax(0.0, snapped);
+      }
+    }
+  } else if (isfinite(beat_offset_ms)) {
+    const double step = round((raw_ms - beat_offset_ms) / beat_ms);
+    const double snapped = beat_offset_ms + step * beat_ms;
+    if (fabs(snapped - raw_ms) <= fmin(400.0, beat_ms * 0.4)) {
+      return fmax(0.0, snapped);
+    }
+  }
+  return raw_ms;
+}
+
+// Keep the three strongest drop candidates per window while suppressing
+// adjacent frames from the same onset. The primary slot remains the strongest
+// candidate; the extra slots let the merge choose the earliest usable drop
+// across a long intro instead of only looking at the head window.
+static void insert_drop_candidate(int32_t* indices, double* scores,
+                                  int32_t candidate, double score,
+                                  int32_t min_separation) {
+  for (int slot = 0; slot < 3; ++slot) {
+    if (indices[slot] >= 0 &&
+        abs(indices[slot] - candidate) < min_separation) {
+      if (score <= scores[slot]) return;
+      indices[slot] = -1;
+      scores[slot] = 0.0;
+      break;
+    }
+  }
+  int insert_at = 3;
+  for (int slot = 0; slot < 3; ++slot) {
+    if (score > scores[slot]) {
+      insert_at = slot;
+      break;
+    }
+  }
+  if (insert_at == 3) return;
+  for (int slot = 2; slot > insert_at; --slot) {
+    indices[slot] = indices[slot - 1];
+    scores[slot] = scores[slot - 1];
+  }
+  indices[insert_at] = candidate;
+  scores[insert_at] = score;
 }
 
 static int32_t analyze_impl(const float* mono, double center_ratio,
@@ -2141,6 +2297,25 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     }
   }
 
+  // Follow the actual beats instead of one rigid period. The DP pass is
+  // gated by the tempo confidence; a click train with drift now produces a
+  // phrase boundary on its real timeline, while the published whole-window
+  // beat phase keeps the histogram solution that playback already validates.
+  // Phrase boundaries need absolute beat positions; a single phase cannot
+  // describe a drifting grid.
+  int32_t* beat_indices = NULL;
+  int32_t beat_index_count = 0;
+  if (tempo.valid &&
+      tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN) {
+    beat_indices = (int32_t*)calloc((size_t)AUTOMIX_MAX_BEATS,
+                                    sizeof(int32_t));
+    if (beat_indices != NULL) {
+      beat_index_count = track_beats_dp(
+          beat_odf, frame_count, fps, tempo.bpm, beat_indices,
+          AUTOMIX_MAX_BEATS);
+    }
+  }
+
   // 1. Phrase-start phase and metre.
   // A bar downbeat alone cannot identify a phrase boundary. Evaluate every
   // beat position of each plausible metre as a phrase start and publish a
@@ -2159,13 +2334,22 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
       isfinite(output[3])) {
     const double beat_ms = beat_period_ms(tempo.bpm);
     if (beat_ms >= 30.0) {
+      // Fixed-tempo material keeps the histogram grid that the existing
+      // playback tests and golden corpus validate. The DP timeline only takes
+      // over when the quarter estimates show real drift; on a steady click
+      // train the two paths describe the same grid, and switching on frame
+      // centring alone would shift the phase by half a window.
+      const int32_t use_dp_grid =
+          isfinite(output[23]) && output[23] < 0.85;
       const NarPhraseEstimate phrase = estimate_phrase_grid(
           rms_frame_values, chroma_novelty, frame_count, working_rate, fps,
-          beat_ms, output[3]);
+          beat_ms, output[3], use_dp_grid ? beat_indices : NULL,
+          use_dp_grid ? beat_index_count : 0);
       if (phrase.meter_confident) output[32] = (double)phrase.meter;
       if (phrase.valid) output[11] = phrase.phase_ms;
     }
   }
+  free(beat_indices);
 
   // 1b. Track-level section boundary from the 2 s chroma change curve. This is
   // the "structure is track-level" signal: one real change point (verse to
@@ -2229,8 +2413,10 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
         (int32_t)fmax(4.0, round(fps * 0.75));
     const int32_t after_frames =
         (int32_t)fmax(4.0, round(fps * 0.50));
-    double best_drop_score = 0.0;
-    int32_t best_drop_idx = -1;
+    int32_t drop_indices[3] = {-1, -1, -1};
+    double drop_scores[3] = {0.0, 0.0, 0.0};
+    const int32_t drop_min_separation =
+        (int32_t)fmax(1.0, round(fps * 1.5));
     double best_breakdown_score = 0.0;
     int32_t best_breakdown_idx = -1;
 
@@ -2255,10 +2441,8 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
             nearby_flux >= max_flux * 0.20) {
           const double score = (after - before) +
               0.25 * (double)nearby_flux / max_flux;
-          if (score > best_drop_score) {
-            best_drop_score = score;
-            best_drop_idx = i;
-          }
+          insert_drop_candidate(drop_indices, drop_scores, i, score,
+                                drop_min_separation);
         }
 
         if (before >= (double)rms_median + 2.0 &&
@@ -2286,69 +2470,45 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     }
     const double cue_phrase_beats = (double)(phrase_meter * 4);
 
-    double raw_drop_ms = NAN;
-    double raw_breakdown_ms = NAN;
-    if (best_drop_idx >= 0) {
-      raw_drop_ms = best_drop_idx * (double)HOP_SIZE * 1000.0 / working_rate;
-      const double conf = fmin(1.0, fmax(0.2, best_drop_score / 12.0));
-      output[14] = conf;
-      if (tempo.valid &&
-          tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
-          isfinite(output[3])) {
-        const double beat_ms = 60000.0 / tempo.bpm;
-        const double beat_offset = output[3];
-        const double phrase_offset = output[11];
-        double snapped = raw_drop_ms;
-        if (isfinite(phrase_offset)) {
-          const double phrase_ms = beat_ms * cue_phrase_beats;
-          const double p_step = round((raw_drop_ms - phrase_offset) / phrase_ms);
-          const double p_snap = phrase_offset + p_step * phrase_ms;
-          if (fabs(p_snap - raw_drop_ms) <= fmin(600.0, beat_ms * 0.8)) {
-            snapped = p_snap;
-          }
-        } else {
-          const double b_step = round((raw_drop_ms - beat_offset) / beat_ms);
-          const double b_snap = beat_offset + b_step * beat_ms;
-          if (fabs(b_snap - raw_drop_ms) <= fmin(400.0, beat_ms * 0.4)) {
-            snapped = b_snap;
-          }
-        }
-        output[12] = fmax(0.0, snapped);
+    double cue_beat_ms = NAN;
+    double cue_beat_offset_ms = NAN;
+    if (tempo.valid &&
+        tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
+        isfinite(output[3])) {
+      cue_beat_ms = 60000.0 / tempo.bpm;
+      cue_beat_offset_ms = output[3];
+    }
+    for (int32_t slot = 0; slot < 3; ++slot) {
+      if (drop_indices[slot] < 0) continue;
+      const double raw_drop_ms =
+          drop_indices[slot] * (double)HOP_SIZE * 1000.0 / working_rate;
+      const double snapped = isfinite(cue_beat_ms)
+          ? snap_cue_to_phrase_grid(raw_drop_ms, cue_beat_ms,
+                                    cue_beat_offset_ms, output[11],
+                                    cue_phrase_beats)
+          : raw_drop_ms;
+      const double conf =
+          fmin(1.0, fmax(0.2, drop_scores[slot] / 12.0));
+      if (slot == 0) {
+        output[12] = snapped;
+        output[14] = conf;
       } else {
-        output[12] = raw_drop_ms;
+        const int32_t cue_slot = 41 + (slot - 1) * 2;
+        output[cue_slot] = snapped;
+        output[cue_slot + 1] = conf;
       }
     }
 
     if (best_breakdown_idx >= 0) {
-      raw_breakdown_ms =
+      const double raw_breakdown_ms =
           best_breakdown_idx * (double)HOP_SIZE * 1000.0 / working_rate;
-      const double conf = fmin(1.0, fmax(0.2, best_breakdown_score / 12.0));
-      output[15] = conf;
-      if (tempo.valid &&
-          tempo.confidence >= NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN &&
-          isfinite(output[3])) {
-        const double beat_ms = 60000.0 / tempo.bpm;
-        const double beat_offset = output[3];
-        const double phrase_offset = output[11];
-        double snapped = raw_breakdown_ms;
-        if (isfinite(phrase_offset)) {
-          const double phrase_ms = beat_ms * cue_phrase_beats;
-          const double p_step = round((raw_breakdown_ms - phrase_offset) / phrase_ms);
-          const double p_snap = phrase_offset + p_step * phrase_ms;
-          if (fabs(p_snap - raw_breakdown_ms) <= fmin(600.0, beat_ms * 0.8)) {
-            snapped = p_snap;
-          }
-        } else {
-          const double b_step = round((raw_breakdown_ms - beat_offset) / beat_ms);
-          const double b_snap = beat_offset + b_step * beat_ms;
-          if (fabs(b_snap - raw_breakdown_ms) <= fmin(400.0, beat_ms * 0.4)) {
-            snapped = b_snap;
-          }
-        }
-        output[13] = fmax(0.0, snapped);
-      } else {
-        output[13] = raw_breakdown_ms;
-      }
+      const double snapped = isfinite(cue_beat_ms)
+          ? snap_cue_to_phrase_grid(raw_breakdown_ms, cue_beat_ms,
+                                    cue_beat_offset_ms, output[11],
+                                    cue_phrase_beats)
+          : raw_breakdown_ms;
+      output[13] = snapped;
+      output[15] = fmin(1.0, fmax(0.2, best_breakdown_score / 12.0));
     }
 
     int region = NAR_AUTOMIX_STRUCTURE_UNKNOWN;
@@ -2356,7 +2516,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     if (rms_median < -45.0f || (output[9] < 0.5 && rms_median < -30.0f)) {
       region = NAR_AUTOMIX_STRUCTURE_LOW_ACTIVITY;
       reg_conf = 0.85;
-    } else if (best_drop_idx >= 0) {
+    } else if (drop_indices[0] >= 0) {
       region = NAR_AUTOMIX_STRUCTURE_DROP;
       reg_conf = output[14];
     } else if (best_breakdown_idx >= 0) {

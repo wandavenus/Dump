@@ -2351,7 +2351,8 @@ class Media3PlaybackService : MediaSessionService() {
                 fadeDurationMs,
             )
         if (earlyHandoverAccepted &&
-            dropCueMs != null && dropCueMs in 8_000L..90_000L &&
+            dropCueMs != null &&
+            dropCueMs in AutomixContract.DROP_HANDOVER_MIN_MS..AutomixContract.DROP_HANDOVER_MAX_MS &&
             fadeSeconds != null && bpm != null && multiplier.isFinite()
         ) {
             val fadeMediaMs = fadeSeconds * 1000.0 * multiplier

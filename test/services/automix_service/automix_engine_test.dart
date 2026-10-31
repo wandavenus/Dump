@@ -84,13 +84,10 @@ AutomixTrackFeatures _f(
 void main() {
   group('AutoMix decision contract', () {
     test('native header and Dart mirror agree', () {
-      final header = File(
-        'native_audio_runtime/src/automix_native.h',
-      ).readAsStringSync();
+      final header = File('native_audio_runtime/src/automix_native.h')
+          .readAsStringSync();
       double define(String name) {
-        final match = RegExp(
-          '#define $name ([0-9.]+)',
-        ).firstMatch(header);
+        final match = RegExp('#define $name ([0-9.]+)').firstMatch(header);
         expect(match, isNotNull, reason: name);
         return double.parse(match!.group(1)!);
       }
@@ -112,6 +109,14 @@ void main() {
       expect(
         AutomixContract.dropConfidenceMin,
         define('NAR_AUTOMIX_DROP_CONFIDENCE_MIN'),
+      );
+      expect(
+        AutomixContract.dropHandoverMinMs.toDouble(),
+        define('NAR_AUTOMIX_DROP_HANDOVER_MIN_MS'),
+      );
+      expect(
+        AutomixContract.dropHandoverMaxMs.toDouble(),
+        define('NAR_AUTOMIX_DROP_HANDOVER_MAX_MS'),
       );
       expect(
         AutomixContract.vocalConfidenceMin,
@@ -348,6 +353,37 @@ void main() {
       expect(segment.outroEdgeLufs, -23.5);
       expect(segment.introEdgeOnsetRate, 1.6);
       expect(segment.outroEdgeOnsetRate, 0.7);
+    });
+
+    test('parses and time-sorts the three drop candidates', () {
+      final segment = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'dropCueMs': 40000.0,
+          'dropConfidence': 0.80,
+          'dropCueMs2': 30000.0,
+          'dropConfidence2': 0.60,
+          'dropCueMs3': 20000.0,
+          'dropConfidence3': 0.90,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(segment.dropCues.map((cue) => cue.cueMs), [20000, 30000, 40000]);
+      expect(segment.dropCues.map((cue) => cue.confidence), [0.9, 0.6, 0.8]);
+      // Adjacent frames from one onset collapse to the stronger candidate.
+      final deduped = automixSegmentFeaturesFromAnalysisMap(
+        <String, dynamic>{
+          'dropCueMs': 30000.0,
+          'dropConfidence': 0.6,
+          'dropCueMs2': 30200.0,
+          'dropConfidence2': 0.8,
+        },
+        fallbackStartSeconds: 0,
+        fallbackSeconds: 120,
+      );
+      expect(deduped.dropCues, hasLength(1));
+      expect(deduped.dropCues.single.cueMs, 30200);
+      expect(deduped.dropCues.single.confidence, 0.8);
     });
 
     test('parses metre and the track-level section cue', () {
@@ -1838,6 +1874,22 @@ void main() {
       },
     );
 
+    test(
+      'disagreeing windows use the weighted median, not an invented mean',
+      () {
+        final merged = automixMergeSegments(
+          songId: 13,
+          segments: [
+            seg(0, bpm: 120, conf: 0.8),
+            seg(120, bpm: 120, conf: 0.8),
+            seg(240, bpm: 90, conf: 0.6),
+          ],
+        );
+        expect(merged.bpm, 120);
+        expect(merged.bpmConfidence, lessThan(0.7));
+      },
+    );
+
     test('keeps alternate BPM from the highest-confidence tempo anchor', () {
       final merged = automixMergeSegments(
         songId: 4,
@@ -1866,6 +1918,32 @@ void main() {
       expect(merged.tailBeatOffsetMs, isNull);
       expect(merged.tailBreakdownCueMs, isNull);
       expect(merged.outroEnergy, isNull);
+    });
+
+    test('merge picks the earliest confident drop across all windows', () {
+      final merged = automixMergeSegments(
+        songId: 12,
+        segments: [
+          AutomixSegmentFeatures(
+            startSeconds: 0,
+            seconds: 120,
+            dropCueMs: 160000,
+            dropConfidence: 0.9,
+            dropCues: const [AutomixDropCue(cueMs: 160000, confidence: 0.9)],
+          ),
+          const AutomixSegmentFeatures(
+            startSeconds: 120,
+            seconds: 120,
+            dropCueMs: 10000,
+            dropConfidence: 0.7,
+            dropCues: [AutomixDropCue(cueMs: 10000, confidence: 0.7)],
+          ),
+        ],
+      );
+      // The head candidate is outside the 150 s early-handover envelope; the
+      // middle-window candidate at 130 s must still open the path.
+      expect(merged.dropCueMs, 130000);
+      expect(merged.dropConfidence, 0.7);
     });
 
     test('structure markers describe the first and last window', () {
@@ -2753,12 +2831,7 @@ void main() {
       // One 4/4 bar at 220 BPM is 1.09 s; both quick and short clamp up.
       expect(fast.fadeSeconds, 1.5);
       final fastShort = automixTransitionCue(
-        outgoing: track(
-          1,
-          tailBpm: 220,
-          tailBpmConfidence: 0.9,
-          tailMeter: 4,
-        ),
+        outgoing: track(1, tailBpm: 220, tailBpmConfidence: 0.9, tailMeter: 4),
         incoming: track(2, tailBpm: 110, bpmConfidence: 0.9),
         settings: const AutomixSettings(crossfadeBeats: 2),
       );

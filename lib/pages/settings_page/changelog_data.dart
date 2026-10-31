@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.66',
+    date: '31 Oktober 2026',
+    changes: [
+      'AutoMix: analyzer sekarang menyimpan tiga kandidat drop per window dan merge memilih drop pertama yang masuk envelope 8–150 detik dari semua window, sehingga lagu ber-intro panjang akhirnya memakai early handover; fade early yang di-snap ke frasa tidak lagi dibatasi empat beat.',
+      'AutoMix: cache analisis pindah dari SharedPreferences ke satu file per lagu, decode JSON di isolate, migrasi entri lama, dan prune otomatis. Perencanaan dibatasi ke prefix 20 lagu yang sudah teranalisis dan hanya menerapkan reorder bila biaya membaik ≥5% atau tiga lagu terdekat berubah.',
+      'AutoMix: beat tracking DP dipakai untuk frasa saat tempo stabil <0,85, BPM gabungan memakai weighted median saat window tidak sepakat, dan planner memakai beam width 8 dengan dua langkah lanjutan. Cache schema naik ke v23.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.65',
     date: '31 Oktober 2026',
     changes: [

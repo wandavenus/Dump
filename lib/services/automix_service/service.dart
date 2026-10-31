@@ -35,6 +35,17 @@ class _AutomixAnalysisBusy implements Exception {
   const _AutomixAnalysisBusy();
 }
 
+/// Decode is the expensive part of a cache hit (chord progressions can carry
+/// hundreds of rows), so it runs off the UI isolate. Only plain maps cross the
+/// isolate boundary; feature construction stays on the caller.
+Future<Map<String, dynamic>?> _decodeAutomixCacheJson(String raw) {
+  return Isolate.run<Map<String, dynamic>?>(() {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    return decoded.cast<String, dynamic>();
+  });
+}
+
 class AutomixService {
   AutomixService._();
 
@@ -106,12 +117,20 @@ class AutomixService {
   /// about to be mixed, which is all the next transition reads.
   static const int _analysisLookahead = 4;
 
-  /// Whole-queue planning cap. AutoMix sequences the whole remaining queue in
-  /// one pass (the order the listener hears is decided once, like Apple Music's
-  /// Automix); the cap only stops a "play all" of thousands of songs from
-  /// turning that single pass into a visible stall. Past the cap the user's own
-  /// order is preserved untouched.
-  static const int _planHorizonCap = 250;
+  /// Number of upcoming tracks AutoMix actually sequences. Planning beyond
+  /// this prefix used mostly-neutral features (the cache is filled lazily) and
+  /// reordered the far queue on every analysis pass. The rest of the queue is
+  /// preserved untouched and joins the prefix as playback advances.
+  static const int _planPrefixCap = 20;
+
+  /// Minimum number of decoded tracks in the prefix before a reorder is
+  /// allowed; neutral metadata alone must not reshuffle the queue.
+  static const int _reorderMinAnalyzed = 4;
+
+  /// Reorder only when mean transition cost improves by at least this fraction
+  /// (or when one of the first three tracks changes), so a barely-better plan
+  /// does not make the queue jump every few seconds.
+  static const double _reorderMinImprovement = 0.05;
 
   /// Tracks at the head of a plan that get full features (cached DSP *or* the
   /// loudness fallback) instead of cached-only features. These are the decks
@@ -155,6 +174,7 @@ class AutomixService {
   static bool _replanRequested = false;
 
   static int _replanRetryCount = 0;
+  static String? _lastEarlyHandoverDiagnostic;
   static int _automixGeneration = 0;
   static const int _maxReplanRetries = 5;
   static Timer? _replanTimer;
@@ -424,8 +444,7 @@ class AutomixService {
                 ? features.startBpmConfidence
                 : features.bpmConfidence);
       final confidentBpm =
-          confidence >= AutomixContract.tempoConfidenceMin &&
-          _tempoInRange(bpm)
+          confidence >= AutomixContract.tempoConfidenceMin && _tempoInRange(bpm)
           ? bpm
           : null;
 
@@ -473,8 +492,8 @@ class AutomixService {
           'downbeatOffsetMs': downbeatOffsetMs,
         if (features.dropCueMs != null &&
             features.dropCueMs!.isFinite &&
-            features.dropCueMs! >= 8000 &&
-            features.dropCueMs! <= 90000 &&
+            features.dropCueMs! >= AutomixContract.dropHandoverMinMs &&
+            features.dropCueMs! <= AutomixContract.dropHandoverMaxMs &&
             features.dropConfidence >= AutomixContract.dropConfidenceMin)
           'dropCueMs': features.dropCueMs,
         'multiplier': isOutgoing ? 1.0 : match.$2,
@@ -487,6 +506,22 @@ class AutomixService {
           incoming: features,
           settings: settings.value,
         );
+        if (i == 1) {
+          // Log only when the reason changes: target rebuilds happen on every
+          // queue tick, and a missing early handover should not flood logcat.
+          final diagnostic = cue.earlyHandover
+              ? null
+              : '${features.songId}: ${cue.earlyHandoverUnavailableReason}';
+          if (diagnostic != _lastEarlyHandoverDiagnostic) {
+            _lastEarlyHandoverDiagnostic = diagnostic;
+            if (diagnostic != null) {
+              LogService.verbose(
+                'Automix',
+                'early handover unavailable for $diagnostic',
+              );
+            }
+          }
+        }
         target['fadeSeconds'] = cue.fadeSeconds;
         if (cue.transitionStartMs != null &&
             cue.transitionStartMs!.isFinite &&
@@ -600,9 +635,12 @@ class AutomixService {
         _plannedTail = null;
       }
 
-      // ── One plan for the whole remaining queue ────────────────────────────
+      // ── One plan for the analyzable prefix ────────────────────────────────
       // A plain track advance leaves the plan valid, so only the deck targets
-      // are refreshed; any real queue edit re-sequences everything.
+      // are refreshed; any real queue edit re-sequences everything. Planning
+      // 250 mostly-unanalyzed tracks made the far order neutral and reordered
+      // it on every analysis pass, so the horizon is bounded and only applied
+      // when it is materially better than the live queue.
       var currentFeatures = nearFeatures.first;
       var plannedFeatures = nearFeatures.skip(1).toList(growable: false);
       double? plannedCrossfadeSeconds;
@@ -624,7 +662,7 @@ class AutomixService {
         // loudness for hundreds of songs would stall the UI, and the engine is
         // built to treat missing features as neutral. The idle library sweep
         // fills that cache in the background, so plans sharpen over time.
-        final horizon = math.min(_planHorizonCap, upcoming.length);
+        final horizon = math.min(_planPrefixCap, upcoming.length);
         final window = automixPlanWindow<LocalSong>(
           queue,
           currentIndex,
@@ -646,6 +684,37 @@ class AutomixService {
           return;
         }
         plannedCrossfadeSeconds = metrics.crossfadeSeconds;
+        // A prefix of mostly-neutral rows has no musical basis to reorder.
+        // Require the decoded head of the window, then accept a new order only
+        // when it improves mean cost by 5% or moves the next few tracks. This
+        // keeps the queue stable while the background sweep fills the cache.
+        final decodedCount = allFeatures
+            .where((features) => features.analyzedFraction > 0)
+            .length;
+        final requiredDecoded = math.min(_reorderMinAnalyzed, window.length);
+        var applyPlan = decodedCount >= requiredDecoded;
+        if (applyPlan && window.length > 1) {
+          final liveOrder = List<int>.generate(window.length, (i) => i);
+          final liveCost = AutomixEngine.scoreOrder(
+            tracks: allFeatures,
+            order: liveOrder,
+            settings: settings.value,
+          );
+          final improvement = liveCost <= 1e-9
+              ? 0.0
+              : (liveCost - metrics.averageCost) / liveCost;
+          final nearLimit = math.min(3, window.length);
+          final nearChanged = [
+            for (var i = 0; i < nearLimit; i++) metrics.order[i] != i,
+          ].any((changed) => changed);
+          applyPlan = improvement >= _reorderMinImprovement || nearChanged;
+          LogService.verbose(
+            'Automix',
+            'plan prefix ${window.length}: decoded=$decodedCount '
+                'improvement=${(improvement * 100).toStringAsFixed(1)}% '
+                'nearChanged=$nearChanged apply=$applyPlan',
+          );
+        }
         // A native shuffle order must not be confused with the canonical queue
         // order. Keep the user's shuffle choice and still send per-track
         // metadata (targets are keyed by stable song ID); only reorder when
@@ -672,14 +741,19 @@ class AutomixService {
         final plannedIndices = metrics.order.skip(1).toList(growable: false);
         // Native only reads the pair in play, so publish the near part of the
         // new order; the following passes publish the rest as it arrives.
-        plannedFeatures = <AutomixTrackFeatures>[
-          for (final index in plannedIndices.take(_targetHorizon))
-            allFeatures[index],
-        ];
+        // A skipped reorder must publish the live queue order instead.
+        plannedFeatures = applyPlan
+            ? <AutomixTrackFeatures>[
+                for (final index in plannedIndices.take(_targetHorizon))
+                  allFeatures[index],
+              ]
+            : nearFeatures.skip(1).toList(growable: false);
 
         final shuffleEnabled = latestState.shuffleEnabled;
         final hasUniqueIds = tailIds.toSet().length == tailIds.length;
-        if (shuffleEnabled || !hasUniqueIds) {
+        if (!applyPlan) {
+          _plannedTail = tailIds;
+        } else if (shuffleEnabled || !hasUniqueIds) {
           LogService.verbose(
             'Automix',
             shuffleEnabled
@@ -1123,7 +1197,11 @@ class AutomixService {
   // v21: seam-edge RMS/LUFS/onset and edge-based intro/outro energy. v20 stores
   //     window medians in introRmsDb/outroRmsDb; keeping those would make seam
   //     decisions from unrelated material.
-  static const int _analysisSchemaVersion = 22;
+  // v22: widened 50-220 BPM contract and metre x4 cue snapping.
+  // v23: analyzer publishes up to three drop candidates and the cache moves
+  //     from SharedPreferences to one file per track. v22 entries carry only
+  //     the head-window drop, so a long intro would still hide its first drop.
+  static const int _analysisSchemaVersion = 23;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1144,6 +1222,228 @@ class AutomixService {
   }
 
   static String _cacheKey(int songId) => 'automix_$songId';
+
+  // ── Analysis cache v23: one file per track ────────────────────────────────
+  // SharedPreferences rewrites its whole XML on every commit and keeps every
+  // decoded string in memory. A per-track file keeps an analysis write O(one
+  // track), survives pruning/deletion, and can be decoded off the UI isolate.
+  // The legacy preference entries are still read once and migrated.
+  static Future<Directory?>? _analysisCacheDirectoryFuture;
+  static bool _analysisCachePruned = false;
+  @visibleForTesting
+  static Directory? debugAnalysisCacheDirectory;
+
+  @visibleForTesting
+  static void setAnalysisCacheDirectoryForTesting(Directory? dir) {
+    debugAnalysisCacheDirectory = dir;
+    _analysisCacheDirectoryFuture = null;
+    _analysisCachePruned = false;
+  }
+
+  static Future<Directory?> _analysisCacheDirectory() {
+    return _analysisCacheDirectoryFuture ??= () async {
+      try {
+        final dir =
+            debugAnalysisCacheDirectory ??
+            Directory(
+              '${(await getApplicationSupportDirectory()).path}/automix_cache',
+            );
+        // ignore: avoid_slow_async_io
+        if (!await dir.exists()) await dir.create(recursive: true);
+        return dir;
+      } on Object catch (e) {
+        // Platform channels are unavailable in some host tests; the legacy
+        // preference path remains a safe fallback there.
+        LogService.verbose(
+          'Automix',
+          'analysis cache directory unavailable: $e',
+        );
+        return null;
+      }
+    }();
+  }
+
+  static Future<File?> _analysisCacheFile(int songId) async {
+    if (kIsWeb) return null;
+    final dir = await _analysisCacheDirectory();
+    if (dir == null) return null;
+    return File('${dir.path}/automix_$songId.json');
+  }
+
+  static AutomixTrackFeatures? _cacheFeaturesFromEnvelope(
+    Map<String, dynamic>? envelope,
+    String identity,
+  ) {
+    if (envelope == null || identity.isEmpty) return null;
+    if ((envelope['version'] as num?)?.toInt() != _analysisSchemaVersion) {
+      return null;
+    }
+    if (envelope['ident'] != identity) return null;
+    final data = envelope['data'];
+    if (data is! Map) return null;
+    return AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>());
+  }
+
+  static Future<AutomixTrackFeatures?> _readAnalysisCache(
+    LocalSong song,
+    String identity,
+  ) async {
+    if (identity.isEmpty) return null;
+    if (!kIsWeb) {
+      try {
+        final file = await _analysisCacheFile(song.id);
+        // ignore: avoid_slow_async_io
+        if (file != null && await file.exists()) {
+          final raw = await file.readAsString();
+          final envelope = await _decodeAutomixCacheJson(raw);
+          final features = _cacheFeaturesFromEnvelope(envelope, identity);
+          if (features != null) return features;
+          // Schema/identity miss must not leave a stale file behind.
+          try {
+            // ignore: avoid_slow_async_io
+            await file.delete();
+          } on Object catch (e) {
+            LogService.verbose('Automix', 'stale cache delete failed: $e');
+          }
+        }
+      } on Object catch (e) {
+        LogService.verbose(
+          'Automix',
+          'file cache read failed for ${song.id}: $e',
+        );
+      }
+    }
+
+    // One-time migration from the pre-v23 SharedPreferences cache.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey(song.id));
+      if (raw == null || raw.isEmpty) return null;
+      final envelope = await _decodeAutomixCacheJson(raw);
+      final features = _cacheFeaturesFromEnvelope(envelope, identity);
+      if (features == null) return null;
+      final migrated = await _writeAnalysisCacheFile(
+        song.id,
+        identity,
+        _cacheDataFor(features),
+      );
+      if (migrated) await prefs.remove(_cacheKey(song.id));
+      return features;
+    } on Object catch (e) {
+      LogService.verbose(
+        'Automix',
+        'legacy cache read failed for ${song.id}: $e',
+      );
+    }
+    return null;
+  }
+
+  static Future<bool> _writeAnalysisCacheFile(
+    int songId,
+    String identity,
+    Map<String, dynamic> data,
+  ) async {
+    if (kIsWeb || identity.isEmpty) return false;
+    try {
+      final file = await _analysisCacheFile(songId);
+      if (file == null) return false;
+      final raw = await Isolate.run<String>(
+        () => jsonEncode(<String, dynamic>{
+          'version': _analysisSchemaVersion,
+          'ident': identity,
+          'data': data,
+        }),
+      );
+      final temp = File('${file.path}.tmp');
+      await temp.writeAsString(raw, flush: true);
+      // POSIX rename replaces the destination atomically, so readers see
+      // either the old complete file or the new one, never a missing/partial
+      // cache. (Android is the only production target.)
+      await temp.rename(file.path);
+      return true;
+    } on Object catch (e) {
+      LogService.verbose('Automix', 'file cache write failed for $songId: $e');
+      return false;
+    }
+  }
+
+  /// Metadata is always re-hydrated from the live MediaStore row; keeping a
+  /// second copy in every cache entry only wasted bytes.
+  static Map<String, dynamic> _cacheDataFor(AutomixTrackFeatures features) {
+    final data = features.toMap();
+    data.remove('title');
+    data.remove('artist');
+    return data;
+  }
+
+  static Future<void> _writeAnalysisCache(
+    LocalSong song,
+    String identity,
+    AutomixTrackFeatures features,
+  ) async {
+    if (identity.isEmpty) return;
+    final data = _cacheDataFor(features);
+    final migrated = await _writeAnalysisCacheFile(song.id, identity, data);
+    if (migrated) return;
+    // Web has no file cache; keep the preference fallback there, and keep it
+    // as a safety net when the app-support directory is unavailable.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _cacheKey(song.id),
+        jsonEncode(<String, dynamic>{
+          'version': _analysisSchemaVersion,
+          'ident': identity,
+          'data': data,
+        }),
+      );
+    } on Object catch (e) {
+      LogService.verbose('Automix', 'analyze cache write failed: $e');
+    }
+  }
+
+  /// Removes cache entries for tracks no longer present in the library. Runs
+  /// once per process after MediaStore has delivered a complete list.
+  static Future<void> _pruneAnalysisCacheOnce(List<LocalSong> songs) async {
+    if (kIsWeb || _analysisCachePruned) return;
+    _analysisCachePruned = true;
+    final validIds = songs.map((song) => song.id).toSet();
+    try {
+      final dir = await _analysisCacheDirectory();
+      // ignore: avoid_slow_async_io
+      if (dir != null && await dir.exists()) {
+        await for (final entity in dir.list()) {
+          if (entity is! File) continue;
+          final name = entity.uri.pathSegments.last;
+          if (name.endsWith('.tmp')) {
+            // ignore: avoid_slow_async_io
+            await entity.delete();
+            continue;
+          }
+          final match = RegExp(r'^automix_(\d+)\.json$').firstMatch(name);
+          if (match == null) continue;
+          final id = int.tryParse(match.group(1)!);
+          if (id != null && !validIds.contains(id)) {
+            // ignore: avoid_slow_async_io
+            await entity.delete();
+          }
+        }
+      }
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in prefs.getKeys().toList(growable: false)) {
+        final match = RegExp(r'^automix_(\d+)$').firstMatch(key);
+        if (match == null) continue;
+        final id = int.tryParse(match.group(1)!);
+        if (id != null && !validIds.contains(id)) await prefs.remove(key);
+      }
+    } on Object catch (e) {
+      LogService.verbose('Automix', 'analysis cache prune failed: $e');
+    }
+  }
+
+  @visibleForTesting
+  static Future<void> pruneAnalysisCacheForTesting(List<LocalSong> songs) =>
+      _pruneAnalysisCacheOnce(songs);
 
   /// Invalidate readiness and memory cache when a MediaStore ID points at a
   /// different on-disk file version. Persisted reads also validate this identity.
@@ -1344,34 +1644,14 @@ class AutomixService {
       return _withSongMetadata(inMemory, song);
     }
 
-    AutomixTrackFeatures? cached;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_cacheKey(song.id));
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          final map = decoded.cast<String, dynamic>();
-          final storedVersion = (map['version'] as num?)?.toInt();
-          final storedIdentity = map['ident'] as String?;
-          if (storedVersion == _analysisSchemaVersion &&
-              identity.isNotEmpty &&
-              storedIdentity == identity) {
-            final data = map['data'] as Map? ?? const <String, dynamic>{};
-            cached = _withSongMetadata(
-              AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
-              song,
-            );
-            // Only complete tail analysis suppresses automatic re-analysis.
-            if (cached.tailAnalyzed) _markDspReady(song, identity);
-          }
-        }
-      }
-    } on Object catch (e) {
-      LogService.verbose('Automix', 'cache read failed for ${song.id}: $e');
+    final cached = await _readAnalysisCache(song, identity);
+    final hydrated = cached == null ? null : _withSongMetadata(cached, song);
+    // Only complete tail analysis suppresses automatic re-analysis.
+    if (hydrated != null && hydrated.tailAnalyzed) {
+      _markDspReady(song, identity);
     }
 
-    final features = cached ?? (await _fallbackFeatures(song));
+    final features = hydrated ?? (await _fallbackFeatures(song));
     if (identity.isNotEmpty) {
       _featuresCache[song.id] = features;
       _featuresIdentity[song.id] = identity;
@@ -1441,40 +1721,18 @@ class AutomixService {
     if (inMemory != null && _featuresIdentity[song.id] == identity) {
       return _withSongMetadata(inMemory, song);
     }
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_cacheKey(song.id));
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          final map = decoded.cast<String, dynamic>();
-          final storedVersion = (map['version'] as num?)?.toInt();
-          final storedIdentity = map['ident'] as String?;
-          if (storedVersion == _analysisSchemaVersion &&
-              identity.isNotEmpty &&
-              storedIdentity == identity) {
-            final data = map['data'] as Map? ?? const <String, dynamic>{};
-            final features = _withSongMetadata(
-              AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
-              song,
-            );
-            _featuresCache[song.id] = features;
-            _featuresIdentity[song.id] = identity;
-            if (features.tailAnalyzed) {
-              _markDspReady(song, identity);
-            } else {
-              _dspReady.remove(song.id);
-              _dspReadyIdentity.remove(song.id);
-            }
-            return features;
-          }
-        }
+    final cached = await _readAnalysisCache(song, identity);
+    if (cached != null) {
+      final features = _withSongMetadata(cached, song);
+      _featuresCache[song.id] = features;
+      _featuresIdentity[song.id] = identity;
+      if (features.tailAnalyzed) {
+        _markDspReady(song, identity);
+      } else {
+        _dspReady.remove(song.id);
+        _dspReadyIdentity.remove(song.id);
       }
-    } on Object catch (e) {
-      LogService.verbose(
-        'Automix',
-        'plan cache read failed for ${song.id}: $e',
-      );
+      return features;
     }
     return AutomixTrackFeatures(
       songId: song.id,
@@ -1561,7 +1819,7 @@ class AutomixService {
       final planningWindow = automixPlanWindow<LocalSong>(
         rotatedPlaylist,
         0,
-        _planHorizonCap,
+        _planPrefixCap,
       );
       // Keep expensive per-track fallback work bounded as well: only the
       // near decks get full feature resolution; farther tracks use cached DSP or
@@ -2132,36 +2390,17 @@ class AutomixService {
   ) async {
     await _ensureAnalysisSchemaVersion();
     // 1. Already analyzed for this exact file?
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_cacheKey(song.id));
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          final map = decoded.cast<String, dynamic>();
-          final storedVersion = (map['version'] as num?)?.toInt();
-          final storedIdentity = map['ident'] as String?;
-          if (storedVersion == _analysisSchemaVersion &&
-              identity.isNotEmpty &&
-              storedIdentity == identity) {
-            final data = map['data'] as Map? ?? const <String, dynamic>{};
-            final f = _withSongMetadata(
-              AutomixTrackFeatures.fromMap(data.cast<dynamic, dynamic>()),
-              song,
-            );
-            if (f.tailAnalyzed) {
-              _featuresCache[song.id] = f;
-              _featuresIdentity[song.id] = identity;
-              _markDspReady(song, identity);
-              return f;
-            }
-            // Partial cache entries remain useful through featuresFor(), but
-            // analyzeOne() must retry them rather than treating them as done.
-          }
-        }
+    final cached = await _readAnalysisCache(song, identity);
+    if (cached != null) {
+      final f = _withSongMetadata(cached, song);
+      if (f.tailAnalyzed) {
+        _featuresCache[song.id] = f;
+        _featuresIdentity[song.id] = identity;
+        _markDspReady(song, identity);
+        return f;
       }
-    } on Object catch (e) {
-      LogService.verbose('Automix', 'analyze cache read failed: $e');
+      // Partial cache entries remain useful through featuresFor(), but
+      // analyzeOne() must retry them rather than treating them as done.
     }
 
     // 2. Native DSP, in bounded windows that cover the whole file.
@@ -2203,19 +2442,7 @@ class AutomixService {
     }
 
     if (identity.isNotEmpty) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(
-          _cacheKey(song.id),
-          jsonEncode(<String, dynamic>{
-            'version': _analysisSchemaVersion,
-            'ident': identity,
-            'data': features.toMap(),
-          }),
-        );
-      } on Object catch (e) {
-        LogService.verbose('Automix', 'analyze cache write failed: $e');
-      }
+      await _writeAnalysisCache(song, identity, features);
       _featuresCache[song.id] = features;
       _featuresIdentity[song.id] = identity;
       if (features.tailAnalyzed) {
@@ -2250,6 +2477,7 @@ class AutomixService {
       return; // another analysis owner is running
     }
     _analysisCancelled = false;
+    await _pruneAnalysisCacheOnce(songs);
 
     analysisProgress.value = AutomixAnalysisProgress(
       total: songs.length,
@@ -2405,6 +2633,7 @@ class AutomixService {
       _scheduleLibrarySweep();
       return;
     }
+    await _pruneAnalysisCacheOnce(songs);
     final power = await DeviceStateService.powerState();
     if (!power.allowsBackgroundAnalysis(
       minLevelPercent: _sweepMinBatteryPercent,
@@ -2504,6 +2733,8 @@ class AutomixService {
     }
     _featuresCache.clear();
     _featuresIdentity.clear();
+    _analysisCachePruned = false;
+    _analysisCacheDirectoryFuture = null;
     _dspReady.clear();
     _dspUnavailable.clear();
     _dspReadyIdentity.clear();

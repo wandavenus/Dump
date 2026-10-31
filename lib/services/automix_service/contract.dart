@@ -14,6 +14,12 @@ abstract final class AutomixContract {
   static const double keyConfidenceMin = 0.55;
   static const double structureConfidenceMin = 0.65;
   static const double dropConfidenceMin = 0.55;
+
+  /// Early handover may seek to an incoming drop between these bounds. The
+  /// upper bound is deliberately longer than the 65 s outgoing lead window:
+  /// the seek is to the incoming track's first drop, not to the outgoing EOF.
+  static const int dropHandoverMinMs = 8000;
+  static const int dropHandoverMaxMs = 150000;
   static const double vocalConfidenceMin = 0.45;
   static const double vocalLikelihoodMin = 0.55;
 

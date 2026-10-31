@@ -294,6 +294,19 @@ class CrossfadeController(
                 beatOffsetMs = beatOffset,
                 downbeatOffsetMs = downbeatOffset,
                 meter = getAutoMixMeterForPlayer(p),
+                // Near-EOF transitions keep the conservative four-beat cap.
+                // An early handover may cross up to one full four-bar phrase
+                // (at the analyzed metre) so it lands on the real phrase
+                // boundary; the lead-window validity check below still rejects
+                // a snap that leaves the supported 30–65 s envelope.
+                maxShiftBeats = if (isEarlyTransition) {
+                    val meter = getAutoMixMeterForPlayer(p)
+                        .takeIf { AutomixTransitionPolicy.isSupportedMeter(it) }
+                        ?: 4
+                    (meter * 4).toDouble()
+                } else {
+                    AutomixTransitionPolicy.PHRASE_SNAP_MAX_BEATS
+                },
             ).coerceIn(0L, (dur - 1L).coerceAtLeast(0L))
         } else {
             idealStart

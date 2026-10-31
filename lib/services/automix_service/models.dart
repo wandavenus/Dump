@@ -118,6 +118,15 @@ List<AutomixChordEvent> automixChordEventsFromValue(Object? raw) {
   return List<AutomixChordEvent>.unmodifiable(events);
 }
 
+/// A confidence-scored drop candidate from one analysis window.
+@immutable
+class AutomixDropCue {
+  const AutomixDropCue({required this.cueMs, required this.confidence});
+
+  final double cueMs;
+  final double confidence;
+}
+
 /// One analyzed window of a file: the native extractor runs on a bounded PCM
 /// window so a long track can be sampled head/middle/tail instead of only its
 /// first five minutes. [automixMergeSegments] folds these into per-track
@@ -134,6 +143,7 @@ class AutomixSegmentFeatures {
     this.downbeatOffsetMs,
     this.meter = 4,
     this.dropCueMs,
+    this.dropCues = const <AutomixDropCue>[],
     this.breakdownCueMs,
     this.sectionCueMs,
     this.dropConfidence = 0,
@@ -190,7 +200,10 @@ class AutomixSegmentFeatures {
   final int meter;
 
   /// Candidate structural cues relative to this window (ms), if detected.
+  /// [dropCues] holds up to three scored candidates; [dropCueMs] mirrors the
+  /// strongest one for older callers.
   final double? dropCueMs;
+  final List<AutomixDropCue> dropCues;
   final double? breakdownCueMs;
 
   /// Strongest track-level section boundary inside this window (ms relative to
@@ -311,6 +324,34 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
     return region >= 0 && region <= 5 ? region : 0;
   }
 
+  List<AutomixDropCue> dropCuesValue() {
+    final candidates = <AutomixDropCue>[];
+    for (final keys in const <(String, String)>[
+      ('dropCueMs', 'dropConfidence'),
+      ('dropCueMs2', 'dropConfidence2'),
+      ('dropCueMs3', 'dropConfidence3'),
+    ]) {
+      final cue = nonNegativeValue(keys.$1);
+      if (cue == null) continue;
+      candidates.add(
+        AutomixDropCue(cueMs: cue, confidence: unitValue(keys.$2)),
+      );
+    }
+    candidates.sort((a, b) => a.cueMs.compareTo(b.cueMs));
+    final deduped = <AutomixDropCue>[];
+    for (final candidate in candidates) {
+      // Adjacent frames from the same onset are not independent cues.
+      if (deduped.isNotEmpty && candidate.cueMs - deduped.last.cueMs < 750) {
+        if (candidate.confidence > deduped.last.confidence) {
+          deduped[deduped.length - 1] = candidate;
+        }
+        continue;
+      }
+      deduped.add(candidate);
+    }
+    return List<AutomixDropCue>.unmodifiable(deduped);
+  }
+
   final bpm = finiteValue('bpm');
   final bpmConfidence = unitValue('bpmConfidence');
   final rawKeyConfidence = unitValue('keyConfidence');
@@ -368,6 +409,7 @@ AutomixSegmentFeatures automixSegmentFeaturesFromAnalysisMap(
         : null,
     meter: meter,
     dropCueMs: nonNegativeValue('dropCueMs'),
+    dropCues: dropCuesValue(),
     breakdownCueMs: nonNegativeValue('breakdownCueMs'),
     sectionCueMs: nonNegativeValue('sectionCueMs'),
     dropConfidence: unitValue('dropConfidence'),

@@ -40,6 +40,12 @@ static void assert_analysis_confidence_contract(
          (output[29] >= 0.0 && output[29] <= 1.0));
   assert(isnan(output[30]) || output[30] >= 0.0);
   assert(isnan(output[31]) || output[31] >= 0.0);
+  // Extra drop candidates are optional, but a published cue must be
+  // non-negative and its confidence finite in [0,1].
+  assert(isnan(output[41]) || output[41] >= 0.0);
+  assert(isnan(output[43]) || output[43] >= 0.0);
+  assert(isnan(output[42]) || (output[42] >= 0.0 && output[42] <= 1.0));
+  assert(isnan(output[44]) || (output[44] >= 0.0 && output[44] <= 1.0));
   // Quarter RMS profile: always finite for a successful analysis and ordered
   // as four consecutive quarters of the same frame timeline.
   for (int index = 24; index <= 27; ++index) {
@@ -202,6 +208,38 @@ static void test_analyzer_structural_cues(void) {
   assert(output[12] > 4400.0 && output[12] < 5700.0);
   assert(isfinite(output[13]));
   assert(output[13] > 7300.0 && output[13] < 8800.0);
+  free(pcm);
+}
+
+static void test_analyzer_multiple_drop_candidates(void) {
+  const int32_t sample_rate = 22050;
+  const int32_t seconds = 20;
+  const int32_t count = sample_rate * seconds;
+  float* pcm = (float*)malloc((size_t)count * sizeof(float));
+  assert(pcm != NULL);
+  for (int32_t i = 0; i < count; ++i) {
+    const double t = (double)i / sample_rate;
+    double amplitude;
+    if (t < 4.0) amplitude = 0.5;
+    else if (t < 7.0) amplitude = 0.05;
+    else if (t < 10.0) amplitude = 0.8;
+    else if (t < 13.0) amplitude = 0.05;
+    else if (t < 16.0) amplitude = 0.8;
+    else amplitude = 0.05;
+    pcm[i] = (float)(amplitude *
+        sin(2.0 * 3.14159265358979323846 * 220.0 * t));
+  }
+
+  double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  assert(nar_automix_analyze(pcm, count, sample_rate, output,
+                             NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  // Two low-to-high transitions produce two independent drop candidates; the
+  // head-window merge must be able to choose the earliest one. Adjacent frames
+  // from the same onset are deduplicated by the analyzer.
+  assert(isfinite(output[12]) || isfinite(output[41]));
+  assert(isfinite(output[41]));
+  assert(output[42] >= 0.0 && output[42] <= 1.0);
+  assert(output[41] != output[12]);
   free(pcm);
 }
 
@@ -3385,6 +3423,7 @@ int main(void) {
   test_analyzer_rms();
   test_analyzer_vocal_center_channel();
   test_analyzer_structural_cues();
+  test_analyzer_multiple_drop_candidates();
   test_planner_vocal_conflict();
   test_planner_keeps_start_and_permutation();
   test_planner_scores_tempo_at_seam();

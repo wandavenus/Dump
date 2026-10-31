@@ -12,7 +12,7 @@ extern "C" {
 
 #define NAR_AUTOMIX_FEATURE_COUNT 27
 #define NAR_AUTOMIX_KEY_FIELD_COUNT 2
-#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 41
+#define NAR_AUTOMIX_ANALYSIS_VALUE_COUNT 45
 
 // Decision contract shared by the analyzer, planner and the Dart/Kotlin
 // consumers. These are interim hand-tuned gates, not calibrated
@@ -24,6 +24,8 @@ extern "C" {
 #define NAR_AUTOMIX_KEY_CONFIDENCE_MIN 0.55
 #define NAR_AUTOMIX_STRUCTURE_CONFIDENCE_MIN 0.65
 #define NAR_AUTOMIX_DROP_CONFIDENCE_MIN 0.55
+#define NAR_AUTOMIX_DROP_HANDOVER_MIN_MS 8000
+#define NAR_AUTOMIX_DROP_HANDOVER_MAX_MS 150000
 #define NAR_AUTOMIX_VOCAL_CONFIDENCE_MIN 0.45
 #define NAR_AUTOMIX_VOCAL_LIKELIHOOD_MIN 0.55
 #define NAR_AUTOMIX_FADE_MIN_SECONDS 1.5
@@ -84,7 +86,7 @@ enum NarAutomixFeatureIndex {
 // Key fields per track: [Camelot number (0 means unknown), mode
 // (-1 unknown, 0 major, 1 minor)].
 //
-// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 41):
+// Analysis values (NAR_AUTOMIX_ANALYSIS_VALUE_COUNT = 45):
 //  0: BPM (NaN when unknown)
 //  1: BPM confidence (0..1)
 //  2: Alternate BPM (NaN when unknown)
@@ -131,6 +133,13 @@ enum NarAutomixFeatureIndex {
 // 38: Outro edge LUFS
 // 39: Intro edge onset rate (onsets/sec over the first 15 s)
 // 40: Outro edge onset rate (onsets/sec over the last 15 s)
+// 41: Second-strongest drop cue ms (NaN when unknown)
+// 42: Second drop confidence (0..1)
+// 43: Third-strongest drop cue ms (NaN when unknown)
+// 44: Third drop confidence (0..1)
+// The primary drop cue/confidence stays at 12/14. Consumers merge all analyzed
+// windows and use the earliest confident drop for early handover, so a drop
+// after the head window is not lost.
 // The quarter profile is a coarse energy trend (rising/falling intro and
 // outro). Consumers derive per-seam slopes from adjacent quarters; silence
 // floors at -120 dBFS, so the values stay finite whenever analysis succeeds.

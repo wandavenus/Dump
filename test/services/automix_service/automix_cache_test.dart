@@ -36,9 +36,11 @@ void main() {
       await file.writeAsBytes(List<int>.filled(32, 0));
       SharedPreferences.setMockInitialValues(<String, Object>{});
       AutomixService.resetInMemoryState();
+      AutomixService.setAnalysisCacheDirectoryForTesting(dir);
     });
 
     tearDown(() async {
+      AutomixService.setAnalysisCacheDirectoryForTesting(null);
       AutomixService.resetInMemoryState();
       if (dir.existsSync()) {
         await dir.delete(recursive: true);
@@ -66,7 +68,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 22,
+            'version': 23,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -256,7 +258,7 @@ void main() {
         await prefs.setString(
           'automix_45',
           jsonEncode(<String, dynamic>{
-            'version': 22,
+            'version': 23,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 45,
@@ -306,5 +308,88 @@ void main() {
         expect(features.tailBpm, isNull);
       },
     );
+
+    test('reads a per-track file without touching SharedPreferences', () async {
+      final song = LocalSong(
+        id: 47,
+        title: 'File cache',
+        artist: 'Artist',
+        album: 'Album',
+        albumId: 7,
+        path: file.path,
+        duration: const Duration(minutes: 4),
+      );
+      final cacheFile = File('${dir.path}/automix_47.json');
+      await cacheFile.writeAsString(
+        jsonEncode(<String, dynamic>{
+          'version': 23,
+          'ident': identityOf(file),
+          'data': <String, dynamic>{
+            'id': 47,
+            'bpm': 124.0,
+            'bc': 0.9,
+            'ta': true,
+          },
+        }),
+        flush: true,
+      );
+
+      final features = await AutomixService.featuresFor(song);
+      expect(features.bpm, 124.0);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('automix_47'), isNull);
+    });
+
+    test(
+      'migrates a legacy preference entry into a file and removes it',
+      () async {
+        final song = LocalSong(
+          id: 48,
+          title: 'Migrated cache',
+          artist: 'Artist',
+          album: 'Album',
+          albumId: 7,
+          path: file.path,
+          duration: const Duration(minutes: 4),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'automix_48',
+          jsonEncode(<String, dynamic>{
+            'version': 23,
+            'ident': identityOf(file),
+            'data': <String, dynamic>{'id': 48, 'bpm': 122.0, 'bc': 0.9},
+          }),
+        );
+
+        final features = await AutomixService.featuresFor(song);
+        expect(features.bpm, 122.0);
+        expect(File('${dir.path}/automix_48.json').existsSync(), isTrue);
+        expect(prefs.getString('automix_48'), isNull);
+      },
+    );
+
+    test('prunes cache files for tracks no longer in the library', () async {
+      final valid = File('${dir.path}/automix_50.json');
+      final stale = File('${dir.path}/automix_51.json');
+      final temp = File('${dir.path}/automix_52.json.tmp');
+      for (final cached in <File>[valid, stale, temp]) {
+        await cached.writeAsString('{}', flush: true);
+      }
+      final song = LocalSong(
+        id: 50,
+        title: 'Kept',
+        artist: 'Artist',
+        album: 'Album',
+        albumId: 7,
+        path: file.path,
+        duration: const Duration(minutes: 4),
+      );
+
+      await AutomixService.pruneAnalysisCacheForTesting([song]);
+      expect(valid.existsSync(), isTrue);
+      expect(stale.existsSync(), isFalse);
+      expect(temp.existsSync(), isFalse);
+    });
   });
 }

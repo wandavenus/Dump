@@ -107,8 +107,12 @@ class NativeAutomixAnalysis {
     required this.analyzedSeconds,
     this.downbeatOffsetMs,
     this.dropCueMs,
+    this.dropCueMs2,
+    this.dropCueMs3,
     this.breakdownCueMs,
     this.dropConfidence = 0,
+    this.dropConfidence2 = 0,
+    this.dropConfidence3 = 0,
     this.breakdownConfidence = 0,
     this.structureRegion = 0,
     this.structureConfidence = 0,
@@ -147,8 +151,12 @@ class NativeAutomixAnalysis {
   final double analyzedSeconds;
   final double? downbeatOffsetMs;
   final double? dropCueMs;
+  final double? dropCueMs2;
+  final double? dropCueMs3;
   final double? breakdownCueMs;
   final double dropConfidence;
+  final double dropConfidence2;
+  final double dropConfidence3;
   final double breakdownConfidence;
   final int structureRegion;
   final double structureConfidence;

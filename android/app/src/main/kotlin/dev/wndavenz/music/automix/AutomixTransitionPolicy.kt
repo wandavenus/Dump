@@ -119,13 +119,15 @@ internal object AutomixTransitionPolicy {
 
     /**
      * Snap a requested fade start back onto the largest musical boundary that
-     * stays within [PHRASE_SNAP_MAX_BEATS] beats: the four-bar, two-bar and
-     * one-bar grids at the analyzed [meter] (16/8/4 beats at 4/4, 12/6/3 at
-     * 3/4, 24/12/6 at 6/8, 8/4/2 at the two-beat compound metre,
-     * phase-referenced to the analyzed downbeat) first,
-     * then the single-beat grid with the legacy one-beat tolerance. Snapping
-     * only ever moves the start earlier — the same direction the beat-level
-     * snap already used — so the fade never eats into the configured overlap.
+     * stays within [maxShiftBeats]: the four-bar, two-bar and one-bar grids at
+     * the analyzed [meter] (16/8/4 beats at 4/4, 12/6/3 at 3/4, 24/12/6 at
+     * 6/8, 8/4/2 at the two-beat compound metre, phase-referenced to the
+     * analyzed downbeat) first, then the single-beat grid with the legacy
+     * one-beat tolerance. Snapping only ever moves the start earlier — the same
+     * direction the beat-level snap already used — so the fade never eats into
+     * the configured overlap. Near-EOF fades keep the conservative four-beat
+     * cap; early handovers pass a full phrase so the mix point can land on the
+     * actual four-bar boundary instead of merely the nearest bar.
      * Returns [idealStartMs] unchanged when no phase is reliable.
      */
     fun phraseAlignedStartMs(
@@ -134,10 +136,13 @@ internal object AutomixTransitionPolicy {
         beatOffsetMs: Double?,
         downbeatOffsetMs: Double?,
         meter: Int = 4,
+        maxShiftBeats: Double = PHRASE_SNAP_MAX_BEATS,
     ): Long {
         if (!beatMs.isFinite() || beatMs <= 0.0) return idealStartMs
         val ideal = idealStartMs.coerceAtLeast(0L).toDouble()
-        val maxShift = beatMs * PHRASE_SNAP_MAX_BEATS
+        val shiftLimit = maxShiftBeats.takeIf { it.isFinite() && it > 0.0 }
+            ?: PHRASE_SNAP_MAX_BEATS
+        val maxShift = beatMs * shiftLimit
 
         fun snap(period: Double, phaseRaw: Double, tolerance: Double): Long? {
             if (!period.isFinite() || period <= 0.0 || !phaseRaw.isFinite()) {

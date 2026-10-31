@@ -443,22 +443,37 @@ AutomixTrackFeatures automixMergeSegments({
       (a, b) => a.bpmConfidence >= b.bpmConfidence ? a : b,
     );
     tempoAnchor = anchor;
-    var weighted = 0.0;
+    final foldedTempos = <(double, double)>[];
     var weight = 0.0;
     var agreeing = 0.0;
     for (final s in withBpm) {
       final folded = automixFoldToOctave(s.bpm!, anchor.bpm!);
-      weighted += folded * s.bpmConfidence;
+      foldedTempos.add((folded, s.bpmConfidence));
       weight += s.bpmConfidence;
       if ((folded - anchor.bpm!).abs() / anchor.bpm! <= 0.04) {
         agreeing += s.bpmConfidence;
       }
     }
     if (weight > 0) {
-      bpm = automixFoldToOctave(weighted / weight, anchor.bpm!);
-      // A tempo only counts as confident when the windows agree with each other.
+      // A weighted mean of disagreeing windows invents a tempo nobody
+      // measured (120, 120, 90 -> 110). Use the weighted median instead, and
+      // cut confidence when the windows do not broadly agree; the planner then
+      // treats the tempo as neutral rather than trusting the invented value.
+      foldedTempos.sort((a, b) => a.$1.compareTo(b.$1));
+      var cumulative = 0.0;
+      var median = foldedTempos.first.$1;
+      for (final (value, confidence) in foldedTempos) {
+        cumulative += confidence;
+        if (cumulative >= weight * 0.5) {
+          median = value;
+          break;
+        }
+      }
+      final agreement = automixClamp01(agreeing / weight);
+      bpm = automixFoldToOctave(median, anchor.bpm!);
       bpmConfidence = automixClamp01(
-        (agreeing / weight) * anchor.bpmConfidence,
+        anchor.bpmConfidence *
+            (agreement >= 0.70 ? agreement : agreement * 0.5),
       );
     }
   }
@@ -742,13 +757,46 @@ AutomixTrackFeatures automixMergeSegments({
     }
   }
 
-  final localDropCue = firstSegment?.dropCueMs;
+  // H04: a file's first usable drop is not necessarily in the head window.
+  // Collect the native top-three candidates from every analyzed window and
+  // pick the earliest one inside the early-handover envelope. The strongest
+  // candidate is still available for structure labels, but it must not hide an
+  // earlier drop that is the musically correct handover point.
+  final dropCandidates = <AutomixDropCue>[];
+  for (final segment in segments) {
+    final cues = segment.dropCues.isNotEmpty
+        ? segment.dropCues
+        : <AutomixDropCue>[
+            if (segment.dropCueMs != null)
+              AutomixDropCue(
+                cueMs: segment.dropCueMs!,
+                confidence: segment.dropConfidence,
+              ),
+          ];
+    for (final cue in cues) {
+      if (!cue.cueMs.isFinite || cue.cueMs < 0) continue;
+      dropCandidates.add(
+        AutomixDropCue(
+          cueMs: segment.startSeconds * 1000.0 + cue.cueMs,
+          confidence: cue.confidence,
+        ),
+      );
+    }
+  }
+  dropCandidates.sort((a, b) => a.cueMs.compareTo(b.cueMs));
+  AutomixDropCue? selectedDrop;
+  for (final candidate in dropCandidates) {
+    if (candidate.confidence < AutomixContract.dropConfidenceMin) continue;
+    if (candidate.cueMs < AutomixContract.dropHandoverMinMs ||
+        candidate.cueMs > AutomixContract.dropHandoverMaxMs) {
+      continue;
+    }
+    selectedDrop = candidate;
+    break;
+  }
+  final dropCueMs = selectedDrop?.cueMs;
   final localBreakdownCue = tailSegmentAnalyzed
       ? lastSegment?.breakdownCueMs
-      : null;
-  final dropCueMs =
-      localDropCue != null && localDropCue.isFinite && localDropCue >= 0
-      ? firstSegment!.startSeconds * 1000.0 + localDropCue
       : null;
   final tailBreakdownCueMs =
       localBreakdownCue != null &&
@@ -819,7 +867,7 @@ AutomixTrackFeatures automixMergeSegments({
     tailMeter: tailMeter,
     dropCueMs: dropCueMs,
     tailBreakdownCueMs: tailBreakdownCueMs,
-    dropConfidence: firstSegment?.dropConfidence ?? 0,
+    dropConfidence: selectedDrop?.confidence ?? 0,
     tailBreakdownConfidence: tailSegmentAnalyzed
         ? (lastSegment?.breakdownConfidence ?? 0)
         : 0,
@@ -919,6 +967,8 @@ class AutomixTransitionCue {
     required this.outgoingHighOverlapGain,
     required this.incomingHighOverlapGain,
     required this.outgoingPitchSemitones,
+    this.earlyHandover = false,
+    this.earlyHandoverUnavailableReason,
   });
 
   /// Strategy that controls the production fade behavior on Android.
@@ -946,6 +996,12 @@ class AutomixTransitionCue {
   /// This is deliberately separate from [fadeSeconds]: the outgoing deck can
   /// be handed over 35–60 s before EOF while the actual overlap stays short.
   final double? transitionStartMs;
+
+  /// Whether the incoming drop path was selected. When it was not, the reason
+  /// is carried for the diagnostic log so a silently unavailable early
+  /// handover is visible (audit AM9-H04).
+  final bool earlyHandover;
+  final String? earlyHandoverUnavailableReason;
 
   /// Equal-power transfer shape: 1.0 = the classic cos/sin curve, > 1 hands the
   /// mix over faster (dense outros), < 1 slower (sparse outros).
@@ -1258,8 +1314,8 @@ AutomixTransitionCue automixTransitionCue({
   final hasConfidentIncomingDrop =
       incomingDropMs != null &&
       incomingDropMs.isFinite &&
-      incomingDropMs >= 8000 &&
-      incomingDropMs <= 90000 &&
+      incomingDropMs >= AutomixContract.dropHandoverMinMs &&
+      incomingDropMs <= AutomixContract.dropHandoverMaxMs &&
       incoming.dropConfidence >= AutomixContract.dropConfidenceMin;
   final outgoingGridBpm = outgoing.tailBpm;
   final incomingHasLocalGrid = automixHasConfidentIntroGrid(incoming);
@@ -1324,7 +1380,8 @@ AutomixTransitionCue automixTransitionCue({
   // durations are expressed in bars at the outgoing metre, not seconds: a
   // second cap at 120 BPM used to end a quick handover on beat 6 (mid-bar).
   // The absolute clamp below is only a safety envelope.
-  final outgoingMeter = AutomixContract.supportedMeters.contains(outgoing.tailMeter)
+  final outgoingMeter =
+      AutomixContract.supportedMeters.contains(outgoing.tailMeter)
       ? outgoing.tailMeter
       : 4;
   final barSeconds = tempo != null && tempo > 0
@@ -1532,9 +1589,34 @@ AutomixTransitionCue automixTransitionCue({
     }
   }
 
+  final String? earlyHandoverUnavailableReason;
+  if (earlyHandoverEligible && transitionStartMs != null) {
+    earlyHandoverUnavailableReason = null;
+  } else if (earlyHandoverEligible) {
+    earlyHandoverUnavailableReason =
+        'candidate start violates the fade/lead envelope';
+  } else if (outgoing.durationSeconds < 120) {
+    earlyHandoverUnavailableReason = 'outgoing shorter than 120 s';
+  } else if (!hasConfidentIncomingDrop) {
+    final rawCue = incoming.dropCueMs;
+    earlyHandoverUnavailableReason = rawCue == null
+        ? 'no confident incoming drop cue'
+        : 'incoming drop ${rawCue.toStringAsFixed(0)} ms outside '
+              '${AutomixContract.dropHandoverMinMs}–'
+              '${AutomixContract.dropHandoverMaxMs} ms or below confidence';
+  } else if (!hasConfidentBeatPair) {
+    earlyHandoverUnavailableReason = 'incoming/outgoing beat grid unavailable';
+  } else if (tempoMismatch) {
+    earlyHandoverUnavailableReason = 'tempo mismatch';
+  } else {
+    earlyHandoverUnavailableReason = 'no valid early-handover start';
+  }
+
   return AutomixTransitionCue(
     fadeSeconds: fadeSeconds,
     transitionStartMs: transitionStartMs,
+    earlyHandover: earlyHandoverEligible && transitionStartMs != null,
+    earlyHandoverUnavailableReason: earlyHandoverUnavailableReason,
     curveGamma: gamma,
     outgoingTrim: outgoingTrim,
     incomingTrim: incomingTrim,
@@ -2046,8 +2128,10 @@ class DartAutomixEngineReference {
   static const double _minTempoBpm = AutomixContract.bpmMin;
   static const double _maxTempoBpm = AutomixContract.bpmMax;
 
-  /// Number of best candidates that get a full one-step lookahead re-score.
-  static const int _lookaheadTopK = 3;
+  /// Receding-horizon beam: the eight cheapest first steps are scored with
+  /// two follow-up steps. Mirrors NAR_PLAN_BEAM_WIDTH/DEPTH in the planner.
+  static const int _beamWidth = 8;
+  static const int _beamDepth = 2;
 
   /// Improvement-pass budget for the swap polisher. Insertion (Or-opt) and
   /// reversal scans extend the neighborhood for sets at or above
@@ -2271,6 +2355,24 @@ class DartAutomixEngineReference {
     );
   }
 
+  /// Mean transition cost of an existing order, using the same objective as
+  /// [planSet]. Used by the service to apply reorder hysteresis: a new plan is
+  /// only worth a queue mutation when it beats the live order by a margin.
+  static double scoreOrder({
+    required List<AutomixTrackFeatures> tracks,
+    required List<int> order,
+    required AutomixSettings settings,
+  }) {
+    final n = order.length;
+    if (n < 2) return 0.0;
+    if (order.any((index) => index < 0 || index >= tracks.length)) {
+      return double.infinity;
+    }
+    final energies = automixNormalizeEnergy(tracks);
+    final arc = _EnergyArc.fromEnergies(energies);
+    return _pathCost(order, tracks, energies, settings, arc) / (n - 1);
+  }
+
   /// Median BPM among tracks that have an analyzed value, else
   /// [_defaultBpm].
   static double _medianKnownBpm(List<AutomixTrackFeatures> tracks) {
@@ -2413,13 +2515,11 @@ class DartAutomixEngineReference {
       return scored.first.$1;
     }
 
-    // One-step lookahead over the top few candidates: score
-    // cost1 + γ · min over next-next.
+    // Receding-horizon beam over the top eight candidates:
+    // cost1 + γ·cost2 + γ²·cost3.
     var best = scored.first.$1;
     var bestScore = double.infinity;
-    final limit = _lookaheadTopK < scored.length
-        ? _lookaheadTopK
-        : scored.length;
+    final limit = _beamWidth < scored.length ? _beamWidth : scored.length;
     for (int k = 0; k < limit; k++) {
       final (cand, base) = scored[k];
       var score = base;
@@ -2439,7 +2539,7 @@ class DartAutomixEngineReference {
         if (played[cand2] || cand2 == current) continue;
         // plan.length + 1 because the candidate will occupy one more slot
         // than the path built so far when cand2 actually follows it.
-        final c =
+        var c =
             _transitionCost(
               a: tracks[cand],
               b: tracks[cand2],
@@ -2458,6 +2558,46 @@ class DartAutomixEngineReference {
               candidate: tracks[cand2],
               settings: settings,
             );
+        if (_beamDepth >= 2) {
+          var minAfter = double.infinity;
+          final afterCandidates = _candidatePool(
+            current: cand2,
+            played: played,
+            slotOf: slotOf,
+            slotOrder: slotOrder,
+            tracks: tracks,
+            energies: energies,
+            settings: settings,
+            medianBpm: medianBpm,
+            excludeIndex: cand2,
+          );
+          for (final cand3 in afterCandidates) {
+            if (played[cand3] || cand3 == current || cand3 == cand) {
+              continue;
+            }
+            final c3 =
+                _transitionCost(
+                  a: tracks[cand2],
+                  b: tracks[cand3],
+                  eA: energies[cand2],
+                  eB: energies[cand3],
+                  stepIndex: stepIndex + 2,
+                  totalSteps: totalSteps,
+                  settings: settings,
+                  arc: arc,
+                ) +
+                _artistCooldownCost(
+                  plan: plan,
+                  planSlot: plan.length + 2,
+                  planFilled: plan.length,
+                  tracks: tracks,
+                  candidate: tracks[cand3],
+                  settings: settings,
+                );
+            if (c3 < minAfter) minAfter = c3;
+          }
+          if (minAfter.isFinite) c += _lookaheadGamma * minAfter;
+        }
         if (c < minNext) minNext = c;
       }
       if (minNext.isFinite) score += _lookaheadGamma * minNext;
@@ -2857,4 +2997,16 @@ class AutomixEngine {
       averageCost: plan.averageCost,
     );
   }
+
+  /// Mean cost of an existing order, used by reorder hysteresis. This is the
+  /// pure-Dart reference objective, independent of the native plan call.
+  static double scoreOrder({
+    required List<AutomixTrackFeatures> tracks,
+    required List<int> order,
+    required AutomixSettings settings,
+  }) => DartAutomixEngineReference.scoreOrder(
+    tracks: tracks,
+    order: order,
+    settings: settings,
+  );
 }

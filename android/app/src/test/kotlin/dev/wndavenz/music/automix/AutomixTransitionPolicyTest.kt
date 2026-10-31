@@ -164,6 +164,8 @@ class AutomixTransitionPolicyTest {
         assertEquals(0.55f, AutomixContract.KEY_CONFIDENCE_MIN, 0f)
         assertEquals(0.65f, AutomixContract.STRUCTURE_CONFIDENCE_MIN, 0f)
         assertEquals(0.55f, AutomixContract.DROP_CONFIDENCE_MIN, 0f)
+        assertEquals(8_000L, AutomixContract.DROP_HANDOVER_MIN_MS)
+        assertEquals(150_000L, AutomixContract.DROP_HANDOVER_MAX_MS)
         assertEquals(0.45f, AutomixContract.VOCAL_CONFIDENCE_MIN, 0f)
         assertEquals(0.55f, AutomixContract.VOCAL_LIKELIHOOD_MIN, 0f)
         assertEquals(1.5f, AutomixContract.FADE_MIN_SECONDS, 0f)
@@ -199,6 +201,34 @@ class AutomixTransitionPolicyTest {
         assertEquals(
             2_000L,
             AutomixTransitionPolicy.phraseAlignedStartMs(2_100L, 500.0, 0.0, 0.0),
+        )
+    }
+
+    @Test
+    fun `early handover phrase snap can reach a full four-bar boundary`() {
+        // 120 BPM, 4/4: the 8 s phrase boundary is 7 beats (3.5 s) before the
+        // requested start. Near-EOF keeps the 4-beat cap; an early handover
+        // passes a full phrase so it can use that boundary.
+        assertEquals(
+            11_500L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                11_500L, 500.0, 0.0, 0.0,
+            ),
+        )
+        assertEquals(
+            8_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                11_500L, 500.0, 0.0, 0.0,
+                maxShiftBeats = 16.0,
+            ),
+        )
+        // A 3/4 early handover uses one 12-beat phrase, not a 16-beat cap.
+        assertEquals(
+            6_000L,
+            AutomixTransitionPolicy.phraseAlignedStartMs(
+                11_500L, 500.0, 0.0, 0.0, meter = 3,
+                maxShiftBeats = 12.0,
+            ),
         )
     }
 

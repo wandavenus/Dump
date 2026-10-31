@@ -14,6 +14,8 @@ internal object AutomixContract {
     const val KEY_CONFIDENCE_MIN = 0.55f
     const val STRUCTURE_CONFIDENCE_MIN = 0.65f
     const val DROP_CONFIDENCE_MIN = 0.55f
+    const val DROP_HANDOVER_MIN_MS = 8_000L
+    const val DROP_HANDOVER_MAX_MS = 150_000L
     const val VOCAL_CONFIDENCE_MIN = 0.45f
     const val VOCAL_LIKELIHOOD_MIN = 0.55f
 
