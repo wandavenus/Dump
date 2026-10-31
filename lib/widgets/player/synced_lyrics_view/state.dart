@@ -23,6 +23,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   final KaraokeLayoutCache _karaokeLayoutCache = KaraokeLayoutCache();
   _KaraokeLayoutConfiguration? _karaokeLayoutConfiguration;
   int _karaokePrewarmGeneration = 0;
+  int _karaokePrewarmAnchorIndex = -1;
+  bool? _karaokePrewarmVisibility;
+  bool? _karaokePrewarmEnabled;
   final _KaraokeLineController _karaokeController = _KaraokeLineController();
 
   // ── Manual-scroll suppression ──────────────────────────────────────────────
@@ -193,6 +196,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _karaokePrewarmGeneration++;
       _karaokeLayoutCache.clear();
       _karaokeLayoutConfiguration = null;
+      _karaokePrewarmAnchorIndex = -1;
+      _karaokePrewarmVisibility = null;
       _rebuildWordTimelines();
 
       final currentPos = _interpolatedPosition;
