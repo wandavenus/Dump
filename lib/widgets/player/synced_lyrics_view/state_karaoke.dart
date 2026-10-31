@@ -13,8 +13,8 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
   /// Captures the geometry-affecting configuration and schedules prewarming.
   ///
   /// Current and nearby lines are prepared outside the widget paint path.
-  /// The visible current line gets animation priority; neighboring lines use
-  /// idle priority so they do not compete with active frames.
+  /// The visible current line and its immediate successor get animation
+  /// priority; more distant lines are warmed at idle priority.
   void _prepareKaraokeLayouts(double width) {
     if (!width.isFinite || width <= 0) return;
 
