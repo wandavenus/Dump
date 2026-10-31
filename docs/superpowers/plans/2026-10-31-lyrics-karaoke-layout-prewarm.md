@@ -26,4 +26,4 @@ Eliminate cold `TextPainter.layout()` and `getBoxesForSelection()` work from nor
 - Width/style changes cannot reuse stale geometry.
 - Old scheduled tasks cannot insert entries for a previous track or configuration.
 - Cache remains bounded and releases native paragraph resources on eviction/disposal.
-- A normal next-line transition should find the next line already prepared; large seeks retain a correct synchronous fallback.
+- A normal next-line transition should find the next line already prepared; cold seeks show the normal active `Text` row until the animation-priority prewarm completes, then activate karaoke painting.
