@@ -817,9 +817,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             final shadowBase = isArtworkBlurStyle
                                 ? 0.0
                                 : t * (1.0 - effectiveOverlayT);
-                            final shadowAlpha = 0.20 * shadowBase;
-                            final shadowBlur = 20.0 * shadowBase;
-                            final shadowOff = 10.0 * shadowBase;
+                            const shadowOutset = _ArtworkShadowPainter.outset;
 
                             // In Fluid mode, the full-player artwork rests at 97% while paused
                             // (or before playback starts) and returns to its natural size on play.
@@ -869,38 +867,43 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             );
 
                             return Positioned(
-                              left: finalLeft,
-                              top: finalTop,
-                              width: finalSize,
-                              height: finalSize,
+                              left: finalLeft - shadowOutset,
+                              top: finalTop - shadowOutset,
+                              width: finalSize + shadowOutset * 2,
+                              height: finalSize + shadowOutset * 2,
                               child: AnimatedScale(
                                 duration: const Duration(milliseconds: 300),
                                 curve: Curves.easeOutCubic,
                                 scale: targetScale,
-                                child: Container(
-                                  // Shadow in background so it renders behind the artwork.
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                    // Artwork Blur mode has no artwork shadow at all.
-                                    boxShadow: isArtworkBlurStyle
-                                        ? const []
-                                        : [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(
-                                                alpha: shadowAlpha,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    if (!isArtworkBlurStyle && shadowBase > 0.0)
+                                      Positioned.fill(
+                                        child: IgnorePointer(
+                                          child: Opacity(
+                                            opacity: shadowBase,
+                                            child: RepaintBoundary(
+                                              child: CustomPaint(
+                                                painter:
+                                                    const _ArtworkShadowPainter(),
                                               ),
-                                              blurRadius: shadowBlur,
-                                              offset: Offset(0, shadowOff),
                                             ),
-                                          ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(
-                                      finalRadius,
-                                    ),
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
+                                          ),
+                                        ),
+                                      ),
+                                    Positioned(
+                                      left: shadowOutset,
+                                      top: shadowOutset,
+                                      width: finalSize,
+                                      height: finalSize,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          finalRadius,
+                                        ),
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
                                         artworkWithFade,
                                         // Keep the status-bar shadow attached to the
                                         // artwork itself, not the blurred background.
@@ -998,9 +1001,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                               ),
                                             ),
                                           ),
-                                      ],
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ),
                             );
@@ -1175,6 +1180,68 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       ],
     );
   }
+}
+
+// The artwork shadow is painted as two cached gradient layers instead of a
+// per-frame blurred BoxShadow. Opacity is animated by the parent, so the
+// gradients themselves stay static while the artwork morphs.
+class _ArtworkShadowPainter extends CustomPainter {
+  const _ArtworkShadowPainter();
+
+  static const double outset = 36.0;
+
+  static const RadialGradient _ambientGradient = RadialGradient(
+    center: Alignment(0.0, 0.12),
+    radius: 1.0,
+    colors: [Color(0x30000000), Color(0x00000000)],
+    stops: [0.55, 1.0],
+  );
+
+  static const LinearGradient _depthGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0x00000000),
+      Color(0x14000000),
+      Color(0x07000000),
+    ],
+    stops: [0.12, 0.72, 1.0],
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final artworkRect = Rect.fromLTWH(
+      outset,
+      outset,
+      size.width - outset * 2,
+      size.height - outset * 2,
+    );
+    if (artworkRect.width <= 0.0 || artworkRect.height <= 0.0) return;
+
+    // Broad ambient falloff around the artwork, shifted slightly downward.
+    final ambientRect = artworkRect.inflate(28.0).shift(
+      const Offset(0.0, 8.0),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(ambientRect, const Radius.circular(28.0)),
+      Paint()..shader = _ambientGradient.createShader(ambientRect),
+    );
+
+    // A restrained vertical gradient preserves the original downward depth.
+    final depthRect = Rect.fromLTRB(
+      artworkRect.left - 12.0,
+      artworkRect.top + artworkRect.height * 0.45,
+      artworkRect.right + 12.0,
+      artworkRect.bottom + 30.0,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(depthRect, const Radius.circular(20.0)),
+      Paint()..shader = _depthGradient.createShader(depthRect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArtworkShadowPainter oldDelegate) => false;
 }
 
 // ── _BottomRevealClipper ───────────────────────────────────────────────────
