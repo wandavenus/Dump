@@ -6,7 +6,10 @@ part of '../synced_lyrics_view.dart';
 
 class _UnifiedKaraokeLine extends StatefulWidget {
   final String text;
+  final int lineIndex;
   final List<_TimelineWord> timeline;
+  final List<String> wordTexts;
+  final KaraokeLayoutCache layoutCache;
   final _KaraokeLineController controller;
   final Color activeColor;
   final Color dimColor;
@@ -18,7 +21,10 @@ class _UnifiedKaraokeLine extends StatefulWidget {
   const _UnifiedKaraokeLine({
     super.key,
     required this.text,
+    required this.lineIndex,
     required this.timeline,
+    required this.wordTexts,
+    required this.layoutCache,
     required this.controller,
     required this.activeColor,
     required this.dimColor,
@@ -45,38 +51,29 @@ class _UnifiedKaraokeLineState extends State<_UnifiedKaraokeLine> {
   void didUpdateWidget(_UnifiedKaraokeLine old) {
     super.didUpdateWidget(old);
 
-    // Props yang membutuhkan layout ulang penuh (text metrics berubah)
-    final bool needsRelayout =
+    final painterChanged =
         old.text != widget.text ||
+        old.lineIndex != widget.lineIndex ||
         old.timeline != widget.timeline ||
+        old.wordTexts != widget.wordTexts ||
+        old.layoutCache != widget.layoutCache ||
+        old.activeColor != widget.activeColor ||
+        old.dimColor != widget.dimColor ||
         old.fontSize != widget.fontSize ||
         old.textAlign != widget.textAlign ||
         old.textScaleFactor != widget.textScaleFactor ||
         old.textDirection != widget.textDirection;
 
-    // Props yang hanya mempengaruhi warna (geometry tidak berubah)
-    final bool colorChanged =
-        old.activeColor != widget.activeColor ||
-        old.dimColor != widget.dimColor;
-
-    if (needsRelayout) {
-      // Rebuild penuh — _cacheWordPixels akan jalan kembali
-      _painter = _buildPainter();
-    } else if (colorChanged) {
-      // Hanya warna berubah — wariskan word rects ke painter baru sehingga
-      // getBoxesForSelection tidak perlu dipanggil lagi.
-      final next = _buildPainter();
-      next.inheritLayoutCache(_painter);
-      _painter = next;
-    }
-    // Jika tidak ada yang berubah, _painter yang sama dipakai lagi —
-    // repaint tetap jalan lewat repaint: controller (60fps ticker).
+    if (painterChanged) _painter = _buildPainter();
   }
 
   _KaraokeLinePainter _buildPainter() {
     return _KaraokeLinePainter(
       text: widget.text,
+      lineIndex: widget.lineIndex,
       timeline: widget.timeline,
+      wordTexts: widget.wordTexts,
+      layoutCache: widget.layoutCache,
       controller: widget.controller,
       activeColor: widget.activeColor,
       dimColor: widget.dimColor,
