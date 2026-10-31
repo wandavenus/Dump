@@ -143,7 +143,7 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
             final next = cursor + 1;
             if (next < validIndices.length) scheduleAt(next);
           },
-          cursor <= 2 && widget.isVisible
+          cursor <= 1 && widget.isVisible
               ? Priority.animation
               : Priority.idle,
           debugLabel: 'lyrics-karaoke-layout-prewarm',
