@@ -58,7 +58,7 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
                 context.l10n.newMusicSection,
                 style: const TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Icon(
