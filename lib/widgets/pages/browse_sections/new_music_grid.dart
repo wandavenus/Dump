@@ -62,7 +62,7 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
                 ),
               ),
               const Icon(
-                Icons.chevron_right_rounded,
+                CupertinoIcons.chevron_right,
                 color: Color.fromARGB(255, 186, 186, 186),
               ),
             ],
