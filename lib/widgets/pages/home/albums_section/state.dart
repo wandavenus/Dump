@@ -92,7 +92,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
           padding: EdgeInsets.only(left: kPageLeftPadding, top: 13),
           child: Text(
             context.l10n.topPicks,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
           ),
         ),
         SizedBox(

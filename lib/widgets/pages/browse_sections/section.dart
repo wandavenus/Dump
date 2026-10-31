@@ -20,7 +20,7 @@ class _BrowseSection extends StatelessWidget {
                 title,
                 style: const TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Icon(
