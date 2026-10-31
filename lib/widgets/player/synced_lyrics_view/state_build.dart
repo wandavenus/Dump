@@ -35,10 +35,16 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               ? Duration.zero
               : lyricFocusAnimationDuration;
 
-          return ScrollablePositionedList.builder(
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final resolvedPadding = widget.padding.resolve(TextDirection.ltr);
+              _prepareKaraokeLayouts(
+                constraints.maxWidth - resolvedPadding.horizontal,
+              );
+              return ScrollablePositionedList.builder(
             itemScrollController: _itemScrollController,
             scrollOffsetController: widget.offsetController,
-            padding: widget.padding.resolve(TextDirection.ltr),
+            padding: resolvedPadding,
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {
               final isActive = index == _currentIndex;
@@ -98,7 +104,10 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                                 ? _UnifiedKaraokeLine(
                                     key: ValueKey(_currentIndex),
                                     text: widget.lyrics[index].text,
+                                    lineIndex: index,
                                     timeline: _wordTimelines[index],
+                                    wordTexts: _wordTextTimelines[index],
+                                    layoutCache: _karaokeLayoutCache,
                                     controller: _karaokeController,
                                     activeColor: active,
                                     dimColor: dim,
@@ -133,6 +142,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                     child: child,
                   );
                 },
+              );
+              },
               );
             },
           );
