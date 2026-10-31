@@ -21,7 +21,7 @@ description: Cached TextPainter geometry and incremental prewarming for synchron
 ## Invalidation and constraints
 - Clear on lyrics/raw-LRC changes and on configuration changes (viewport width, font size, text scale, alignment, active/dim colors). Direction is independently included in each entry key.
 - Do not move all-line geometry work synchronously into initState/build. Idle tasks spread work outside the frame that needs the next line.
-- Large seeks or a cold cache still use a synchronous fallback via `obtain()`; normal forward playback should hit prewarmed entries.
+- A cold active line is rendered as ordinary `Text` until its geometry is prepared at `Priority.animation`; only then is the karaoke painter mounted. Following lines are prepared at `Priority.idle`, so `CustomPainter.paint` does not need a synchronous cold-layout fallback in the normal widget path.
 - Existing lyric timestamps, karaoke painter effects, blur, scroll spring (550 ms), and row transition (800 ms) remain unchanged.
 
 ## Verification limits
