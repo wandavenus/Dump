@@ -30,10 +30,22 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
     if (_karaokeLayoutConfiguration != configuration) {
       _karaokeLayoutCache.clear();
       _karaokePrewarmGeneration++;
+      _karaokePrewarmAnchorIndex = -1;
+      _karaokePrewarmVisibility = null;
       _karaokeLayoutConfiguration = configuration;
     }
 
-    if (!LyricsSettings.karaokeMode.value || widget.lyrics.isEmpty) return;
+    final karaokeEnabled = LyricsSettings.karaokeMode.value;
+    if (!karaokeEnabled || widget.lyrics.isEmpty) {
+      if (_karaokePrewarmEnabled != false) {
+        _karaokePrewarmGeneration++;
+        _karaokePrewarmAnchorIndex = -1;
+        _karaokePrewarmVisibility = null;
+        _karaokePrewarmEnabled = false;
+      }
+      return;
+    }
+    _karaokePrewarmEnabled = true;
 
     if (widget.isVisible) {
       _warmKaraokeLine(_currentIndex);
@@ -70,6 +82,12 @@ extension _SyncedLyricsViewKaraokeState on _SyncedLyricsViewState {
 
   void _scheduleKaraokePrewarm() {
     if (_karaokeLayoutConfiguration == null) return;
+    if (_karaokePrewarmAnchorIndex == _currentIndex &&
+        _karaokePrewarmVisibility == widget.isVisible) {
+      return;
+    }
+    _karaokePrewarmAnchorIndex = _currentIndex;
+    _karaokePrewarmVisibility = widget.isVisible;
 
     final indices = <int>[];
     if (!widget.isVisible) indices.add(_currentIndex);
