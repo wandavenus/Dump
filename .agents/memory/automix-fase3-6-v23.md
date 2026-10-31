@@ -1,7 +1,7 @@
 # AutoMix Fase 3–6 (v1.5.66, cache schema v23)
 
-Lanjutan `automix-fase2-contract-v22.md`. Semua perubahan di bawah ada di working tree
-v1.5.66 dan belum di-commit saat catatan ini ditulis.
+Lanjutan `automix-fase2-contract-v22.md`. Semua perubahan Fase 3–6 di bawah sudah
+di-commit sebagai `d27de4c` (v1.5.66).
 
 ## Fase 3 — drop/early handover
 
@@ -63,6 +63,15 @@ v1.5.66 dan belum di-commit saat catatan ini ditulis.
 - Belum dijalankan: Kotlin/Gradle (percobaan `:app:testDebugUnitTest --tests ...AutomixTransitionPolicyTest`
   gagal saat wrapper mengunduh Gradle: `No space left on device`, root hanya ~36 KB),
   `tools/automix_ffmpeg_regression.sh`, capture perangkat, APK (dilarang di environment ini).
+
+## Blueprint sisa temuan
+
+Rencana eksekusi lengkap untuk semua temuan yang masih terbuka ada di
+`docs/superpowers/plans/2026-10-31-automix-open-findings-blueprint.md`. Isinya memetakan
+workstream, urutan PR, file, ABI/cache checklist, tes, kriteria lulus P01–P10, dan aturan
+status (Open / Implemented, unvalidated / Validated). Gunakan dokumen itu sebagai titik
+mulai; jangan mengulang implementasi dasar yang sudah ada, dan kerjakan residual parsial
+sesuai matriksnya.
 
 ## Jebakan
 
