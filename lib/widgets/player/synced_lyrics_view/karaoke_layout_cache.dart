@@ -248,7 +248,7 @@ class KaraokeLayoutCache {
         highlightPainter: highlightPainter,
         wordBoxes: List<List<KaraokeWordBox>>.unmodifiable(rectsList),
       );
-    } catch (_) {
+    } on Object {
       basePainter?.dispose();
       highlightPainter?.dispose();
       rethrow;
