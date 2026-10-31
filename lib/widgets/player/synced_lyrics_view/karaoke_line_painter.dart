@@ -53,7 +53,7 @@ class _KaraokeLinePainter extends CustomPainter {
     final highlight = layout.highlightPainter;
     final wordRects = layout.wordBoxes;
 
-    if (timeline.isEmpty || _wordRects.length != timeline.length) {
+    if (timeline.isEmpty || wordRects.length != timeline.length) {
       base.paint(canvas, Offset.zero);
       return;
     }
