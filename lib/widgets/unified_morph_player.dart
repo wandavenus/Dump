@@ -885,8 +885,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                             opacity: shadowBase,
                                             child: RepaintBoundary(
                                               child: CustomPaint(
-                                                painter:
-                                                    const _ArtworkShadowPainter(),
+                                                painter: _ArtworkShadowPainter(
+                                                  artworkRadius: finalRadius,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1186,15 +1187,16 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 // per-frame blurred BoxShadow. Opacity is animated by the parent, so the
 // gradients themselves stay static while the artwork morphs.
 class _ArtworkShadowPainter extends CustomPainter {
-  const _ArtworkShadowPainter();
+  const _ArtworkShadowPainter({required this.artworkRadius});
 
   static const double outset = 36.0;
+  final double artworkRadius;
 
   static const RadialGradient _ambientGradient = RadialGradient(
-    center: Alignment(0.0, 0.12),
+    center: Alignment(0.0, 0.0),
     radius: 1.0,
-    colors: [Color(0x30000000), Color(0x00000000)],
-    stops: [0.55, 1.0],
+    colors: [Color(0x2E000000), Color(0x00000000)],
+    stops: [0.62, 1.0],
   );
 
   static const LinearGradient _depthGradient = LinearGradient(
@@ -1202,11 +1204,35 @@ class _ArtworkShadowPainter extends CustomPainter {
     end: Alignment.bottomCenter,
     colors: [
       Color(0x00000000),
-      Color(0x14000000),
-      Color(0x07000000),
+      Color(0x16000000),
+      Color(0x09000000),
+      Color(0x00000000),
     ],
-    stops: [0.12, 0.72, 1.0],
+    stops: [0.12, 0.68, 0.9, 1.0],
   );
+
+  Path _ringPath({
+    required Rect outerRect,
+    required Rect innerRect,
+    required double outerRadius,
+    required double innerRadius,
+  }) {
+    final outer = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          outerRect,
+          Radius.circular(outerRadius),
+        ),
+      );
+    final inner = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          innerRect,
+          Radius.circular(innerRadius),
+        ),
+      );
+    return Path.combine(PathOperation.difference, outer, inner);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1218,30 +1244,46 @@ class _ArtworkShadowPainter extends CustomPainter {
     );
     if (artworkRect.width <= 0.0 || artworkRect.height <= 0.0) return;
 
-    // Broad ambient falloff around the artwork, shifted slightly downward.
-    final ambientRect = artworkRect.inflate(28.0).shift(
-      const Offset(0.0, 8.0),
+    // Paint only the halo outside the cover silhouette. Keeping the artwork
+    // area as a hole prevents the shadow from becoming a dark backing panel.
+    final ambientOffset = const Offset(0.0, 5.0);
+    final ambientOuter = artworkRect.inflate(32.0).shift(ambientOffset);
+    final ambientInner = artworkRect.inflate(1.0).shift(ambientOffset);
+    final ambientRing = _ringPath(
+      outerRect: ambientOuter,
+      innerRect: ambientInner,
+      outerRadius: artworkRadius + 32.0,
+      innerRadius: artworkRadius + 1.0,
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(ambientRect, const Radius.circular(28.0)),
-      Paint()..shader = _ambientGradient.createShader(ambientRect),
+    canvas.drawPath(
+      ambientRing,
+      Paint()
+        ..isAntiAlias = true
+        ..shader = _ambientGradient.createShader(ambientOuter),
     );
 
-    // A restrained vertical gradient preserves the original downward depth.
-    final depthRect = Rect.fromLTRB(
-      artworkRect.left - 12.0,
-      artworkRect.top + artworkRect.height * 0.45,
-      artworkRect.right + 12.0,
-      artworkRect.bottom + 30.0,
+    // The lower depth layer uses the same hollow silhouette, with a downward
+    // offset and a vertical falloff to retain the original lifted appearance.
+    final depthOffset = const Offset(0.0, 9.0);
+    final depthOuter = artworkRect.inflate(24.0).shift(depthOffset);
+    final depthInner = artworkRect.inflate(1.0).shift(depthOffset);
+    final depthRing = _ringPath(
+      outerRect: depthOuter,
+      innerRect: depthInner,
+      outerRadius: artworkRadius + 24.0,
+      innerRadius: artworkRadius + 1.0,
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(depthRect, const Radius.circular(20.0)),
-      Paint()..shader = _depthGradient.createShader(depthRect),
+    canvas.drawPath(
+      depthRing,
+      Paint()
+        ..isAntiAlias = true
+        ..shader = _depthGradient.createShader(depthOuter),
     );
   }
 
   @override
-  bool shouldRepaint(covariant _ArtworkShadowPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ArtworkShadowPainter oldDelegate) =>
+      oldDelegate.artworkRadius != artworkRadius;
 }
 
 // ── _BottomRevealClipper ───────────────────────────────────────────────────
