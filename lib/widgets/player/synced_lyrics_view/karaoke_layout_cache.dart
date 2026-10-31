@@ -106,7 +106,11 @@ class KaraokeLayoutCache {
       throw StateError('KaraokeLayoutCache has been disposed');
     }
     if (!maxWidth.isFinite || maxWidth <= 0) {
-      throw ArgumentError.value(maxWidth, 'maxWidth', 'Must be finite and positive');
+      throw ArgumentError.value(
+        maxWidth,
+        'maxWidth',
+        'Must be finite and positive',
+      );
     }
 
     final existing = _entries[lineIndex];
