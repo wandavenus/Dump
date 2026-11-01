@@ -42,9 +42,11 @@ jobs:
             exit 1
           fi
           {
-            echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
-            echo "ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
-            echo "suite=$TEST_SUITE" >> "$GITHUB_OUTPUT"
+            echo "sha=$SOURCE_SHA"
+            echo "ref=$SOURCE_REF"
+            echo "suite=$TEST_SUITE"
+          } >> "$GITHUB_OUTPUT"
+          {
             echo "## Noisegraph test dispatch"
             echo
             echo "- Suite: $TEST_SUITE"
