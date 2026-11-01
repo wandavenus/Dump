@@ -10,10 +10,19 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
+      - name: Prepare build payload
+        id: payload
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          printf 'json=%s\n' "$(jq -cn --arg sha "$SOURCE_SHA" --arg ref "$SOURCE_REF" '{sha:$sha,ref:$ref}')" >> "$GITHUB_OUTPUT"
+
       - name: Trigger build in Noisegraph
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
           repository: wandavenus/Noisegraph
           event-type: build-private-source
-          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref_name }}"}'
+          client-payload: ${{ steps.payload.outputs.json }}

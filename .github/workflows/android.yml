@@ -8,12 +8,15 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/backup'
     runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
+      commit_message: ${{ steps.commit.outputs.message }}
 
     steps:
       - uses: actions/checkout@v7
@@ -30,10 +33,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
         with:
           add-job-summary: never
+          cache-provider: basic
 
       - uses: subosito/flutter-action@v2
         with:
-          channel : stable
+          channel: stable
+          flutter-version-file: pubspec.yaml
           cache: true
 
       - name: Install dependencies
@@ -151,12 +156,34 @@ jobs:
       - name: Get commit info
         id: commit
         run: |
+          set -euo pipefail
+          delimiter="EOF_$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
           {
             echo "sha=$(git rev-parse --short HEAD)"
-            echo "message<<EOF"
+            echo "message<<$delimiter"
             git log -1 --pretty=%B
-            echo "EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-release-apk
+          path: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-draft:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed APK
+        uses: actions/download-artifact@v8
+        with:
+          name: signed-release-apk
+          path: release
 
       - name: Upload APK to Draft Release
         uses: softprops/action-gh-release@v3
@@ -166,7 +193,7 @@ jobs:
           draft: true
           body: |
             Run: #${{ github.run_number }}
-            Commit: ${{ steps.commit.outputs.sha }}
+            Commit: ${{ needs.build.outputs.commit_sha }}
 
-            ${{ steps.commit.outputs.message }}
-          files: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
+            ${{ needs.build.outputs.commit_message }}
+          files: release/Dump-${{ github.run_number }}.apk

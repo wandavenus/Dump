@@ -77,3 +77,8 @@ than calling a library's in-place save directly.
   constraint as `ExoMetadataReader`, not something ReplayGain introduced.
   Will not work for SAF-only (content://) access without a broader
   storage-access redesign.
+
+## PCM decoder lifecycle update (2026-11-01)
+
+- `PcmDecoder.decode()` now wraps the full `MediaExtractor` lifetime in `withPcmResource`; the extractor is released on early returns and exceptions during metadata, callbacks, track selection, and decoding. A created codec is also released if `configure()` or `start()` fails. `PcmDecoderLifecycleTest` covers metadata exceptions and codec setup ownership. Android API docs require `release()` to free extractor/codec resources.
+- Open compatibility risk: the loop still derives sample rate/channel count from extractor input format and assumes signed PCM16 buffers. Android says output can change after `INFO_OUTPUT_FORMAT_CHANGED`; inspect output format before an analyzer consumes PCM if this path is extended. There is no device evidence yet that the target codec changes the format. See https://developer.android.com/reference/android/media/MediaCodec and https://developer.android.com/reference/android/media/MediaFormat.

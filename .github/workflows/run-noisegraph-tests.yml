@@ -45,6 +45,7 @@ jobs:
             echo "sha=$SOURCE_SHA"
             echo "ref=$SOURCE_REF"
             echo "suite=$TEST_SUITE"
+            echo "payload=$(jq -cn --arg sha "$SOURCE_SHA" --arg ref "$SOURCE_REF" --arg suite "$TEST_SUITE" '{sha:$sha,ref:$ref,suite:$suite}')"
           } >> "$GITHUB_OUTPUT"
           {
             echo "## Noisegraph test dispatch"
@@ -63,4 +64,4 @@ jobs:
           token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
           repository: wandavenus/Noisegraph
           event-type: test-suite
-          client-payload: '{"sha":"${{ steps.source.outputs.sha }}","ref":"${{ steps.source.outputs.ref }}","suite":"${{ steps.source.outputs.suite }}"}'
+          client-payload: ${{ steps.source.outputs.payload }}

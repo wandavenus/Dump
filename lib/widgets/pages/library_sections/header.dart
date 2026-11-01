@@ -24,8 +24,13 @@ class _LibraryHeader extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: GestureDetector(
-              onTap: onToggleEdit,
+            child: TextButton(
+              onPressed: onToggleEdit,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                tapTargetSize: MaterialTapTargetSize.padded,
+              ),
               child: Text(
                 editMode ? context.l10n.done : context.l10n.edit,
                 style: TextStyle(

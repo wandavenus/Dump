@@ -46,9 +46,9 @@ if (keystorePropertiesFile.exists()) {
 def media3_version = rootProject.ext.media3Version
 
 android {
-    namespace "dev.wndavenz.music"
+    namespace = "dev.wndavenz.music"
     compileSdk 36
-    ndkVersion "28.2.13676358"
+    ndkVersion = "28.2.13676358"
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -108,7 +108,7 @@ android {
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            version "3.22.1"
+            version = "3.22.1"
         }
     }
 
@@ -148,13 +148,13 @@ android {
     buildTypes {
         release {
             if (ciSigningConfigured || keystorePropertiesFile.exists()) {
-                signingConfig signingConfigs.release
+                signingConfig = signingConfigs.release
             } else {
-                signingConfig signingConfigs.debug
+                signingConfig = signingConfigs.debug
             }
             minifyEnabled true
-            shrinkResources true
-            crunchPngs true
+            shrinkResources = true
+            crunchPngs = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -164,7 +164,7 @@ android {
 }
 
 flutter {
-    source '../..'
+    source = '../..'
 }
 
 dependencies {
@@ -178,7 +178,7 @@ dependencies {
     // Opus intentionally uses the platform MediaCodec/CCodec decoder.
     // The module's libffmpegJNI.so is produced from the pinned FFmpeg source
     // tree by android/build-ffmpeg-jni.sh; arm64-v8a is the only packaged ABI.
-    implementation project(':decoder-ffmpeg')
+    implementation project(path: ':decoder-ffmpeg')
 
     // Native palette extraction — MMCQ quantization via Android's Palette library.
     // Replaces palette_generator_plus (Dart-side extraction).
