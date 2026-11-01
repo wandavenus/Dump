@@ -3,7 +3,6 @@ import 'dart:async' show unawaited;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../extensions/localization_extension.dart';
 import '../../models/local_song.dart';
 import '../../services/playlist_service.dart';
 
@@ -60,44 +59,30 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
 
   @override
   Widget build(BuildContext context) {
-    final label = _isFavorite
-        ? context.l10n.removeFromFavorites
-        : context.l10n.addToFavorites;
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        button: true,
-        toggled: _isFavorite,
-        label: label,
-        onTap: () => unawaited(_toggleFavorite()),
-        child: InkWell(
-          onTap: _toggleFavorite,
-          customBorder: const CircleBorder(),
-          child: SizedBox.square(
-            dimension: 48,
-            child: Center(
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: _isFavorite
-                    ? null
-                    : const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromARGB(50, 200, 200, 200),
-                      ),
-                child: _isFavorite
-                    ? CustomPaint(
-                        size: const Size.square(27),
-                        painter: _favoritePainter,
-                      )
-                    : const Icon(
-                        CupertinoIcons.star,
-                        color: Colors.white,
-                        size: _unfavoriteIconSize,
-                      ),
-              ),
-            ),
-          ),
+    return Semantics(
+      button: true,
+      label: _isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
+      child: GestureDetector(
+        onTap: _toggleFavorite,
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: _isFavorite
+              ? null
+              : const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color.fromARGB(50, 200, 200, 200),
+                ),
+          child: _isFavorite
+              ? CustomPaint(
+                  size: const Size.square(27),
+                  painter: _favoritePainter,
+                )
+              : const Icon(
+                  CupertinoIcons.star,
+                  color: Colors.white,
+                  size: _unfavoriteIconSize,
+                ),
         ),
       ),
     );

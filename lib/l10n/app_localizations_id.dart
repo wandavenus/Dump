@@ -704,9 +704,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get queueEmpty => 'Antrian kosong';
 
   @override
-  String get queueToggle => 'Antrean';
-
-  @override
   String get continuePlaying => 'Lanjutkan Memutar';
 
   @override
@@ -714,9 +711,6 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get lyricsAppearance => 'Tampilan Lirik';
-
-  @override
-  String get lyricsToggle => 'Lirik';
 
   @override
   String get textSizeLabel => 'Ukuran Teks';
@@ -752,9 +746,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get addToFavorites => 'Tambah ke Favorit';
 
   @override
-  String get moreOptions => 'Opsi lainnya';
-
-  @override
   String get addToPlaylistMenu => 'Tambah ke Daftar Putar';
 
   @override
@@ -768,17 +759,6 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get deleteFromDevice => 'Hapus dari Perangkat';
-
-  @override
-  String get deleteSongConfirm => 'Hapus lagu?';
-
-  @override
-  String deleteSongBody(String name) {
-    return 'Hapus \"$name\" dari perangkat? Tindakan ini tidak dapat dibatalkan.';
-  }
-
-  @override
-  String get castingUnavailable => 'Fitur Cast belum tersedia.';
 
   @override
   String get songDeletedMsg => 'Lagu berhasil dihapus';

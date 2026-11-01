@@ -704,9 +704,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get queueEmpty => 'Queue is empty';
 
   @override
-  String get queueToggle => 'Queue';
-
-  @override
   String get continuePlaying => 'Continue Playing';
 
   @override
@@ -714,9 +711,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lyricsAppearance => 'Lyrics Appearance';
-
-  @override
-  String get lyricsToggle => 'Lyrics';
 
   @override
   String get textSizeLabel => 'Text Size';
@@ -752,9 +746,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addToFavorites => 'Add to Favorites';
 
   @override
-  String get moreOptions => 'More options';
-
-  @override
   String get addToPlaylistMenu => 'Add to Playlist';
 
   @override
@@ -768,17 +759,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deleteFromDevice => 'Delete from Device';
-
-  @override
-  String get deleteSongConfirm => 'Delete song?';
-
-  @override
-  String deleteSongBody(String name) {
-    return 'Delete \"$name\" from your device? This cannot be undone.';
-  }
-
-  @override
-  String get castingUnavailable => 'Casting is not available yet.';
 
   @override
   String get songDeletedMsg => 'Song deleted successfully';

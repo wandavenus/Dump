@@ -73,35 +73,20 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
 
   @override
   Widget build(BuildContext context) {
-    final label = context.l10n.moreOptions;
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        button: true,
-        label: label,
-        onTap: _open,
-        child: InkWell(
-          key: _key,
-          onTap: _open,
-          customBorder: const CircleBorder(),
-          child: SizedBox.square(
-            dimension: 48,
-            child: Center(
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color.fromARGB(50, 200, 200, 200),
-                ),
-                child: const Icon(
-                  CupertinoIcons.ellipsis_vertical,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
+    return GestureDetector(
+      key: _key,
+      onTap: _open,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color.fromARGB(50, 200, 200, 200),
+        ),
+        child: const Icon(
+          CupertinoIcons.ellipsis_vertical,
+          color: Colors.white,
+          size: 20,
         ),
       ),
     );
