@@ -1,12 +1,12 @@
 # Repository Audit & Code Modernization — Dump
 
-**Status: gate lokal lulus; integrasi ke PR #292 masih berlangsung.**
+**Status: perubahan audit terintegrasi; gate lokal lulus; PR #292 siap ditinjau.**
 
 - Tanggal: 1 November 2026
 - Branch: `audit/dump-modernization`
 - Pull request: [#292](https://github.com/wandavenus/Dump/pull/292), masih terbuka
 - Baseline branch: `main` / `origin/main` pada `5eb3f82`
-- Kandidat yang diuji mencakup HEAD `9161a938` beserta perubahan working tree untuk version pin, changelog, workflow, lokalisasi, UI, memory, dan tes Delete; perubahan tersebut belum seluruhnya dikomit/push.
+- Gate kandidat akhir mencakup perbaikan sampai `9161a93` dan integrasi versi/changelog, workflow, localization, UI, memory, serta tes Delete yang dikomit setelahnya. Detail pada tabel adalah validasi lokal; status CI GitHub harus dilihat pada head PR terkini.
 
 ## Ringkasan saat ini
 
@@ -67,7 +67,7 @@ Performa runtime dan penggunaan memori belum diukur pada perangkat. Perbaikan pl
 
 ## Status PR dan langkah final
 
-PR #292 menuju `main` masih terbuka dan belum auto-merge. Remote saat laporan ini diperbarui masih berada di `246f2d6`; commit lokal `a00dfcd`, `72fe153`, `5c57104`, `86cdeda`, `9161a93` serta perubahan integrasi working tree belum semuanya terlihat di PR. Setelah review, integrasikan hanya scope audit yang disetujui, push secara normal, lalu cek CI pada commit terbaru sebelum menutup laporan.
+PR #292 menargetkan `main` dan sengaja dibiarkan terbuka tanpa auto-merge. Perbaikan terpisah berada pada commit lokal `a00dfcd`, `72fe153`, `5c57104`, `86cdeda`, dan `9161a93`, disusul commit integrasi perubahan CI/release, dependency lock, UI/accessibility, regression test, dan dokumentasi audit. Periksa hasil CI untuk head PR terkini sebelum merge; risiko MEDIA-01, PERF-01, UX-02, dan DEP-01 tetap terbuka/deferred seperti dijelaskan di atas.
 
 ## Referensi resmi yang dipakai
 
