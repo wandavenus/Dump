@@ -41,6 +41,9 @@ object AutomixAnalysis {
     private const val TARGET_RATE_HZ = 22050
     private const val MIN_WINDOW_SECONDS = 1.0
     private const val MAX_WINDOW_SECONDS = 900.0
+    private const val LONG_FILE_COVERAGE_THRESHOLD_SECONDS = 600.0
+    /** At most five full windows; the production 120 s window caps PCM work at 600 s. */
+    internal const val MAX_LONG_FILE_WINDOWS = 5
 
     /**
      * Handles the `analyze` channel method. [startSeconds] selects the window's
@@ -309,10 +312,14 @@ object AutomixAnalysis {
                 windows.add(map)
             }
         }
+        val analyzedFraction = analyzedFraction(windows, actualSeconds)
         return mapOf(
             "success" to true,
             "windows" to windows,
             "fileSeconds" to actualSeconds,
+            "analyzedFraction" to analyzedFraction,
+            "analysisWindowCount" to windows.size,
+            "analysisWindowBudget" to MAX_LONG_FILE_WINDOWS,
             "reachedEof" to reachedEof,
             "decoded" to decoded,
         )
@@ -337,6 +344,15 @@ object AutomixAnalysis {
         windowSeconds: Double,
         veryLongFileSeconds: Double,
     ): List<Double> {
+        if (durationSeconds > LONG_FILE_COVERAGE_THRESHOLD_SECONDS) {
+            // The tail is captured independently by the bounded ring below.
+            // Place the remaining windows uniformly between the file edges so
+            // blind regions are spread out rather than concentrated around a
+            // guessed quarter/half position. The total stays within the same
+            // five-window CPU budget as before.
+            return planLongFileWindowStarts(durationSeconds, windowSeconds)
+                .dropLast(1)
+        }
         val starts = mutableListOf(0.0)
         if (!durationSeconds.isFinite() || durationSeconds <= windowSeconds) {
             return starts
@@ -369,6 +385,65 @@ object AutomixAnalysis {
             }
         }
         return starts
+    }
+
+    /**
+     * Returns the complete, non-overlapping coverage plan, including the tail
+     * window which [analyzeAll] obtains from its ring buffer rather than a
+     * separate capture. Kept pure so the CPU/coverage contract is testable.
+     */
+    internal fun planLongFileWindowStarts(
+        durationSeconds: Double,
+        windowSeconds: Double,
+    ): List<Double> {
+        if (!durationSeconds.isFinite() || durationSeconds <= 0.0 ||
+            !windowSeconds.isFinite() || windowSeconds <= 0.0
+        ) {
+            return emptyList()
+        }
+        if (durationSeconds <= windowSeconds) return listOf(0.0)
+
+        // Never spend CPU twice on the same PCM. floor(duration/window) gives
+        // the largest count whose evenly-spaced windows do not overlap.
+        val nonOverlappingCount = floor(durationSeconds / windowSeconds)
+            .toInt()
+            .coerceAtLeast(2)
+        val count = minOf(MAX_LONG_FILE_WINDOWS, nonOverlappingCount)
+        val lastStart = durationSeconds - windowSeconds
+        return List(count) { index ->
+            if (index == count - 1) lastStart
+            else lastStart * index / (count - 1)
+        }
+    }
+
+    /** Union coverage of the actual returned windows; overlapping PCM counts once. */
+    internal fun analyzedFraction(
+        windows: List<Map<String, Any?>>,
+        fileSeconds: Double,
+    ): Double {
+        if (!fileSeconds.isFinite() || fileSeconds <= 0.0) return 0.0
+        val ranges = windows.mapNotNull { window ->
+            val start = (window["segmentStartSeconds"] as? Number)?.toDouble()
+            val seconds = (window["segmentSeconds"] as? Number)?.toDouble()
+            if (start == null || seconds == null || !start.isFinite() ||
+                !seconds.isFinite() || seconds <= 0.0
+            ) {
+                null
+            } else {
+                val boundedStart = start.coerceIn(0.0, fileSeconds)
+                val boundedEnd = (start + seconds).coerceIn(boundedStart, fileSeconds)
+                boundedStart to boundedEnd
+            }
+        }.filter { it.second > it.first }.sortedBy { it.first }
+
+        var coveredSeconds = 0.0
+        var coveredUntil = 0.0
+        for ((start, end) in ranges) {
+            if (end <= coveredUntil) continue
+            coveredSeconds += end - maxOf(start, coveredUntil)
+            coveredUntil = end
+        }
+        return (coveredSeconds / fileSeconds).coerceIn(0.0, 1.0)
     }
 
     private class WindowCapture(
