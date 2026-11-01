@@ -206,11 +206,11 @@ class AutomixTransitionPolicyTest {
 
     @Test
     fun `early handover phrase snap can reach a full four-bar boundary`() {
-        // 120 BPM, 4/4: the 8 s phrase boundary is 7 beats (3.5 s) before the
-        // requested start. Near-EOF keeps the 4-beat cap; an early handover
-        // passes a full phrase so it can use that boundary.
+        // 120 BPM, 4/4: the 8 s four-bar boundary is 7 beats before the request.
+        // The default 4-beat cap reaches the 10 s one-bar boundary; early
+        // handover passes the full 16-beat phrase cap and can reach 8 s.
         assertEquals(
-            11_500L,
+            10_000L,
             AutomixTransitionPolicy.phraseAlignedStartMs(
                 11_500L, 500.0, 0.0, 0.0,
             ),
