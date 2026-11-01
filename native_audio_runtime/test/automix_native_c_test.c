@@ -1,3 +1,4 @@
+#define NAR_AUTOMIX_TONE_TESTING 1
 #include "automix_native.h"
 #include "automix_phase_lock.h"
 #include "automix_tone_processor.h"
@@ -1030,6 +1031,18 @@ static void test_analyzer_tempo_curve(void) {
   assert(pcm != NULL);
   const double pi = 3.14159265358979323846;
   double output[NAR_AUTOMIX_ANALYSIS_VALUE_COUNT];
+  static const int32_t tempo_slots[] = {
+      0, 1, 2, 3, 20, 21, 22, 23, 28, 29, 30, 31};
+  static const double steady_golden[] = {
+      127.978457357575, 0.920359071926446, 64.1152553688904,
+      461.792893908016, 0.920359071926446, 128.038448002721,
+      127.906544397515, 0.988134576371296, 0.924142673638775,
+      0.913539806519815, 465.065852113589, 446.446478955892};
+  static const double drift_golden[] = {
+      128.108027786594, 0.668407647363883, 64.1169005157895,
+      7.50611333236299, 0.668407647363883, 128.038448002721,
+      96.1013881013734, 0.0, 0.924142673638775, 0.94397958717335,
+      465.065852113589, 23.0345226076397};
 
   const double steady_bpm = 128.0;
   const int32_t steady_period =
@@ -1045,6 +1058,9 @@ static void test_analyzer_tempo_curve(void) {
   }
   assert(nar_automix_analyze(pcm, count, sample_rate, output,
                              NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  for (size_t i = 0; i < sizeof(tempo_slots) / sizeof(tempo_slots[0]); ++i) {
+    assert(fabs(output[tempo_slots[i]] - steady_golden[i]) < 1e-3);
+  }
   assert(output[0] > 120.0 && output[0] < 136.0);
   assert(output[21] > 120.0 && output[21] < 136.0);
   assert(output[22] > 120.0 && output[22] < 136.0);
@@ -1072,6 +1088,9 @@ static void test_analyzer_tempo_curve(void) {
   }
   assert(nar_automix_analyze(pcm, count, sample_rate, output,
                              NAR_AUTOMIX_ANALYSIS_VALUE_COUNT) == 1);
+  for (size_t i = 0; i < sizeof(tempo_slots) / sizeof(tempo_slots[0]); ++i) {
+    assert(fabs(output[tempo_slots[i]] - drift_golden[i]) < 1e-3);
+  }
   assert(output[21] > 120.0 && output[21] < 136.0);
   assert(output[22] > 88.0 && output[22] < 104.0);
   assert(output[23] < 0.4);
@@ -1505,6 +1524,153 @@ static void test_tone_filters_independent_streams(void) {
   assert(nar_automix_tone_configure(2, sample_rate, 2) == 0);
   free(filtered);
   free(dry);
+}
+
+static double measure_tone_band_gain(float frequency_hz, float bass_gain,
+                                     float mid_gain, float high_gain) {
+  const int32_t sample_rate = 48000;
+  const int32_t frames = sample_rate;
+  float* pcm = (float*)malloc((size_t)frames * sizeof(float));
+  assert(pcm != NULL);
+  assert(nar_automix_tone_set_bass_gain(0, bass_gain) == 1);
+  assert(nar_automix_tone_set_mid_gain(0, mid_gain) == 1);
+  assert(nar_automix_tone_set_high_gain(0, high_gain) == 1);
+  assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
+  assert(nar_automix_tone_set_true_peak_limit(0, 0.0f) == 1);
+  assert(nar_automix_tone_configure(0, sample_rate, 1) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    pcm[i] = 0.5f * sinf(2.0f * 3.14159265358979323846f * frequency_hz *
+                          (float)i / (float)sample_rate);
+  }
+  assert(nar_automix_tone_process(pcm, frames, 1, 0) == 1);
+  const double gain = rms_range(pcm, sample_rate / 2, sample_rate / 2) /
+      (0.5 / sqrt(2.0));
+  free(pcm);
+  return gain;
+}
+
+static void test_tone_lr4_magnitude_at_crossover_frequencies(void) {
+  // A Linkwitz-Riley fourth-order branch is -6.02 dB at its crossover.
+  // The neighboring crossover is three octaves away, so its branch is settled.
+  assert(fabs(measure_tone_band_gain(150.0f, 1.0f, 0.0f, 0.0f) - 0.5) < 0.06);
+  assert(fabs(measure_tone_band_gain(150.0f, 0.0f, 1.0f, 0.0f) - 0.5) < 0.06);
+  assert(fabs(measure_tone_band_gain(1200.0f, 0.0f, 1.0f, 0.0f) - 0.5) < 0.06);
+  assert(fabs(measure_tone_band_gain(1200.0f, 0.0f, 0.0f, 1.0f) - 0.5) < 0.06);
+}
+
+static void test_tone_lr4_reset_clears_each_cascade_state(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t frames = 4096;
+  float* warm = (float*)malloc((size_t)frames * sizeof(float));
+  float* after_reset = (float*)malloc((size_t)frames * sizeof(float));
+  float* fresh_stream = (float*)malloc((size_t)frames * sizeof(float));
+  assert(warm != NULL && after_reset != NULL && fresh_stream != NULL);
+  for (int32_t slot = 0; slot < 2; ++slot) {
+    assert(nar_automix_tone_set_bass_gain(slot, 0.0f) == 1);
+    assert(nar_automix_tone_set_mid_gain(slot, 1.0f) == 1);
+    assert(nar_automix_tone_set_high_gain(slot, 0.0f) == 1);
+    assert(nar_automix_tone_set_fade_gain(slot, 1.0f) == 1);
+    assert(nar_automix_tone_configure(slot, sample_rate, 1) == 1);
+    assert(nar_automix_tone_reset(slot) == 1);
+  }
+  for (int32_t i = 0; i < frames; ++i) {
+    warm[i] = 0.45f * sinf(2.0f * 3.14159265358979323846f * 73.0f *
+                           (float)i / (float)sample_rate);
+  }
+  assert(nar_automix_tone_process(warm, frames, 1, 0) == 1);
+  assert(nar_automix_tone_reset(0) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    const float sample = 0.4f * sinf(
+        2.0f * 3.14159265358979323846f * 613.0f * (float)i /
+        (float)sample_rate);
+    after_reset[i] = sample;
+    fresh_stream[i] = sample;
+  }
+  assert(nar_automix_tone_process(after_reset, frames, 1, 0) == 1);
+  assert(nar_automix_tone_process(fresh_stream, frames, 1, 1) == 1);
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(isfinite(after_reset[i]));
+    assert(fabsf(after_reset[i] - fresh_stream[i]) < 1e-6f);
+  }
+  free(warm);
+  free(after_reset);
+  free(fresh_stream);
+}
+
+static void test_tone_lr4_block_boundary_continuity(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t frames = 2048;
+  float* one_block = (float*)malloc((size_t)frames * sizeof(float));
+  float* split_blocks = (float*)malloc((size_t)frames * sizeof(float));
+  assert(one_block != NULL && split_blocks != NULL);
+  for (int32_t slot = 0; slot < 2; ++slot) {
+    assert(nar_automix_tone_set_bass_gain(slot, 0.42f) == 1);
+    assert(nar_automix_tone_set_mid_gain(slot, 0.76f) == 1);
+    assert(nar_automix_tone_set_high_gain(slot, 0.58f) == 1);
+    assert(nar_automix_tone_set_fade_gain(slot, 1.0f) == 1);
+    assert(nar_automix_tone_configure(slot, sample_rate, 1) == 1);
+    assert(nar_automix_tone_reset(slot) == 1);
+  }
+  for (int32_t i = 0; i < frames; ++i) {
+    const float t = (float)i / (float)sample_rate;
+    const float sample = 0.31f * sinf(2.0f * 3.14159265358979323846f * 97.0f * t) +
+        0.22f * sinf(2.0f * 3.14159265358979323846f * 887.0f * t) +
+        0.13f * sinf(2.0f * 3.14159265358979323846f * 7123.0f * t);
+    one_block[i] = split_blocks[i] = sample;
+  }
+  assert(nar_automix_tone_process(one_block, frames, 1, 0) == 1);
+  const int32_t chunks[] = {1, 7, 16, 64, 256, 1024, 680};
+  int32_t offset = 0;
+  for (size_t chunk = 0; chunk < sizeof(chunks) / sizeof(chunks[0]); ++chunk) {
+    const int32_t count = chunks[chunk];
+    assert(nar_automix_tone_process(split_blocks + offset, count, 1, 1) == 1);
+    offset += count;
+  }
+  assert(offset == frames);
+  for (int32_t i = 0; i < frames; ++i) {
+    assert(isfinite(one_block[i]));
+    assert(fabsf(one_block[i] - split_blocks[i]) < 1e-6f);
+  }
+  free(one_block);
+  free(split_blocks);
+}
+
+static void test_tone_lr4_stereo_scalar_neon_parity(void) {
+  const int32_t sample_rate = 48000;
+  const int32_t frames = 1024;
+  float* production = (float*)malloc((size_t)frames * 2 * sizeof(float));
+  float* scalar = (float*)malloc((size_t)frames * 2 * sizeof(float));
+  assert(production != NULL && scalar != NULL);
+  for (int32_t slot = 0; slot < 2; ++slot) {
+    assert(nar_automix_tone_set_bass_gain(slot, 0.37f) == 1);
+    assert(nar_automix_tone_set_mid_gain(slot, 0.81f) == 1);
+    assert(nar_automix_tone_set_high_gain(slot, 0.62f) == 1);
+    assert(nar_automix_tone_set_fade_gain(slot, 1.0f) == 1);
+    assert(nar_automix_tone_set_true_peak_limit(slot, 0.0f) == 1);
+    assert(nar_automix_tone_configure(slot, sample_rate, 2) == 1);
+    assert(nar_automix_tone_reset(slot) == 1);
+  }
+  for (int32_t block = 0; block < 3; ++block) {
+    for (int32_t i = 0; i < frames; ++i) {
+      const float t = (float)(block * frames + i) / (float)sample_rate;
+      const float left = 0.27f * sinf(2.0f * 3.14159265358979323846f * 83.0f * t) +
+          0.19f * sinf(2.0f * 3.14159265358979323846f * 731.0f * t) +
+          0.11f * sinf(2.0f * 3.14159265358979323846f * 6413.0f * t);
+      const float right = 0.23f * sinf(2.0f * 3.14159265358979323846f * 127.0f * t) -
+          0.16f * sinf(2.0f * 3.14159265358979323846f * 997.0f * t) +
+          0.09f * sinf(2.0f * 3.14159265358979323846f * 8123.0f * t);
+      production[2 * i] = scalar[2 * i] = left;
+      production[2 * i + 1] = scalar[2 * i + 1] = right;
+    }
+    assert(nar_automix_tone_process(production, frames, 2, 0) == 1);
+    assert(nar_automix_tone_process_scalar_for_test(scalar, frames, 2, 1) == 1);
+    for (int32_t i = 0; i < frames * 2; ++i) {
+      assert(isfinite(production[i]));
+      assert(fabsf(production[i] - scalar[i]) < 2e-5f);
+    }
+  }
+  free(production);
+  free(scalar);
 }
 
 // Mirrors the native 4x Lagrange estimator: history[0] is the current sample.
@@ -1979,9 +2145,8 @@ static void test_tone_processor_nonfinite_intermediates_are_sanitized(void) {
   assert(nar_automix_tone_set_fade_gain(0, 1.0f) == 1);
   assert(nar_automix_tone_reset(0) == 1);
 
-  // The finite extremes pass input sanitization but overflow the IIR
-  // difference on the sign change. Both scalar C and AArch64 NEON must emit
-  // silence for the affected frames, never a NaN or a clipped -1 sentinel.
+  // Finite extremes can overflow intermediate filter state, but the LR4 path
+  // must still produce finite, sample-clamped output on both scalar and NEON.
   float pcm[] = {
       FLT_MAX, FLT_MAX,
       -FLT_MAX, -FLT_MAX,
@@ -1993,10 +2158,14 @@ static void test_tone_processor_nonfinite_intermediates_are_sanitized(void) {
     assert(isfinite(pcm[i]));
     assert(pcm[i] >= -1.0f && pcm[i] <= 1.0f);
   }
-  // Frame 1 is where the finite input subtraction overflows; C maps the
-  // resulting non-finite processed sample to 0, and NEON must match it.
-  assert(fabsf(pcm[2]) < 1e-6f);
-  assert(fabsf(pcm[3]) < 1e-6f);
+
+  assert(nar_automix_tone_reset(0) == 1);
+  float nonfinite[] = {NAN, INFINITY, -INFINITY, NAN};
+  assert(nar_automix_tone_process(nonfinite, 2, 2, 0) == 1);
+  for (size_t i = 0; i < sizeof(nonfinite) / sizeof(nonfinite[0]); ++i) {
+    assert(isfinite(nonfinite[i]));
+    assert(fabsf(nonfinite[i]) < 1e-6f);
+  }
 }
 
 static void test_tone_processor_various_frame_counts(void) {
@@ -2445,11 +2614,40 @@ static void test_live_tracker_reports_meter_and_rejects_flat_bars(void) {
   assert(waltz_state[4] >= 0.30);
   free(waltz.pcm);
 
-  // Compound 6/8 at a dotted-quarter pulse has two beats per bar (strong and
-  // medium accents alternating). The two-beat hypothesis must win without
-  // stealing the four-beat prior on flat or waltz material.
-  FractionalClickTrain compound = render_fractional_click_train(
-      80.0, 2, 10.0, 0.21, sample_rate);
+  // Compound 6/8 at a dotted-quarter pulse has two beats per bar. The active
+  // 6 s window contains eight pulses (four bars): sustained 100 Hz accents
+  // alternate with short 800 Hz taps, so this fixture provides enough evidence
+  // without relying on a previous sample outside the history window.
+  const double compound_bpm = 80.0;
+  const double compound_period_samples = 60.0 * sample_rate / compound_bpm;
+  const int32_t compound_beats =
+      (int32_t)ceil(10.0 * compound_bpm / 60.0);
+  const int32_t compound_frames = (int32_t)llround(
+      (double)compound_beats * compound_period_samples + 0.21 * sample_rate);
+  float* compound_pcm = (float*)calloc(
+      (size_t)compound_frames * 2u, sizeof(float));
+  assert(compound_pcm != NULL);
+  const double compound_pi = 3.14159265358979323846;
+  for (int32_t beat = 0; beat < compound_beats; ++beat) {
+    const int accented = (beat % 2) == 0;
+    const int32_t start =
+        (int32_t)llround((double)beat * compound_period_samples);
+    const int32_t burst_frames = accented ? sample_rate / 100 : 48;
+    const double frequency = accented ? 100.0 : 800.0;
+    const double amplitude = accented ? 0.9 : 0.25;
+    for (int32_t offset = 0;
+         offset < burst_frames && start + offset < compound_frames; ++offset) {
+      const int32_t sample = start + offset;
+      const float value = (float)(amplitude * sin(
+          2.0 * compound_pi * frequency * (double)sample / sample_rate));
+      compound_pcm[sample * 2] = value;
+      compound_pcm[sample * 2 + 1] = value;
+    }
+  }
+  FractionalClickTrain compound = {
+      .pcm = compound_pcm,
+      .frames = compound_frames,
+  };
   double compound_state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
   run_live_tracker_click_train(&compound, sample_rate, compound_state);
   assert(fabs(compound_state[0] - 80.0) <= 80.0 * 0.02);
@@ -2472,6 +2670,45 @@ static void test_live_tracker_keeps_low_tempo(void) {
     assert(state[2] > 0.2);
     free(train.pcm);
   }
+}
+
+static void test_live_tracker_partial_history_ignores_stale_previous_samples(void) {
+  // 5.5 s leaves the 6 s history ring partially filled. At 90 BPM the final
+  // bar-scan pulse can ask for a previous sample beyond history_count; an old
+  // ring lookup wrapped that age into a different live slot and invented a bar.
+  const int32_t sample_rate = 48000;
+  const int32_t frame_count = sample_rate * 11 / 2;
+  const double period_samples = 60.0 * sample_rate / 90.0;
+  const int32_t first_click = sample_rate * 15 / 100;
+  const double pi = 3.14159265358979323846;
+  float* pcm = (float*)calloc((size_t)frame_count * 2u, sizeof(float));
+  assert(pcm != NULL);
+  for (int32_t beat = 0; beat < 9; ++beat) {
+    const int32_t start = first_click +
+        (int32_t)llround((double)beat * period_samples);
+    const double frequency = beat == 1 ? 100.0 : 800.0;
+    const double amplitude = beat == 1 ? 0.9 : 0.35;
+    for (int32_t offset = 0; offset < sample_rate / 100; ++offset) {
+      const int32_t sample = start + offset;
+      const float value = (float)(amplitude * sin(
+          2.0 * pi * frequency * (double)sample / sample_rate));
+      pcm[sample * 2] = value;
+      pcm[sample * 2 + 1] = value;
+    }
+  }
+
+  FractionalClickTrain train = {.pcm = pcm, .frames = frame_count};
+  double state[NAR_AUTOMIX_LIVE_TRACKER_STATE_COUNT] = {0};
+  run_live_tracker_click_train(&train, sample_rate, state);
+  assert(fabs(state[0] - 90.0) <= 90.0 * 0.02);
+  assert(isfinite(state[1]) && state[1] >= 0.0 &&
+         state[1] < 60000.0 / state[0]);
+  assert(isfinite(state[3]) && isfinite(state[4]));
+  // Only beat 2 has a stronger low-band click, which is insufficient to infer
+  // a bar. An out-of-window previous sample must be neutral, not stale evidence.
+  assert(state[6] == 0.0);
+  assert(state[4] == 0.0);
+  free(pcm);
 }
 
 static void test_live_tracker_phase_follows_beat_grid(void) {
@@ -3406,6 +3643,7 @@ int main(void) {
   test_live_tracker_145bpm_accented_downbeat();
   test_live_tracker_resolves_half_tempo_lock();
   test_live_tracker_keeps_low_tempo();
+  test_live_tracker_partial_history_ignores_stale_previous_samples();
   test_live_tracker_phase_follows_beat_grid();
   test_live_tracker_phase_stays_coherent_during_tempo_change();
   test_live_tracker_publishes_downbeat_phase();
@@ -3459,6 +3697,10 @@ int main(void) {
   test_native_crossfade_targets_are_per_stream();
   test_tone_default_is_transparent();
   test_tone_filters_independent_streams();
+  test_tone_lr4_magnitude_at_crossover_frequencies();
+  test_tone_lr4_reset_clears_each_cascade_state();
+  test_tone_lr4_block_boundary_continuity();
+  test_tone_lr4_stereo_scalar_neon_parity();
   test_true_peak_limiter_is_transparent_by_default();
   test_true_peak_limiter_respects_ceiling();
   test_true_peak_limiter_disable_releases_smoothly();

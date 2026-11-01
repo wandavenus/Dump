@@ -25,19 +25,23 @@ internal class AutomixToneNativeAvailability {
 }
 
 /**
- * Small, per-deck tone stage for AutoMix: a low-band (bass swap) gain and a
- * high-band (tail filter-out) gain.
+ * Per-deck three-band LR4 tone stage for AutoMix: bass-swap, mid, and
+ * tail-filter gains are applied independently to each stream and channel.
  *
- * This is not a full DJ isolator. It estimates two bands with smoothed one-pole
- * low-pass filters — a 150 Hz component for the bass swap and a ~1.2 kHz
- * component for the high band — and adjusts only those components:
+ * The native C processor forms a Linkwitz-Riley fourth-order crossover from
+ * two cascaded Butterworth biquads at 150 Hz and 1.2 kHz. The upper split is
+ * applied to the lower split's high-pass output, then the three band gains are
+ * smoothed toward their atomic targets:
  *
- *   out = highLp + (bassAdjusted - highLp) * highGain,  bassAdjusted = in + low * (bassGain - 1)
+ *   out = low * bassGain + mid * midGain + high * highGain
  *
- * At `bassGain = 0` the estimated bass is suppressed; at `highGain = 1` the input
- * is bit-transparent (the high component is untouched); at `highGain < 1` the
- * deck dulls gently, which is what makes the outgoing tail hand over smoothly
- * instead of being cut off. It is inserted in the PCM_FLOAT Media3 chain.
+ * When every band gain is unity and fade/limiter are inactive, the crossover
+ * remains bit-transparent while its filter state stays warm.
+ * `bassGain = 0` removes the low band, and `highGain < 1` gently dulls the
+ * outgoing deck. The stage is inserted in the
+ * PCM_FLOAT Media3 chain and fails open if native processing is unavailable.
+ * Adaptive inter-deck ducking is deferred; this fixed crossover does not
+ * pretend to be a vocal sidechain.
  */
 @UnstableApi
 class AutomixToneAudioProcessor(

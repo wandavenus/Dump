@@ -1,9 +1,14 @@
 #include "automix_tone_processor.h"
 
+#include <float.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdatomic.h>
 #include <string.h>
+
+#if defined(__aarch64__)
+#include <arm_neon.h>
+#endif
 
 #define NAR_AUTOMIX_TONE_PI 3.14159265358979323846f
 // Release ramp used when the limiter is disabled at the end of an AutoMix.
@@ -12,16 +17,53 @@
 // after its gain is this close to unity, so bypass cannot step the waveform.
 #define NAR_AUTOMIX_TONE_TRUE_PEAK_SETTLED 0.9995f
 
+// A 3-way Linkwitz-Riley fourth-order split is built from two cascaded
+// Butterworth biquads at each crossover. The upper split operates on the
+// high-passed output of the lower split.
+enum {
+  NAR_AUTOMIX_TONE_LP_LOW = 0,
+  NAR_AUTOMIX_TONE_HP_LOW = 1,
+  NAR_AUTOMIX_TONE_LP_HIGH = 2,
+  NAR_AUTOMIX_TONE_HP_HIGH = 3,
+  NAR_AUTOMIX_TONE_FILTER_COUNT = 4,
+  NAR_AUTOMIX_TONE_LR4_SECTIONS = 2,
+};
+
+typedef struct NarAutomixToneBiquadCoefficients {
+  float b0;
+  float b1;
+  float b2;
+  float a1;
+  float a2;
+} NarAutomixToneBiquadCoefficients;
+
+// Structure-of-arrays state lets the ARM64 kernel update L/R as two NEON
+// lanes while keeping every channel and physical stream independent.
+typedef struct NarAutomixToneBiquadState {
+  float z1[NAR_AUTOMIX_TONE_MAX_CHANNELS];
+  float z2[NAR_AUTOMIX_TONE_MAX_CHANNELS];
+} NarAutomixToneBiquadState;
+
+typedef struct NarAutomixToneCrossoverState {
+  NarAutomixToneBiquadCoefficients
+      coefficients[NAR_AUTOMIX_TONE_FILTER_COUNT];
+  NarAutomixToneBiquadState
+      filters[NAR_AUTOMIX_TONE_FILTER_COUNT][NAR_AUTOMIX_TONE_LR4_SECTIONS];
+  int32_t sample_rate;
+  int32_t channel_count;
+  int32_t configured;
+} NarAutomixToneCrossoverState;
+
 _Static_assert(offsetof(NarAutomixToneState, low_pass_state) == 0,
-               "NEON low-pass state offset changed");
+               "legacy tone low-pass state offset changed");
 _Static_assert(offsetof(NarAutomixToneState, high_cut_state) == 32,
-               "NEON high-cut state offset changed");
+               "legacy tone high-cut state offset changed");
 _Static_assert(offsetof(NarAutomixToneState, low_pass_alpha) == 64,
-               "NEON low-pass coefficient offset changed");
+               "legacy tone low-pass coefficient offset changed");
 _Static_assert(offsetof(NarAutomixToneState, high_cut_alpha) == 68,
-               "NEON high-cut coefficient offset changed");
+               "legacy tone high-cut coefficient offset changed");
 _Static_assert(offsetof(NarAutomixToneState, gain_smoothing_alpha) == 72,
-               "NEON gain coefficient offset changed");
+               "tone gain coefficient offset changed");
 _Static_assert(offsetof(NarAutomixToneState, current_bass_gain) == 76,
                "NEON bass gain offset changed");
 _Static_assert(offsetof(NarAutomixToneState, current_high_gain) == 80,
@@ -48,6 +90,8 @@ _Static_assert(sizeof(NarAutomixToneState) == 256,
                "true-peak state size changed");
 
 static NarAutomixToneState g_states[NAR_AUTOMIX_TONE_STREAM_COUNT];
+static NarAutomixToneCrossoverState
+    g_crossover_states[NAR_AUTOMIX_TONE_STREAM_COUNT];
 static _Atomic float g_target_bass[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 static _Atomic float g_target_mid[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
 static _Atomic float g_target_high[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f};
@@ -57,10 +101,145 @@ static _Atomic float g_target_fade[NAR_AUTOMIX_TONE_STREAM_COUNT] = {1.0f, 1.0f}
 static _Atomic float g_target_true_peak[NAR_AUTOMIX_TONE_STREAM_COUNT] = {
     0.0f, 0.0f};
 
+static void compute_biquad_coefficients(
+    NarAutomixToneBiquadCoefficients* coefficients, int32_t sample_rate,
+    float cutoff_hz, int high_pass) {
+  const float omega = 2.0f * NAR_AUTOMIX_TONE_PI * cutoff_hz /
+      (float)sample_rate;
+  const float cosine = cosf(omega);
+  const float sine = sinf(omega);
+  const float alpha = sine * 0.7071067811865475f;
+  const float a0 = 1.0f + alpha;
+  if (high_pass) {
+    coefficients->b0 = (0.5f * (1.0f + cosine)) / a0;
+    coefficients->b1 = (-(1.0f + cosine)) / a0;
+    coefficients->b2 = (0.5f * (1.0f + cosine)) / a0;
+  } else {
+    coefficients->b0 = (0.5f * (1.0f - cosine)) / a0;
+    coefficients->b1 = (1.0f - cosine) / a0;
+    coefficients->b2 = (0.5f * (1.0f - cosine)) / a0;
+  }
+  coefficients->a1 = (-2.0f * cosine) / a0;
+  coefficients->a2 = (1.0f - alpha) / a0;
+}
+
+static float process_biquad_scalar(
+    float input, const NarAutomixToneBiquadCoefficients* coefficients,
+    NarAutomixToneBiquadState* state, int32_t channel) {
+  const float output = coefficients->b0 * input + state->z1[channel];
+  const float next_z1 = coefficients->b1 * input -
+      coefficients->a1 * output + state->z2[channel];
+  const float next_z2 = coefficients->b2 * input -
+      coefficients->a2 * output;
+  if (!isfinite(output) || !isfinite(next_z1) || !isfinite(next_z2)) {
+    state->z1[channel] = 0.0f;
+    state->z2[channel] = 0.0f;
+    return 0.0f;
+  }
+  state->z1[channel] = next_z1;
+  state->z2[channel] = next_z2;
+  return output;
+}
+
+static float process_lr4_scalar(
+    float input, NarAutomixToneCrossoverState* crossover, int32_t filter,
+    int32_t channel) {
+  NarAutomixToneBiquadState* sections = crossover->filters[filter];
+  const NarAutomixToneBiquadCoefficients* coefficients =
+      &crossover->coefficients[filter];
+  const float first = process_biquad_scalar(
+      input, coefficients, &sections[0], channel);
+  return process_biquad_scalar(first, coefficients, &sections[1], channel);
+}
+
 #if defined(__aarch64__)
-extern void nar_automix_tone_process_stereo_neon(
+static float32x2_t sanitize_stereo_neon(float32x2_t value) {
+  const uint32x2_t finite = vcle_f32(vabs_f32(value), vdup_n_f32(FLT_MAX));
+  return vbsl_f32(finite, value, vdup_n_f32(0.0f));
+}
+
+static float32x2_t process_biquad_neon(
+    float32x2_t input, const NarAutomixToneBiquadCoefficients* coefficients,
+    NarAutomixToneBiquadState* state) {
+  const float32x2_t z1 = vld1_f32(state->z1);
+  const float32x2_t z2 = vld1_f32(state->z2);
+  const float32x2_t output = vadd_f32(
+      vmul_n_f32(input, coefficients->b0), z1);
+  const float32x2_t next_z1 = vadd_f32(
+      vsub_f32(vmul_n_f32(input, coefficients->b1),
+               vmul_n_f32(output, coefficients->a1)),
+      z2);
+  const float32x2_t next_z2 = vsub_f32(
+      vmul_n_f32(input, coefficients->b2),
+      vmul_n_f32(output, coefficients->a2));
+  const float32x2_t maximum = vdup_n_f32(FLT_MAX);
+  uint32x2_t finite = vand_u32(
+      vcle_f32(vabs_f32(output), maximum),
+      vcle_f32(vabs_f32(next_z1), maximum));
+  finite = vand_u32(finite, vcle_f32(vabs_f32(next_z2), maximum));
+  vst1_f32(state->z1, vbsl_f32(finite, next_z1, vdup_n_f32(0.0f)));
+  vst1_f32(state->z2, vbsl_f32(finite, next_z2, vdup_n_f32(0.0f)));
+  return vbsl_f32(finite, output, vdup_n_f32(0.0f));
+}
+
+static float32x2_t process_lr4_neon(
+    float32x2_t input, NarAutomixToneCrossoverState* crossover,
+    int32_t filter) {
+  NarAutomixToneBiquadState* sections = crossover->filters[filter];
+  const NarAutomixToneBiquadCoefficients* coefficients =
+      &crossover->coefficients[filter];
+  const float32x2_t first = process_biquad_neon(
+      input, coefficients, &sections[0]);
+  return process_biquad_neon(first, coefficients, &sections[1]);
+}
+
+static void process_stereo_neon(
     float* interleaved, int32_t frame_count, NarAutomixToneState* state,
-    float target_bass, float target_mid, float target_high, float target_fade);
+    NarAutomixToneCrossoverState* crossover, float target_bass,
+    float target_mid, float target_high, float target_fade) {
+  float current_bass = state->current_bass_gain;
+  float current_mid = state->current_mid_gain;
+  float current_high = state->current_high_gain;
+  float current_fade = state->current_fade_gain;
+  const float gain_alpha = state->gain_smoothing_alpha;
+  const float fade_step = (target_fade - current_fade) / (float)frame_count;
+  for (int32_t frame = 0; frame < frame_count; ++frame) {
+    current_bass += (target_bass - current_bass) * gain_alpha;
+    current_mid += (target_mid - current_mid) * gain_alpha;
+    current_high += (target_high - current_high) * gain_alpha;
+    current_fade += fade_step;
+
+    float32x2_t input = sanitize_stereo_neon(
+        vld1_f32(&interleaved[(size_t)frame * 2u]));
+    const float32x2_t low = process_lr4_neon(
+        input, crossover, NAR_AUTOMIX_TONE_LP_LOW);
+    const float32x2_t upper = process_lr4_neon(
+        input, crossover, NAR_AUTOMIX_TONE_HP_LOW);
+    const float32x2_t mid = process_lr4_neon(
+        upper, crossover, NAR_AUTOMIX_TONE_LP_HIGH);
+    const float32x2_t high = process_lr4_neon(
+        upper, crossover, NAR_AUTOMIX_TONE_HP_HIGH);
+    float32x2_t output;
+    if (current_bass == 1.0f && current_mid == 1.0f &&
+        current_high == 1.0f) {
+      // Keep the crossover state warm without changing unity-gain PCM.
+      output = input;
+    } else {
+      output = vadd_f32(
+          vadd_f32(vmul_n_f32(low, current_bass),
+                   vmul_n_f32(mid, current_mid)),
+          vmul_n_f32(high, current_high));
+    }
+    output = sanitize_stereo_neon(vmul_n_f32(output, current_fade));
+    output = vmax_f32(vdup_n_f32(-1.0f),
+                      vmin_f32(vdup_n_f32(1.0f), output));
+    vst1_f32(&interleaved[(size_t)frame * 2u], output);
+  }
+  state->current_bass_gain = current_bass;
+  state->current_mid_gain = current_mid;
+  state->current_high_gain = current_high;
+  state->current_fade_gain = current_fade;
+}
 #endif
 
 static int valid_stream_slot(int32_t stream_slot) {
@@ -76,17 +255,32 @@ static float clamp_gain(float gain) {
 
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_configure(
     int32_t stream_slot, int32_t sample_rate, int32_t channel_count) {
-  if (!valid_stream_slot(stream_slot) || sample_rate <= 0 ||
+  // The highest crossover is 1.2 kHz; fail open if it is not below Nyquist.
+  if (!valid_stream_slot(stream_slot) || sample_rate <= 2400 ||
       channel_count <= 0 || channel_count > NAR_AUTOMIX_TONE_MAX_CHANNELS) {
     return 0;
   }
 
   NarAutomixToneState* state = &g_states[stream_slot];
+  NarAutomixToneCrossoverState* crossover =
+      &g_crossover_states[stream_slot];
   memset(state, 0, sizeof(*state));
-  state->low_pass_alpha =
-      1.0f - expf(-2.0f * NAR_AUTOMIX_TONE_PI * 150.0f / (float)sample_rate);
-  state->high_cut_alpha =
-      1.0f - expf(-2.0f * NAR_AUTOMIX_TONE_PI * 1200.0f / (float)sample_rate);
+  memset(crossover, 0, sizeof(*crossover));
+  compute_biquad_coefficients(
+      &crossover->coefficients[NAR_AUTOMIX_TONE_LP_LOW], sample_rate,
+      150.0f, 0);
+  compute_biquad_coefficients(
+      &crossover->coefficients[NAR_AUTOMIX_TONE_HP_LOW], sample_rate,
+      150.0f, 1);
+  compute_biquad_coefficients(
+      &crossover->coefficients[NAR_AUTOMIX_TONE_LP_HIGH], sample_rate,
+      1200.0f, 0);
+  compute_biquad_coefficients(
+      &crossover->coefficients[NAR_AUTOMIX_TONE_HP_HIGH], sample_rate,
+      1200.0f, 1);
+  crossover->sample_rate = sample_rate;
+  crossover->channel_count = channel_count;
+  crossover->configured = 1;
   state->gain_smoothing_alpha =
       1.0f - expf(-1.0f / ((float)sample_rate * 0.020f));
   state->current_bass_gain =
@@ -218,8 +412,9 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_set_crossfade_gains(
 FFI_PLUGIN_EXPORT int32_t nar_automix_tone_reset(int32_t stream_slot) {
   if (!valid_stream_slot(stream_slot)) return 0;
   NarAutomixToneState* state = &g_states[stream_slot];
-  memset(state->low_pass_state, 0, sizeof(state->low_pass_state));
-  memset(state->high_cut_state, 0, sizeof(state->high_cut_state));
+  NarAutomixToneCrossoverState* crossover =
+      &g_crossover_states[stream_slot];
+  memset(crossover->filters, 0, sizeof(crossover->filters));
   state->current_bass_gain =
       atomic_load_explicit(&g_target_bass[stream_slot], memory_order_relaxed);
   state->current_mid_gain =
@@ -342,16 +537,22 @@ static void apply_true_peak_limiter(
   state->true_peak_ceiling = effective_ceiling;
 }
 
-FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
+static int32_t process_tone_impl(
     float* interleaved, int32_t frame_count, int32_t channel_count,
-    int32_t stream_slot) {
+    int32_t stream_slot, int use_neon) {
   if (interleaved == NULL || frame_count <= 0 ||
       !valid_stream_slot(stream_slot)) {
     return 0;
   }
 
   NarAutomixToneState* state = &g_states[stream_slot];
-  if (!state->configured || channel_count != state->channel_count) return 0;
+  NarAutomixToneCrossoverState* crossover =
+      &g_crossover_states[stream_slot];
+  if (!state->configured || !crossover->configured ||
+      channel_count != state->channel_count ||
+      channel_count != crossover->channel_count) {
+    return 0;
+  }
 
   const float target_bass =
       atomic_load_explicit(&g_target_bass[stream_slot], memory_order_relaxed);
@@ -367,12 +568,13 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
 
   int processed_neon = 0;
 #if defined(__aarch64__)
-  if (channel_count == 2) {
-    nar_automix_tone_process_stereo_neon(
-        interleaved, frame_count, state, target_bass, target_mid, target_high,
-        target_fade);
+  if (use_neon && channel_count == 2) {
+    process_stereo_neon(interleaved, frame_count, state, crossover,
+                        target_bass, target_mid, target_high, target_fade);
     processed_neon = 1;
   }
+#else
+  (void)use_neon;
 #endif
 
   if (!processed_neon) {
@@ -381,8 +583,6 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
     float current_high = state->current_high_gain;
     float current_fade = state->current_fade_gain;
     const float gain_alpha = state->gain_smoothing_alpha;
-    const float low_alpha = state->low_pass_alpha;
-    const float high_alpha = state->high_cut_alpha;
     const float fade_step = (target_fade - current_fade) / (float)frame_count;
 
     for (int32_t frame = 0; frame < frame_count; ++frame) {
@@ -395,18 +595,18 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
             (size_t)frame * (size_t)channel_count + (size_t)channel;
         float sample = interleaved[index];
         if (!isfinite(sample)) sample = 0.0f;
-        const float low = state->low_pass_state[channel] +
-            low_alpha * (sample - state->low_pass_state[channel]);
-        state->low_pass_state[channel] = low;
-
-        const float high_low = state->high_cut_state[channel] +
-            high_alpha * (sample - state->high_cut_state[channel]);
-        state->high_cut_state[channel] = high_low;
-
-        const float high = sample - high_low;
-        const float mid = high_low - low;
-
-        const float output = low * current_bass + mid * current_mid + high * current_high;
+        const float low = process_lr4_scalar(
+            sample, crossover, NAR_AUTOMIX_TONE_LP_LOW, channel);
+        const float upper = process_lr4_scalar(
+            sample, crossover, NAR_AUTOMIX_TONE_HP_LOW, channel);
+        const float mid = process_lr4_scalar(
+            upper, crossover, NAR_AUTOMIX_TONE_LP_HIGH, channel);
+        const float high = process_lr4_scalar(
+            upper, crossover, NAR_AUTOMIX_TONE_HP_HIGH, channel);
+        const float output = current_bass == 1.0f && current_mid == 1.0f &&
+                current_high == 1.0f
+            ? sample
+            : low * current_bass + mid * current_mid + high * current_high;
         const float faded = output * current_fade;
         // Sample-peak safety clamp before the optional true-peak post-pass.
         interleaved[index] = isfinite(faded)
@@ -446,4 +646,21 @@ FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
     }
   }
   return 1;
+}
+
+FFI_PLUGIN_EXPORT int32_t nar_automix_tone_process(
+    float* interleaved, int32_t frame_count, int32_t channel_count,
+    int32_t stream_slot) {
+  return process_tone_impl(
+      interleaved, frame_count, channel_count, stream_slot, 1);
+}
+
+#if defined(__GNUC__)
+__attribute__((visibility("hidden")))
+#endif
+int32_t nar_automix_tone_process_scalar_for_test(
+    float* interleaved, int32_t frame_count, int32_t channel_count,
+    int32_t stream_slot) {
+  return process_tone_impl(
+      interleaved, frame_count, channel_count, stream_slot, 0);
 }

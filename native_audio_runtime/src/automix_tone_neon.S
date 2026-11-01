@@ -1,10 +1,12 @@
-// Stereo AutoMix tone processing: two independent channel states in NEON lanes.
-// The mono and multichannel paths remain in automix_tone_processor.c.
+// Historical one-pole kernel retained only for the offline neon_diff_test.
+// Production dispatch uses the active LR4 scalar and ARM64 NEON-intrinsic
+// paths in automix_tone_processor.c.
 
 #ifdef __aarch64__
     .text
     .align  4
     .global nar_automix_tone_process_stereo_neon
+    .hidden nar_automix_tone_process_stereo_neon
     .type   nar_automix_tone_process_stereo_neon, %function
 
 // void nar_automix_tone_process_stereo_neon(
