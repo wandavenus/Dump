@@ -1672,6 +1672,18 @@ void main() {
       expect(merged.bpmConfidence, greaterThan(0.3));
     });
 
+    test('analyzedFraction counts overlapping windows once', () {
+      final merged = automixMergeSegments(
+        songId: 30,
+        segments: [seg(0), seg(165), seg(330), seg(495), seg(580)],
+        sourceDurationSeconds: 700,
+      );
+
+      // The final 495–615 and 580–700 s windows overlap by 35 s. Their
+      // union covers 565 s, rather than the 600 s produced by a raw sum.
+      expect(merged.analyzedFraction, closeTo(565 / 700, 1e-12));
+    });
+
     test('keeps the head beat grid when its tempo is a slower octave', () {
       // A 60 BPM intro estimate is a subset of the 120 BPM track pulse, so its
       // phase lands on a main beat and remains usable.

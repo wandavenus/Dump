@@ -676,10 +676,6 @@ AutomixTrackFeatures automixMergeSegments({
     }
   }
 
-  var analyzedSeconds = 0.0;
-  for (final s in segments) {
-    analyzedSeconds += s.seconds;
-  }
   final inferredFileSeconds = segments.isEmpty
       ? 0.0
       : segments.last.startSeconds + segments.last.seconds;
@@ -693,6 +689,7 @@ AutomixTrackFeatures automixMergeSegments({
   final fileSeconds = hasSourceDuration
       ? math.max(sourceDurationSeconds, inferredFileSeconds).toDouble()
       : inferredFileSeconds;
+  final analyzedFraction = _automixUnionCoverage(segments, fileSeconds);
   final headStructure = firstSegment == null
       ? null
       : _automixEdgeStructure(firstSegment, head: true);
@@ -927,12 +924,40 @@ AutomixTrackFeatures automixMergeSegments({
     outroEdgeOnsetRate: tailSegmentAnalyzed
         ? lastSegment?.outroEdgeOnsetRate
         : null,
-    analyzedFraction: fileSeconds <= 0
-        ? 0
-        : automixClamp01(analyzedSeconds / fileSeconds),
+    analyzedFraction: analyzedFraction,
     tailAnalyzed: tailSegmentAnalyzed,
     chordProgression: automixMergeChordProgressions(segments),
   );
+}
+
+/// Fraction of the source covered by the union of successful analysis windows.
+/// Overlapping head/middle/tail captures describe the same PCM and count once.
+double _automixUnionCoverage(
+  List<AutomixSegmentFeatures> segments,
+  double fileSeconds,
+) {
+  if (!fileSeconds.isFinite || fileSeconds <= 0) return 0;
+  final ranges = <(double, double)>[];
+  for (final segment in segments) {
+    final start = segment.startSeconds;
+    final seconds = segment.seconds;
+    if (!start.isFinite || !seconds.isFinite || seconds <= 0) continue;
+    final boundedStart = start.clamp(0.0, fileSeconds).toDouble();
+    final boundedEnd = (start + seconds)
+        .clamp(boundedStart, fileSeconds)
+        .toDouble();
+    if (boundedEnd > boundedStart) ranges.add((boundedStart, boundedEnd));
+  }
+  ranges.sort((a, b) => a.$1.compareTo(b.$1));
+
+  var coveredSeconds = 0.0;
+  var coveredUntil = 0.0;
+  for (final (start, end) in ranges) {
+    if (end <= coveredUntil) continue;
+    coveredSeconds += end - math.max(start, coveredUntil);
+    coveredUntil = end;
+  }
+  return automixClamp01(coveredSeconds / fileSeconds);
 }
 
 // ── Per-transition cue ───────────────────────────────────────────────────────
