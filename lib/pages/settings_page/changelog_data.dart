@@ -20,6 +20,17 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.67',
+    date: '1 November 2026',
+    changes: [
+      'AutoMix: analisis tempo per kuartal kini dipakai ulang tanpa mengubah output golden; downsampler stereo memakai low-pass Butterworth orde 4 dengan cutoff 0,40× laju output dan fallback anti-fase yang stabil.',
+      'AutoMix: cache analisis naik ke schema v24 agar data lama diproses ulang dengan jalur downsampling baru; fallback loudness mempertahankan trek ambient hingga −60 LUFS agar tidak terdorong terlalu keras.',
+      'AutoMix: tone processor memakai crossover LR4 tiga-pita pada 150 Hz dan 1,2 kHz, dengan state terpisah per deck/kanal dan jalur NEON ARM64; adaptive ducking masih ditunda.',
+      'AutoMix: analisis file panjang memakai hingga 5 window × 120 detik yang disebar sepanjang durasi; gap tanpa analisis tidak lagi menghasilkan tebakan drop cue.',
+      'AutoMix: live tracker mengabaikan sampel ring-buffer di luar history aktif, sehingga pembacaan melingkar tidak memakai data lama.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.66',
     date: '31 Oktober 2026',
     changes: [

@@ -11,8 +11,9 @@ import kotlin.math.sqrt
 /**
  * Stateful PCM16-to-mono downsampler used by offline AutoMix analysis.
  * Filters at the source rate before decimation to suppress aliasing.
- * Stereo averages normally, but avoids near-total cancellation by selecting
- * the stronger channel when the mid signal is less than 25% of either side.
+ * Stereo averages normally, but selects a stable channel when smoothed mid
+ * energy is very small relative to side energy. A fourth-order Butterworth
+ * low-pass protects the decimated signal from aliasing.
  * It also accumulates center/side power so the native vocal proxy can use
  * center-channel dominance as evidence without a second stereo downsample.
  */
@@ -39,6 +40,9 @@ internal class AutomixPcmDownsampler(
         1.0 - exp(-1.0 / (sourceRateHz.coerceAtLeast(1) * 0.020))
     private var sum = 0.0
     private var count = 0
+    private var stereoMidPower = 0.0
+    private var stereoSidePower = 0.0
+    private var stereoFallbackChannel = 0
     private var centerPower = 0.0
     private var sidePower = 0.0
 
@@ -64,7 +68,7 @@ internal class AutomixPcmDownsampler(
         outputRateHz = sourceRateHz / factor
         lowPass = ButterworthLowPass(
             sampleRateHz = sourceRateHz.toDouble(),
-            cutoffHz = outputRateHz * 0.45,
+            cutoffHz = outputRateHz * 0.40,
         )
         // Channel order follows the set bits of the Android channel mask.
         // Leave lfeChannels all-false when the container omits a mask.
@@ -100,8 +104,20 @@ internal class AutomixPcmDownsampler(
                 val side = (left - right) * 0.5
                 centerPower += mid * mid
                 sidePower += side * side
-                val strongest = if (abs(left) >= abs(right)) left else right
-                if (abs(mid) < 0.25 * max(abs(left), abs(right))) strongest else mid
+                stereoMidPower += channelPowerSmoothing * (mid * mid - stereoMidPower)
+                stereoSidePower += channelPowerSmoothing * (side * side - stereoSidePower)
+                channelPower[0] += channelPowerSmoothing * (left * left - channelPower[0])
+                channelPower[1] += channelPowerSmoothing * (right * right - channelPower[1])
+
+                // The 20 ms energy estimates prevent momentary zero crossings from
+                // changing the downmix. Hysteresis keeps nearly equal anti-phase
+                // channels from swapping polarity as their instantaneous peaks vary.
+                val otherChannel = 1 - stereoFallbackChannel
+                if (channelPower[otherChannel] > channelPower[stereoFallbackChannel] * 1.25) {
+                    stereoFallbackChannel = otherChannel
+                }
+                val fallback = if (stereoFallbackChannel == 0) left else right
+                if (stereoMidPower < stereoSidePower * 0.0625) fallback else mid
             }
             else -> {
                 var maxPower = 0.0
@@ -165,6 +181,20 @@ internal class AutomixPcmDownsampler(
     }
 
     private class ButterworthLowPass(sampleRateHz: Double, cutoffHz: Double) {
+        private val lowQSection: Biquad
+        private val highQSection: Biquad
+
+        init {
+            val cutoff = cutoffHz.coerceIn(1.0, sampleRateHz * 0.49)
+            // The two pole pairs of a fourth-order Butterworth have these Qs.
+            lowQSection = Biquad(sampleRateHz, cutoff, 0.541196100146197)
+            highQSection = Biquad(sampleRateHz, cutoff, 1.306562964876377)
+        }
+
+        fun process(input: Double): Double = highQSection.process(lowQSection.process(input))
+    }
+
+    private class Biquad(sampleRateHz: Double, cutoffHz: Double, q: Double) {
         private val b0: Double
         private val b1: Double
         private val b2: Double
@@ -176,10 +206,9 @@ internal class AutomixPcmDownsampler(
         private var y2 = 0.0
 
         init {
-            val cutoff = cutoffHz.coerceIn(1.0, sampleRateHz * 0.49)
-            val omega = 2.0 * Math.PI * cutoff / sampleRateHz
+            val omega = 2.0 * Math.PI * cutoffHz / sampleRateHz
             val c = cos(omega)
-            val alpha = sin(omega) / (2.0 * (1.0 / sqrt(2.0)))
+            val alpha = sin(omega) / (2.0 * q)
             val a0 = 1.0 + alpha
             b0 = ((1.0 - c) * 0.5) / a0
             b1 = (1.0 - c) / a0

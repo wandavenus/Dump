@@ -94,14 +94,14 @@ tools/automix_ffmpeg_regression.sh
 
 | ID | Temuan | Status | Workstream | Dependency | Risiko |
 |---|---|---|---|---|---|
-| M17 | Suite native tidak parallel-safe; perintah dokumentasi masih `dart test` | Open | WS0 | — | Rendah |
-| L01 | Estimasi kuartal tempo dihitung ulang beberapa kali | Open | WS1 | — | Rendah |
-| L02 | Guard ring buffer live tracker di tepi window | Open | WS1 | — | Rendah |
+| M17 | Suite native berbagi state C; `dart_test.yaml` kini membuat `dart test` serial secara default | Implemented, unvalidated | WS0 | — | Rendah |
+| L01 | Estimasi kuartal tempo dipakai ulang tanpa mengubah output golden | Implemented, unvalidated | WS1 | — | Rendah |
+| L02 | Guard ring buffer live tracker menolak sampel di luar history aktif | Implemented, unvalidated | WS1 | — | Rendah |
 | L04 | `median_float` malloc/copy/qsort setiap panggilan | Open | WS1 | — | Rendah |
-| L05 | Clamp LUFS fallback −24…−6 membuat ambient terlalu keras | Open | WS1 | — | Rendah |
+| L05 | Fallback LUFS kini mempertahankan material ambient hingga −60 LUFS | Implemented, unvalidated | WS1 | — | Rendah |
 | M14 | Jalur native per-sample fade dormant (`nativeFadeAvailable = false`) | Open | WS1 | — | Rendah |
-| M05 | Anti-fase stereo per sampel + filter anti-alias 2-pole | Open | WS2 | Cache bump | Sedang |
-| L06 | File >10 menit hanya 5 window; ada gap yang tidak dianalisis | Open | WS2 | — | Sedang |
+| M05 | Fallback anti-fase stereo stabil + filter anti-alias Butterworth orde 4 | Implemented, unvalidated | WS2 | Cache v24 | Sedang |
+| L06 | Window analisis file panjang disebar merata; gap tidak dianggap punya cue | Implemented, unvalidated | WS2 | — | Sedang |
 | M10 | Belum ada short-term LUFS untuk overlap | Open/parsial | WS2 | ABI + cache | Sedang |
 | H01r | Ambang strategi/trim dari fitur edge belum dikalibrasi; belum ada A/B audio | Partial | WS6 | Corpus/audio | Sedang |
 | H05r | Label native fallback masih berbasis ambang absolut; ambang struktur belum dikalibrasi | Partial | WS2/WS6 | Corpus | Rendah–sedang |
@@ -112,9 +112,9 @@ tools/automix_ffmpeg_regression.sh
 | Fase 5 | Downbeat HMM/bar-level, phrase SSM | Open | WS4 | M04 + corpus | Tinggi |
 | M02 | Belum ada tempo arc dan biaya lompatan oktaf eksplisit | Open | WS4 | — | Sedang |
 | M08 | Confidence belum dikalibrasi; ambang tersebar | Open | WS1/WS4 | Corpus | Sedang |
-| M11 | LR4 crossover dan adaptive ducking belum ada | Open/parsial | WS5 | Device capture | Sedang |
+| M11 | LR4 crossover tiga-pita diimplementasikan; adaptive ducking masih ditunda | Implemented, unvalidated (LR4); ducking Open | WS5 | Device capture | Sedang |
 | P09 | Post-mix true-peak limiter belum ada; butuh shared mix bus | Keputusan | WS5 | Spike arsitektur | Tinggi |
-| P01–P10 | Hipotesis akurasi/audio/UX belum diuji | Validasi | WS6 | Corpus/perangkat | Sedang–tinggi |
+| P01–P10 | P10 tervalidasi pada fixture planner; P01–P09 belum tervalidasi | P10: Validated (fixture); P01–P09: Validation | WS6 | Corpus/perangkat | Sedang–tinggi |
 
 ---
 
@@ -180,30 +180,31 @@ Lalu, bila memungkinkan, seluruh `:app:testDebugUnitTest`. Jalankan juga `tools/
 
 ### 4.3 Korpus dan manifest
 
-Tanpa corpus, P01/P08/M08 tidak bisa ditutup. Siapkan `testdata/automix/` dengan manifest JSON:
+Tanpa corpus, P01/P08/M08 tidak bisa ditutup. Target 120 sampel adalah gabungan sumber dan label, bukan 120 full-mix track dengan semua label atau 120 beat/downbeat reference independen:
 
-```json
-{
-  "path": "relative/or/hash-only.wav",
-  "genre": "house",
-  "bpm": 124.0,
-  "meter": 4,
-  "key": "8A",
-  "beats": [],
-  "downbeats": [],
-  "phrases": [],
-  "sections": [],
-  "mixPoints": []
-}
-```
+| Sumber (rencana) | Jumlah | Label yang tersedia | Batasan / asal label |
+|---|---:|---|---|
+| Candombe Uruguay | 35 | Beat, downbeat, bar/beat index | Rekaman perkusi stereo 44.1 kHz/16-bit; anotasi event oleh ahli, lebih dari 4.700 downbeat. Inventaris tim saat ini menghitung 19.167 beat dan 4.818 downbeat; seluruh anotasi yang diperiksa ber-meter 4/4. Tidak ada key/chord. Lisensi CC BY 4.0; arsip audio 658.5 MB, anotasi 272.8 KB. [Record Zenodo](https://zenodo.org/records/6533068). |
+| AAM tiny | 20 | Beat/bar, chord, key, tempo, section | Sampel sintetis; label berasal dari generator, bukan anotator atau rekaman full-mix. Simpan metode/generator dan seed. |
+| FSLD selected loops | 35 (downloaded) | BPM, key, mode, 4/4 | Tim melaporkan seluruh 35 file (~87 MB) berlisensi CC0/CC-BY, dengan ≥2 anotator manusia sepakat pada metadata. Tidak ada event timestamp beat/downbeat; jangan gunakan untuk metrik beat-event. Tetap catat record, lisensi file audio/anotasi, dan provenance per sampel. |
+| GuitarSet selected clips | 30 (downloaded) | Beat/downbeat dari click track, tempo/key metadata, chord lead-sheet/inferred | CC BY 4.0. Gitar akustik mono, bukan full-mix; timing bukan anotasi beat independen manusia. Ada dua timing annotations dan satu MIDI duplicate yang diketahui. Gunakan sebagai subset tambahan dengan metode label dicatat. |
 
-Aturan:
-- Jangan commit audio berhak cipta. Gunakan sinyal sintetis, sampel berlisensi, atau path yang di-resolve di luar repo.
-- Target audit: 120 track, minimal subset 4/4 30 track untuk F1 beat/downbeat.
-- Label BPM harus diverifikasi manual/aubio/madmom, bukan hanya output analyzer.
-- Untuk key/chord, gunakan label manual atau Mixed In Key; simpan confidence sumber.
+GuitarSet menyediakan 360 cuplikan gitar akustik sekitar 30 detik; arsip mic mono 656.9 MB dan anotasi 39.1 MB. Tempo/key ada sebagai metadata; beat/downbeat berasal dari click track; chord “instructed” mengikuti lead sheet dan chord “performed” diinferensikan dari anotasi nada. Dari 360 klip, hanya 30 masuk target campuran ini. [Record Zenodo](https://zenodo.org/records/3371780) · [Dokumentasi GuitarSet](https://guitarset.weebly.com/).
 
-**Selesai bila:** manifest dapat dibaca `tools/automix_bench.dart`, subset 10 track berjalan <2 menit, dan label tidak diedit otomatis oleh analyzer.
+**Status pengumpulan (2026-11-01, laporan tim + audit manifest lokal):** komposisi 120 sudah diunduh dan diaudit, terdiri dari 35 Candombe + 20 AAM Tiny + 35 FSLD + 30 GuitarSet. Meki melaporkan seluruh SHA-256 cocok; semua WAV tinggal di `/workspace/automix-corpora` di luar repo. Audit lokal menemukan 120 entry, seluruh path audio ada, total 2.008.569.696 byte (≈1,87 GiB). Untuk event-level beat/downbeat F1, hanya 35 Candombe yang dihitung sebagai subset independen dengan anotasi ahli; AAM sintetis dan GuitarSet click-track dilaporkan terpisah.
+
+Audit label smoke AAM Tiny memastikan seluruh 10 daftar event beat/downbeat cocok dengan anotasi asli; tidak ditemukan ID, file, atau timestamp rusak. Skor perlu dibaca sesuai bentuk datanya: BPM raw ±2% 5/10, tetapi octave-folded 9/10; empat pilihan oktaf mentah (0001, 0080, 1050, 1711) punya alternatif dekat, sedangkan 0620 tetap miss (≈33,35% setelah folding) dan sumbernya sendiri berpindah tempo 123/164 BPM. Skor key 2/10 tidak layak dianggap akurasi satu-key penuh karena semua 10 track memiliki beberapa key segment; simpan sebagai diagnosa top-level saja. Metre terdeteksi sebagai 4/4 untuk 0192, 0989, 1014 (3/10); tujuh sisanya abstain (`null`), bukan tujuh tebakan salah. Hanya dua case memiliki downbeat offset acuan: 0192 miss 1.283 s dan 1014 meleset 29 ms. Ini quick diagnostic subset sintetis, bukan P01 atau event-level F1.
+
+Aturan manifest:
+- Catat `source`, `record/DOI`, `license`, `attribution`, `labelCoverage`, dan `labelMethod` per sampel. Nilai `null`/kosong berarti label tidak tersedia; jangan menyimpulkan label dari output analyzer.
+- Bedakan metrik BPM/key dari event beat/downbeat. Hanya track yang benar-benar punya timestamp event yang masuk denominator event-level; dataset sintetik atau label click-track dilaporkan terpisah dari anotasi manusia independen.
+- File audio tetap di luar repo kecuali redistribusi dan lisensinya sudah ditinjau; jangan commit audio berhak cipta. Gunakan file berlisensi, sinyal sintetik, atau path/hash eksternal.
+- Label BPM harus diverifikasi dari anotator atau metode acuan independen (mis. aubio/madmom dengan tinjauan manual), bukan disalin dari output analyzer.
+- Untuk key/chord, simpan sumber label, confidence, serta apakah label manual, lead-sheet, diinferensikan, atau sintetis.
+
+Format runtime `tools/automix_bench.dart` tetap memakai `manifest.json` dengan `cases`, file PCM dan `expect`; provenance boleh disimpan sebagai metadata tambahan per case. Harness saat ini memeriksa golden dan label BPM/key/metre/phase yang didukung, tetapi tidak menghitung event-level beat/downbeat F1 dari deret timestamp. Laporkan coverage label secara eksplisit sampai evaluator event-level tersedia.
+
+**Selesai bila:** manifest dapat dibaca `tools/automix_bench.dart`, subset 10 track berjalan <2 menit, jumlah dan asal setiap label dapat diaudit, dan label tidak diedit otomatis oleh analyzer.
 
 ---
 
@@ -216,6 +217,8 @@ Aturan:
 **Perubahan:** sebelum memakai `previous_age = age + phase_lag` atau `history_age`, pastikan indeks berada di `[0, history_count)`. Kembalikan nol/netral bila di luar. Jangan mengubah algoritma phase scoring.
 
 **Tes:** tambah kasus di C suite dengan history belum penuh dan `phase_lag` besar; pastikan tidak membaca sampel stale dan output phase tetap finite.
+
+**Hasil (2026-11-01):** accessor ring-buffer mengembalikan nol/netral jika umur sampel di luar history aktif; `previous_age` hanya dipakai jika masih di dalam window. Fixture compound kini memiliki empat bar dua-ketukan di window 6 detik, sehingga meter 2 tetap terdeteksi tanpa membaca data stale. C suite penuh lulus pada host dan `dart test` native 65/65. Build ASan/UBSan tidak dapat ditautkan karena runtime Clang tidak tersedia; validasi perangkat masih belum ada. Status tetap Implemented, unvalidated.
 
 ### 5.2 L04 — Scratch buffer untuk median
 
@@ -281,14 +284,9 @@ Aturan:
 
 **File:** `AutomixAnalysisBridge.kt` (`planWindowStarts`, `planWindowSeconds`), docs.
 
-**Perubahan:** untuk file >600 s, jangan hanya 5 window dengan gap. Pilihan:
-- **A:** tambah `analyzedFraction` dan window merata sampai batas CPU;
-- **B:** prioritaskan head/tail + satu middle, lalu deklarasikan fraksi yang dianalisis;
-- **C:** analisis adaptif berdasarkan durasi, dengan batas jumlah window yang eksplisit.
+**Implementasi dan batas saat ini:** bridge membatasi analisis hingga 5 window × 120 detik, meratakan window di seluruh file, melaporkan `analyzedFraction` sebagai union interval, jumlah window, dan budget. Drop cue di gap yang tidak dianalisis tidak ditebak; posisi di dalam coverage tetap dapat dipakai. Targeted Kotlin tests lulus 3/3 menurut laporan tim. Dudul menambahkan regresi permanen Dart: fixture 720 detik dengan `analyzedFraction` 0,82 dan tanpa drop cue tidak menjadwalkan early handover, dengan reason `no confident incoming drop cue`; suite AutoMix kini 154/154. Belum ada decode PCM 12 menit penuh melalui MediaCodec/JNI, jadi status tetap Implemented, unvalidated.
 
-Jangan menaikkan jumlah window tanpa anggaran waktu. Untuk drop/early handover, posisi drop yang tidak dianalisis harus dilaporkan sebagai tidak tersedia, bukan ditebak.
-
-**Tes:** file sintetis 12 menit dengan drop di segmen tengah; pastikan coverage dan `earlyHandoverUnavailableReason` benar.
+**Status:** Implemented, unvalidated sampai tes planner gap tersedia dan batas pengujian bridge dicatat; jangan anggap validasi jadwal window sebagai uji decode audio penuh.
 
 ### 6.3 M10 — Short-term LUFS untuk overlap
 
@@ -453,9 +451,11 @@ Jangan mengorbankan akurasi hanya untuk benchmark sintetis. Jika corpus belum ad
 | P07 | Log timestamp reorder per sesi | ≤2 reorder/10 menit setelah 3 track pertama | Perangkat |
 | P08 | 30 track label key/chord | Key exact ≥80%; Camelot ≤1 ≥90% | Corpus |
 | P09 | Render dua deck correlated; ukur intersample peak | Tidak ada overshoot >0,3 dB | ffmpeg/offline |
-| P10 | Plan diff 50 library, sebelum/sesudah polish | 0 pengulangan artis jarak ≤2 saat `avoidArtistRepeat` | Fixture/planner |
+| P10 | Plan diff fixture 50 lagu / 10 artis, sebelum/sesudah polish | 0 pengulangan artis jarak ≤2 saat `avoidArtistRepeat` | Fixture/planner; validated 2026-11-01 |
 
 **Aturan pelaporan:** bedakan “lulus”, “gagal”, “tidak dijalankan”, dan “tidak dapat dijalankan di environment”. Jangan mengubah status menjadi tertutup hanya karena kode sudah ada.
+
+**Hasil P10 (2026-11-01):** `test/services/automix_service/automix_engine_test.dart` menjalankan 50 lagu dari 10 artis. Plan mengubah urutan awal, setiap lagu muncul sekali, tidak ada artis sama dalam dua slot sebelumnya, dan output native cocok dengan referensi Dart. Test khusus lulus; suite AutoMix berjumlah 154/154. Ini memvalidasi kriteria P10 untuk fixture tersebut, bukan antrean pengguna nyata atau P01–P09.
 
 ### Verifikasi yang masih terutang saat blueprint dibuat
 
@@ -529,5 +529,5 @@ Laporkan:
 - **Jangan ulang implementasi dasar:** H02/H03/H04/H05/M01/M07/M10/M11/M12/M13/M15/M16/M18 sudah punya mekanisme di kode. Residual H05/M10/M11 tetap ada di §2.2.
 - **Mulai dari:** M17 + baseline, lalu L01/L02/L04/L05, lalu M14, M05, L06/M10.
 - **Pekerjaan besar:** M03/M09 (harmonik), M04 + downbeat/SSM (tempo/phrase), M02 (planner), M11 (LR4), P09 (shared bus).
-- **Tidak bisa diklaim tanpa data:** P01–P10, terutama BPM nyata, key/chord, live phase alignment, dan post-mix true peak.
+- **Masih perlu data lapangan/perangkat:** P01–P09, terutama BPM nyata, key/chord, live phase alignment, dan post-mix true peak. P10 tervalidasi pada fixture 50 lagu/10 artis saja.
 - **Prinsip:** satu PR kecil, satu kontrak, satu alasan; golden hanya berubah dengan penjelasan; kejujuran status lebih penting daripada menutup semua baris.

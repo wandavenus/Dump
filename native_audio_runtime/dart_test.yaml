@@ -1,0 +1,2 @@
+# Native C tests share process-global DSP state; avoid inter-suite races.
+concurrency: 1

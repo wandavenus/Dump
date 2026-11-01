@@ -12,7 +12,7 @@
 - Analyze: `dart analyze lib test`; avoid analyzing from repo root because it pulls in SDK/generated checkouts. Local wrapper: `./analyze-high-value.sh lib test`. CI: `flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos`.
 - Flutter tests: `flutter test`; one file: `flutter test test/services/lyrics_service/lrc_parser_test.dart`.
 - Kotlin tests: `cd android && ./gradlew :app:testDebugUnitTest`; one class with `--tests "dev.wndavenz.music.queue.QueueManagerTest"`. Needs JDK 21, Android SDK 36, NDK 28.2.13676358, CMake 3.22.1.
-- Native C/FFI tests: `cd native_audio_runtime && dart test` (Dart >=3.11 and a working `clang`; the native-assets hook compiles `src/*.c`).
+- Native C/FFI tests: `cd native_audio_runtime && dart test` (Dart >=3.11 and a working `clang`; `native_audio_runtime/dart_test.yaml` serializes test suites because they share process-global C DSP state; the native-assets hook compiles `src/*.c`).
 - AutoMix benchmark: `dart run tools/automix_bench.dart --check` (synthetic 12-case corpus + golden in `testdata/automix/`; add labeled PCM WAVs to the manifest for real-music accuracy).
 - AutoMix offline audio regression: `tools/automix_ffmpeg_regression.sh` (requires `ffmpeg`, `ffprobe`, Java).
 - APK (CI): `flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=build/debug-info`. `setup-flutter.sh` / `build-apk.sh` are Replit-specific (`/home/runner/...`) — don't assume they work in Termux/Codespaces.
