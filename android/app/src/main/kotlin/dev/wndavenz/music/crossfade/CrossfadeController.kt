@@ -211,7 +211,9 @@ class CrossfadeController(
     // ── Public API ────────────────────────────────────────────────────────────
 
     fun setDuration(sec: Float) {
-        crossfadeDurationSec = sec
+        // A non-finite duration can turn into a zero or saturated millisecond
+        // value later, scheduling a nearly instantaneous or track-start fade.
+        crossfadeDurationSec = sec.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
     }
 
     /**

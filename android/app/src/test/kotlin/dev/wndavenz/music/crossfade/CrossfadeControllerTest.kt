@@ -214,6 +214,14 @@ class CrossfadeControllerTest {
         assertEquals(2.5f, ctrl.crossfadeDurationSec, 0.001f)
     }
 
+    @Test fun `B04 setDuration disables crossfade for nonfinite or negative values`() {
+        val ctrl = makeController()
+        for (invalid in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, -1f)) {
+            ctrl.setDuration(invalid)
+            assertEquals("duration=$invalid", 0f, ctrl.crossfadeDurationSec, 0f)
+        }
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // C. cancel()
     // ═════════════════════════════════════════════════════════════════════════
