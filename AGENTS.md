@@ -37,4 +37,4 @@
 - After any repo-changing session, update the relevant `.agents/memory/*.md` topic and its `MEMORY.md` index.
 - `lib/` Dart edits: use Dart MCP `hot_reload`; `hot_restart` after `initState`, global/static state, or `main()` changes (`.agents/rules/flutter-hot-reload.md`).
 - Android verification is a full uninstall + fresh install; don't treat upgrade-in-place as a valid test.
-- All GitHub workflows are `workflow_dispatch` only; Noisegraph suites are dispatched manually. Don't assume push/PR CI.
+- `.github/workflows/ci.yml` runs on pull requests to `main` and manual dispatch; Noisegraph test suites are dispatched manually. Check each workflow's `on:` block rather than assuming unrelated checks run automatically.
