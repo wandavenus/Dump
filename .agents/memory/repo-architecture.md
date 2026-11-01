@@ -33,5 +33,6 @@ Android AudioTrack / AAudio hardware output
 ## Key Invariants
 - Single audio engine: Media3/ExoPlayer only (media_kit removed)
 - Native owns queue, shuffle, repeat, sleep timer — Dart is EventChannel consumer
+- `Media3PlaybackBridge` exclusively owns the `musicplayer/media3_*` playback channels; other native domains retain purpose-specific Dart service/bridge owners.
 - DSP pipeline runs in C via JNI, not in Kotlin or Dart
 - Target device ONLY: Xiaomi Mi 9T / Snapdragon 730 / MIUI 12 Android 11
