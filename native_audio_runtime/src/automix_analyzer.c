@@ -75,6 +75,13 @@ typedef struct {
 } TempoEstimate;
 
 typedef struct {
+  TempoEstimate estimate;
+  // Per-quarter estimates are retained for the tempo curve after they have
+  // also contributed to the whole-window consensus.
+  TempoEstimate quarters[4];
+} TempoProfile;
+
+typedef struct {
   double period_frames;
   double bpm;
   double score;
@@ -1047,31 +1054,21 @@ static double beat_period_ms(double bpm) { return 60000.0 / bpm; }
 
 // Whole-window autocorrelation mixes density regimes: a quiet intro carrying
 // only off-beat hats and a full chorus can make the bar-level pulse win the
-// global vote even when every local quarter agrees on the beat. The quarter
-// estimates already exist for the tempo curve, so use them as an independent
-// vote: when three or more quarters agree within 4% on a level that differs
-// from the whole-window estimate, publish the local consensus. This is
-// symmetric (it can slow a wrongly-fast whole-window result too) and never
-// fires on uniform material, where the quarters already agree with the whole.
-static TempoEstimate estimate_tempo(const float* odf, int32_t count,
-                                    int32_t working_rate, double fps) {
-  TempoEstimate whole =
-      estimate_tempo_window(odf, count, working_rate, fps);
-  if (!whole.valid || odf == NULL || count <= 0 || working_rate <= 0 ||
-      !isfinite(fps) || fps <= 0.0) {
+// global vote even when every local quarter agrees on the beat. Use the same
+// four local estimates for this consensus and the tempo curve below.
+static TempoEstimate consensus_from_quarters(
+    TempoEstimate whole, const TempoEstimate quarters[4],
+    int32_t quarter_frames, double fps) {
+  if (!whole.valid || quarters == NULL || !isfinite(fps) || fps <= 0.0) {
     return whole;
   }
-  // A quarter must contain at least four seconds for its own estimate to be
-  // independent of the whole window; shorter files keep the direct result.
   const int32_t min_quarter = (int32_t)round(4.0 * fps);
-  const int32_t quarter = count / 4;
-  if (min_quarter <= 0 || quarter < min_quarter) return whole;
+  if (min_quarter <= 0 || quarter_frames < min_quarter) return whole;
   double bpms[4];
   double confidences[4];
   int32_t votes = 0;
   for (int32_t index = 0; index < 4; ++index) {
-    const TempoEstimate local = estimate_tempo_window(
-        odf + (size_t)index * (size_t)quarter, quarter, working_rate, fps);
+    const TempoEstimate local = quarters[index];
     if (!local.valid || !isfinite(local.bpm) ||
         local.confidence < NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN) {
       continue;
@@ -1105,6 +1102,64 @@ static TempoEstimate estimate_tempo(const float* odf, int32_t count,
   consensus.alternate_bpm = whole.bpm;
   consensus.confidence = fmin(whole.confidence, confidences[votes / 2]);
   return consensus;
+}
+
+static TempoProfile estimate_tempo_profile(
+    const float* odf, int32_t count, int32_t working_rate, double fps,
+    int include_curve_quarters) {
+  TempoProfile profile;
+  profile.estimate = estimate_tempo_window(odf, count, working_rate, fps);
+  for (int32_t index = 0; index < 4; ++index) {
+    profile.quarters[index] = (TempoEstimate){NAN, NAN, 0.0, 0};
+  }
+  const TempoEstimate whole = profile.estimate;
+  if (!whole.valid || odf == NULL || count <= 0 || working_rate <= 0 ||
+      !isfinite(fps) || fps <= 0.0) {
+    return profile;
+  }
+
+  // Four-second quarters participate in the whole-window consensus. Shorter
+  // quarters are still computed when the caller needs the tempo curve (whose
+  // existing minimum is 1.5 seconds).
+  const int32_t min_consensus_quarter = (int32_t)round(4.0 * fps);
+  const int32_t min_curve_quarter = (int32_t)round(1.5 * fps);
+  const int32_t quarter_frames = count / 4;
+  if (min_consensus_quarter <= 0 || quarter_frames <= 0) return profile;
+  const int use_for_consensus = quarter_frames >= min_consensus_quarter;
+  const int use_for_curve = include_curve_quarters &&
+      min_curve_quarter > 0 && quarter_frames >= min_curve_quarter;
+  if (!use_for_consensus && !use_for_curve) return profile;
+
+  TempoEstimate direct_quarters[4];
+  for (int32_t index = 0; index < 4; ++index) {
+    direct_quarters[index] = estimate_tempo_window(
+        odf + (size_t)index * (size_t)quarter_frames, quarter_frames,
+        working_rate, fps);
+    profile.quarters[index] = direct_quarters[index];
+  }
+  profile.estimate = consensus_from_quarters(
+      whole, direct_quarters, quarter_frames, fps);
+
+  // Preserve the previous nested consensus for very long windows. The
+  // direct quarter result above is shared with the whole-window vote; only
+  // the previously required sub-quarter evidence is calculated here.
+  const int32_t subquarter_frames = quarter_frames / 4;
+  if (!use_for_curve || subquarter_frames < min_consensus_quarter) {
+    return profile;
+  }
+  for (int32_t index = 0; index < 4; ++index) {
+    if (!direct_quarters[index].valid) continue;
+    TempoEstimate subquarters[4];
+    for (int32_t subindex = 0; subindex < 4; ++subindex) {
+      const size_t start = (size_t)index * (size_t)quarter_frames +
+          (size_t)subindex * (size_t)subquarter_frames;
+      subquarters[subindex] = estimate_tempo_window(
+          odf + start, subquarter_frames, working_rate, fps);
+    }
+    profile.quarters[index] = consensus_from_quarters(
+        direct_quarters[index], subquarters, subquarter_frames, fps);
+  }
+  return profile;
 }
 
 static double estimate_beat_phase_ms(const float* odf, int32_t count,
@@ -2187,15 +2242,22 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // Tempo and metre are decided on the band-weighted envelope: the low band
   // carries the kick and the beat, the high band carries the subdivision. The
   // full-band ODF is kept for onset rate and structural cues.
-  TempoEstimate tempo =
-      estimate_tempo(beat_odf, frame_count, sample_rate, fps);
+  const int32_t curve_min_frames = 4 * (int32_t)round(1.5 * fps);
+  TempoProfile tempo_profile = estimate_tempo_profile(
+      beat_odf, frame_count, sample_rate, fps,
+      frame_count >= curve_min_frames);
+  TempoEstimate tempo = tempo_profile.estimate;
   // Material without a low/mid pulse (bright acoustic, hiss-only intros) can
   // leave the beat band too sparse for a tempo. Fall back to the wide envelope
   // rather than publishing no tempo at all.
   if (!tempo.valid || tempo.confidence < 0.20) {
-    const TempoEstimate wide =
-        estimate_tempo(phase_odf, frame_count, sample_rate, fps);
-    if (wide.valid) tempo = wide;
+    const TempoProfile wide = estimate_tempo_profile(
+        phase_odf, frame_count, sample_rate, fps,
+        frame_count >= curve_min_frames);
+    if (wide.estimate.valid) {
+      tempo_profile = wide;
+      tempo = wide.estimate;
+    }
   }
   if (tempo.valid) {
     output[0] = tempo.bpm;
@@ -2217,7 +2279,6 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
   // score lower and consumers can avoid aggressive varispeed on them. Each
   // quarter needs at least 1.5 s of frames for the local autocorrelation to be
   // meaningful.
-  const int32_t curve_min_frames = 4 * (int32_t)round(1.5 * fps);
   if (tempo.valid && frame_count >= curve_min_frames) {
     const int32_t quarter = frame_count / 4;
     double error_sum = 0.0;
@@ -2225,10 +2286,7 @@ static int32_t analyze_impl(const float* mono, double center_ratio,
     for (int32_t index = 0; index < 4; ++index) {
       const float* quarter_phase_odf =
           phase_odf + (size_t)index * (size_t)quarter;
-      const float* quarter_beat_odf =
-          beat_odf + (size_t)index * (size_t)quarter;
-      const TempoEstimate local = estimate_tempo(
-          quarter_beat_odf, quarter, sample_rate, fps);
+      const TempoEstimate local = tempo_profile.quarters[index];
       if (!local.valid ||
           local.confidence < NAR_AUTOMIX_TEMPO_CONFIDENCE_MIN) {
         continue;
