@@ -22,21 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Detect Dart source changes
-        id: source-changes
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          fi
-          if git diff --name-only "$BASE_SHA" HEAD | grep -Eq '^(lib|test)/.*[.]dart$'; then
-            echo "dart_changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "dart_changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Validate native build scripts
         run: |
           bash -n android/build-ffmpeg-jni.sh
@@ -55,6 +40,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version-file: pubspec.yaml
           cache: true
 
       - name: Install Flutter dependencies
@@ -64,7 +50,6 @@ jobs:
         run: flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos
 
       - name: Run Flutter tests
-        if: ${{ steps.source-changes.outputs.dart_changed != 'true' }}
         run: flutter test --no-pub
 
       - name: Run Android unit tests (Kotlin DSP)
@@ -74,11 +59,9 @@ jobs:
           ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Build debug APK including FFmpeg JNI
-        if: ${{ steps.source-changes.outputs.dart_changed != 'true' }}
         run: flutter build apk --debug --target-platform android-arm64 --no-pub
 
       - name: Verify FFmpeg JNI and license notices are packaged
-        if: ${{ steps.source-changes.outputs.dart_changed != 'true' }}
         working-directory: android
         run: |
           APK="../build/app/outputs/flutter-apk/app-debug.apk"

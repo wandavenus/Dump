@@ -23,7 +23,7 @@
 ## Architecture rules
 - Call path: `lib/main.dart` → `AudioService` / `PlaybackManager` → `Media3PlaybackBridge` → Kotlin `Media3PlaybackService` → `NativeDspAudioProcessor` / JNI → `native_audio_runtime` C DSP.
 - Kotlin Media3 owns playback, queue, shuffle, repeat, sleep timer, crossfade, and effects. Dart mirrors state over streams; never re-implement queue/shuffle logic in Dart.
-- `lib/services/audio/media3/media3_playback_bridge.dart` is the only Dart file that may touch `musicplayer/*` Method/EventChannels. Route through `PlaybackManager` / `AudioService`.
+- `lib/services/audio/media3/media3_playback_bridge.dart` is the sole Dart owner of the `musicplayer/media3_*` playback channels. Purpose-specific services may own separate platform channels (for example, media-store or open-file); route playback commands and state through `PlaybackManager` / `AudioService`.
 - DSP is C in `native_audio_runtime/src` (FFI on host, JNI on Android): the audio thread does no allocation/logging, cross-thread knobs are atomic, and DSP failures must fail open.
 - New C files must be listed in `native_audio_runtime/hook/build.dart` (the build source of truth, not Gradle); `native_dsp_jni.c` is Android-only. `android/app/src/main/cpp/CMakeLists.txt` builds the separate ReplayGain/TagLib/Stretch JNI modules.
 - Native Parametric EQ was removed; the Band EQ uses Android's system Equalizer. Don't reintroduce a second EQ backend.
@@ -37,4 +37,4 @@
 - After any repo-changing session, update the relevant `.agents/memory/*.md` topic and its `MEMORY.md` index.
 - `lib/` Dart edits: use Dart MCP `hot_reload`; `hot_restart` after `initState`, global/static state, or `main()` changes (`.agents/rules/flutter-hot-reload.md`).
 - Android verification is a full uninstall + fresh install; don't treat upgrade-in-place as a valid test.
-- All GitHub workflows are `workflow_dispatch` only; Noisegraph suites are dispatched manually. Don't assume push/PR CI.
+- `.github/workflows/ci.yml` runs on pull requests to `main` and manual dispatch; Noisegraph test suites are dispatched manually. Check each workflow's `on:` block rather than assuming unrelated checks run automatically.

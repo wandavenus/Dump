@@ -59,7 +59,7 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 | **Audio thread tidak boleh diblokir** | Semua knob DSP adalah atomic. Tidak ada `malloc`, logging, atau transisi konteks di jalur render. |
 | **Fail-open, bukan fail-closed** | DSP yang gagal → audio tetap diputar (bypass), bukan ditutup. |
 | **C cold start = zero spinner** | Setiap service punya `warmUp()` yang membaca cache sinkron sebelum `runApp`, sehingga frame pertama sudah berisi konten. |
-| **Satu responsibility per layer** | `Media3PlaybackBridge` adalah satu-satunya file yang boleh menyentuh channel. Semua lapisan di atasnya bilang: *"No layer in this file may reference Media3PlaybackBridge directly."* |
+| **Satu pemilik untuk kanal playback** | `Media3PlaybackBridge` memiliki kanal `musicplayer/media3_*`; kanal domain lain tetap dimiliki service/bridge khusus. Pemanggil playback melewati `PlaybackManager` / `AudioService`. |
 
 ---
 
@@ -97,7 +97,7 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 
 ### 2.2 Aturan yang ditegakkan di codebase
 
-- **Single edge:** hanya `Media3PlaybackBridge` yang menyentuh `musicplayer/*` MethodChannel. Semua service lain import bridge itu secara transitif lewat `PlaybackManager`.
+- **Playback channel edge:** hanya `Media3PlaybackBridge` yang menyentuh kanal playback `musicplayer/media3_*`. Kanal domain terpisah (mis. media-store, open-file, logging, FFmpeg) dimiliki service/bridge tujuannya; caller playback tetap melewati `PlaybackManager` / `AudioService`.
 - **Part-file untuk file besar:** `settings_page.dart` (11 sub-file), `audio_service.dart` (3 part), `log_service.dart`, `lyrics_service/*` — semua pakai `part`/`part of`.
 - **DDD ringan:** `lib/domain/app_router.dart`.edge, `lib/models/`, `lib/services/`.
 - **Web-compatible:** banyak `if (kIsWeb)` guard; `web/` + `server.js` menyediakan build web (Node static server) meski target utama Android.

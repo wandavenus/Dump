@@ -311,9 +311,11 @@
   "loopOne": "Loop One",
   "songInfoLabel": "Song Info",
   "queueEmpty": "Queue is empty",
+  "queueToggle": "Queue",
   "continuePlaying": "Continue Playing",
   "autoplayDescription": "Auto-playing similar music",
   "lyricsAppearance": "Lyrics Appearance",
+  "lyricsToggle": "Lyrics",
   "textSizeLabel": "Text Size",
   "textAlignLabel": "Text Alignment",
   "activeColorLabel": "Active Color",
@@ -325,11 +327,22 @@
   "addToQueue": "Add to Queue",
   "removeFromFavorites": "Remove from Favorites",
   "addToFavorites": "Add to Favorites",
+  "moreOptions": "More options",
   "addToPlaylistMenu": "Add to Playlist",
   "openAlbum": "Open Album",
   "openArtist": "Open Artist",
   "songInformation": "Song Information",
   "deleteFromDevice": "Delete from Device",
+  "deleteSongConfirm": "Delete song?",
+  "deleteSongBody": "Delete \"{name}\" from your device? This cannot be undone.",
+  "@deleteSongBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "castingUnavailable": "Casting is not available yet.",
   "songDeletedMsg": "Song deleted successfully",
   "songDeleteFailedMsg": "Failed to delete song",
   "fieldTitle": "Title",

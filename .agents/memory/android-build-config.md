@@ -85,6 +85,21 @@ Key keeps:
 - `Media3PlaybackService`, `MainActivity`
 - Native method signatures: `dev.wndavenz.music.replaygain.ReplayGainNative`
 
+## Gradle warning cleanup (2026-11-01)
+`./gradlew help --warning-mode all` exposed Gradle 9 Groovy space-assignment
+deprecations in the app and local FFmpeg module build scripts. Property assignments
+now use `name = value`, and the local module dependency uses
+`project(path: ':decoder-ffmpeg')`. A follow-up `help` evaluation succeeds without
+building an APK.
+
+Warnings still reported during configuration come from AGP/Flutter compatibility
+paths (deprecated `android.newDsl`/`android.builtInKotlin` flags, legacy variant
+APIs, deprecated `org.jetbrains.kotlin.android` usage, AGP's deprecated
+`Configuration.setVisible`, and Flutter's plugin-project dependency notation),
+plus older Groovy syntax in cached Flutter plugins. Do not silence or patch cached
+dependencies as a substitute for updating Flutter/AGP/plugin compatibility;
+re-evaluate these after that migration.
+
 ## Gradle build directory (2026-10-27)
 `android/build.gradle` now uses the layout API instead of the deprecated
 `Project.buildDir` (deprecated in Gradle 8.2+, scheduled for removal):

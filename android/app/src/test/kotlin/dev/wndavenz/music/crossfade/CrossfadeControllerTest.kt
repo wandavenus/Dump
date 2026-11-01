@@ -214,6 +214,23 @@ class CrossfadeControllerTest {
         assertEquals(2.5f, ctrl.crossfadeDurationSec, 0.001f)
     }
 
+    @Test fun `B04 setDuration disables crossfade for nonfinite or negative values`() {
+        val ctrl = makeController()
+        for (invalid in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, -1f)) {
+            ctrl.setDuration(invalid)
+            assertEquals("duration=$invalid", 0f, ctrl.crossfadeDurationSec, 0f)
+        }
+    }
+
+    @Test fun `B05 setDuration clamps finite extremes to the product maximum`() {
+        val ctrl = makeController()
+        ctrl.setDuration(Float.MAX_VALUE)
+
+        assertEquals(12f, ctrl.crossfadeDurationSec, 0f)
+        assertEquals(12_000L, CrossfadeController.boundedFadeDurationMs(Float.MAX_VALUE))
+        assertEquals(12_000L, CrossfadeController.boundedFadeDurationMs(12f))
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // C. cancel()
     // ═════════════════════════════════════════════════════════════════════════

@@ -52,7 +52,14 @@ class _CommonActionsState extends State<CommonActions> {
   }
 
   void _cast(BuildContext context) {
-    // TODO: Cast function
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.castingUnavailable),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.of(context).surface,
+      ),
+    );
   }
 
   @override

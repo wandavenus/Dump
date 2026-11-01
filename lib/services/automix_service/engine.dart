@@ -676,10 +676,6 @@ AutomixTrackFeatures automixMergeSegments({
     }
   }
 
-  var analyzedSeconds = 0.0;
-  for (final s in segments) {
-    analyzedSeconds += s.seconds;
-  }
   final inferredFileSeconds = segments.isEmpty
       ? 0.0
       : segments.last.startSeconds + segments.last.seconds;
@@ -693,6 +689,7 @@ AutomixTrackFeatures automixMergeSegments({
   final fileSeconds = hasSourceDuration
       ? math.max(sourceDurationSeconds, inferredFileSeconds).toDouble()
       : inferredFileSeconds;
+  final analyzedFraction = _automixUnionCoverage(segments, fileSeconds);
   final headStructure = firstSegment == null
       ? null
       : _automixEdgeStructure(firstSegment, head: true);
@@ -927,12 +924,40 @@ AutomixTrackFeatures automixMergeSegments({
     outroEdgeOnsetRate: tailSegmentAnalyzed
         ? lastSegment?.outroEdgeOnsetRate
         : null,
-    analyzedFraction: fileSeconds <= 0
-        ? 0
-        : automixClamp01(analyzedSeconds / fileSeconds),
+    analyzedFraction: analyzedFraction,
     tailAnalyzed: tailSegmentAnalyzed,
     chordProgression: automixMergeChordProgressions(segments),
   );
+}
+
+/// Fraction of the source covered by the union of successful analysis windows.
+/// Overlapping head/middle/tail captures describe the same PCM and count once.
+double _automixUnionCoverage(
+  List<AutomixSegmentFeatures> segments,
+  double fileSeconds,
+) {
+  if (!fileSeconds.isFinite || fileSeconds <= 0) return 0;
+  final ranges = <(double, double)>[];
+  for (final segment in segments) {
+    final start = segment.startSeconds;
+    final seconds = segment.seconds;
+    if (!start.isFinite || !seconds.isFinite || seconds <= 0) continue;
+    final boundedStart = start.clamp(0.0, fileSeconds).toDouble();
+    final boundedEnd = (start + seconds)
+        .clamp(boundedStart, fileSeconds)
+        .toDouble();
+    if (boundedEnd > boundedStart) ranges.add((boundedStart, boundedEnd));
+  }
+  ranges.sort((a, b) => a.$1.compareTo(b.$1));
+
+  var coveredSeconds = 0.0;
+  var coveredUntil = 0.0;
+  for (final (start, end) in ranges) {
+    if (end <= coveredUntil) continue;
+    coveredSeconds += end - math.max(start, coveredUntil);
+    coveredUntil = end;
+  }
+  return automixClamp01(coveredSeconds / fileSeconds);
 }
 
 // ── Per-transition cue ───────────────────────────────────────────────────────
@@ -2278,7 +2303,8 @@ class DartAutomixEngineReference {
               insertEvals++;
               final lo = i < to ? i : to;
               final hi = i < to ? to : i;
-              final lastLink = hi + 1 < n - 1 ? hi + 1 : n - 1;
+              final cooldownEnd = hi + _artistCooldown;
+              final lastLink = cooldownEnd < n ? cooldownEnd : n - 1;
               final before = _windowCost(
                 plan,
                 lo,
@@ -2317,7 +2343,8 @@ class DartAutomixEngineReference {
             final j = i + step;
             if (j >= n) continue;
             reverseEvals++;
-            final lastLink = j + 1 < n - 1 ? j + 1 : n - 1;
+            final cooldownEnd = j + _artistCooldown;
+            final lastLink = cooldownEnd < n ? cooldownEnd : n - 1;
             final before = _windowCost(
               plan,
               i,
@@ -2795,9 +2822,10 @@ class DartAutomixEngineReference {
     return sum;
   }
 
-  /// Exact cost of the links a swap of positions [i] ↔ [j] would disturb:
-  /// the up-to-four boundary links. Interior links between the two positions
-  /// are unaffected (their endpoints keep their relative order).
+  /// Exact cost of links whose transition or artist-cooldown cost can change
+  /// when positions [i] and [j] are swapped. Cooldown looks back four slots,
+  /// so a swap can change penalties through [j] + [_artistCooldown]. Any
+  /// unchanged transition costs inside that bounded window cancel out.
   static double _localCost(
     List<int> plan,
     int i,
@@ -2808,45 +2836,23 @@ class DartAutomixEngineReference {
     _EnergyArc arc,
   ) {
     final n = plan.length;
-    double link(int from, int to) {
-      assert(0 <= from && from < n && 0 <= to && to < n);
-      return _transitionCost(
-            a: tracks[plan[from]],
-            b: tracks[plan[to]],
-            eA: energies[plan[from]],
-            eB: energies[plan[to]],
-            stepIndex: to,
-            totalSteps: n,
-            settings: settings,
-            arc: arc,
-          ) +
-          _artistCooldownCost(
-            plan: plan,
-            planSlot: to,
-            planFilled: to,
-            tracks: tracks,
-            candidate: tracks[plan[to]],
-            settings: settings,
-          );
-    }
-
-    var sum = 0.0;
-    if (i > 0) sum += link(i - 1, i);
-    sum += link(i, i + 1);
-    if (j != i + 1) {
-      sum += link(j - 1, j);
-    } else {
-      // Adjacent swap: the (i, i+1) link is the SAME link as (j-1, j); the
-      // line above already added exactly one copy via link(i, i+1).
-    }
-    if (j + 1 < n) sum += link(j, j + 1);
-    return sum;
+    final firstLink = i > 0 ? i : 1;
+    final lastLink = j + _artistCooldown < n ? j + _artistCooldown : n - 1;
+    return _windowCost(
+      plan,
+      firstLink,
+      lastLink,
+      tracks,
+      energies,
+      settings,
+      arc,
+    );
   }
 
   /// Sum of the path links (p-1, p) for p in [firstLink, lastLink]. Insertion
-  /// and reversal moves disturb more than the two boundary links: interior
-  /// links keep their element pairs but their arc positions shift, so the
-  /// whole affected window is re-scored.
+  /// and reversal moves disturb interior link positions; cooldown costs can
+  /// also change for up to four slots after the moved range, so callers extend
+  /// the window through that horizon.
   static double _windowCost(
     List<int> plan,
     int firstLink,

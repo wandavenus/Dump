@@ -15,9 +15,9 @@ plugins {
 }
 
 android {
-    namespace "androidx.media3.decoder.ffmpeg"
+    namespace = "androidx.media3.decoder.ffmpeg"
     compileSdk 36
-    ndkVersion "28.2.13676358"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         minSdk 29
@@ -36,7 +36,7 @@ android {
     }
 
     lint {
-        abortOnError false
+        abortOnError = false
     }
 }
 

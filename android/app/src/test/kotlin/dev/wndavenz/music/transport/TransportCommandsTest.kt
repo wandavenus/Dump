@@ -89,4 +89,41 @@ class TransportCommandsTest {
         verify(offload).onCrossfadeDurationChanged(0f)
         verify(result).success(null)
     }
+
+    @Test
+    fun `nonfinite duration requests disable crossfade before updating offload policy`() {
+        for (duration in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {
+            val crossfade = mock<CrossfadeController>()
+            val offload = mock<AudioOffloadManager>()
+            val preload = mock<PreloadManager>()
+            val result = mock<MethodChannel.Result>()
+
+            commands(crossfade, offload, preload).dispatch(
+                MethodCall("setCrossfadeDuration", mapOf("duration" to duration)),
+                result,
+            )
+
+            verify(crossfade).setDuration(0f)
+            verify(crossfade).cancel(resetVolume = true)
+            verify(offload).onCrossfadeDurationChanged(0f)
+            verify(result).success(null)
+        }
+    }
+
+    @Test
+    fun `finite extreme duration is capped before updating offload policy`() {
+        val crossfade = mock<CrossfadeController>()
+        val offload = mock<AudioOffloadManager>()
+        whenever(crossfade.crossfadeInProgress).thenReturn(true)
+        val result = mock<MethodChannel.Result>()
+
+        commands(crossfade, offload).dispatch(
+            MethodCall("setCrossfadeDuration", mapOf("duration" to Float.MAX_VALUE.toDouble())),
+            result,
+        )
+
+        verify(crossfade).setDuration(12f)
+        verify(offload).onCrossfadeDurationChanged(12f)
+        verify(result).success(null)
+    }
 }
