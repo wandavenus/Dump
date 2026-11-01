@@ -47,7 +47,7 @@ def media3_version = rootProject.ext.media3Version
 
 android {
     namespace = "dev.wndavenz.music"
-    compileSdk 36
+    compileSdk 37
     ndkVersion = "28.2.13676358"
 
     sourceSets {
