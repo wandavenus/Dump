@@ -58,6 +58,39 @@ internal class PcmDecodeEosState {
     }
 }
 
+/** Releases a codec created successfully if setup fails before decode ownership begins. */
+internal fun <T : Any> createAndStartCodecOrReleaseOnFailure(
+    create: () -> T,
+    configure: (T) -> Unit,
+    start: (T) -> Unit,
+    release: (T) -> Unit,
+): T? {
+    var createdCodec: T? = null
+    return try {
+        val codec = create()
+        createdCodec = codec
+        configure(codec)
+        start(codec)
+        codec
+    } catch (_: Exception) {
+        createdCodec?.let { runCatching { release(it) } }
+        null
+    }
+}
+
+/** Keeps decoder-owned native resources released on returns and exceptions. */
+internal inline fun <T : Any, R> withPcmResource(
+    resource: T,
+    release: (T) -> Unit,
+    block: (T) -> R,
+): R {
+    try {
+        return block(resource)
+    } finally {
+        runCatching { release(resource) }
+    }
+}
+
 object PcmDecoder {
 
     /** Format info needed to size an [EburTrackSession] before decoding starts. */
@@ -99,193 +132,191 @@ object PcmDecoder {
         if (!file.exists()) return false
 
         val extractor = MediaExtractor()
-        try {
-            extractor.setDataSource(path)
-        } catch (_: Exception) {
-            extractor.release()
-            return false
-        }
-
-        var trackIndex = -1
-        var format: MediaFormat? = null
-        for (i in 0 until extractor.trackCount) {
-            val f = extractor.getTrackFormat(i)
-            if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
-                trackIndex = i
-                format = f
-                break
-            }
-        }
-        if (trackIndex < 0 || format == null) {
-            extractor.release()
-            return false
-        }
-
-        val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
-        // A permanent ReplayGain result must never be based on guessed format
-        // metadata: a wrong sample rate changes K-weighting and a wrong channel
-        // count changes the interleaved PCM frame interpretation.
-        val sampleRate = runCatching {
-            format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-        }.getOrNull()?.takeIf { it in 8_000..384_000 } ?: run {
-            extractor.release()
-            return false
-        }
-        val channels = runCatching {
-            format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-        }.getOrNull()?.takeIf { it in 1..8 } ?: run {
-            extractor.release()
-            return false
-        }
-        val durationUs = runCatching { format.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(-1L)
-        val channelMask = runCatching {
-            format.getInteger(MediaFormat.KEY_CHANNEL_MASK)
-        }.getOrDefault(0)
-        onFormat(TrackFormat(sampleRate, channels, durationUs, channelMask))
-
-        extractor.selectTrack(trackIndex)
-
-        val codec = try {
-            MediaCodec.createDecoderByType(mime).also {
-                it.configure(format, null, null, 0)
-                it.start()
-            }
-        } catch (_: Exception) {
-            extractor.release()
-            return false
-        }
-
-        if (startUs > 0L) {
-            // SEEK_TO_PREVIOUS_SYNC lands on a decoder-sync point; the window
-            // start reported back to Dart is the request, and the few frames of
-            // lead-in only help the extractor ramp up cleanly.
+        return withPcmResource(
+            resource = extractor,
+            release = { it.release() },
+        ) { extractor ->
             try {
-                extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                extractor.setDataSource(path)
             } catch (_: Exception) {
-                // A bounded AutoMix window must not silently fall back to
-                // decoding from 0: trimming toward a late tail would otherwise
-                // force a whole-file decode and could attach incorrect timing.
-                if (trimBeforeUs != null) {
-                    runCatching { codec.stop() }
-                    runCatching { codec.release() }
-                    runCatching { extractor.release() }
-                    return false
-                }
-                // Legacy whole-file scans can still proceed from the beginning.
+                return@withPcmResource false
             }
-        }
 
-        val info = MediaCodec.BufferInfo()
-        val eosState = PcmDecodeEosState()
-        var aborted = false
-        var pendingTrimBeforeUs = trimBeforeUs
-        // N-3: reuse one grow-only ShortArray for all output buffers instead
-        // of allocating a fresh one per chunk. MediaCodec output-buffer sizes
-        // are essentially constant for a given track/codec, so after the
-        // first chunk this allocates nothing for the rest of the decode.
-        var chunk = ShortArray(0)
-
-        try {
-            while (!eosState.isComplete && !aborted) {
-                if (!eosState.inputEosQueued) {
-                    val inIdx = codec.dequeueInputBuffer(8_000L)
-                    if (inIdx >= 0) {
-                        val inBuf = codec.getInputBuffer(inIdx)
-                        if (inBuf != null) {
-                            val n = extractor.readSampleData(inBuf, 0)
-                            if (n <= 0) {
-                                codec.queueInputBuffer(
-                                    inIdx,
-                                    0,
-                                    0,
-                                    0,
-                                    MediaCodec.BUFFER_FLAG_END_OF_STREAM,
-                                )
-                                eosState.markInputEosQueued()
-                            } else {
-                                val ts = extractor.sampleTime
-                                codec.queueInputBuffer(inIdx, 0, n, ts, 0)
-                                extractor.advance()
-                                if (durationUs > 0L) {
-                                    onProgress((ts.toFloat() / durationUs).coerceIn(0f, 0.99f))
-                                }
-                            }
-                        }
-                    }
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    trackIndex = i
+                    format = f
+                    break
                 }
+            }
+            if (trackIndex < 0 || format == null) {
+                return@withPcmResource false
+            }
 
-                val outIdx = codec.dequeueOutputBuffer(info, 8_000L)
-                if (outIdx >= 0) {
-                    val outBuf = codec.getOutputBuffer(outIdx)
-                    if (outBuf != null && info.size > 0) {
-                        outBuf.position(info.offset)
-                        outBuf.limit(info.offset + info.size)
-                        outBuf.order(ByteOrder.LITTLE_ENDIAN)
-                        val sb = outBuf.asShortBuffer()
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+            // A permanent ReplayGain result must never be based on guessed format
+            // metadata: a wrong sample rate changes K-weighting and a wrong channel
+            // count changes the interleaved PCM frame interpretation.
+            val sampleRate = runCatching {
+                format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            }.getOrNull()?.takeIf { it in 8_000..384_000 } ?: run {
+                return@withPcmResource false
+            }
+            val channels = runCatching {
+                format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            }.getOrNull()?.takeIf { it in 1..8 } ?: run {
+                return@withPcmResource false
+            }
+            val durationUs = runCatching {
+                format.getLong(MediaFormat.KEY_DURATION)
+            }.getOrDefault(-1L)
+            val channelMask = runCatching {
+                format.getInteger(MediaFormat.KEY_CHANNEL_MASK)
+            }.getOrDefault(0)
+            onFormat(TrackFormat(sampleRate, channels, durationUs, channelMask))
 
-                        val remaining = sb.remaining()
-                        if (remaining > 0) {
-                            if (chunk.size < remaining) chunk = ShortArray(remaining)
-                            sb.get(chunk, 0, remaining)
-                            var frameCount = remaining / channels
-                            if (frameCount > 0) {
-                                val trimTargetUs = pendingTrimBeforeUs
-                                if (trimTargetUs != null) {
-                                    val framesToTrim = pcmFramesToTrim(
-                                        targetUs = trimTargetUs,
-                                        bufferStartUs = info.presentationTimeUs,
-                                        sampleRate = sampleRate,
-                                        frameCount = frameCount,
+            extractor.selectTrack(trackIndex)
+
+            val codec = createAndStartCodecOrReleaseOnFailure(
+                create = { MediaCodec.createDecoderByType(mime) },
+                configure = { it.configure(format, null, null, 0) },
+                start = { it.start() },
+                release = { it.release() },
+            ) ?: return@withPcmResource false
+
+            if (startUs > 0L) {
+                // SEEK_TO_PREVIOUS_SYNC lands on a decoder-sync point; the window
+                // start reported back to Dart is the request, and the few frames of
+                // lead-in only help the extractor ramp up cleanly.
+                try {
+                    extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                } catch (_: Exception) {
+                    // A bounded AutoMix window must not silently fall back to
+                    // decoding from 0: trimming toward a late tail would otherwise
+                    // force a whole-file decode and could attach incorrect timing.
+                    if (trimBeforeUs != null) {
+                        runCatching { codec.stop() }
+                        runCatching { codec.release() }
+                        return@withPcmResource false
+                    }
+                    // Legacy whole-file scans can still proceed from the beginning.
+                }
+            }
+
+            val info = MediaCodec.BufferInfo()
+            val eosState = PcmDecodeEosState()
+            var aborted = false
+            var pendingTrimBeforeUs = trimBeforeUs
+            // N-3: reuse one grow-only ShortArray for all output buffers instead
+            // of allocating a fresh one per chunk. MediaCodec output-buffer sizes
+            // are essentially constant for a given track/codec, so after the
+            // first chunk this allocates nothing for the rest of the decode.
+            var chunk = ShortArray(0)
+
+            try {
+                while (!eosState.isComplete && !aborted) {
+                    if (!eosState.inputEosQueued) {
+                        val inIdx = codec.dequeueInputBuffer(8_000L)
+                        if (inIdx >= 0) {
+                            val inBuf = codec.getInputBuffer(inIdx)
+                            if (inBuf != null) {
+                                val n = extractor.readSampleData(inBuf, 0)
+                                if (n <= 0) {
+                                    codec.queueInputBuffer(
+                                        inIdx,
+                                        0,
+                                        0,
+                                        0,
+                                        MediaCodec.BUFFER_FLAG_END_OF_STREAM,
                                     )
-                                    if (framesToTrim >= frameCount) {
-                                        val bufferEndUs = info.presentationTimeUs +
-                                            frameCount.toLong() * 1_000_000L / sampleRate
-                                        // A whole buffer before the requested timestamp
-                                        // is discarded. Keep trimming until a decoded
-                                        // sample at/after the target is reached.
-                                        if (bufferEndUs > trimTargetUs) {
-                                            pendingTrimBeforeUs = null
-                                        }
-                                        frameCount = 0
-                                    } else if (framesToTrim > 0) {
-                                        val keptFrames = frameCount - framesToTrim
-                                        System.arraycopy(
-                                            chunk,
-                                            framesToTrim * channels,
-                                            chunk,
-                                            0,
-                                            keptFrames * channels,
-                                        )
-                                        frameCount = keptFrames
-                                        pendingTrimBeforeUs = null
-                                    } else {
-                                        // The decoder has reached or passed the target.
-                                        pendingTrimBeforeUs = null
+                                    eosState.markInputEosQueued()
+                                } else {
+                                    val ts = extractor.sampleTime
+                                    codec.queueInputBuffer(inIdx, 0, n, ts, 0)
+                                    extractor.advance()
+                                    if (durationUs > 0L) {
+                                        onProgress((ts.toFloat() / durationUs).coerceIn(0f, 0.99f))
                                     }
                                 }
-                                if (frameCount > 0 && !feed(chunk, frameCount)) {
-                                    aborted = true
-                                }
                             }
                         }
                     }
-                    codec.releaseOutputBuffer(outIdx, false)
-                    eosState.observeOutputFlags(info.flags)
-                    if (eosState.outputEosSeen) {
-                        break
+
+                    val outIdx = codec.dequeueOutputBuffer(info, 8_000L)
+                    if (outIdx >= 0) {
+                        val outBuf = codec.getOutputBuffer(outIdx)
+                        if (outBuf != null && info.size > 0) {
+                            outBuf.position(info.offset)
+                            outBuf.limit(info.offset + info.size)
+                            outBuf.order(ByteOrder.LITTLE_ENDIAN)
+                            val sb = outBuf.asShortBuffer()
+
+                            val remaining = sb.remaining()
+                            if (remaining > 0) {
+                                if (chunk.size < remaining) chunk = ShortArray(remaining)
+                                sb.get(chunk, 0, remaining)
+                                var frameCount = remaining / channels
+                                if (frameCount > 0) {
+                                    val trimTargetUs = pendingTrimBeforeUs
+                                    if (trimTargetUs != null) {
+                                        val framesToTrim = pcmFramesToTrim(
+                                            targetUs = trimTargetUs,
+                                            bufferStartUs = info.presentationTimeUs,
+                                            sampleRate = sampleRate,
+                                            frameCount = frameCount,
+                                        )
+                                        if (framesToTrim >= frameCount) {
+                                            val bufferEndUs = info.presentationTimeUs +
+                                                frameCount.toLong() * 1_000_000L / sampleRate
+                                            // A whole buffer before the requested timestamp
+                                            // is discarded. Keep trimming until a decoded
+                                            // sample at/after the target is reached.
+                                            if (bufferEndUs > trimTargetUs) {
+                                                pendingTrimBeforeUs = null
+                                            }
+                                            frameCount = 0
+                                        } else if (framesToTrim > 0) {
+                                            val keptFrames = frameCount - framesToTrim
+                                            System.arraycopy(
+                                                chunk,
+                                                framesToTrim * channels,
+                                                chunk,
+                                                0,
+                                                keptFrames * channels,
+                                            )
+                                            frameCount = keptFrames
+                                            pendingTrimBeforeUs = null
+                                        } else {
+                                            // The decoder has reached or passed the target.
+                                            pendingTrimBeforeUs = null
+                                        }
+                                    }
+                                    if (frameCount > 0 && !feed(chunk, frameCount)) {
+                                        aborted = true
+                                    }
+                                }
+                            }
+                        }
+                        codec.releaseOutputBuffer(outIdx, false)
+                        eosState.observeOutputFlags(info.flags)
+                        if (eosState.outputEosSeen) {
+                            break
+                        }
                     }
                 }
+            } finally {
+                runCatching { codec.stop() }
+                runCatching { codec.release() }
             }
-        } finally {
-            runCatching { codec.stop() }
-            runCatching { codec.release() }
-            runCatching { extractor.release() }
-        }
 
-        if (eosState.outputEosSeen) {
-            runCatching { onEos?.invoke() }
+            if (eosState.outputEosSeen) {
+                runCatching { onEos?.invoke() }
+            }
+            onProgress(1.0f)
+            !aborted
         }
-        onProgress(1.0f)
-        return !aborted
     }
 }
