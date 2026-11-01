@@ -1446,6 +1446,69 @@ void main() {
     });
 
     test(
+      'local polish scores artist cooldown beyond changed transition links',
+      () {
+        // Identical audio features isolate artist cooldown. Reversing slots 2–8
+        // improves the full path score, including penalties in the four slots
+        // after the moved range; the old boundary-only scorer missed those.
+        const artists = <String>[
+          'A3',
+          'A4',
+          'A0',
+          'A4',
+          'A4',
+          'A1',
+          'A2',
+          'A3',
+          'A1',
+          'A1',
+          'A4',
+          'A2',
+        ];
+        final tracks = [
+          for (var i = 0; i < artists.length; i++)
+            _f(
+              i + 1,
+              bpm: 120,
+              camelot: 8,
+              minor: true,
+              rms: -12,
+              artist: artists[i],
+            ),
+        ];
+        const settings = AutomixSettings(
+          profile: AutomixProfile.dj,
+          avoidArtistRepeat: true,
+        );
+        final native = AutomixEngine.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 0,
+        );
+        final reference = DartAutomixEngineReference.planSet(
+          tracks: tracks,
+          settings: settings,
+          startIndex: 0,
+        );
+        const knownImprovement = <int>[0, 1, 8, 6, 3, 7, 2, 5, 11, 4, 9, 10];
+        final plannedCost = AutomixEngine.scoreOrder(
+          tracks: tracks,
+          order: native.order,
+          settings: settings,
+        );
+        final improvedCost = AutomixEngine.scoreOrder(
+          tracks: tracks,
+          order: knownImprovement,
+          settings: settings,
+        );
+
+        expect(native.order, reference.order);
+        expect(native.averageCost, closeTo(plannedCost, 1e-10));
+        expect(plannedCost, lessThanOrEqualTo(improvedCost + 1e-9));
+      },
+    );
+
+    test(
       'keeps native/reference parity when mix-seam features are present',
       () {
         final tracks = [

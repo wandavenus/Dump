@@ -874,26 +874,15 @@ static double local_cost(const int32_t* plan, int32_t i, int32_t j,
                          const EnergyArc* arc, int32_t profile,
                          double tolerance, int32_t avoid_artist_repeat,
                          int32_t harmonic_filter) {
-  double sum = 0.0;
-  if (i > 0) {
-    sum += link_cost(plan, i - 1, i, count, song_ids, artist_groups, rows,
-                     keys, energies, arc, profile, tolerance,
+  // A swap changes artist cooldown penalties through four target slots after
+  // the last swapped position, even when the transition links themselves are
+  // unchanged. Include that bounded horizon in both before/after scores.
+  const int32_t first_link = i > 0 ? i : 1;
+  const int32_t cooldown_end = j + NAR_PLAN_ARTIST_COOLDOWN;
+  const int32_t last_link = cooldown_end < count ? cooldown_end : count - 1;
+  return window_cost(plan, first_link, last_link, count, song_ids, artist_groups,
+                     rows, keys, energies, arc, profile, tolerance,
                      avoid_artist_repeat, harmonic_filter);
-  }
-  sum += link_cost(plan, i, i + 1, count, song_ids, artist_groups, rows, keys,
-                   energies, arc, profile, tolerance, avoid_artist_repeat,
-                   harmonic_filter);
-  if (j != i + 1) {
-    sum += link_cost(plan, j - 1, j, count, song_ids, artist_groups, rows,
-                     keys, energies, arc, profile, tolerance,
-                     avoid_artist_repeat, harmonic_filter);
-  }
-  if (j + 1 < count) {
-    sum += link_cost(plan, j, j + 1, count, song_ids, artist_groups, rows,
-                     keys, energies, arc, profile, tolerance,
-                     avoid_artist_repeat, harmonic_filter);
-  }
-  return sum;
 }
 
 static double crossfade_seconds(const int32_t* plan, int32_t count,
@@ -1078,8 +1067,9 @@ int32_t nar_automix_plan_set(
             ++insert_evaluations;
             const int32_t lo = i < to ? i : to;
             const int32_t hi = i < to ? to : i;
-            const int32_t last_link =
-                hi + 1 < track_count - 1 ? hi + 1 : track_count - 1;
+            const int32_t cooldown_end = hi + NAR_PLAN_ARTIST_COOLDOWN;
+            const int32_t last_link = cooldown_end < track_count
+                ? cooldown_end : track_count - 1;
             const double before = window_cost(
                 output_order, lo, last_link, track_count, song_ids,
                 artist_groups, features, keys, energies, &arc, profile,
@@ -1109,8 +1099,9 @@ int32_t nar_automix_plan_set(
           const int32_t j = i + step;
           if (j >= track_count) continue;
           ++reverse_evaluations;
-          const int32_t last_link =
-              j + 1 < track_count - 1 ? j + 1 : track_count - 1;
+          const int32_t cooldown_end = j + NAR_PLAN_ARTIST_COOLDOWN;
+          const int32_t last_link = cooldown_end < track_count
+              ? cooldown_end : track_count - 1;
           const double before = window_cost(
               output_order, i, last_link, track_count, song_ids, artist_groups,
               features, keys, energies, &arc, profile, bpm_tolerance,
