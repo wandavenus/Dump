@@ -222,6 +222,15 @@ class CrossfadeControllerTest {
         }
     }
 
+    @Test fun `B05 setDuration clamps finite extremes to the product maximum`() {
+        val ctrl = makeController()
+        ctrl.setDuration(Float.MAX_VALUE)
+
+        assertEquals(12f, ctrl.crossfadeDurationSec, 0f)
+        assertEquals(12_000L, CrossfadeController.boundedFadeDurationMs(Float.MAX_VALUE))
+        assertEquals(12_000L, CrossfadeController.boundedFadeDurationMs(12f))
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // C. cancel()
     // ═════════════════════════════════════════════════════════════════════════

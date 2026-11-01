@@ -445,7 +445,7 @@ class TransportCommands(
             "setCrossfadeDuration" -> {
                 val sec = call.argument<Number>("duration")?.toFloat()
                     ?.takeIf { it.isFinite() }
-                    ?.coerceAtLeast(0f) ?: 0f
+                    ?.coerceIn(0f, CrossfadeController.MAX_CROSSFADE_DURATION_SEC) ?: 0f
                 // A positive duration update during a live fade only affects the
                 // NEXT transition. Tearing the fade down here would silence the
                 // outgoing deck and jump the incoming deck to full volume in the

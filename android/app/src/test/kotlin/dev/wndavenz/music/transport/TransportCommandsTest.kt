@@ -109,4 +109,21 @@ class TransportCommandsTest {
             verify(result).success(null)
         }
     }
+
+    @Test
+    fun `finite extreme duration is capped before updating offload policy`() {
+        val crossfade = mock<CrossfadeController>()
+        val offload = mock<AudioOffloadManager>()
+        whenever(crossfade.crossfadeInProgress).thenReturn(true)
+        val result = mock<MethodChannel.Result>()
+
+        commands(crossfade, offload).dispatch(
+            MethodCall("setCrossfadeDuration", mapOf("duration" to Float.MAX_VALUE.toDouble())),
+            result,
+        )
+
+        verify(crossfade).setDuration(12f)
+        verify(offload).onCrossfadeDurationChanged(12f)
+        verify(result).success(null)
+    }
 }

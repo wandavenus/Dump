@@ -155,6 +155,16 @@ class CrossfadeController(
         /** Minimum actual fade duration regardless of track-end proximity. */
         const val MIN_FADE_MS = AutomixTransitionPolicy.MIN_FADE_MS
 
+        /** Product maximum for a crossfade, enforced again at the native boundary. */
+        const val MAX_CROSSFADE_DURATION_SEC = 12f
+
+        /** Converts an untrusted duration to a bounded millisecond value before scheduling. */
+        internal fun boundedFadeDurationMs(durationSec: Float): Long {
+            val boundedSec = durationSec.takeIf { it.isFinite() }
+                ?.coerceIn(0f, MAX_CROSSFADE_DURATION_SEC) ?: 0f
+            return (boundedSec * 1_000f).toLong().coerceAtLeast(MIN_FADE_MS)
+        }
+
         /** Bounds for a planner-approved early handover, relative to outgoing EOF. */
         const val EARLY_TRANSITION_MIN_LEAD_MS =
             AutomixTransitionPolicy.EARLY_TRANSITION_MIN_LEAD_MS
@@ -211,9 +221,10 @@ class CrossfadeController(
     // ── Public API ────────────────────────────────────────────────────────────
 
     fun setDuration(sec: Float) {
-        // A non-finite duration can turn into a zero or saturated millisecond
-        // value later, scheduling a nearly instantaneous or track-start fade.
-        crossfadeDurationSec = sec.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
+        // Clamp at the native boundary as well as MethodChannel: callers outside
+        // the settings UI must not schedule an unbounded or saturated fade.
+        crossfadeDurationSec = sec.takeIf { it.isFinite() }
+            ?.coerceIn(0f, MAX_CROSSFADE_DURATION_SEC) ?: 0f
     }
 
     /**
@@ -252,9 +263,7 @@ class CrossfadeController(
         val automixFadeSec = if (isAutomixTransitionEnabled()) {
             getStandbyPlayer()?.let { getAutoMixFadeSecondsForPlayer(it) }
         } else null
-        val crossMs = ((automixFadeSec ?: crossfadeDurationSec) * 1000f)
-            .toLong()
-            .coerceAtLeast(MIN_FADE_MS)
+        val crossMs = boundedFadeDurationMs(automixFadeSec ?: crossfadeDurationSec)
         val currentPosition = p.currentPosition.coerceAtLeast(0L)
         val remaining = (dur - currentPosition).coerceAtLeast(0L)
         // Only honour a planner cue within the explicitly supported early-exit
