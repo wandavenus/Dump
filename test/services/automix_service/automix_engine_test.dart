@@ -1096,6 +1096,54 @@ void main() {
       }
     });
 
+    test('P10: 50-track plans avoid artist repeats within two slots', () {
+      final tracks = <AutomixTrackFeatures>[
+        for (var artistIndex = 0; artistIndex < 10; artistIndex++)
+          for (var trackIndex = 0; trackIndex < 5; trackIndex++)
+            _f(
+              artistIndex * 5 + trackIndex + 1,
+              bpm: 120,
+              camelot: 8,
+              minor: true,
+              artist: 'Artist $artistIndex',
+            ),
+      ];
+      const settings = AutomixSettings(
+        profile: AutomixProfile.dj,
+        avoidArtistRepeat: true,
+      );
+      final plan = AutomixEngine.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+      final reference = DartAutomixEngineReference.planSet(
+        tracks: tracks,
+        settings: settings,
+        startIndex: 0,
+      );
+
+      expect(plan.order, hasLength(50));
+      expect(plan.order.toSet(), hasLength(50));
+      expect(
+        plan.order,
+        isNot(List<int>.generate(50, (index) => index)),
+        reason: 'artist cooldown must improve the original queue order',
+      );
+      expect(plan.order, reference.order);
+      for (var i = 0; i < plan.order.length; i++) {
+        final artist = tracks[plan.order[i]].artist;
+        for (var prior = i - 2; prior < i; prior++) {
+          if (prior < 0) continue;
+          expect(
+            artist,
+            isNot(tracks[plan.order[prior]].artist),
+            reason: 'repeated $artist at planned positions $prior and $i',
+          );
+        }
+      }
+    });
+
     test('energy profile pushes loud tracks toward the middle', () {
       final tracks = [
         _f(1, lufs: -24), // quiet
@@ -2182,6 +2230,7 @@ void main() {
       int tailMeter = 4,
       double? dropCueMs,
       double dropConfidence = 0,
+      double analyzedFraction = 0,
       double bpmConfidence = 0.9,
       double? rmsDb,
       double? introRmsDb,
@@ -2223,6 +2272,7 @@ void main() {
       outroEnergy: outro,
       introEnergy: intro,
       durationSeconds: durationSeconds,
+      analyzedFraction: analyzedFraction,
       tailBreakdownCueMs: tailBreakdownCueMs,
       tailBreakdownConfidence: tailBreakdownConfidence,
       structureRegion: structureRegion,
@@ -2342,6 +2392,37 @@ void main() {
       expect(cue.fadeSeconds, inInclusiveRange(1.5, 12.0));
       expect(cue.fadeSeconds, lessThan(45.0));
     });
+
+    test(
+      'partially analyzed long incoming file reports a missing drop cue',
+      () {
+        final cue = automixTransitionCue(
+          outgoing: track(
+            1,
+            tailBpm: 120,
+            tailBpmConfidence: 0.9,
+            tailBeatOffsetMs: 125.0,
+            durationSeconds: 240,
+          ),
+          incoming: track(
+            2,
+            bpm: 120,
+            bpmConfidence: 0.9,
+            beatOffsetMs: 300.0,
+            durationSeconds: 720,
+            analyzedFraction: 0.82,
+          ),
+          settings: const AutomixSettings(),
+        );
+
+        expect(cue.earlyHandover, isFalse);
+        expect(cue.transitionStartMs, isNull);
+        expect(
+          cue.earlyHandoverUnavailableReason,
+          'no confident incoming drop cue',
+        );
+      },
+    );
 
     test('confident section boundary moves the early handover to the section start', () {
       // The outgoing track's final section starts 40 s before EOF. The fade

@@ -68,7 +68,7 @@ void main() {
         await prefs.setString(
           'automix_42',
           jsonEncode(<String, dynamic>{
-            'version': 23,
+            'version': 24,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 42,
@@ -160,6 +160,33 @@ void main() {
         // Metadata still comes from the live MediaStore row.
         expect(features.title, 'Cached');
         expect(features.artist, 'Artist');
+      },
+    );
+    test(
+      'invalidates v23 entries after the M05 PCM-processing schema bump',
+      () async {
+        final song = LocalSong(
+          id: 49,
+          title: 'Pre-M05 cache',
+          artist: 'Artist',
+          album: 'Album',
+          albumId: 7,
+          path: file.path,
+          duration: const Duration(minutes: 4),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'automix_49',
+          jsonEncode(<String, dynamic>{
+            'version': 23,
+            'ident': identityOf(file),
+            'data': <String, dynamic>{'id': 49, 'bpm': 128.0, 'bc': 0.9},
+          }),
+        );
+
+        final features = await AutomixService.featuresFor(song);
+
+        expect(features.bpm, isNull);
       },
     );
 
@@ -258,7 +285,7 @@ void main() {
         await prefs.setString(
           'automix_45',
           jsonEncode(<String, dynamic>{
-            'version': 23,
+            'version': 24,
             'ident': identityOf(file),
             'data': <String, dynamic>{
               'id': 45,
@@ -322,7 +349,7 @@ void main() {
       final cacheFile = File('${dir.path}/automix_47.json');
       await cacheFile.writeAsString(
         jsonEncode(<String, dynamic>{
-          'version': 23,
+          'version': 24,
           'ident': identityOf(file),
           'data': <String, dynamic>{
             'id': 47,
@@ -356,7 +383,7 @@ void main() {
         await prefs.setString(
           'automix_48',
           jsonEncode(<String, dynamic>{
-            'version': 23,
+            'version': 24,
             'ident': identityOf(file),
             'data': <String, dynamic>{'id': 48, 'bpm': 122.0, 'bc': 0.9},
           }),

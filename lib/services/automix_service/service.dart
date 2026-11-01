@@ -1201,7 +1201,9 @@ class AutomixService {
   // v23: analyzer publishes up to three drop candidates and the cache moves
   //     from SharedPreferences to one file per track. v22 entries carry only
   //     the head-window drop, so a long intro would still hide its first drop.
-  static const int _analysisSchemaVersion = 23;
+  // v24: M05 changes stereo handling and anti-alias filtering before analysis;
+  //     v23 results must be re-analyzed from PCM processed by the new path.
+  static const int _analysisSchemaVersion = 24;
   static Future<void>? _analysisSchemaFuture;
 
   static final Map<int, AutomixTrackFeatures> _featuresCache = {};
@@ -1223,7 +1225,7 @@ class AutomixService {
 
   static String _cacheKey(int songId) => 'automix_$songId';
 
-  // ── Analysis cache v23: one file per track ────────────────────────────────
+  // ── Analysis cache v24: one file per track ────────────────────────────────
   // SharedPreferences rewrites its whole XML on every commit and keeps every
   // decoded string in memory. A per-track file keeps an analysis write O(one
   // track), survives pruning/deletion, and can be decoded off the UI isolate.
@@ -1314,7 +1316,7 @@ class AutomixService {
       }
     }
 
-    // One-time migration from the pre-v23 SharedPreferences cache.
+    // One-time migration for same-schema SharedPreferences fallback entries.
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_cacheKey(song.id));
@@ -1667,7 +1669,8 @@ class AutomixService {
       // not an LUFS value itself. Invert it against the standard −18 LUFS
       // ReplayGain target so the engine's LUFS→energy mapping stays uniform.
       if (loudness.hasData) {
-        lufs = (-18.0 - loudness.gainDb).clamp(-24, -6).toDouble();
+        // Preserve very quiet material instead of promoting it to −24 LUFS.
+        lufs = (-18.0 - loudness.gainDb).clamp(-60.0, -6.0).toDouble();
       }
     } on Object catch (e) {
       LogService.verbose('Automix', 'loudness fallback failed: $e');
