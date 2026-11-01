@@ -17,7 +17,6 @@
 - AutoMix offline audio regression: `tools/automix_ffmpeg_regression.sh` (requires `ffmpeg`, `ffprobe`, Java).
 - APK (CI): `flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=build/debug-info`. `setup-flutter.sh` / `build-apk.sh` are Replit-specific (`/home/runner/...`) — don't assume they work in Termux/Codespaces.
 - This Termux workspace has Flutter (`/data/data/com.termux/files/usr/opt/flutter`), Android SDK (`/data/data/com.termux/files/usr/opt/android-sdk`), Java, `dart`, and `clang`; analyze/test/gen-l10n work locally.
-- NEVER run `flutter build apk` (or any APK build) in this environment — user directive, permanent. Builds belong to CI/devcontainer/Replit.
 - Web preview: `node server.js` serves prebuilt `build/web`; rebuild only when explicitly asked with `flutter build web --release --base-href /`.
 - l10n: edit `lib/l10n/app_{en,id}.arb`, run `flutter gen-l10n`; don't hand-edit generated `app_localizations*.dart`.
 
