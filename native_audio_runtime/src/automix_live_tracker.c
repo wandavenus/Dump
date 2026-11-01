@@ -187,23 +187,27 @@ static void reset_internal(int32_t slot) {
   publish_state(slot, &g_tracker[slot]);
 }
 
-static float history_age(const NarLiveTracker* tracker, int32_t age) {
+static int32_t history_index(const NarLiveTracker* tracker, int32_t age) {
+  if (age < 0 || age >= tracker->history_count) return -1;
   int32_t index = tracker->history_write - 1 - age;
   while (index < 0) index += LIVE_HISTORY_FRAMES;
-  return tracker->onset_history[index];
+  return index;
+}
+
+static float history_age(const NarLiveTracker* tracker, int32_t age) {
+  const int32_t index = history_index(tracker, age);
+  return index >= 0 ? tracker->onset_history[index] : 0.0f;
 }
 
 static float level_age(const NarLiveTracker* tracker, int32_t age) {
-  int32_t index = tracker->history_write - 1 - age;
-  while (index < 0) index += LIVE_HISTORY_FRAMES;
-  return tracker->level_history[index];
+  const int32_t index = history_index(tracker, age);
+  return index >= 0 ? tracker->level_history[index] : 0.0f;
 }
 
 static float band_level_age(const NarLiveTracker* tracker, const float* band,
                             int32_t age) {
-  int32_t index = tracker->history_write - 1 - age;
-  while (index < 0) index += LIVE_HISTORY_FRAMES;
-  return band[index];
+  const int32_t index = history_index(tracker, age);
+  return index >= 0 ? band[index] : 0.0f;
 }
 
 static double onset_peak(const NarLiveTracker* tracker, double age,
@@ -629,12 +633,17 @@ static void estimate_live_beat(int32_t slot) {
       }
       const double mid = band_level_age(tracker, tracker->mid_history, frame_age);
       const double high = band_level_age(tracker, tracker->high_history, frame_age);
-      const double previous_low =
-          band_level_age(tracker, tracker->low_history, previous_age);
-      const double previous_mid =
-          band_level_age(tracker, tracker->mid_history, previous_age);
-      const double previous_high =
-          band_level_age(tracker, tracker->high_history, previous_age);
+      double previous_low = 0.0;
+      double previous_mid = 0.0;
+      double previous_high = 0.0;
+      if (previous_age >= 0 && previous_age < count) {
+        previous_low =
+            band_level_age(tracker, tracker->low_history, previous_age);
+        previous_mid =
+            band_level_age(tracker, tracker->mid_history, previous_age);
+        previous_high =
+            band_level_age(tracker, tracker->high_history, previous_age);
+      }
       const double total = low + mid + high;
       const double previous_total = previous_low + previous_mid + previous_high;
       double change = 0.0;
