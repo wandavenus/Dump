@@ -23,8 +23,6 @@ const List<_ChangelogEntry> _changelogEntries = [
     version: '1.5.68',
     date: '1 November 2026',
     changes: [
-      'UI: penghapusan lagu dari perangkat kini meminta konfirmasi, menu lagu dapat discroll pada layar pendek, dan player portrait menghormati inset navigasi bawah.',
-      'Aksesibilitas: target sentuh kontrol favorit, opsi player, lirik/antrean, dan Edit/Done diperluas menjadi 48 dp dengan label Indonesia/Inggris; animasi toggle lirik/antrean menghormati setelan kurangi animasi dan Cast memberi penjelasan saat diketuk.',
       'AutoMix: polish swap/insert/reverse menghitung ulang seluruh horizon cooldown artis empat slot di Dart dan C, agar perbaikan urutan yang menguntungkan tidak terlewat.',
       'AutoMix: analyzed coverage menggabungkan interval bertumpang tindih sebagai union, sehingga bagian audio yang sama tidak dihitung dua kali.',
       'Audio: durasi crossfade NaN/tak hingga dan nilai negatif dinonaktifkan, sedangkan nilai ekstrem dibatasi 12 detik di MethodChannel serta controller.',

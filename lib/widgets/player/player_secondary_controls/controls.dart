@@ -47,44 +47,25 @@ class _LyricsToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = context.l10n.lyricsToggle;
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 250);
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        button: true,
-        toggled: active,
-        label: label,
-        onTap: onTap,
-        child: InkWell(
-          onTap: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        width: 35,
+        height: 35,
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          child: SizedBox.square(
-            dimension: 48,
-            child: Center(
-              child: AnimatedContainer(
-                duration: duration,
-                curve: Curves.easeOut,
-                width: 35,
-                height: 35,
-                decoration: BoxDecoration(
-                  color: active
-                      ? Colors.white.withValues(alpha: 0.15)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  CupertinoIcons.quote_bubble,
-                  size: 24,
-                  color: active
-                      ? const Color(0xFFFFFFFF)
-                      : Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
-          ),
+        ),
+        child: Icon(
+          CupertinoIcons.quote_bubble,
+          size: 24,
+          color: active
+              ? const Color(0xFFFFFFFF)
+              : Colors.white.withValues(alpha: 0.6),
         ),
       ),
     );
@@ -101,44 +82,25 @@ class _QueueToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = context.l10n.queueToggle;
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 250);
-    return Tooltip(
-      message: label,
-      child: Semantics(
-        button: true,
-        toggled: active,
-        label: label,
-        onTap: onTap,
-        child: InkWell(
-          onTap: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        width: 35,
+        height: 35,
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          child: SizedBox.square(
-            dimension: 48,
-            child: Center(
-              child: AnimatedContainer(
-                duration: duration,
-                curve: Curves.easeOut,
-                width: 35,
-                height: 35,
-                decoration: BoxDecoration(
-                  color: active
-                      ? Colors.white.withValues(alpha: 0.15)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  CupertinoIcons.list_bullet,
-                  size: 24,
-                  color: active
-                      ? const Color(0xFFFFFFFF)
-                      : Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
-          ),
+        ),
+        child: Icon(
+          CupertinoIcons.list_bullet,
+          size: 24,
+          color: active
+              ? const Color(0xFFFFFFFF)
+              : Colors.white.withValues(alpha: 0.6),
         ),
       ),
     );

@@ -753,7 +753,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               child: IgnorePointer(
                                 ignoring: progress < 0.45,
                                 child: SafeArea(
-                                  bottom: !useTwoColumnNowPlaying(mq.size),
+                                  bottom: false,
                                   child: Padding(
                                     padding: const EdgeInsets.only(top: 12),
                                     child: playbackContent,

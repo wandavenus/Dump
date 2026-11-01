@@ -23,7 +23,7 @@
 - [Settings Page Deep](settings-page-deep.md) — every settings file/widget; mutual exclusion rules (Bit-Perfect/EQ/ReplayGain/LN); ThemeController sub-toggles.
 - [App Init & Navigation](app-init-navigation.md) — full main.dart init sequence (10 steps); app_state.dart lifecycle; routing (onGenerateRoute, ZoomFadeRoute, bottom nav).
 - [Lyrics karaoke layout cache](lyrics-layout-cache.md) — bounded per-view TextPainter/word-box LRU, idle-priority predictive prewarm of nearby lyric rows, layout-key invalidation, and painter disposal ownership.
-- [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, SyncedLyricsView, progress, transport, fog shader, home sections, plus 48dp accessible actions, reduced-motion toggles, portrait safe-area handling, and scrollable song-delete confirmation (2026-11-01).
+- [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, SyncedLyricsView, progress, transport, fog shader, home sections.
 - [Theme, Assets & UI](theme-assets-ui.md) — ThemeController and UI assets; includes launcher-icon generation caveats for stale density resources and missing platform folders.
 - [Scroll-driven Floating Pill Transition](floating-pill-scroll-transition.md) — satu progress notifier mengoordinasikan morf navbar dan mini player mengikuti signed vertical scroll delta; hanya mengubah geometri saat navbar pill aktif.
 - [DSP Processor Params](dsp-processor-params.md) — full param ranges for all 7 processors: comp, limiter, loudness, crossfeed, replaygain, biquad, soft clipper.

@@ -249,11 +249,9 @@
   "loopOne": "Loop Satu",
   "songInfoLabel": "Info Lagu",
   "queueEmpty": "Antrian kosong",
-  "queueToggle": "Antrean",
   "continuePlaying": "Lanjutkan Memutar",
   "autoplayDescription": "Memutar otomatis musik serupa",
   "lyricsAppearance": "Tampilan Lirik",
-  "lyricsToggle": "Lirik",
   "textSizeLabel": "Ukuran Teks",
   "textAlignLabel": "Rata Teks",
   "activeColorLabel": "Warna Aktif",
@@ -265,22 +263,11 @@
   "addToQueue": "Tambah ke Antrian",
   "removeFromFavorites": "Hapus dari Favorit",
   "addToFavorites": "Tambah ke Favorit",
-  "moreOptions": "Opsi lainnya",
   "addToPlaylistMenu": "Tambah ke Daftar Putar",
   "openAlbum": "Buka Album",
   "openArtist": "Buka Artis",
   "songInformation": "Informasi Lagu",
   "deleteFromDevice": "Hapus dari Perangkat",
-  "deleteSongConfirm": "Hapus lagu?",
-  "deleteSongBody": "Hapus \"{name}\" dari perangkat? Tindakan ini tidak dapat dibatalkan.",
-  "@deleteSongBody": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "castingUnavailable": "Fitur Cast belum tersedia.",
   "songDeletedMsg": "Lagu berhasil dihapus",
   "songDeleteFailedMsg": "Gagal menghapus lagu",
   "fieldTitle": "Judul",

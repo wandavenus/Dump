@@ -99,162 +99,160 @@ class _SongContextMenuState extends State<SongContextMenu> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Drag handle ──────────────────────────────────────────────
-                const SizedBox(height: 8),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: c.dragHandle,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Drag handle ──────────────────────────────────────────────
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.dragHandle,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
-                // ── Song header ──────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      SongArtwork(
-                        songId: widget.song.id,
-                        size: 48,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ExplicitSongTitle(
-                              song: widget.song,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: c.primaryLabel,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
+              // ── Song header ──────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    SongArtwork(
+                      songId: widget.song.id,
+                      size: 48,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ExplicitSongTitle(
+                            song: widget.song,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: c.primaryLabel,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
                             ),
-                            Text(
-                              widget.song.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: c.secondaryLabel,
-                                fontSize: 13,
-                              ),
+                          ),
+                          Text(
+                            widget.song.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: c.secondaryLabel,
+                              fontSize: 13,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 12),
 
-                // ── Grup 1: Pemutaran ─────────────────────────────────────────
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.play_fill,
-                  label: context.l10n.playNow,
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await AudioService.playSongAt(
-                      playlist: widget.playlist,
-                      index: widget.index,
-                    );
-                  },
-                ),
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.forward_end_fill,
-                  label: context.l10n.playNext,
-                  onTap: () {
-                    Navigator.pop(context);
-                    AudioService.addToQueueNext(widget.song);
-                  },
-                ),
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.text_badge_plus,
-                  label: context.l10n.addToQueue,
-                  onTap: () {
-                    Navigator.pop(context);
-                    AudioService.addToQueue(widget.song);
-                  },
-                ),
+              // ── Grup 1: Pemutaran ─────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.play_fill,
+                label: context.l10n.playNow,
+                onTap: () async {
+                  Navigator.pop(context);
+                  await AudioService.playSongAt(
+                    playlist: widget.playlist,
+                    index: widget.index,
+                  );
+                },
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.forward_end_fill,
+                label: context.l10n.playNext,
+                onTap: () {
+                  Navigator.pop(context);
+                  AudioService.addToQueueNext(widget.song);
+                },
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.text_badge_plus,
+                label: context.l10n.addToQueue,
+                onTap: () {
+                  Navigator.pop(context);
+                  AudioService.addToQueue(widget.song);
+                },
+              ),
 
-                // ── Grup 2: Library ───────────────────────────────────────────
-                _insetDivider(c),
-                _MenuItem(
-                  icon: _isFavorite
-                      ? CupertinoIcons.heart_fill
-                      : CupertinoIcons.heart,
-                  iconColor: Theme.of(context).colorScheme.primary,
-                  label: _isFavorite
-                      ? context.l10n.removeFromFavorites
-                      : context.l10n.addToFavorites,
-                  onTap: _favLoaded
-                      ? () async {
-                          final navigator = Navigator.of(context);
-                          final nowFav = await PlaylistService.toggleFavorite(
-                            widget.song.id,
-                          );
-                          if (!mounted) return;
-                          setState(() => _isFavorite = nowFav);
-                          navigator.pop();
-                        }
-                      : () {},
-                ),
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.music_note_list,
-                  label: context.l10n.addToPlaylistMenu,
-                  onTap: () => _showAddToPlaylist(context),
-                ),
+              // ── Grup 2: Library ───────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: _isFavorite
+                    ? CupertinoIcons.heart_fill
+                    : CupertinoIcons.heart,
+                iconColor: Theme.of(context).colorScheme.primary,
+                label: _isFavorite
+                    ? context.l10n.removeFromFavorites
+                    : context.l10n.addToFavorites,
+                onTap: _favLoaded
+                    ? () async {
+                        final navigator = Navigator.of(context);
+                        final nowFav = await PlaylistService.toggleFavorite(
+                          widget.song.id,
+                        );
+                        if (!mounted) return;
+                        setState(() => _isFavorite = nowFav);
+                        navigator.pop();
+                      }
+                    : () {},
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.music_note_list,
+                label: context.l10n.addToPlaylistMenu,
+                onTap: () => _showAddToPlaylist(context),
+              ),
 
-                // ── Grup 3: Navigasi ──────────────────────────────────────────
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.music_albums_fill,
-                  label: context.l10n.openAlbum,
-                  onTap: _openAlbum,
-                ),
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.person_fill,
-                  label: context.l10n.openArtist,
-                  onTap: _openArtist,
-                ),
+              // ── Grup 3: Navigasi ──────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.music_albums_fill,
+                label: context.l10n.openAlbum,
+                onTap: _openAlbum,
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.person_fill,
+                label: context.l10n.openArtist,
+                onTap: _openArtist,
+              ),
 
-                // ── Grup 4: Informasi ─────────────────────────────────────────
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.info_circle,
-                  label: context.l10n.songInformation,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showSongInfo(context);
-                  },
-                ),
+              // ── Grup 4: Informasi ─────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.info_circle,
+                label: context.l10n.songInformation,
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSongInfo(context);
+                },
+              ),
 
-                // ── Grup 5: Hapus ─────────────────────────────────────────────
-                _insetDivider(c),
-                _MenuItem(
-                  icon: CupertinoIcons.trash,
-                  iconColor: Theme.of(context).colorScheme.primary,
-                  labelColor: Theme.of(context).colorScheme.primary,
-                  label: context.l10n.deleteFromDevice,
-                  onTap: () => _confirmDelete(context),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
+              // ── Grup 5: Hapus ─────────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.trash,
+                iconColor: Theme.of(context).colorScheme.primary,
+                labelColor: Theme.of(context).colorScheme.primary,
+                label: context.l10n.deleteFromDevice,
+                onTap: () => _confirmDelete(context),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
@@ -267,44 +265,14 @@ class _SongContextMenuState extends State<SongContextMenu> {
   // ── Hapus dari Perangkat ───────────────────────────────────────────────────
 
   Future<void> _confirmDelete(BuildContext context) async {
-    final l = context.l10n;
-    final c = AppColors.of(context);
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: c.surface,
-        title: Text(
-          l.deleteSongConfirm,
-          style: TextStyle(color: c.primaryLabel),
-        ),
-        content: Text(
-          l.deleteSongBody(widget.song.title),
-          style: TextStyle(color: c.secondaryLabel),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              l.delete,
-              style: TextStyle(
-                color: Theme.of(dialogContext).colorScheme.error,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (shouldDelete != true || !mounted || !context.mounted) return;
-
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    if (!mounted) return;
+
     navigator.pop();
 
+    final c = AppColors.of(context);
+    final l = context.l10n;
     final deleted = await MediaStoreService.deleteSong(widget.song.id);
     if (deleted) {
       MediaStoreService.clearSongsCache();

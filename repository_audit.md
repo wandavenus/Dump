@@ -1,23 +1,23 @@
 # Repository Audit & Code Modernization — Dump
 
-**Status: perubahan audit terintegrasi; gate lokal lulus; PR #292 siap ditinjau.**
+**Status: PR #292 sudah squash-merge; pengembalian UI selektif diajukan terpisah untuk ditinjau dan belum di-merge.**
 
 - Tanggal: 1 November 2026
 - Branch: `audit/dump-modernization`
-- Pull request: [#292](https://github.com/wandavenus/Dump/pull/292), masih terbuka
+- Pull request: [#292](https://github.com/wandavenus/Dump/pull/292), sudah squash-merge
 - Baseline branch: `main` / `origin/main` pada `5eb3f82`
-- Gate kandidat akhir mencakup perbaikan sampai `9161a93` dan integrasi versi/changelog, workflow, localization, UI, memory, serta tes Delete yang dikomit setelahnya. Detail pada tabel adalah validasi lokal; status CI GitHub harus dilihat pada head PR terkini.
+- Gate kandidat akhir PR #292 mencakup perbaikan sampai `9161a93` dan integrasi versi/changelog, workflow, localization, UI, memory, serta tes Delete. Branch tindak lanjut ini memulihkan hanya perilaku/tata letak UI yang diminta, beserta tes, string, dan catatan khusus UI; perubahan teknis non-UI tetap dipertahankan.
 
 ## Ringkasan saat ini
 
-Temuan yang sudah dapat dipastikan: **9 perbaikan selesai** pada CI/release, Gradle, decoder, audio, planner, dan aksesibilitas; **4 risiko belum selesai** atau menunggu validasi yang lebih mewakili perangkat. Dari 13 temuan yang dicatat: kategori CI/CD 3, Gradle 1, Android/audio/decoder 3, AutoMix 2, performa 1, UI/UX 2, dan dependency 1; prioritasnya **1 tinggi, 8 sedang, 4 rendah**. Tidak ada migrasi API deprecated Kotlin/Flutter yang dilaporkan sebagai wajib pada scope yang sudah ditinjau. Satu sumber warning yang dibersihkan ialah assignment DSL Gradle lama dan notasi dependency project; warning AGP/Flutter/plugin pihak ketiga yang tersisa tidak disembunyikan atau dipaksa bersih.
+Temuan yang sudah dapat dipastikan: **8 perbaikan non-UI tetap berlaku** pada CI/release, Gradle, decoder, audio, dan planner; **5 risiko** belum selesai atau menunggu validasi yang lebih mewakili perangkat, termasuk tindak lanjut UX-01 yang dikembalikan pada branch ini. Dari 13 temuan yang dicatat: kategori CI/CD 3, Gradle 1, Android/audio/decoder 3, AutoMix 2, performa 1, UI/UX 2, dan dependency 1; prioritasnya **1 tinggi, 8 sedang, 4 rendah**. Tidak ada migrasi API deprecated Kotlin/Flutter yang dilaporkan sebagai wajib pada scope yang sudah ditinjau. Satu sumber warning yang dibersihkan ialah assignment DSL Gradle lama dan notasi dependency project; warning AGP/Flutter/plugin pihak ketiga yang tersisa tidak disembunyikan atau dipaksa bersih.
 
 Gate integrasi terakhir pada kandidat working tree terbaru lulus:
 
 | Pemeriksaan | Hasil |
 |---|---|
 | `flutter analyze` | Lulus, tanpa isu |
-| Flutter tests | 342 lulus |
+| Flutter tests | 338 lulus setelah 4 tes khusus UI dari PR #292 dilepas bersama perubahan yang dibatalkan |
 | Kotlin unit tests | 468 lulus; 0 gagal, 0 error, 0 skip (`--rerun-tasks`) |
 | Gradle `assembleDebug` | `BUILD SUCCESSFUL`; JNI FFmpeg `UP-TO-DATE` |
 | Debug APK / packaging | Lulus; `libffmpegJNI.so` arm64-v8a dan tiga notice lisensi terkemas |
@@ -26,7 +26,7 @@ Gate integrasi terakhir pada kandidat working tree terbaru lulus:
 | GitHub Actions static lint | `actionlint` lulus untuk seluruh workflow |
 | Shell scripts / whitespace | `bash -n` dan `git diff --check` lulus |
 
-Gate dijalankan dengan Flutter 3.47.9 dan lockfile hash `c10a4626cd3615522973efc4c8e4011e2a9e20e8a2e1da1132ef18ae7b5f3782`. Kotlin suite dijalankan ulang tanpa cache pada tree kerja dengan Android SDK/NDK diarahkan; snapshot terisolasi terbaru juga mengulang seluruh gate setelah changelog diperbarui. Flutter tests 342/342. Build warnings Gradle/AGP dan plugin Flutter yang masih ada tidak ditekan; detail migration yang belum selesai dicatat di bagian risiko.
+Gate dijalankan dengan Flutter 3.47.9 dan lockfile hash `c10a4626cd3615522973efc4c8e4011e2a9e20e8a2e1da1132ef18ae7b5f3782`. Kotlin suite dijalankan ulang tanpa cache pada tree kerja dengan Android SDK/NDK diarahkan; snapshot terisolasi terbaru juga mengulang seluruh gate setelah changelog diperbarui. Pada branch tindak lanjut, `flutter analyze --no-pub` lulus dan Flutter tests lulus 338/338 setelah penghapusan tes khusus UI yang terkait. Build warnings Gradle/AGP dan plugin Flutter yang masih ada tidak ditekan; detail migration yang belum selesai dicatat di bagian risiko.
 
 ## Temuan dan tindakan
 
@@ -40,7 +40,7 @@ Gate dijalankan dengan Flutter 3.47.9 dan lockfile hash `c10a4626cd3615522973efc
 | AUD-02 | Sedang / tinggi | Jalur exception pada decode bisa melewati pembersihan `MediaExtractor` jika release tidak dijaga di setiap cabang. | Resource native dapat tertahan saat metadata, callback, atau pemilihan track gagal. | `try/finally` mencakup seluruh jalur lifecycle extractor; tes fokus 21/21 di empat suite PCM/AutoMix lulus, lalu Kotlin full suite 468/468 tanpa cache setelah perubahan final. Commit lokal `86cdeda`; full gate kandidat terbaru lulus. |
 | AM-01 | Sedang / tinggi | Local polish swap/insert/reverse menghitung ulang skor terlalu pendek, padahal penalti cooldown artis bergantung pada empat slot sebelumnya. | Perbaikan urutan yang lebih baik dapat terlewat; direproduksi pada fixture deterministik di Dart dan C. | Evaluasi di Dart dan C diperluas ke horizon cooldown empat slot; tes regresi/parity lulus. Suite AutoMix 156/156 setelah tambahan coverage. |
 | AM-02 | Sedang / tinggi | Planner menjumlahkan durasi segmen analisis mentah, walau interval dapat overlap dengan ring-tail capture. | `analyzedFraction` dapat terlalu tinggi dan memengaruhi keputusan coverage. | Coverage dihitung sebagai union interval; fixture overlap menghasilkan 565/700, bukan 600/700. Tes regresi lulus. |
-| UX-01 | Rendah / tinggi | Beberapa kontrol tidak mencapai target sentuh 48 dp atau kekurangan label aksesibel; penghapusan lagu, menu layar pendek, inset portrait, dan setelan pengurangan animasi belum ditangani konsisten. | Sulit dipakai dengan pembaca layar, kontrol kecil, atau perangkat berlayar pendek; animasi dapat mengganggu pengguna sensitif gerakan. | Target sentuh/label diperbaiki, dialog meminta konfirmasi, menu dapat discroll, inset dihormati, reduced-motion mengikuti preferensi sistem. Tes UI terarah 4/4 lulus termasuk callback Delete tepat sekali; inspeksi visual perangkat belum dilakukan. |
+| UX-01 | Rendah / tinggi | Beberapa kontrol tidak mencapai target sentuh 48 dp atau kekurangan label aksesibel; penghapusan lagu, menu layar pendek, inset portrait, dan setelan pengurangan animasi belum ditangani konsisten. | Sulit dipakai dengan pembaca layar, kontrol kecil, atau perangkat berlayar pendek; animasi dapat mengganggu pengguna sensitif gerakan. | Perubahan UI terkait pada PR #292 dibatalkan atas permintaan pengguna; perilaku/tata letak sebelum PR dipulihkan. Isu ini kembali menjadi tindak lanjut yang menunggu keputusan baru; tes UI spesifik dilepas bersama implementasinya. |
 
 ## Dependency health
 
@@ -61,13 +61,13 @@ Pencocokan OSV baca-saja terhadap **94 paket hosted** di lockfile tidak menemuka
 
 ## Perubahan dan file
 
-Cakupan kandidat terintegrasi mencakup `.github/workflows/`, `pubspec.yaml`/`pubspec.lock`, Gradle Android, Kotlin `PcmDecoder`, planner AutoMix Dart/C, changelog, localization, widget/UI, tes regresi aksesibilitas, memory docs, serta laporan ini. Folder skill tak terlacak yang bukan bagian audit sengaja dikecualikan.
+Cakupan PR #292 mencakup `.github/workflows/`, `pubspec.yaml`/`pubspec.lock`, Gradle Android, Kotlin `PcmDecoder`, planner AutoMix Dart/C, changelog, localization, widget/UI, tes regresi aksesibilitas, memory docs, serta laporan ini. Branch tindak lanjut mengembalikan hanya widget UI terkait dan menghapus string localization, tes, serta catatan yang khusus untuk perubahan tersebut; folder skill tak terlacak dan semua perubahan non-UI tetap dikecualikan dari revert.
 
-Performa runtime dan penggunaan memori belum diukur pada perangkat. Perbaikan planner menutup kesalahan cakupan skor yang direproduksi; hasil itu tidak membuktikan peningkatan urutan untuk katalog musik umum. Perubahan UI belum melewati inspeksi visual perangkat.
+Performa runtime dan penggunaan memori belum diukur pada perangkat. Perbaikan planner menutup kesalahan cakupan skor yang direproduksi; hasil itu tidak membuktikan peningkatan urutan untuk katalog musik umum. Pengembalian UI ini belum melewati inspeksi visual perangkat.
 
 ## Status PR dan langkah final
 
-PR #292 menargetkan `main` dan sengaja dibiarkan terbuka tanpa auto-merge. Perbaikan terpisah berada pada commit lokal `a00dfcd`, `72fe153`, `5c57104`, `86cdeda`, dan `9161a93`, disusul commit integrasi perubahan CI/release, dependency lock, UI/accessibility, regression test, dan dokumentasi audit. Periksa hasil CI untuk head PR terkini sebelum merge; risiko MEDIA-01, PERF-01, UX-02, dan DEP-01 tetap terbuka/deferred seperti dijelaskan di atas.
+PR #292 menargetkan `main` dan sudah squash-merge. Perbaikan terpisah berada pada commit `a00dfcd`, `72fe153`, `5c57104`, `86cdeda`, dan `9161a93`, bersama perubahan CI/release, dependency lock, UI/accessibility, regression test, dan dokumentasi audit. PR tindak lanjut dari `revert/pr-292-ui` hanya memulihkan UI yang disebutkan; tinjau hasil CI sebelum keputusan merge dan jangan merge tanpa izin terpisah. Risiko MEDIA-01, PERF-01, UX-01, UX-02, dan DEP-01 tetap terbuka/deferred seperti dijelaskan di atas.
 
 ## Referensi resmi yang dipakai
 

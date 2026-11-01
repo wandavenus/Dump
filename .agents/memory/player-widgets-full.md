@@ -45,30 +45,6 @@ Play/pause, skip prev/next, repeat, shuffle controls.
 - All actions delegate to `AudioService` / `PlaybackManager`
 - Repeat and shuffle state come from native EventChannel stream
 
-## UI/UX accessibility follow-up (2026-11-01)
-
-- Player favorite and More controls keep their 28dp visual content inside a
-  48dp `InkWell`; favorite uses localized add/remove labels and exposes toggled
-  state. Lyrics and Queue keep their 35dp visual content inside 48dp focusable
-  `InkWell` targets with localized labels and toggled state. Their state-change
-  animation uses zero duration when `MediaQuery.disableAnimationsOf(context)` is
-  true, otherwise preserving the existing 250ms transition.
-- Library Edit/Done is a `TextButton` with a 48dp minimum target. The Cast action
-  still has no receiver integration; it now explains that casting is unavailable
-  rather than silently doing nothing.
-- `SongContextMenu` is scrollable on short screens and requires an explicit
-  localized confirmation before `MediaStoreService.deleteSong`. Cancel must not
-  call the platform service.
-- Full-player `SafeArea` includes the bottom inset in portrait; the two-column
-  layout continues using its existing manual inset calculation to avoid double
-  padding.
-- Regression coverage lives in
-  `test/widgets/ui_accessibility_regression_test.dart`. Remaining audit items
-  (Search category no-op actions, Radio content/title mismatch, Browse affordance
-  and category copy, plus long-running shader/hidden-player profiling) need
-  separate product decisions or runtime measurement; they were not changed in
-  this pass.
-
 ## Player Background (`lib/widgets/player/player_background/`)
 
 | File | Role |

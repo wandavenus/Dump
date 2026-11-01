@@ -1364,12 +1364,6 @@ abstract class AppLocalizations {
   /// **'Queue is empty'**
   String get queueEmpty;
 
-  /// No description provided for @queueToggle.
-  ///
-  /// In en, this message translates to:
-  /// **'Queue'**
-  String get queueToggle;
-
   /// No description provided for @continuePlaying.
   ///
   /// In en, this message translates to:
@@ -1387,12 +1381,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lyrics Appearance'**
   String get lyricsAppearance;
-
-  /// No description provided for @lyricsToggle.
-  ///
-  /// In en, this message translates to:
-  /// **'Lyrics'**
-  String get lyricsToggle;
 
   /// No description provided for @textSizeLabel.
   ///
@@ -1460,12 +1448,6 @@ abstract class AppLocalizations {
   /// **'Add to Favorites'**
   String get addToFavorites;
 
-  /// No description provided for @moreOptions.
-  ///
-  /// In en, this message translates to:
-  /// **'More options'**
-  String get moreOptions;
-
   /// No description provided for @addToPlaylistMenu.
   ///
   /// In en, this message translates to:
@@ -1495,24 +1477,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete from Device'**
   String get deleteFromDevice;
-
-  /// No description provided for @deleteSongConfirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete song?'**
-  String get deleteSongConfirm;
-
-  /// No description provided for @deleteSongBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete \"{name}\" from your device? This cannot be undone.'**
-  String deleteSongBody(String name);
-
-  /// No description provided for @castingUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Casting is not available yet.'**
-  String get castingUnavailable;
 
   /// No description provided for @songDeletedMsg.
   ///
